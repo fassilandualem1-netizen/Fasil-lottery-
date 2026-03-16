@@ -233,7 +233,9 @@ def show_profile(message):
 
 # --- ማስጀመሪያ ---
 if __name__ == "__main__":
-    keep_alive() # Render እንዳይዘጋው
-    print("Bot is Starting...")
+    keep_alive() 
+    print("Bot is starting...")
     bot.remove_webhook()
-    bot.polling(none_stop=True, skip_pending_updates=True)
+    # በትክክለኛው የፊደል አጻጻፍ እንዲህ ተካው፡
+    bot.polling(none_stop=True, timeout=60)
+
