@@ -12,6 +12,7 @@ app = Flask('')
 def home(): return "Fasil Bingo is Active!"
 
 def run():
+    # Render የሚሰጠውን PORT ይጠቀማል
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
@@ -26,6 +27,7 @@ ADMIN_ID = 8488592165
 GROUP_ID = -1003881429974
 DB_CHANNEL_ID = -1003747262103
 
+# ቦቱን ማነሳሳት
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
 # --- 3. ዳታቤዝ ---
@@ -64,7 +66,6 @@ def get_user(uid, name="ደንበኛ"):
 def update_group_board(b_id):
     board = data["boards"][b_id]
     text = f"🎰 <b>FASIL BINGO - ሰሌዳ {b_id} (1-{board['max']})</b>\n🎁 ሽልማት፦ {board['prize']} ብር\n━━━━━━━━━━━━━━━\n"
-    
     line = ""
     for i in range(1, board["max"] + 1):
         s_i = str(i)
@@ -73,12 +74,10 @@ def update_group_board(b_id):
             line += f"({s_i})🔴{short_name}  "
         else:
             line += f"({s_i})⬜️  "
-        
         if i % 3 == 0:
             text += line + "\n"
             line = ""
     text += line
-    
     try:
         if data["pinned_msgs"][b_id]:
             bot.edit_message_text(text, GROUP_ID, data["pinned_msgs"][b_id])
@@ -106,11 +105,9 @@ def handle_receipts(message):
     uid = str(message.chat.id)
     if int(uid) == ADMIN_ID: return
     bot.send_message(uid, "⏳ <b>ደረሰኝዎ እየተረጋገጠ ነው...</b>")
-    
     admin_markup = types.InlineKeyboardMarkup()
     admin_markup.row(types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"approve_{uid}"),
                      types.InlineKeyboardButton("❌ ውድቅ", callback_data=f"decline_{uid}"))
-    
     caption = f"📩 <b>አዲስ ደረሰኝ</b>\n👤 ከ፦ {message.from_user.first_name}\n🆔 ID፦ <code>{uid}</code>"
     if message.photo:
         bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=caption, reply_markup=admin_markup)
@@ -149,7 +146,6 @@ def callback_listener(call):
     elif call.data.startswith('select_'):
         handle_board_selection(call)
 
-# --- 8. ADMIN LOGIC ---
 def finalize_approval(message, target_uid):
     try:
         amount = int(message.text)
@@ -171,7 +167,7 @@ def update_value(message, b_id, action):
         save_data(); bot.send_message(ADMIN_ID, "✅ ተቀይሯል!")
     except: bot.send_message(ADMIN_ID, "⚠️ ስህተት!")
 
-# --- 9. ምዝገባ ---
+# --- 8. ምዝገባ ---
 @bot.message_handler(func=lambda m: m.text == "🎮 ሰሌዳ ምረጥ")
 def show_boards(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
@@ -212,7 +208,7 @@ def finalize_registration(message, b_id, name):
         update_group_board(b_id)
     except: bot.send_message(uid, "⚠️ ቁጥር ብቻ!")
 
-# --- 10. ADMIN PANEL ---
+# --- 9. ADMIN PANEL ---
 @bot.message_handler(func=lambda m: m.text == "⚙️ Admin Settings" and m.from_user.id == ADMIN_ID)
 def admin_panel(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
@@ -248,9 +244,15 @@ def show_profile(message):
     user = get_user(message.chat.id)
     bot.send_message(message.chat.id, f"👤 <b>{message.from_user.first_name}</b>\n💰 <b>ቀሪ ሂሳብ፦</b> {user['wallet']} ብር")
 
-# --- 11. ማስጀመሪያ ---
+# --- 10. ዋና ማስጀመሪያ ---
 if __name__ == "__main__":
+    # 1. ሰርቨሩን አስነሳ
     keep_alive()
+    
+    # 2. የድሮ Webhook ካለ አጥፋ (ይሄ በጣም ወሳኝ ነው!)
     bot.remove_webhook()
+    time.sleep(1)
+    
     print("Bot is starting...")
-    bot.infinity_polling(skip_pending_updates=True, timeout=60)
+    # 3. ስራ ጀምር
+    bot.infinity_polling(skip_pending_updates=True)
