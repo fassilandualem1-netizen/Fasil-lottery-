@@ -3,7 +3,7 @@ from flask import Flask
 from threading import Thread
 
 # --- 1. መለያዎች (Settings) ---
-TOKEN = 8721334129:AAGZxYXP4UH0RuEdC8gk6icXu5gSB26bI3Q
+TOKEN = '8721334129:AAGZxYXP4UH0RuEdC8gk6icXu5gSB26bI3Q'
 ADMIN_ID = 8488592165            
 GROUP_ID = -1003881429974        
 DB_CHANNEL_ID = -1003747262103  
