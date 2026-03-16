@@ -1,4 +1,4 @@
-import telebot, re, os, json, time
+import telebot, re, os, json, time 
 from flask import Flask
 from threading import Thread
 
@@ -11,7 +11,6 @@ DB_CHANNEL_ID = -1003747262103
 bot = telebot.TeleBot(TOKEN, threaded=False)
 app = Flask(__name__)
 
-# --- 2. DATA STRUCTURE ---
 data = {
     "config": {"db_msg_id": None},
     "boards": {
@@ -22,12 +21,17 @@ data = {
     "users": {}
 }
 
-# --- 3. DATABASE ENGINE ---
+# --- 3. DATABASE ENGINE (ጥንቃቄ የተሞላበት አቀማመጥ) ---
 def save_db():
     try:
         payload = "💾 DB_STORAGE " + json.dumps(data)
         db_id = data["config"].get("db_msg_id")
-        if db_id: bot.edit_message_text(payload, DB_CHANNEL_ID, db_id)
+        if db_id: 
+            try:
+                bot.edit_message_text(payload, DB_CHANNEL_ID, db_id)
+            except:
+                m = bot.send_message(DB_CHANNEL_ID, payload)
+                data["config"]["db_msg_id"] = m.message_id
         else:
             m = bot.send_message(DB_CHANNEL_ID, payload)
             data["config"]["db_msg_id"] = m.message_id
@@ -35,11 +39,16 @@ def save_db():
 
 def load_db():
     try:
-        msgs = bot.get_chat_history(DB_CHANNEL_ID, limit=5)
+        # የመጨረሻውን የዳታ መልዕክት ለማግኘት
+        msgs = bot.get_chat_history(DB_CHANNEL_ID, limit=10)
         for m in msgs:
             if m.text and "💾 DB_STORAGE" in m.text:
                 loaded = json.loads(m.text.replace("💾 DB_STORAGE", "").strip())
-                data.update(loaded); return True
+                # ዋናውን ዳታ እንዳያጠፋ በጥንቃቄ መተካት
+                if "users" in loaded: data["users"].update(loaded["users"])
+                if "boards" in loaded: data["boards"].update(loaded["boards"])
+                if "config" in loaded: data["config"].update(loaded["config"])
+                return True
     except: pass
     return False
 
@@ -71,43 +80,45 @@ def welcome(m):
         data["users"][uid] = {"wallet": 0, "name": m.from_user.first_name, "step": "", "sel_bid": "1"}
     
     main_kb = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    main_kb.add("🕹 ቁጥር ምረጥ", "🎫 የእኔ መረጃ")
+    main_kb.add("🕹 ቁጥር ምረጥ", "💰 የእኔ ዋሌት")
     if int(uid) == ADMIN_ID: main_kb.add("🛠 Admin Panel")
     
-    bot.send_message(uid, f"🌟 **እንኳን ወደ ፋሲል ልዩ ዕጣ በሰላም መጡ!** 🌟\n\nክፍያ ለመፈጸም ደረሰኝ ይላኩ።", reply_markup=main_kb, parse_mode="Markdown")
+    bot.send_message(uid, f"🌟 **እንኳን ወደ ፋሲል ልዩ ዕጣ በሰላም መጡ!** 🌟\n\nቀሪ ሂሳብዎ፦ `{data['users'][uid]['wallet']} ETB`", reply_markup=main_kb, parse_mode="Markdown")
 
-@bot.message_handler(func=lambda m: m.text == "🎫 የእኔ መረጃ")
-def my_info(m):
+@bot.message_handler(func=lambda m: m.text == "💰 የእኔ ዋሌት")
+def check_wal(m):
     uid = str(m.from_user.id)
-    u = data["users"].get(uid, {"wallet": 0})
-    bot.send_message(uid, f"👤 **ስም:** {m.from_user.first_name}\n💰 **ቀሪ ዋሌት:** `{u['wallet']} ETB`", parse_mode="Markdown")
+    wal = data["users"].get(uid, {}).get("wallet", 0)
+    bot.send_message(uid, f"💵 **የእርስዎ ቀሪ ሂሳብ፦** `{wal} ETB`", parse_mode="Markdown")
 
 @bot.message_handler(func=lambda m: m.text == "🕹 ቁጥር ምረጥ")
-def select_board(m):
+def start_pick(m):
+    uid = str(m.from_user.id)
     kb = telebot.types.InlineKeyboardMarkup(row_width=1)
     for k, v in data["boards"].items():
         if v["active"]:
-            kb.add(telebot.types.InlineKeyboardButton(f"🎰 {v['name']} - ({v['price']} ETB)", callback_data=f"sel_{k}"))
-    bot.send_message(m.chat.id, "እባክዎ መጫወት የሚፈልጉትን ሰሌዳ ይምረጡ፦", reply_markup=kb)
+            kb.add(telebot.types.InlineKeyboardButton(f"🎰 {v['name']} ({v['price']} ETB)", callback_data=f"sel_{k}"))
+    bot.send_message(uid, "ሰሌዳ ይምረጡ፦", reply_markup=kb)
 
 @bot.callback_query_handler(func=lambda c: True)
 def calls(c):
     uid = str(c.from_user.id)
-    u = data["users"].get(uid)
+    if uid not in data["users"]: data["users"][uid] = {"wallet": 0, "name": c.from_user.first_name, "step": "", "sel_bid": "1"}
+    u = data["users"][uid]
 
     if c.data.startswith("sel_"):
         bid = c.data.split("_")[1]
         u["sel_bid"] = bid
         b = data["boards"][bid]
         if u["wallet"] < b["price"]:
-            bot.send_message(uid, f"❌ ዋሌትዎ ላይ በቂ ብር የለም። የሰሌዳው ዋጋ {b['price']} ETB ነው።")
+            bot.send_message(uid, f"❌ በቂ ሂሳብ የለዎትም። ዋጋ፦ {b['price']} ETB | ቀሪዎ፦ {u['wallet']} ETB")
         else:
             kb = telebot.types.InlineKeyboardMarkup(row_width=5)
-            btns = [telebot.types.InlineKeyboardButton(str(i), callback_data=f"num_{i}") for i in range(1, b["max"]+1) if str(i) not in b["slots"]]
+            btns = [telebot.types.InlineKeyboardButton(str(i), callback_data=f"n_{i}") for i in range(1, b["max"]+1) if str(i) not in b["slots"]]
             kb.add(*btns)
             bot.edit_message_text(f"🎰 {b['name']} ቁጥር ይምረጡ፦", uid, c.message.message_id, reply_markup=kb)
 
-    elif c.data.startswith("num_"):
+    elif c.data.startswith("n_"):
         bid = u.get("sel_bid", "1")
         b = data["boards"][bid]
         num = c.data.split("_")[1]
@@ -115,40 +126,42 @@ def calls(c):
             if num not in b["slots"]:
                 u["wallet"] -= b["price"]
                 b["slots"][num] = {"name": u["name"], "id": uid}
-                bot.answer_callback_query(c.id, f"✅ ቁጥር {num} ተመዝግቧል!")
                 refresh_group(bid)
+                bot.answer_callback_query(c.id, f"✅ ቁጥር {num} ተይዟል!")
                 bot.send_message(uid, f"✅ ተመዝግቧል! ቀሪ ዋሌት፦ {u['wallet']} ETB")
-            else: bot.answer_callback_query(c.id, "⚠️ ቁጥሩ ተይዟል!", show_alert=True)
-        else: bot.answer_callback_query(c.id, "❌ በቂ ዋሌት የለም!", show_alert=True)
+                save_db() # እዚህ ጋር ወዲያው እናስቀምጥ
+            else: bot.answer_callback_query(c.id, "⚠️ ተይዟል!")
+        else: bot.answer_callback_query(c.id, "❌ በቂ ዋሌት የለም!")
 
     elif c.data.startswith("approve_") and int(uid) == ADMIN_ID:
         target_id = c.data.split("_")[1]
-        data["users"][uid]["step"] = f"ADD_CASH_{target_id}"
-        bot.send_message(ADMIN_ID, "ስንት ብር ይግባለት? (ቁጥር ብቻ ይላኩ)፦")
+        data["users"][uid]["step"] = f"CASH_{target_id}"
+        bot.send_message(ADMIN_ID, f"ለ {target_id} የሚገባ የብር መጠን በቁጥር ብቻ ጻፍ፦")
 
 @bot.message_handler(content_types=['photo', 'text'])
-def handle_msgs(m):
+def handle_all(m):
     uid = str(m.from_user.id)
     if uid not in data["users"]: data["users"][uid] = {"wallet": 0, "name": m.from_user.first_name, "step": ""}
     u = data["users"][uid]
 
-    # አድሚን ብር ሲያስገባ
-    if int(uid) == ADMIN_ID and u["step"].startswith("ADD_CASH_"):
-        target_id = u["step"].split("_")[2]
+    # አድሚን ብር ሲያስገባ (Save ይደረጋል)
+    if int(uid) == ADMIN_ID and u["step"].startswith("CASH_"):
+        target_id = u["step"].split("_")[1]
         try:
             amt = float(m.text)
+            if target_id not in data["users"]: data["users"][target_id] = {"wallet": 0, "name": "User", "step": ""}
             data["users"][target_id]["wallet"] += amt
             u["step"] = ""
-            bot.send_message(target_id, f"✅ {amt} ETB ዋሌትዎ ላይ ተጨምሯል። አሁን መጫወት ይችላሉ።")
-            bot.send_message(ADMIN_ID, "✅ ተሳክቷል!"); save_db()
-        except: bot.send_message(ADMIN_ID, "⚠️ እባክዎ ቁጥር ብቻ ይላኩ!")
+            save_db() # ወዲያው ዳታቤዝ ላይ ይጻፍ
+            bot.send_message(target_id, f"✅ {amt} ETB ዋሌትዎ ላይ ተጨምሯል።")
+            bot.send_message(ADMIN_ID, f"✅ ተሳክቷል! {target_id} አሁን {data['users'][target_id]['wallet']} ETB አለው።")
+        except: bot.send_message(ADMIN_ID, "ቁጥር ብቻ ይላኩ!")
         return
 
-    # ደረሰኝ መቀበያ
     if m.content_type == 'photo' or (m.text and "FT" in m.text):
         kb = telebot.types.InlineKeyboardMarkup()
         kb.add(telebot.types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"approve_{uid}"))
-        bot.send_message(ADMIN_ID, f"📩 ደረሰኝ ከ {uid}", reply_markup=kb)
+        bot.send_message(ADMIN_ID, f"📩 ደረሰኝ ከ {uid} ({m.from_user.first_name})", reply_markup=kb)
         bot.send_message(uid, "ደረሰኝዎ ደርሶናል፣ እያረጋገጥን ነው...")
 
 # --- 6. SERVER & POLLING ---
@@ -160,6 +173,6 @@ def run_flask():
     app.run(host='0.0.0.0', port=port)
 
 if __name__ == "__main__":
-    load_db()
+    load_db() # ቦቱ ሲነሳ ዳታውን ከቻናሉ ይጫናል
     Thread(target=run_flask).start()
     bot.infinity_polling(timeout=60, long_polling_timeout=30)
