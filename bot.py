@@ -12,7 +12,6 @@ app = Flask('')
 def home(): return "Fasil Bingo is Active!"
 
 def run():
-    # Render የሚሰጠውን PORT ይጠቀማል
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
@@ -27,7 +26,6 @@ ADMIN_ID = 8488592165
 GROUP_ID = -1003881429974
 DB_CHANNEL_ID = -1003747262103
 
-# ቦቱን ማነሳሳት
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
 # --- 3. ዳታቤዝ ---
@@ -246,13 +244,8 @@ def show_profile(message):
 
 # --- 10. ዋና ማስጀመሪያ ---
 if __name__ == "__main__":
-    # 1. ሰርቨሩን አስነሳ
     keep_alive()
-    
-    # 2. የድሮ Webhook ካለ አጥፋ (ይሄ በጣም ወሳኝ ነው!)
     bot.remove_webhook()
     time.sleep(1)
-    
     print("Bot is starting...")
-    # 3. ስራ ጀምር
-    bot.infinity_polling(skip_pending_updates=True)
+    bot.infinity_polling()
