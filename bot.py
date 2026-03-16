@@ -1,179 +1,140 @@
 import telebot
+from telebot import types
 import re
-import os
-import json
-import time
-from flask import Flask
-from threading import Thread
 
-# --- 1. SETTINGS ---
+# --- ማዋቀሪያ ---
 TOKEN = '8721334129:AAGZxYXP4UH0RuEdC8gk6icXu5gSB26bI3Q'
-ADMIN_ID = 8488592165            
-GROUP_ID = -1003881429974        
-DB_CHANNEL_ID = -1003747262103  
+ADMIN_ID = 8488592165 
+GROUP_ID = -1003881429974    # ሰሌዳው የሚለጠፍበት ግሩፕ
+DB_CHANNEL_ID = -1003747262103 # ዳታቤዝ (ማህደር) ቻናል
 
-bot = telebot.TeleBot(TOKEN, threaded=False)
-app = Flask(__name__)
+bot = telebot.TeleBot(TOKEN)
+users_db = {} 
 
-# --- 2. DATA ---
-data = {
-    "config": {"db_msg_id": None},
-    "boards": {
-        "1": {"name": "ሰሌዳ 1 (1-100)", "max": 100, "active": True, "slots": {}, "msg_id": None, "prizes": [500, 300, 100], "price": 20},
-        "2": {"name": "ሰሌዳ 2 (1-50)", "max": 50, "active": False, "slots": {}, "msg_id": None, "prizes": [250, 150, 50], "price": 10},
-        "3": {"name": "ሰሌዳ 3 (1-25)", "max": 25, "active": False, "slots": {}, "msg_id": None, "prizes": [100, 50, 20], "price": 5}
-    },
-    "users": {}
-}
+def get_user(uid):
+    uid = str(uid)
+    if uid not in users_db:
+        users_db[uid] = {'wallet': 0, 'name': '', 'board': ''}
+    return users_db[uid]
 
-# --- 3. DATABASE ---
-def save_db():
-    try:
-        payload = "💾 DB_STORAGE " + json.dumps(data)
-        db_id = data["config"].get("db_msg_id")
-        if db_id:
-            try: bot.edit_message_text(payload, DB_CHANNEL_ID, db_id)
-            except:
-                m = bot.send_message(DB_CHANNEL_ID, payload)
-                data["config"]["db_msg_id"] = m.message_id
-        else:
-            m = bot.send_message(DB_CHANNEL_ID, payload)
-            data["config"]["db_msg_id"] = m.message_id
-    except: pass
-
-def load_db():
-    try:
-        msgs = bot.get_chat_history(DB_CHANNEL_ID, limit=10)
-        for m in msgs:
-            if m.text and "💾 DB_STORAGE" in m.text:
-                clean_json = m.text.replace("💾 DB_STORAGE", "").strip()
-                loaded = json.loads(clean_json)
-                data.update(loaded)
-                return True
-    except: pass
-    return False
-
-# --- 4. UI ENGINE ---
-def refresh_group(bid, new=False):
-    b = data["boards"][bid]
-    status = "🟢 ክፍት" if b["active"] else "🔴 ዝግ"
-    txt = f"🔥 **{b['name']}** {status}\n━━━━━━━━━━━━━\n"
-    txt += f"💵 **መደብ:** `{b['price']} ETB` | 🎁 **ሽልማት:** `{sum(b['prizes'])} ETB` \n━━━━━━━━━━━━━\n"
-    
-    for i in range(1, b["max"] + 1):
-        n = str(i)
-        txt += f"{i:02d}.{b['slots'][n]['name'][:4]}🏆 " if n in b["slots"] else f"{i:02d}.FREE 🆓 "
-        if i % 3 == 0: txt += "\n"
-            
-    txt += f"\n💰 🥇{b['prizes'][0]} | 🥈{b['prizes'][1]} | 🥉{b['prizes'][2]}\n━━━━━━━━━━━━━\n🕹 @fasil_assistant_bot"
-    
-    try:
-        if new or not b["msg_id"]:
-            m = bot.send_message(GROUP_ID, txt, parse_mode="Markdown")
-            b["msg_id"] = m.message_id
-            bot.pin_chat_message(GROUP_ID, m.message_id)
-        else: bot.edit_message_text(txt, GROUP_ID, b["msg_id"], parse_mode="Markdown")
-    except: pass
-    save_db()
-
-# --- 5. HANDLERS ---
 @bot.message_handler(commands=['start'])
-def welcome(m):
-    uid = str(m.from_user.id)
-    if uid not in data["users"]: 
-        data["users"][uid] = {"wallet": 0, "name": m.from_user.first_name, "step": "", "sel_bid": "1"}
+def start(message):
+    uid = message.chat.id
+    get_user(uid)
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("💰 ዋሌት", "🎮 ሰሌዳ ምረጥ")
     
-    main_kb = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    main_kb.add("🕹 ቁጥር ምረጥ", "💰 የእኔ ዋሌት")
-    if int(uid) == ADMIN_ID: main_kb.add("🛠 Admin Panel")
-    
-    bot.send_message(uid, "🌟 እንኳን ወደ ፋሲል ዕጣ መጡ!", reply_markup=main_kb)
-    
-    kb = telebot.types.InlineKeyboardMarkup(row_width=1)
-    for k, v in data["boards"].items():
-        if v["active"]:
-            kb.add(telebot.types.InlineKeyboardButton(f"🎰 {v['name']} - ({v['price']} ETB)", callback_data=f"start_sel_{k}"))
-    bot.send_message(uid, "👇 ለመጫወት ሰሌዳ እዚህ ይምረጡ፦", reply_markup=kb)
+    msg = (
+        "እንኳን ወደ Fasil ዕጣ በደህና መጣህ!\n\n"
+        "CBE: 1000xxxxxxxxx\n"
+        "Telebirr: 09xxxxxxxx\n\n"
+        "እባክዎ ደረሰኝ (SMS/Photo) ይላኩ።"
+    )
+    bot.send_message(uid, msg, reply_markup=markup)
 
-@bot.callback_query_handler(func=lambda c: True)
-def handle_calls(c):
-    uid = str(c.from_user.id)
-    u = data["users"].get(uid)
-    if not u: return
-
-    if c.data.startswith("manual_") and int(uid) == ADMIN_ID:
-        target_uid = c.data.split("_")[1]
-        data["users"][uid]["step"] = f"DEP_{target_uid}"
-        bot.send_message(ADMIN_ID, f"✍️ ለ ID `{target_uid}` የሚገባውን የብር መጠን ይጻፉ፦")
-
-    elif c.data.startswith("start_sel_"):
-        bid = c.data.split("_")[-1]
-        u["sel_bid"] = bid
-        bot.send_message(uid, f"✅ ሰሌዳ {bid} ተመርጧል። አሁን ስምዎን ይጻፉ፦")
-        u["step"] = "SET_NAME"
-
-    elif c.data.startswith("n_"):
-        bid = u.get("sel_bid")
-        n = c.data.split("_")[1]
-        b = data["boards"][bid]
-        if u["wallet"] >= b["price"]:
-            if n not in b["slots"]:
-                u["wallet"] -= b["price"]
-                b["slots"][n] = {"name": u["name"], "id": uid}
-                refresh_group(bid)
-                bot.send_message(uid, f"✅ ቁጥር {n} ተመዝግቧል! ቀሪ፦ {u['wallet']} ETB")
-            else: bot.answer_callback_query(c.id, "⚠️ ተይዟል!")
-        else: bot.answer_callback_query(c.id, "❌ በቂ ሂሳብ የለዎትም!", show_alert=True)
-
+# --- የክፍያ ማረጋገጫ ---
 @bot.message_handler(content_types=['photo', 'text'])
-def handle_all(m):
-    uid = str(m.from_user.id)
-    if uid not in data["users"]: data["users"][uid] = {"wallet": 0, "name": m.from_user.first_name, "step": "", "sel_bid": "1"}
-    u = data["users"][uid]
+def handle_receipt(message):
+    uid = message.chat.id
+    if uid == ADMIN_ID: return
 
-    if m.text == "🕹 ቁጥር ምረጥ":
-        welcome(m)
-        return
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"ok_{uid}"),
+        types.InlineKeyboardButton("❌ ውድቅ", callback_data=f"no_{uid}")
+    )
+    bot.send_message(uid, "🔄 ደረሰኝዎ እየተረጋገጠ ነው... እባክዎ ከ1-5 ደቂቃ ይታገሱን።")
+    
+    user_info = f"👤 @{message.from_user.username} | ID: `{uid}`"
+    if message.text:
+        amount_match = re.findall(r'(\d+(?:\.\d+)?)\s*(?:ብር|ETB)', message.text)
+        money = f"\n💰 የታየ መጠን: {amount_match[0]} ETB" if amount_match else ""
+        bot.send_message(ADMIN_ID, f"📩 **አዲስ SMS**\n{user_info}{money}\n\n`{message.text}`", reply_markup=markup)
+    else:
+        bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=f"🖼 **አዲስ ፎቶ**\n{user_info}", reply_markup=markup)
 
-    if u.get("step", "").startswith("DEP_") and int(uid) == ADMIN_ID:
-        target_uid = u["step"].split("_")[-1]
-        try:
-            amt = float(m.text)
-            data["users"][target_uid]["wallet"] += amt
-            u["step"] = ""
-            bot.send_message(target_uid, f"✅ `{amt} ETB` ዋሌትዎ ላይ ተጨምሯል።")
-            bot.send_message(ADMIN_ID, "✅ ጸድቋል!")
-            save_db()
-        except: bot.send_message(ADMIN_ID, "⚠️ ቁጥር ብቻ ይጻፉ!")
-        return
+# --- አድሚን ---
+@bot.callback_query_handler(func=lambda call: True)
+def admin_actions(call):
+    target_uid = call.data.split('_')[1]
+    if call.data.startswith("ok"):
+        msg = bot.send_message(ADMIN_ID, "የሚጨመረውን ብር በቁጥር ብቻ ይጻፉ:")
+        bot.register_next_step_handler(msg, finalize_ok, target_uid)
+    elif call.data.startswith("no"):
+        msg = bot.send_message(ADMIN_ID, "ምክንያቱን ይጻፉ:")
+        bot.register_next_step_handler(msg, finalize_no, target_uid)
 
-    if u.get("step") == "SET_NAME":
-        u["name"] = m.text + " 🏆👍"
-        u["step"] = ""
-        bid = u["sel_bid"]
-        b = data["boards"][bid]
-        kb = telebot.types.InlineKeyboardMarkup(row_width=5)
-        btns = [telebot.types.InlineKeyboardButton(str(i), callback_data=f"n_{i}") for i in range(1, b["max"]+1) if str(i) not in b["slots"]]
-        kb.add(*btns)
-        bot.send_message(uid, "🔢 ቁጥር ይምረጡ፦", reply_markup=kb)
-        return
+def finalize_ok(message, target_uid):
+    try:
+        amount = int(message.text)
+        users_db[target_uid]['wallet'] += amount
+        bot.send_message(target_uid, f"🔔 ክፍያዎ ተረጋግጧል! {amount} ብር ተጨምሯል።")
+        bot.send_message(ADMIN_ID, f"✅ ተረጋግጧል።")
+        
+        # ወደ ዳታቤዝ ቻናል መላክ (Deposit Archive)
+        db_msg = f"➕ **Wallet Deposit**\nUser ID: `{target_uid}`\nAmount: {amount} ETB"
+        bot.send_message(DB_CHANNEL_ID, db_msg)
+    except:
+        bot.send_message(ADMIN_ID, "ቁጥር ብቻ ያስገቡ!")
 
-    # Receipt handling
-    if m.photo or (m.text and len(m.text) > 10):
-        kb = telebot.types.InlineKeyboardMarkup()
-        kb.add(telebot.types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"manual_{uid}"))
-        bot.send_message(ADMIN_ID, f"📩 ደረሰኝ ከ {m.from_user.first_name}")
-        bot.send_message(uid, "📩 ደረሰኝዎ ለባለቤቱ ተልኳል...")
+def finalize_no(message, target_uid):
+    reason = message.text
+    bot.send_message(target_uid, f"❌ ደረሰኝዎ ውድቅ ተደርጓል!\nምክንያት: {reason}")
+    bot.send_message(ADMIN_ID, "❌ ውድቅ ተደርጓል።")
 
-# --- 6. SERVER ---
-@app.route('/')
-def home(): return "Bot Active"
+# --- ምዝገባ ---
+@bot.message_handler(func=lambda m: m.text == "🎮 ሰሌዳ ምረጥ")
+def show_boards(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("ሰሌዳ 1 (50 ብር)", "ሰሌዳ 2 (100 ብር)", "ተመለስ")
+    bot.send_message(message.chat.id, "ሰሌዳ ይምረጡ:", reply_markup=markup)
 
-def run_flask():
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
+@bot.message_handler(func=lambda m: "ሰሌዳ" in m.text)
+def handle_board(message):
+    uid = str(message.chat.id)
+    price = 50 if "50" in message.text else 100
+    if get_user(uid)['wallet'] < price:
+        bot.send_message(uid, f"⚠️ ቀሪ ሂሳብዎ በቂ አይደለም! (ያለዎት: {users_db[uid]['wallet']} ብር)")
+    else:
+        users_db[uid]['board'] = message.text
+        msg = bot.send_message(uid, "ሙሉ ስምዎን ያስገቡ:")
+        bot.register_next_step_handler(msg, ask_num, price)
 
-if __name__ == "__main__":
-    load_db()
-    Thread(target=run_flask).start()
-    bot.remove_webhook()
-    bot.infinity_polling(timeout=20, long_polling_timeout=10)
+def ask_num(message, price):
+    uid = str(message.chat.id)
+    users_db[uid]['name'] = message.text
+    msg = bot.send_message(uid, "የሚመርጡትን ቁጥር ይጻፉ:")
+    bot.register_next_step_handler(msg, complete_reg, price)
+
+def complete_reg(message, price):
+    uid = str(message.chat.id)
+    num = message.text
+    users_db[uid]['wallet'] -= price
+    
+    bot.send_message(uid, f"✅ ተመዝግበዋል!\nስም: {users_db[uid]['name']}\nቁጥር: {num}\nቀሪ: {users_db[uid]['wallet']} ብር")
+    
+    # ለግሩፑ የሚላክ መልዕክት (የሰሌዳ ምዝገባ)
+    group_msg = (
+        f"📝 **አዲስ ተመዝጋቢ**\n"
+        f"👤 ስም፦ {users_db[uid]['name']}\n"
+        f"🔢 ቁጥር፦ {num}\n"
+        f"🎮 ሰሌዳ፦ {users_db[uid]['board']}"
+    )
+    bot.send_message(GROUP_ID, group_msg)
+    
+    # ለዳታቤዝ ቻናል የሚላክ (Registration Archive)
+    db_report = (
+        f"📋 **Registration Log**\n"
+        f"User ID: `{uid}`\n"
+        f"Name: {users_db[uid]['name']}\n"
+        f"Board: {users_db[uid]['board']}\n"
+        f"Price: {price} ETB"
+    )
+    bot.send_message(DB_CHANNEL_ID, db_report)
+
+@bot.message_handler(func=lambda m: m.text == "💰 ዋሌት")
+def check_balance(message):
+    uid = str(message.chat.id)
+    bot.send_message(uid, f"የእርስዎ ዋሌት: {get_user(uid)['wallet']} ብር")
+
+bot.polling(none_stop=True)
