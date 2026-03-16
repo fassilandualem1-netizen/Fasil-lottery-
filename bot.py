@@ -280,4 +280,4 @@ def home(): return "Bot Active"
 if __name__ == "__main__":
     load_db()
     Thread(target=lambda: app.run(host='0.0.0.0', port=8080)).start()
-    bot.infinity_polling(timeout=25, long_polling_timeout=5)
+    bot.infinity_polling(timeout=25, long_polling_timeout=15)
