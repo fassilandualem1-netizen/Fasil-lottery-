@@ -1,4 +1,4 @@
-import telebot, re, os, json, time
+Import telebot, re, os, json, time
 from flask import Flask
 from threading import Thread
 
