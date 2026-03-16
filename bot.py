@@ -8,7 +8,7 @@ ADMIN_ID = 8488592165
 GROUP_ID = -1003881429974        
 DB_CHANNEL_ID = -1003747262103  
 
-bot = telebot.TeleBot(TOKEN, threaded=True)
+bot = telebot.TeleBot(TOKEN, threaded=False) # Threaded False ለ Render ይሻላል
 app = Flask(__name__)
 
 # --- 2. DATA STRUCTURE ---
@@ -48,12 +48,10 @@ def load_db():
                     if "users" in loaded: data["users"].update(loaded["users"])
                     if "boards" in loaded: data["boards"].update(loaded["boards"])
                     if "config" in loaded: data["config"].update(loaded["config"])
-                    print("✅ Database Loaded")
                     return True
                 except: continue
     except: pass
     return False
-
 
 # --- 4. UI ENGINE ---
 def refresh_group(bid, new=False):
@@ -115,7 +113,6 @@ def handle_calls(c):
         u["sel_bid"] = bid
         b = data["boards"][bid]
         
-        # ተጠቃሚው ብር ካለው በቀጥታ ቁጥር እንዲመርጥ፣ ከሌለው ደረሰኝ እንዲልክ መጠየቅ
         if u["wallet"] >= b["price"]:
             kb = telebot.types.InlineKeyboardMarkup(row_width=5)
             btns = [telebot.types.InlineKeyboardButton(str(i), callback_data=f"n_{i}") for i in range(1, b["max"]+1) if str(i) not in b["slots"]]
@@ -162,13 +159,13 @@ def handle_msgs(m):
     if uid not in data["users"]: data["users"][uid] = {"wallet": 0, "name": m.from_user.first_name, "step": "", "sel_bid": "1"}
     u = data["users"][uid]
 
-    if u['step'].startswith("DEP_") and int(uid) == ADMIN_ID:
+    if u.get('step', '').startswith("DEP_") and int(uid) == ADMIN_ID:
         t_uid = u['step'].split("_")[-1]
         try:
             amt = float(m.text)
             data["users"][t_uid]["wallet"] += amt
             u['step'] = ""
-            bot.send_message(t_uid, f"✅ `{amt} ETB` ዋሌትዎ ላይ ተጨምሯል። አሁን '🕹 ቁጥር ምረጥ' ብለው መጫወት ይችላሉ።")
+            bot.send_message(t_uid, f"✅ `{amt} ETB` ዋሌትዎ ላይ ተጨምሯል።")
             bot.send_message(ADMIN_ID, "✅ ተጨምሯል!"); save_db()
         except: bot.send_message(ADMIN_ID, "⚠️ ቁጥር ብቻ ይጻፉ።")
         return
@@ -181,20 +178,19 @@ def handle_msgs(m):
         kb.add(telebot.types.InlineKeyboardButton("✅ መጠን ጻፍና አጽድቅ", callback_data=f"manual_{uid}"),
                telebot.types.InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"no_{uid}"))
         bot.send_photo(ADMIN_ID, m.photo[-1].file_id, caption=f"📩 ደረሰኝ ከ {m.from_user.first_name}\n🆔 ID: `{uid}`", reply_markup=kb)
-        bot.send_message(uid, "📩 ደረሰኝዎ ደርሶናል፣ እየታየ ነው እባኮትን ከ 1 እስከ 5 ደቂቃ ይታገሱን...")
+        bot.send_message(uid, "📩 ደረሰኝዎ ደርሶናል፣ እየታየ ነው እባኮትን ይታገሱን...")
 
 # --- 6. SERVER & POLLING ---
 @app.route('/')
-def home(): return "Bot Active"
+def home():
+    return "Bot is running!"
 
-@app.route('/')
-def home(): return "Bot Active"
+def run_flask():
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
 
 if __name__ == "__main__":
     load_db()
-    port = int(os.environ.get("PORT", 8080))
-    Thread(target=lambda: app.run(host='0.0.0.0', port=port)).start()
-    
+    Thread(target=run_flask).start()
     print("🚀 Bot is starting...")
     while True:
         try:
