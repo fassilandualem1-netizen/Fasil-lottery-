@@ -2,10 +2,26 @@ import telebot
 from telebot import types
 import json
 import os
-import threading
-import time
+from flask import Flask
+from threading import Thread
 
-# --- መሰረታዊ መረጃዎች ---
+# --- Render እንዳይዘጋ ፖርት የሚከፍት ሲስተም ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Fasil Bot is Alive!"
+
+def run():
+    # Render አውቶማቲክ ፖርት ስለሚሰጠው ከ "PORT" ኢንቫይሮመንት እናነባለን
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# --- ዋናው የቦት መረጃ ---
 TOKEN = "8721334129:AAGZxYXP4UH0RuEdC8gk6icXu5gSB26bI3Q"
 ADMIN_ID = 8488592165
 GROUP_ID = -1003881429974
@@ -13,23 +29,20 @@ DB_CHANNEL_ID = -1003747262103
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-# --- የዳታ መዋቅር (Database) ---
-# ቦቱ በአእምሮው የሚይዛቸው መረጃዎች
+# --- የዳታ መዋቅር ---
 data = {
-    "users": {}, # የሰዎች ዋሌት እና መረጃ
+    "users": {},
     "boards": {
         "1": {"max": 25, "price": 50, "prize": "1000", "active": True, "slots": {}},
         "2": {"max": 50, "price": 100, "prize": "2500", "active": True, "slots": {}},
         "3": {"max": 100, "price": 200, "prize": "5000", "active": True, "slots": {}}
     },
-    "pinned_msgs": {"1": None, "2": None, "3": None} # ግሩፕ ላይ የፒን መልዕክት ID
+    "pinned_msgs": {"1": None, "2": None, "3": None}
 }
 
 DB_FILE = "fasil_db.json"
 
-# --- ዳታቤዝ የማዳን ስራ (Save/Load) ---
 def save_data():
-    """ሁሉንም ዳታ ወደ ፋይል እና ወደ ቻናል ይልካል"""
     with open(DB_FILE, "w") as f:
         json.dump(data, f)
     try:
@@ -38,22 +51,22 @@ def save_data():
     except: pass
 
 def load_data():
-    """ቦቱ ሲነሳ ከቻናሉ የመጨረሻ ፋይል ለማንበብ ይሞክራል"""
     global data
     if os.path.exists(DB_FILE):
-        with open(DB_FILE, "r") as f:
-            data = json.load(f)
+        try:
+            with open(DB_FILE, "r") as f:
+                data = json.load(f)
+        except: pass
 
 load_data()
 
-# --- ረዳት ተግባራት ---
 def get_user(uid, name="ደንበኛ"):
     uid = str(uid)
     if uid not in data["users"]:
         data["users"][uid] = {"name": name, "wallet": 0}
     return data["users"][uid]
 
-# --- USER INTERFACE (START) ---
+# --- USER INTERFACE ---
 @bot.message_handler(commands=['start'])
 def welcome(message):
     uid = str(message.chat.id)
@@ -70,13 +83,10 @@ def welcome(message):
     
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("🎮 ሰሌዳ ምረጥ", "👤 ፕሮፋይል")
-    
     if int(uid) == ADMIN_ID:
         markup.add("⚙️ Admin Settings")
-        
     bot.send_message(uid, welcome_msg, reply_markup=markup)
 
-# --- የደረሰኝ መቀበያ ---
 @bot.message_handler(content_types=['photo', 'text'])
 def handle_receipts(message):
     uid = str(message.chat.id)
@@ -95,12 +105,10 @@ def handle_receipts(message):
     else:
         bot.send_message(ADMIN_ID, f"{caption}\n\nየደረሰኝ ጽሁፍ፦\n<code>{message.text}</code>", reply_markup=admin_markup)
 
-# --- አድሚን አክሽን (Approve/Decline) ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('approve_', 'decline_')))
 def admin_decision(call):
     target_uid = call.data.split('_')[1]
     action = call.data.split('_')[0]
-    
     if action == "approve":
         msg = bot.send_message(ADMIN_ID, "💵 ለተጠቃሚው የሚገባውን ብር ይጻፉ (ቁጥር ብቻ):")
         bot.register_next_step_handler(msg, finalize_approval, target_uid)
@@ -113,25 +121,22 @@ def finalize_approval(message, target_uid):
         amount = int(message.text)
         data["users"][target_uid]["wallet"] += amount
         save_data()
-        bot.send_message(target_uid, f"✅ <b>ክፍያዎ ተረጋግጧል!</b>\n{amount} ብር ዋሌትዎ ላይ ተጨምሯል።\nአሁኑኑ ሰሌዳ መርጠው ይሳተፉ።")
-        bot.send_message(ADMIN_ID, "ብር ተጨምሯል።")
+        bot.send_message(target_uid, f"✅ <b>ክፍያዎ ተረጋግጧል!</b>\n{amount} ብር ዋሌትዎ ላይ ተጨምሯል።")
+        bot.send_message(ADMIN_ID, "✅ ተፈጽሟል።")
     except:
-        bot.send_message(ADMIN_ID, "ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ።")
+        bot.send_message(ADMIN_ID, "⚠️ ስህተት፦ ቁጥር ብቻ ያስገቡ።")
 
 def finalize_decline(message, target_uid):
-    reason = message.text
-    bot.send_message(target_uid, f"❌ <b>ደረሰኝዎ ውድቅ ሆኗል።</b>\nምክንያት፦ {reason}")
-    bot.send_message(ADMIN_ID, "ተልኳል።")
+    bot.send_message(target_uid, f"❌ <b>ደረሰኝዎ ውድቅ ሆኗል።</b>\nምክንያት፦ {message.text}")
+    bot.send_message(ADMIN_ID, "❌ ውድቅ ተደርጓል።")
 
-# --- ሰሌዳ መምረጥ ---
 @bot.message_handler(func=lambda m: m.text == "🎮 ሰሌዳ ምረጥ")
 def show_boards(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
     for b_id, b_info in data["boards"].items():
         if b_info["active"]:
-            status = f"{len(b_info['slots'])}/{b_info['max']} የተያዘ"
-            markup.add(types.InlineKeyboardButton(f"ሰሌዳ {b_id} ({b_info['price']} ብር) - {status}", callback_data=f"select_{b_id}"))
-    bot.send_message(message.chat.id, "ለመመዝገብ የሚፈልጉትን ሰሌዳ ይምረጡ፦", reply_markup=markup)
+            markup.add(types.InlineKeyboardButton(f"ሰሌዳ {b_id} ({b_info['price']} ብር)", callback_data=f"select_{b_id}"))
+    bot.send_message(message.chat.id, "ሰሌዳ ይምረጡ፦", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('select_'))
 def handle_board_selection(call):
@@ -141,24 +146,23 @@ def handle_board_selection(call):
     board = data["boards"][b_id]
     
     if user["wallet"] < board["price"]:
-        bot.answer_callback_query(call.id, "⚠️ ቀሪ ሂሳብዎ በቂ አይደለም!", show_alert=True)
+        bot.answer_callback_query(call.id, "⚠️ ዋሌትዎ በቂ አይደለም!", show_alert=True)
         return
     
-    # ያልተያዙ ቁጥሮችን መለየት
-    all_numbers = set(range(1, board["max"] + 1))
-    taken_numbers = set(int(n) for n in board["slots"].keys())
-    available = sorted(list(all_numbers - taken_numbers))
+    all_num = set(range(1, board["max"] + 1))
+    taken = set(int(n) for n in board["slots"].keys())
+    available = sorted(list(all_num - taken))
     
     if not available:
-        bot.send_message(uid, "ይህ ሰሌዳ ሞልቷል። እባክዎ ሌላ ይምረጡ።")
+        bot.send_message(uid, "ሰሌዳው ሞልቷል።")
         return
         
-    bot.send_message(uid, f"✅ <b>ሰሌዳ {b_id} ተመርጧል</b>\nዋጋ፦ {board['price']} ብር\n\n<b>ክፍት ቁጥሮች፦</b>\n{', '.join(map(str, available))}\n\nእባክዎ ስምዎን ይጻፉ፦")
+    bot.send_message(uid, f"✅ ሰሌዳ {b_id}\nክፍት ቁጥሮች፦ {', '.join(map(str, available))}\n\nእባክዎ ስምዎን ይጻፉ፦")
     bot.register_next_step_handler(call.message, get_reg_name, b_id)
 
 def get_reg_name(message, b_id):
     name = message.text
-    bot.send_message(message.chat.id, "አሁን የሚፈልጉትን ቁጥር ይጻፉ፦")
+    bot.send_message(message.chat.id, "የሚፈልጉትን ቁጥር ይጻፉ፦")
     bot.register_next_step_handler(message, finalize_registration, b_id, name)
 
 def finalize_registration(message, b_id, name):
@@ -166,43 +170,26 @@ def finalize_registration(message, b_id, name):
     try:
         num = str(int(message.text))
         board = data["boards"][b_id]
-        
-        if int(num) < 1 or int(num) > board["max"]:
-            bot.send_message(uid, f"ስህተት፦ ቁጥሩ ከ1-{board['max']} መሆን አለበት።")
+        if num in board["slots"] or int(num) < 1 or int(num) > board["max"]:
+            bot.send_message(uid, "❌ ቁጥሩ ስህተት ነው ወይም ተይዟል።")
             return
         
-        if num in board["slots"]:
-            bot.send_message(uid, "❌ ይቅርታ፣ ይህ ቁጥር ተይዟል። እባክዎ ድጋሜ ይሞክሩ።")
-            return
-            
-        # ምዝገባውን መፈጸም
         data["users"][uid]["wallet"] -= board["price"]
         board["slots"][num] = name
         save_data()
-        
-        bot.send_message(uid, f"✅ <b>ተመዝግበዋል!</b>\nሰሌዳ፦ {b_id}\nቁጥር፦ {num}\nመልካም ዕድል!")
+        bot.send_message(uid, f"✅ ተመዝግበዋል! ቁጥር {num}")
         update_group_board(b_id)
-        
-    except ValueError:
-        bot.send_message(uid, "እባክዎ ቁጥር ብቻ ይጻፉ።")
+    except:
+        bot.send_message(uid, "⚠️ ቁጥር ብቻ ይጻፉ።")
 
-# --- ግሩፕ ላይ ሰሌዳውን ማደስ (Pin Message) ---
 def update_group_board(b_id):
     board = data["boards"][b_id]
-    text = f"🎰 <b>ሰሌዳ {b_id} ምዝገባ (Price: {board['price']} ETB)</b> 🎰\n"
-    text += f"🎁 <b>ሽልማት፦ {board['prize']} ብር</b>\n"
+    text = f"🎰 <b>ሰሌዳ {b_id} (ዋጋ፦ {board['price']})</b>\n🎁 <b>ሽልማት፦ {board['prize']}</b>\n"
     text += "━━━━━━━━━━━━━━━\n"
-    
     for i in range(1, board["max"] + 1):
         s_i = str(i)
-        if s_i in board["slots"]:
-            text += f" {s_i} ✅ {board['slots'][s_i]}\n"
-        else:
-            text += f" {s_i} ⬜️ ክፍት\n"
+        text += f"{s_i} ✅ {board['slots'][s_i]}\n" if s_i in board["slots"] else f"{s_i} ⬜️ ክፍት\n"
     
-    text += "━━━━━━━━━━━━━━━\n"
-    text += f"ቀሪ ቦታ፦ {board['max'] - len(board['slots'])}"
-
     try:
         if data["pinned_msgs"][b_id]:
             bot.edit_message_text(text, GROUP_ID, data["pinned_msgs"][b_id])
@@ -217,21 +204,18 @@ def update_group_board(b_id):
         data["pinned_msgs"][b_id] = m.message_id
         save_data()
 
-# --- አድሚን ሴቲንግስ ---
 @bot.message_handler(func=lambda m: m.text == "⚙️ Admin Settings" and m.from_user.id == ADMIN_ID)
 def admin_panel(message):
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🔄 ሰሌዳ አጽዳ (Reset)", callback_data="admin_reset"))
-    markup.add(types.InlineKeyboardButton("💰 ዋጋ/ሽልማት ቀይር", callback_data="admin_price"))
-    markup.add(types.InlineKeyboardButton("🔒 ሰሌዳ ዝጋ/ክፈት", callback_data="admin_toggle"))
-    bot.send_message(ADMIN_ID, "የአድሚን መቆጣጠሪያ፦", reply_markup=markup)
+    markup.add(types.InlineKeyboardButton("🔄 Reset Board", callback_data="admin_reset"))
+    bot.send_message(ADMIN_ID, "Admin Menu:", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_reset")
 def reset_menu(call):
     markup = types.InlineKeyboardMarkup()
     for b in data["boards"]:
-        markup.add(types.InlineKeyboardButton(f"Reset ሰሌዳ {b}", callback_data=f"doreset_{b}"))
-    bot.send_message(ADMIN_ID, "የትኛው ሰሌዳ ይጽዳ?", reply_markup=markup)
+        markup.add(types.InlineKeyboardButton(f"Reset {b}", callback_data=f"doreset_{b}"))
+    bot.send_message(ADMIN_ID, "የትኛው ይጽዳ?", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('doreset_'))
 def perform_reset(call):
@@ -239,14 +223,17 @@ def perform_reset(call):
     data["boards"][b_id]["slots"] = {}
     data["pinned_msgs"][b_id] = None
     save_data()
-    bot.send_message(ADMIN_ID, f"ሰሌዳ {b_id} ተጠርጓል!")
+    bot.send_message(ADMIN_ID, f"ሰሌዳ {b_id} ጸድቷል!")
     update_group_board(b_id)
 
 @bot.message_handler(func=lambda m: m.text == "👤 ፕሮፋይል")
 def show_profile(message):
     user = get_user(message.chat.id)
-    bot.send_message(message.chat.id, f"👤 <b>ስም፦</b> {message.from_user.first_name}\n💰 <b>ዋሌት፦</b> {user['wallet']} ብር")
+    bot.send_message(message.chat.id, f"👤 ስም፦ {message.from_user.first_name}\n💰 ዋሌት፦ {user['wallet']} ብር")
 
-# --- ቦቱን ማስጀመር ---
-print("Fasil Lotto Bot is Running...")
-bot.polling(none_stop=True)
+# --- ማስጀመሪያ ---
+if __name__ == "__main__":
+    keep_alive() # Render እንዳይዘጋው
+    print("Bot is Starting...")
+    bot.remove_webhook()
+    bot.polling(none_stop=True, skip_pending_updates=True)
