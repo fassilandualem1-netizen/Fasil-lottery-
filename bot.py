@@ -23,26 +23,35 @@ data = {
 }
 
 # --- 3. DATABASE ENGINE ---
+def save_db():
+    try:
+        payload = "💾 DB_STORAGE " + json.dumps(data)
+        db_id = data["config"].get("db_msg_id")
+        if db_id:
+            try: bot.edit_message_text(payload, DB_CHANNEL_ID, db_id)
+            except:
+                m = bot.send_message(DB_CHANNEL_ID, payload)
+                data["config"]["db_msg_id"] = m.message_id
+        else:
+            m = bot.send_message(DB_CHANNEL_ID, payload)
+            data["config"]["db_msg_id"] = m.message_id
+    except: pass
+
 def load_db():
     try:
-        # ለጥንካቄ 10 መልዕክቶችን ይፈትሻል
         msgs = bot.get_chat_history(DB_CHANNEL_ID, limit=10)
         for m in msgs:
             if m.text and "💾 DB_STORAGE" in m.text:
                 try:
                     clean_json = m.text.replace("💾 DB_STORAGE", "").strip()
                     loaded = json.loads(clean_json)
-                    # ዳታውን በጥንቃቄ መርምሮ መተካት
-                    if "users" in loaded: data["users"].update(loaded["users"])
-                    if "boards" in loaded: data["boards"].update(loaded["boards"])
-                    if "config" in loaded: data["config"].update(loaded["config"])
-                    print("✅ Database Loaded Successfully")
+                    data["users"].update(loaded.get("users", {}))
+                    data["boards"].update(loaded.get("boards", {}))
+                    data["config"].update(loaded.get("config", {}))
                     return True
                 except: continue
-    except Exception as e:
-        print(f"❌ Load error: {e}")
+    except: pass
     return False
-
 
 # --- 4. UI ENGINE ---
 def refresh_group(bid, new=False):
@@ -95,34 +104,17 @@ def handle_calls(c):
         b = data["boards"][bid]
         bot.edit_message_text(f"✅ **{b['name']} ተመርጧል!**\n💰 መደብ፦ `{b['price']} ETB` \n━━━━━━━━━━━━━\n📩 እባክዎ ደረሰኝ እዚህ ይላኩ።", uid, c.message.message_id, parse_mode="Markdown")
 
-         elif c.data.startswith("ok_") and int(uid) == ADMIN_ID:
-        try:
-            _, t_uid, amt, bid = c.data.split("_")
-            price = data["boards"][bid]["price"]
-            amt_val = float(amt)
-            
-            # ስሌት
-            tks_to_add = int(amt_val // price)
-            rem_money = amt_val % price
-            
-            # ዳታ ማዘመን
-            data["users"][t_uid]["tks"] = data["users"][t_uid].get("tks", 0) + tks_to_add
-            data["users"][t_uid]["wallet"] = data["users"][t_uid].get("wallet", 0) + rem_money
-            data["users"][t_uid]["sel_bid"] = bid
-            
-            msg = f"✅ ደረሰኝዎ ጸድቋል!\n🎫 {tks_to_add} እጣ ተሰጥቶዎታል።"
-            if rem_money > 0: msg += f"\n💰 ቀሪ {rem_money} ETB ዋሌትዎ ላይ ተቀምጧል።"
-            
-            # ስም ከሌለው መጠየቅ
-            if not data["users"][t_uid].get("name") or data["users"][t_uid]["name"] == "":
-                data["users"][t_uid]["step"] = "ASK_NAME"
-                msg += "\n\nአሁን ስምዎን ይጻፉ፦"
-            
-            bot.send_message(t_uid, msg)
-            bot.delete_message(ADMIN_ID, c.message.message_id)
-            save_db()
-        except Exception as e:
-            bot.send_message(ADMIN_ID, f"❌ ስህተት ተፈጠረ: {e}")
+    elif c.data.startswith("ok_") and int(uid) == ADMIN_ID:
+        _, t_uid, amt = c.data.split("_")
+        data["users"][t_uid]["wallet"] += float(amt)
+        bot.send_message(t_uid, f"✅ ደረሰኝዎ ጸድቋል!\n💰 `{amt} ETB` ዋሌትዎ ላይ ተጨምሯል።")
+        bot.delete_message(ADMIN_ID, c.message.message_id); save_db()
+
+    elif c.data.startswith("manual_") and int(uid) == ADMIN_ID:
+        t_uid = c.data.split("_")[1]
+        data["users"][uid]["step"] = f"INPUT_AMT_{t_uid}"
+        bot.send_message(ADMIN_ID, "✍️ የሚጨመረውን ብር መጠን ይጻፉ፦")
+
     elif c.data.startswith("n_"):
         bid = u.get("sel_bid")
         n = c.data.split("_")[1]
@@ -134,21 +126,39 @@ def handle_calls(c):
                 b["slots"][n] = {"name": u["name"], "id": uid}
                 refresh_group(bid)
                 bot.answer_callback_query(c.id, f"✅ ቁጥር {n} ተይዟል!")
-                bot.send_message(uid, f"✅ ተይዟል! ቀሪ ዋሌት፦ `{u['wallet']} ETB`")
                 save_db()
             else: bot.answer_callback_query(c.id, "⚠️ ተይዟል!", show_alert=True)
         else: bot.answer_callback_query(c.id, "❌ በቂ ዋሌት የለም!", show_alert=True)
 
-    elif c.data.startswith("no_") and int(uid) == ADMIN_ID:
-        t_uid = c.data.split("_")[1]
-        bot.send_message(t_uid, "❌ ደረሰኝዎ ውድቅ ተደርጓል።")
-        bot.delete_message(ADMIN_ID, c.message.message_id)
+    elif c.data == "adm_reset_main" and int(uid) == ADMIN_ID:
+        for k in data["boards"]: data["boards"][k]["slots"] = {}; refresh_group(k, new=True)
+        bot.answer_callback_query(c.id, "ሁሉም ሰሌዳዎች ጸድተዋል!")
+
+    elif c.data == "adm_toggle_main" and int(uid) == ADMIN_ID:
+        kb = telebot.types.InlineKeyboardMarkup()
+        for k,v in data["boards"].items(): kb.add(telebot.types.InlineKeyboardButton(f"{'🟢' if v['active'] else '🔴'} ሰሌዳ {k}", callback_data=f"tog_{k}"))
+        bot.edit_message_text("ሰሌዳ ክፈት/ዝጋ፦", ADMIN_ID, c.message.message_id, reply_markup=kb)
+
+    elif c.data.startswith("tog_") and int(uid) == ADMIN_ID:
+        bid = c.data.split("_")[1]
+        data["boards"][bid]["active"] = not data["boards"][bid]["active"]
+        refresh_group(bid, new=True); bot.answer_callback_query(c.id, "ተቀይሯል!")
 
 @bot.message_handler(content_types=['text', 'photo'])
 def handle_msgs(m):
     uid = str(m.from_user.id)
     if uid not in data["users"]: data["users"][uid] = {"wallet": 0, "name": m.from_user.first_name, "step": "", "sel_bid": "1"}
     u = data["users"][uid]
+
+    if u['step'].startswith("INPUT_AMT_") and int(uid) == ADMIN_ID:
+        t_uid = u['step'].split("_")[-1]
+        try:
+            amt = float(m.text)
+            data["users"][t_uid]["wallet"] += amt
+            u['step'] = ""; bot.send_message(t_uid, f"✅ `{amt} ETB` ዋሌትዎ ላይ ተጨምሯል።")
+            bot.send_message(ADMIN_ID, "✅ ተጨምሯል!"); save_db()
+        except: bot.send_message(ADMIN_ID, "⚠️ ቁጥር ብቻ ይጻፉ።")
+        return
 
     if m.text == "💰 የእኔ ዋሌት":
         bot.send_message(uid, f"💵 **የእርስዎ ቀሪ ሂሳብ፦** `{u['wallet']} ETB`", parse_mode="Markdown")
@@ -160,34 +170,27 @@ def handle_msgs(m):
             kb = telebot.types.InlineKeyboardMarkup(row_width=5)
             kb.add(*[telebot.types.InlineKeyboardButton(str(i), callback_data=f"n_{i}") for i in range(1, b["max"]+1) if str(i) not in b["slots"]])
             bot.send_message(uid, f"🔢 {b['name']} ቁጥር ይምረጡ፦", reply_markup=kb)
-        else: bot.send_message(uid, "⚠️ መጀመሪያ ሰሌዳ ይምረጡ።")
 
-    elif u['step'] == "ASK_NAME":
-        u['name'] = m.text; u['step'] = ""; save_db()
-        bot.send_message(uid, "✅ ስምዎ ተመዝግቧል! አሁን '🕹 ቁጥር ምረጥ' የሚለውን ይጫኑ።")
-
-    elif m.content_type == 'photo' or (m.text and "FT" in m.text):
-        bid = u.get("sel_bid", "1")
+    elif m.text == "🛠 Admin Panel" and int(uid) == ADMIN_ID:
         kb = telebot.types.InlineKeyboardMarkup()
-        kb.add(telebot.types.InlineKeyboardButton("✅ አጽድቅ (20 ETB)", callback_data=f"ok_{uid}_20_{bid}"),
-               telebot.types.InlineKeyboardButton("❌ ውድቅ", callback_data=f"no_{uid}"))
-        bot.send_message(ADMIN_ID, f"📩 ደረሰኝ ከ {uid} ({m.from_user.first_name})\nሰሌዳ {bid}", reply_markup=kb)
-        bot.send_message(uid, "ደረሰኝዎ ደርሶናል፣ እያረጋገጥን ነው...")
+        kb.add(telebot.types.InlineKeyboardButton("🟢/🔴 ክፈት/ዝጋ", callback_data="adm_toggle_main"),
+               telebot.types.InlineKeyboardButton("♻️ ሰሌዳ አጽዳ", callback_data="adm_reset_main"))
+        bot.send_message(uid, "🛠 **Admin Control**", reply_markup=kb)
 
-# --- 6. SERVER & POLLING ---
+    elif m.content_type == 'photo':
+        kb = telebot.types.InlineKeyboardMarkup()
+        kb.add(telebot.types.InlineKeyboardButton("✅ 20 ETB", callback_data=f"ok_{uid}_20"),
+               telebot.types.InlineKeyboardButton("✍️ መጠን ጻፍ", callback_data=f"manual_{uid}"))
+        bot.send_message(ADMIN_ID, f"📩 ደረሰኝ ከ {m.from_user.first_name}", reply_markup=kb)
+        bot.send_message(uid, "ደረሰኝዎ እየታየ ነው...")
+
+# --- 6. SERVER ---
 @app.route('/')
 def home(): return "Bot Active"
 
- if __name__ == "__main__":
+if __name__ == "__main__":
     load_db()
-    # Render Port fix
-    port = int(os.environ.get("PORT", 8080))
-    Thread(target=lambda: app.run(host='0.0.0.0', port=port)).start()
-    
-    print("🚀 Bot is starting with Long Polling...")
+    Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))).start()
     while True:
-        try:
-            bot.polling(none_stop=True, interval=0, timeout=20)
-        except Exception as e:
-            print(f"⚠️ Polling Error: {e}")
-            time.sleep(5)
+        try: bot.polling(none_stop=True)
+        except: time.sleep(5)
