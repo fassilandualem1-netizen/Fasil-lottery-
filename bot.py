@@ -114,7 +114,7 @@ def welcome(message):
     if int(uid) == ADMIN_ID: markup.add("⚙️ Admin Settings")
     bot.send_message(uid, welcome_text, reply_markup=markup)
 
-# --- 6. የተጠቃሚ በተኖች (ቅድሚያ መሰጠት ያለባቸው) ---
+# --- 6. የተጠቃሚ ትዕዛዞች ---
 @bot.message_handler(func=lambda m: m.text == "🎮 ሰሌዳ ምረጥ")
 def show_boards(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
@@ -127,13 +127,11 @@ def show_boards(message):
 @bot.message_handler(func=lambda m: m.text == "👤 ፕሮፋይል")
 def show_profile(message):
     user = get_user(message.chat.id)
-    profile_text = (
-        f"👤 <b>የእርስዎ ፕሮፋይል</b>\n━━━━━━━━━━━━━\n"
-        f"📛 <b>ስም፦</b> {message.from_user.first_name}\n"
-        f"🆔 <b>መለያ፦</b> <code>{message.chat.id}</code>\n"
-        f"💰 <b>ቀሪ ሂሳብ፦</b> <b>{user['wallet']} ብር</b>\n"
-        "━━━━━━━━━━━━━\n<i>ብር ለማስገባት ደረሰኝ ይላኩ።</i>"
-    )
+    profile_text = (f"👤 <b>የእርስዎ ፕሮፋይል</b>\n━━━━━━━━━━━━━\n"
+                    f"📛 <b>ስም፦</b> {message.from_user.first_name}\n"
+                    f"🆔 <b>መለያ፦</b> <code>{message.chat.id}</code>\n"
+                    f"💰 <b>ቀሪ ሂሳብ፦</b> <b>{user['wallet']} ብር</b>\n"
+                    "━━━━━━━━━━━━━\n<i>ብር ለማስገባት ደረሰኝ ይላኩ።</i>")
     bot.send_message(message.chat.id, profile_text)
 
 @bot.message_handler(func=lambda m: m.text == "⚙️ Admin Settings" and m.from_user.id == ADMIN_ID)
@@ -143,11 +141,12 @@ def admin_panel(message):
                types.InlineKeyboardButton("🔄 ሰሌዳ አጽዳ (Reset)", callback_data="admin_reset"))
     bot.send_message(ADMIN_ID, "🛠 <b>የአድሚን መቆጣጠሪያ ፓነል፦</b>", reply_markup=markup)
 
-# --- 7. ደረሰኝ መቀበያ (ከበተኖች በኋላ መሆን አለበት) ---
+# --- 7. ደረሰኝ መቀበያ (Catch-all) ---
 @bot.message_handler(content_types=['photo', 'text'])
 def handle_receipts(message):
     uid = str(message.chat.id)
-    if int(uid) == ADMIN_ID or message.text == "/start": return
+    # አስፈላጊ፡ ትዕዛዞችንና አድሚኑን እዚህ አናስተናግድም
+    if int(uid) == ADMIN_ID or message.text in ["/start", "🎮 ሰሌዳ ምረጥ", "👤 ፕሮፋይል", "⚙️ Admin Settings"]: return
     
     bot.send_message(uid, "⏳ <b>ደረሰኝዎ ለባለቤቱ ተልኳል...</b>\nእባክዎ እስኪረጋገጥ ጥቂት ደቂቃዎችን ይጠብቁ። 🙏")
     
@@ -155,23 +154,23 @@ def handle_receipts(message):
     admin_markup.row(types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"approve_{uid}"),
                      types.InlineKeyboardButton("❌ ውድቅ", callback_data=f"decline_{uid}"))
     
-    caption = f"📩 <b>አዲስ ደረሰኝ መጥቷል</b>\n━━━━━━━━━━━━━━\n👤 <b>ከ፦</b> {message.from_user.first_name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
+    cap = f"📩 <b>አዲስ ደረሰኝ</b>\n👤 <b>ከ፦</b> {message.from_user.first_name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
     if message.photo:
-        bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=caption, reply_markup=admin_markup)
+        bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=cap, reply_markup=admin_markup)
     else:
-        bot.send_message(ADMIN_ID, f"{caption}\n📝 <b>ዝርዝር፦</b>\n<code>{message.text}</code>", reply_markup=admin_markup)
+        bot.send_message(ADMIN_ID, f"{cap}\n📝 <b>ዝርዝር፦</b>\n<code>{message.text}</code>", reply_markup=admin_markup)
 
 # --- 8. CALLBACKS ---
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
     if call.data.startswith('approve_'):
-        target_uid = call.data.split('_')[1]
-        msg = bot.send_message(ADMIN_ID, f"💵 ለ ID {target_uid} የሚጨመረውን <b>የብር መጠን</b> ይጻፉ፦")
-        bot.register_next_step_handler(msg, finalize_approval, target_uid)
+        t_uid = call.data.split('_')[1]
+        msg = bot.send_message(ADMIN_ID, f"💵 ለ ID {t_uid} የሚጨመረውን <b>ብር</b> ይጻፉ፦")
+        bot.register_next_step_handler(msg, finalize_approval, t_uid)
     elif call.data.startswith('decline_'):
-        target_uid = call.data.split('_')[1]
-        msg = bot.send_message(ADMIN_ID, "❌ <b>ውድቅ የተደረገበትን ምክንያት</b> ይጻፉ፦")
-        bot.register_next_step_handler(msg, finalize_decline, target_uid)
+        t_uid = call.data.split('_')[1]
+        msg = bot.send_message(ADMIN_ID, "❌ <b>ምክንያት</b> ይጻፉ፦")
+        bot.register_next_step_handler(msg, finalize_decline, t_uid)
     elif call.data.startswith('select_'):
         handle_board_selection(call)
     elif call.data == "admin_manage":
@@ -189,26 +188,25 @@ def callback_listener(call):
         data["boards"][b_id]["slots"] = {}; data["pinned_msgs"][b_id] = None
         save_data(); bot.answer_callback_query(call.id, "ሰሌዳው ጸድቷል!"); update_group_board(b_id)
 
-def finalize_approval(message, target_uid):
+def finalize_approval(message, t_uid):
     try:
-        amount = int(message.text)
-        data["users"][str(target_uid)]["wallet"] += amount
+        amt = int(message.text)
+        data["users"][str(t_uid)]["wallet"] += amt
         save_data()
-        bot.send_message(target_uid, f"✅ <b>ክፍያዎ ተረጋግጧል!</b>\n💰 <b>{amount}</b> ብር ወደ አካውንትዎ ተጨምሯል።")
+        bot.send_message(t_uid, f"✅ <b>ክፍያዎ ተረጋግጧል!</b>\n💰 <b>{amt}</b> ብር ተጨምሯል።")
         bot.send_message(ADMIN_ID, "✅ ተፈጽሟል።")
     except: bot.send_message(ADMIN_ID, "⚠️ ቁጥር ብቻ!")
 
-def finalize_decline(message, target_uid):
-    bot.send_message(target_uid, f"❌ <b>ደረሰኝዎ ውድቅ ሆኗል።</b>\n💬 ምክንያት፦ {message.text}")
+def finalize_decline(message, t_uid):
+    bot.send_message(t_uid, f"❌ <b>ደረሰኝዎ ውድቅ ሆኗል።</b>\n💬 ምክንያት፦ {message.text}")
     bot.send_message(ADMIN_ID, "❌ ተደርጓል።")
 
 # --- 9. ምዝገባ ---
 def handle_board_selection(call):
     b_id = call.data.split('_')[1]
     user = get_user(call.message.chat.id)
-    board = data["boards"][b_id]
-    if user["wallet"] < board["price"]:
-        bot.answer_callback_query(call.id, "⚠️ ቀሪ ሂሳብዎ በቂ አይደለም!", show_alert=True)
+    if user["wallet"] < data["boards"][b_id]["price"]:
+        bot.answer_callback_query(call.id, "⚠️ ቀሪ ሂሳብዎ አይበቃም!", show_alert=True)
         return
     msg = bot.send_message(call.message.chat.id, f"📍 <b>ሰሌዳ {b_id}</b>\n👤 <b>ስምዎን ይጻፉ፦</b>")
     bot.register_next_step_handler(msg, get_reg_name, b_id)
@@ -255,7 +253,6 @@ def reset_list(call):
         markup.add(types.InlineKeyboardButton(f"Reset {b_id}", callback_data=f"doreset_{b_id}"))
     bot.send_message(ADMIN_ID, "የትኛው ይጽዳ?", reply_markup=markup)
 
-# --- ዋና ማስጀመሪያ ---
 if __name__ == "__main__":
     keep_alive()
     bot.remove_webhook()
