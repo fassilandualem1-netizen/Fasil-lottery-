@@ -60,7 +60,7 @@ def get_user(uid, name="ደንበኛ"):
         data["users"][uid] = {"name": name, "wallet": 0}
     return data["users"][uid]
 
-# --- 4. ግሩፕ ላይ ሰሌዳውን ወዲያው የማደሻ ክፍል ---
+# --- 4. ግሩፕ ማደሻ ---
 def update_group_board(b_id):
     board = data["boards"][b_id]
     text = f"🎰 <b>FASIL BINGO - ሰሌዳ {b_id} (1-{board['max']})</b>\n🎁 ሽልማት፦ <b>{board['prize']} ብር</b>\n━━━━━━━━━━━━━━━\n"
@@ -68,8 +68,7 @@ def update_group_board(b_id):
     for i in range(1, board["max"] + 1):
         s_i = str(i)
         if s_i in board["slots"]:
-            user_name = board["slots"][s_i]
-            short_name = (user_name[:5] + "..") if len(user_name) > 5 else user_name
+            short_name = (board["slots"][s_i][:5]) + ".." if len(board["slots"][s_i]) > 5 else board["slots"][s_i]
             line += f"({s_i})🔴{short_name}  "
         else:
             line += f"({s_i})⬜️  "
@@ -85,8 +84,7 @@ def update_group_board(b_id):
             bot.pin_chat_message(GROUP_ID, m.message_id)
             data["pinned_msgs"][b_id] = m.message_id
             save_data()
-    except Exception as e:
-        print(f"Group update error: {e}")
+    except: pass
 
 # --- 5. START COMMAND ---
 @bot.message_handler(commands=['start'])
@@ -116,7 +114,7 @@ def welcome(message):
     if int(uid) == ADMIN_ID: markup.add("⚙️ Admin Settings")
     bot.send_message(uid, welcome_text, reply_markup=markup)
 
-# --- 6. ምዝገባ እና ፕሮፋይል (ከደረሰኝ በፊት መቅደም አለባቸው) ---
+# --- 6. የተጠቃሚ በተኖች (ቅድሚያ መሰጠት ያለባቸው) ---
 @bot.message_handler(func=lambda m: m.text == "🎮 ሰሌዳ ምረጥ")
 def show_boards(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
@@ -145,20 +143,19 @@ def admin_panel(message):
                types.InlineKeyboardButton("🔄 ሰሌዳ አጽዳ (Reset)", callback_data="admin_reset"))
     bot.send_message(ADMIN_ID, "🛠 <b>የአድሚን መቆጣጠሪያ ፓነል፦</b>", reply_markup=markup)
 
-# --- 7. ደረሰኝ መቀበያ (ከሌሎች በኋላ መሆን አለበት) ---
+# --- 7. ደረሰኝ መቀበያ (ከበተኖች በኋላ መሆን አለበት) ---
 @bot.message_handler(content_types=['photo', 'text'])
 def handle_receipts(message):
     uid = str(message.chat.id)
-    # አድሚን ከሆነ ወይም /start ከሆነ ዝለለው
     if int(uid) == ADMIN_ID or message.text == "/start": return
     
-    bot.send_message(uid, "⏳ <b>ደረሰኝዎ ለባለቤቱ ተልኳል...</b>\nእባክዎ እስኪረጋገጥ ይጠብቁ። 🙏")
+    bot.send_message(uid, "⏳ <b>ደረሰኝዎ ለባለቤቱ ተልኳል...</b>\nእባክዎ እስኪረጋገጥ ጥቂት ደቂቃዎችን ይጠብቁ። 🙏")
     
     admin_markup = types.InlineKeyboardMarkup()
     admin_markup.row(types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"approve_{uid}"),
                      types.InlineKeyboardButton("❌ ውድቅ", callback_data=f"decline_{uid}"))
     
-    caption = f"📩 <b>አዲስ ደረሰኝ</b>\n👤 <b>ከ፦</b> {message.from_user.first_name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
+    caption = f"📩 <b>አዲስ ደረሰኝ መጥቷል</b>\n━━━━━━━━━━━━━━\n👤 <b>ከ፦</b> {message.from_user.first_name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
     if message.photo:
         bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=caption, reply_markup=admin_markup)
     else:
@@ -167,24 +164,16 @@ def handle_receipts(message):
 # --- 8. CALLBACKS ---
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
-    uid = str(call.message.chat.id)
     if call.data.startswith('approve_'):
         target_uid = call.data.split('_')[1]
-        msg = bot.send_message(ADMIN_ID, f"💵 ለ ID {target_uid} የሚጨመረውን <b>ብር</b> ይጻፉ፦")
+        msg = bot.send_message(ADMIN_ID, f"💵 ለ ID {target_uid} የሚጨመረውን <b>የብር መጠን</b> ይጻፉ፦")
         bot.register_next_step_handler(msg, finalize_approval, target_uid)
     elif call.data.startswith('decline_'):
         target_uid = call.data.split('_')[1]
-        msg = bot.send_message(ADMIN_ID, "❌ <b>ምክንያት</b> ይጻፉ፦")
+        msg = bot.send_message(ADMIN_ID, "❌ <b>ውድቅ የተደረገበትን ምክንያት</b> ይጻፉ፦")
         bot.register_next_step_handler(msg, finalize_decline, target_uid)
     elif call.data.startswith('select_'):
-        b_id = call.data.split('_')[1]
-        user = get_user(call.message.chat.id)
-        board = data["boards"][b_id]
-        if user["wallet"] < board["price"]:
-            bot.answer_callback_query(call.id, "⚠️ ቀሪ ሂሳብዎ በቂ አይደለም!", show_alert=True)
-            return
-        msg = bot.send_message(call.message.chat.id, f"📍 <b>ሰሌዳ {b_id}</b>\n👤 <b>ስምዎን ይጻፉ፦</b>")
-        bot.register_next_step_handler(msg, get_reg_name, b_id)
+        handle_board_selection(call)
     elif call.data == "admin_manage":
         manage_boards_menu(call)
     elif call.data.startswith('edit_'):
@@ -205,13 +194,24 @@ def finalize_approval(message, target_uid):
         amount = int(message.text)
         data["users"][str(target_uid)]["wallet"] += amount
         save_data()
-        bot.send_message(target_uid, f"✅ <b>ክፍያዎ ተረጋግጧል!</b>\n💰 <b>{amount}</b> ብር ተጨምሯል።")
+        bot.send_message(target_uid, f"✅ <b>ክፍያዎ ተረጋግጧል!</b>\n💰 <b>{amount}</b> ብር ወደ አካውንትዎ ተጨምሯል።")
         bot.send_message(ADMIN_ID, "✅ ተፈጽሟል።")
     except: bot.send_message(ADMIN_ID, "⚠️ ቁጥር ብቻ!")
 
 def finalize_decline(message, target_uid):
     bot.send_message(target_uid, f"❌ <b>ደረሰኝዎ ውድቅ ሆኗል።</b>\n💬 ምክንያት፦ {message.text}")
-    bot.send_message(ADMIN_ID, "❌ ውድቅ ተደርጓል።")
+    bot.send_message(ADMIN_ID, "❌ ተደርጓል።")
+
+# --- 9. ምዝገባ ---
+def handle_board_selection(call):
+    b_id = call.data.split('_')[1]
+    user = get_user(call.message.chat.id)
+    board = data["boards"][b_id]
+    if user["wallet"] < board["price"]:
+        bot.answer_callback_query(call.id, "⚠️ ቀሪ ሂሳብዎ በቂ አይደለም!", show_alert=True)
+        return
+    msg = bot.send_message(call.message.chat.id, f"📍 <b>ሰሌዳ {b_id}</b>\n👤 <b>ስምዎን ይጻፉ፦</b>")
+    bot.register_next_step_handler(msg, get_reg_name, b_id)
 
 def get_reg_name(message, b_id):
     name = message.text
@@ -233,12 +233,13 @@ def finalize_registration(message, b_id, name):
         update_group_board(b_id)
     except: bot.send_message(uid, "⚠️ ቁጥር ብቻ!")
 
+# --- 10. Admin Helpers ---
 def manage_boards_menu(call):
     markup = types.InlineKeyboardMarkup()
     for b_id in data["boards"]:
         status = "🟢" if data["boards"][b_id]["active"] else "🔴"
         markup.add(types.InlineKeyboardButton(f"ሰሌዳ {b_id} {status}", callback_data=f"edit_{b_id}"))
-    bot.edit_message_text("ሰሌዳ ይምረጡ፦", ADMIN_ID, call.message.message_id, reply_markup=markup)
+    bot.edit_message_text("ለማስተካከል ይምረጡ፦", ADMIN_ID, call.message.message_id, reply_markup=markup)
 
 def edit_specific_board(call):
     b_id = call.data.split('_')[1]; b = data["boards"][b_id]
@@ -254,10 +255,9 @@ def reset_list(call):
         markup.add(types.InlineKeyboardButton(f"Reset {b_id}", callback_data=f"doreset_{b_id}"))
     bot.send_message(ADMIN_ID, "የትኛው ይጽዳ?", reply_markup=markup)
 
-# --- 9. ማስጀመሪያ ---
+# --- ዋና ማስጀመሪያ ---
 if __name__ == "__main__":
     keep_alive()
     bot.remove_webhook()
     time.sleep(1)
-    print("Bot is starting...")
     bot.infinity_polling()
