@@ -102,12 +102,25 @@ def update_group_board(b_id):
 def welcome(message):
     uid = str(message.chat.id)
     user = get_user(uid, message.from_user.first_name)
+    
+    # ሰሌዳ እንዲመርጡ እና ፕሮፋይል እንዲያዩ የሚያደርጉ ቁልፎች
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     markup.add("🎮 ሰሌዳ ምረጥ", "👤 ፕሮፋይል")
-    if int(uid) == ADMIN_ID: markup.add("⚙️ Admin Settings")
+    if int(uid) == ADMIN_ID:
+        markup.add("⚙️ Admin Settings")
     
-    text = f"👋 <b>እንኳን ደህና መጡ {message.from_user.first_name}!</b>\n\n💰 ቀሪ ሂሳብ፦ <b>{user['wallet']} ብር</b>\n━━━━━━━━━━━━━━━\n⚠️ ብር ሲያስገቡ ደረሰኝ እዚህ ይላኩ።"
-    bot.send_message(uid, text, reply_markup=markup)
+    # አንተ የፈለግከው የSTART መልዕክት ዲዛይን
+    welcome_text = (
+        f"👋 <b>እንኳን ወደ ፋሲል ዕጣ ደህና መጡ!</b>\n\n"
+        f"👤 <b>ስም፦</b> {user['name']}\n"
+        f"💰 <b>ቀሪ ሂሳብ፦</b> {user['wallet']} ብር\n"
+        f"━━━━━━━━━━━━━━━━━━\n\n"
+        f"🏦 <b>Telebirr:</b> <code>0951381356</code>\n"
+        f"🔸 <b>CBE:</b> <code>1000584461757</code>\n\n"
+        f"⚠️ <b>ብር ሲያስገቡ የደረሰኙን ፎቶ ወይም መልዕክት እዚህ ይላኩ።</b>"
+    )
+    
+    bot.send_message(uid, welcome_text, reply_markup=markup)
 
 @bot.message_handler(func=lambda m: m.text == "🎮 ሰሌዳ ምረጥ")
 def show_boards(message):
