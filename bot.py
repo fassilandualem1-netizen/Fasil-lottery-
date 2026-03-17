@@ -6,7 +6,7 @@ from flask import Flask
 from threading import Thread
 import time
 
-# --- 1. Web Hosting (For Render) ---
+# --- 1. Web Hosting ---
 app = Flask('')
 @app.route('/')
 def home(): return "Fasil Lotto System is Active!"
@@ -61,13 +61,18 @@ def get_user(uid, name="ደንበኛ"):
         data["users"][uid] = {"name": name, "wallet": 0}
     return data["users"][uid]
 
+def main_menu_markup(uid):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add("🎮 ሰሌዳ ምረጥ", "👤 ፕሮፋይል", "🎫 የያዝኳቸው ቁጥሮች")
+    if int(uid) == ADMIN_ID: markup.add("⚙️ Admin Settings")
+    return markup
+
 # --- 4. የሰሌዳ ዲዛይን (Group View) ---
 def update_group_board(b_id):
     board = data["boards"][b_id]
     text = f"🎰 <b>ፋሲል ዕጣ - ሰሌዳ {b_id} (1-{board['max']})</b>\n"
     text += f"🎫 መደብ፦ <b>{board['price']} ብር</b>\n"
     text += f"━━━━━━━━━━━━━━━━━━━━━\n"
-    
     line = ""
     for i in range(1, board["max"] + 1):
         s_i = str(i).zfill(2)
@@ -77,7 +82,6 @@ def update_group_board(b_id):
             line += f"<code>{s_i}</code>🔴{short}\t\t\t\t"
         else:
             line += f"<code>{s_i}</code>⬜️\t\t\t\t\t\t"
-            
         if i % 2 == 0:
             text += line + "\n"
             line = ""
@@ -85,7 +89,6 @@ def update_group_board(b_id):
     text += f"━━━━━━━━━━━━━━━━━━━━━\n"
     text += f"🎁 <b>ሽልማት፦ {board['prize']}</b>\n"
     text += f"🤖 ለመጫወት፦ @Fasil_assistant_bot"
-    
     try:
         if data["pinned_msgs"].get(b_id):
             bot.edit_message_text(text, GROUP_ID, data["pinned_msgs"][b_id])
@@ -105,10 +108,6 @@ def update_group_board(b_id):
 def welcome(message):
     uid = str(message.chat.id)
     user = get_user(uid, message.from_user.first_name)
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.add("🎮 ሰሌዳ ምረጥ", "👤 ፕሮፋይል", "🎫 የያዝኳቸው ቁጥሮች")
-    if int(uid) == ADMIN_ID: markup.add("⚙️ Admin Settings")
-    
     welcome_text = (
         f"👋 <b>እንኳን ወደ ፋሲል መዝናኛና ዕድለኛ ዕጣ መጡ!</b>\n\n"
         f"👤 <b>ስም፦</b> {user['name']}\n"
@@ -118,7 +117,15 @@ def welcome(message):
         f"🔸 <b>CBE:</b> <code>1000584461757</code>\n\n"
         f"⚠️ <b>ብር ሲያስገቡ የደረሰኙን ፎቶ ወይም መልዕክት እዚህ ይላኩ።</b>"
     )
-    bot.send_message(uid, welcome_text, reply_markup=markup)
+    bot.send_message(uid, welcome_text, reply_markup=main_menu_markup(uid))
+
+@bot.message_handler(func=lambda m: m.text == "🎮 ሰሌዳ ምረጥ")
+def show_boards(message):
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for b_id, b_info in data["boards"].items():
+        if b_info["active"]:
+            markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {b_id} | 🎫 {b_info['price']} ብር", callback_data=f"select_{b_id}"))
+    bot.send_message(message.chat.id, "<b>ለመጫወት የሚፈልጉትን ሰሌዳ ይምረጡ፦</b>", reply_markup=markup)
 
 @bot.message_handler(func=lambda m: m.text == "🎫 የያዝኳቸው ቁጥሮች")
 def my_numbers(message):
@@ -134,13 +141,15 @@ def my_numbers(message):
     if not found: text = "⚠️ እስካሁን ምንም ቁጥር አልያዙም!"
     bot.send_message(uid, text)
 
+@bot.message_handler(func=lambda m: m.text == "👤 ፕሮፋይል")
+def show_profile(message):
+    user = get_user(message.chat.id)
+    bot.send_message(message.chat.id, f"👤 <b>ፕሮፋይል</b>\n📛 ስም፦ {user['name']}\n💰 ቀሪ፦ {user['wallet']} ብር")
+
 @bot.message_handler(func=lambda m: m.text == "⚙️ Admin Settings" and m.from_user.id == ADMIN_ID)
 def admin_panel(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
-    stats = ""
-    for bid, binfo in data["boards"].items():
-        stats += f"📍 ሰሌዳ {bid}: ({len(binfo['slots'])}/{binfo['max']})\n"
-    
+    stats = "".join([f"📍 ሰሌዳ {bid}: ({len(binfo['slots'])}/{binfo['max']})\n" for bid, binfo in data["boards"].items()])
     markup.add(types.InlineKeyboardButton("⚙️ ሰሌዳዎችን አስተካክል", callback_data="admin_manage"),
                types.InlineKeyboardButton("🔍 አሸናፊ ፈልግ", callback_data="lookup_winner"),
                types.InlineKeyboardButton("🔄 ሰሌዳ አጽዳ (Reset)", callback_data="admin_reset"))
@@ -151,7 +160,7 @@ def admin_panel(message):
 def handle_receipts(message):
     uid = str(message.chat.id)
     if message.text in ["🎮 ሰሌዳ ምረጥ", "👤 ፕሮፋይል", "⚙️ Admin Settings", "🎫 የያዝኳቸው ቁጥሮች"]: return
-    bot.send_message(uid, "⏳ <b>ደረሰኝዎ ለባለቤቱ ተልኳል...</b>\nእባክዎ እስኪረጋገጥ ይጠብቁ። 🙏")
+    bot.send_message(uid, "⏳ <b>ደረሰኝዎ ደርሶኛል...</b>\nእባክዎ እስኪረጋገጥ ይጠብቁ። 🙏")
     markup = types.InlineKeyboardMarkup()
     markup.row(types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"approve_{uid}"),
                types.InlineKeyboardButton("❌ ውድቅ", callback_data=f"decline_{uid}"))
@@ -162,6 +171,7 @@ def handle_receipts(message):
 # --- 7. Callback Listener ---
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
+    uid = str(call.message.chat.id)
     if call.data.startswith('approve_'):
         target = call.data.split('_')[1]
         m = bot.send_message(ADMIN_ID, f"💵 ለ ID {target} የሚጨመረውን ብር ይጻፉ፦")
@@ -194,42 +204,34 @@ def callback_listener(call):
         save_data(); bot.answer_callback_query(call.id, "ሰሌዳው ጸድቷል!"); update_group_board(bid)
 
 # --- 8. ተግባራትን ማጠናቀቂያ ---
+def finalize_app(message, target):
+    try:
+        amt = int(message.text)
+        data["users"][str(target)]["wallet"] += amt
+        save_data()
+        bot.send_message(target, f"✅ <b>{amt} ብር ተጨምሯል!</b>")
+        m = bot.send_message(target, "አሁን በሰሌዳ ላይ የሚወጣውን ስምዎን (እስከ 5 ፊደል) ይጻፉ፦")
+        bot.register_next_step_handler(m, save_name, target)
+    except: bot.send_message(ADMIN_ID, "⚠️ ስህተት! ቁጥር ብቻ ይጻፉ።")
+
+def save_name(message, uid):
+    data["users"][str(uid)]["name"] = message.text[:5]
+    save_data()
+    bot.send_message(uid, f"✅ ስምዎ '{message.text[:5]}' ተብሎ ተመዝግቧል!", reply_markup=main_menu_markup(uid))
+    # ስሙ ተመዝግቦ ሲያልቅ ቀጥታ የሰሌዳ መምረጫውን እንዲያመጣ
+    show_boards(message)
+
 def process_lookup(message):
     try:
         bid, num = message.text.split('-')
         winner_name = data["boards"][bid]["slots"].get(num)
         if winner_name:
-            winner_id = None
-            for uid, uinfo in data["users"].items():
-                if uinfo["name"] == winner_name:
-                    winner_id = uid; break
+            winner_id = next((u for u, i in data["users"].items() if i["name"] == winner_name), None)
             res = f"🏆 <b>አሸናፊ ተገኝቷል!</b>\n\n👤 ስም፦ {winner_name}\n🎰 ሰሌዳ፦ {bid} | ቁጥር፦ {num}\n"
             if winner_id: res += f"🔗 <b>ሊንክ፦</b> <a href='tg://user?id={winner_id}'>ወደ አካውንቱ ሂድ</a>"
             bot.send_message(ADMIN_ID, res)
         else: bot.send_message(ADMIN_ID, "⚠️ ይህ ቁጥር አልተያዘም!")
-    except: bot.send_message(ADMIN_ID, "⚠️ ስህተት! አጻጻፉ 'ሰሌዳ-ቁጥር' መሆኑን ያረጋግጡ (ለምሳሌ: 1-5)")
-
-def finalize_app(message, target):
-    try:
-        amt = int(message.text)
-        user = get_user(target)
-        user["wallet"] += amt
-        save_data()
-        bot.send_message(target, f"✅ <b>{amt} ብር ተጨምሯል!</b>")
-        m = bot.send_message(target, "አሁን በሰሌዳ ላይ የሚወጣውን ስምዎን ይጻፉ፦")
-        bot.register_next_step_handler(m, save_name, target)
-    except: bot.send_message(ADMIN_ID, "⚠️ ቁጥር ብቻ ይጻፉ!")
-
-def save_name(message, uid):
-    data["users"][str(uid)]["name"] = message.text[:5]
-    save_data(); bot.send_message(uid, "✅ ስምዎ ተመዝግቧል!")
-
-def update_board_value(message, bid, action):
-    try:
-        if action == "price": data["boards"][bid]["price"] = int(message.text)
-        else: data["boards"][bid]["prize"] = message.text
-        save_data(); bot.send_message(ADMIN_ID, "✅ ተቀይሯል!"); update_group_board(bid)
-    except: bot.send_message(ADMIN_ID, "⚠️ ስህተት!")
+    except: bot.send_message(ADMIN_ID, "⚠️ ስህተት! (ለምሳሌ: 1-5)")
 
 def handle_selection(call):
     bid = call.data.split('_')[1]; user = get_user(call.message.chat.id)
@@ -248,7 +250,7 @@ def finalize_reg_inline(call, bid, num):
     board["slots"][num] = user["name"]
     save_data(); update_group_board(bid); bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!")
     if user["wallet"] >= board["price"]: handle_selection(call)
-    else: bot.edit_message_text(f"✅ ምዝገባ ተጠናቋል።\n💰 ቀሪ ሂሳብ፦ {user['wallet']} ብር", uid, call.message.message_id)
+    else: bot.edit_message_text(f"✅ ምዝገባ ተጠናቋል።\n💰 ቀሪ ሂሳብ፦ {user['wallet']} ብር", uid, call.message.message_id, reply_markup=main_menu_markup(uid))
 
 def manage_menu(call):
     markup = types.InlineKeyboardMarkup()
@@ -269,6 +271,13 @@ def reset_menu(call):
     bot.send_message(ADMIN_ID, "የትኛው ሰሌዳ ይጽዳ?", reply_markup=markup)
 
 def finalize_dec(message, target): bot.send_message(target, f"❌ ደረሰኝዎ ውድቅ ሆኗል። ምክንያት፦ {message.text}")
+
+def update_board_value(message, bid, action):
+    try:
+        if action == "price": data["boards"][bid]["price"] = int(message.text)
+        else: data["boards"][bid]["prize"] = message.text
+        save_data(); bot.send_message(ADMIN_ID, "✅ ተቀይሯል!"); update_group_board(bid)
+    except: bot.send_message(ADMIN_ID, "⚠️ ስህተት!")
 
 if __name__ == "__main__":
     keep_alive()
