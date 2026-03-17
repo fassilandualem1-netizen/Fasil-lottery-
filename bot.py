@@ -61,24 +61,28 @@ def get_user(uid, name="ደንበኛ"):
         data["users"][uid] = {"name": name, "wallet": 0}
     return data["users"][uid]
 
-# --- 4. የሰሌዳ ማሳያ (ግሩፕ ላይ) ---
+# --- 4. የሰሌዳ ማሳያ (ግሩፕ ላይ - የተስተካከለ ዲዛይን) ---
 def update_group_board(b_id):
     board = data["boards"][b_id]
     text = f"🎰 <b>FASIL BINGO - ሰሌዳ {b_id} (1-{board['max']})</b>\n"
     text += f"🎫 መደብ፦ <b>{board['price']} ብር</b> | 🎁 ሽልማት፦ <b>{board['prize']} ብር</b>\n"
-    text += f"━━━━━━━━━━━━━━━\n"
+    text += f"━━━━━━━━━━━━━━━━━━━━━\n"
+    
     line = ""
     for i in range(1, board["max"] + 1):
-        s_i = str(i)
-        if s_i in board["slots"]:
-            u_name = board["slots"][s_i]
-            short = (u_name[:5] + "..") if len(u_name) > 5 else u_name
-            line += f"({s_i})🔴{short} "
-        else: line += f"({s_i})⬜️ "
-        if i % 3 == 0:
+        s_i = str(i).zfill(2) # ቁጥሮቹ እኩል እንዲሆኑ (ለምሳሌ 01, 02...)
+        if str(i) in board["slots"]:
+            u_name = board["slots"][str(i)]
+            short = (u_name[:7] + "..") if len(u_name) > 7 else u_name
+            line += f"<code>{s_i}</code>🔴{short}   " # ቅንፍ ተነስቶ ሰፊ ቦታ ተሰጥቷል
+        else:
+            line += f"<code>{s_i}</code>⬜️   "
+            
+        if i % 2 == 0: # በየሁለት ቁጥሩ መስመር እንዲቀይር (ለስም ሰፊ ቦታ እንዲኖረው)
             text += line + "\n"
             line = ""
     text += line
+
     try:
         if data["pinned_msgs"].get(b_id):
             bot.edit_message_text(text, GROUP_ID, data["pinned_msgs"][b_id])
@@ -106,7 +110,7 @@ def welcome(message):
         f"👋 <b>እንኳን ወደ ፋሲል ዕጣ ደህና መጡ!</b>\n\n"
         f"👤 <b>ስም፦</b> {user['name']}\n"
         f"💰 <b>ቀሪ ሂሳብ፦</b> {user['wallet']} ብር\n"
-        f"━━━━━━━━━━━━━━━━━━\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"🏦 <b>Telebirr:</b> <code>0951381356</code>\n"
         f"🔸 <b>CBE:</b> <code>1000584461757</code>\n\n"
         f"⚠️ <b>ብር ሲያስገቡ የደረሰኙን ፎቶ ወይም መልዕክት እዚህ ይላኩ።</b>"
@@ -138,7 +142,7 @@ def admin_panel(message):
 def handle_receipts(message):
     uid = str(message.chat.id)
     if message.text in ["🎮 ሰሌዳ ምረጥ", "👤 ፕሮፋይል", "⚙️ Admin Settings"]: return
-    bot.send_message(uid, "⏳ <b>ደረሰኝዎ ለባለቤቱ ተልኳል...</b>\nእባክዎ እስኪረጋገጥ ይጠብቁ። 🙏")
+    bot.send_message(uid, "⏳ <b>ደረሰኝዎ ደርሶኛል እባኮትን ከ 1 እስከ 5 ደቂቃ ይታገሱኝ...</b>\nእባክዎ እስኪረጋገጥ ይጠብቁ። 🙏")
     markup = types.InlineKeyboardMarkup()
     markup.row(types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"approve_{uid}"),
                types.InlineKeyboardButton("❌ ውድቅ", callback_data=f"decline_{uid}"))
@@ -210,13 +214,12 @@ def handle_selection(call):
         bot.answer_callback_query(call.id, "⚠️ በቂ ሂሳብ የሎትም!", show_alert=True)
         return
     
-    # ያልተያዙ ቁጥሮችን መለየት
     available_numbers = [str(i) for i in range(1, board["max"] + 1) if str(i) not in board["slots"]]
     numbers_list = ", ".join(available_numbers)
     
     msg_text = (
         f"🎰 <b>ሰሌዳ {bid}</b>\n"
-        f"━━━━━━━━━━━━━━━\n"
+        f"━━━━━━━━━━━━━━━━━━━━━\n"
         f"✅ <b>ያልተያዙ ቁጥሮች፦</b>\n<code>{numbers_list}</code>\n\n"
         f"🔢 የመረጡትን ቁጥር ይጻፉ፦"
     )
