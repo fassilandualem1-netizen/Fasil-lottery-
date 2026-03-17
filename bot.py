@@ -110,7 +110,7 @@ def welcome(message):
     if int(uid) == ADMIN_ID: markup.add("⚙️ Admin Settings")
     
     welcome_text = (
-        f"👋 <b>እንኳን ወደ ፋሲል ዕጣ ደህና መጡ!</b>\n\n"
+        f"👋 <b>እንኳን ወደ ፋሲል መዝናኛና ዕድለኛ ዕጣ መጡ!</b>\n\n"
         f"👤 <b>ስም፦</b> {user['name']}\n"
         f"💰 <b>ቀሪ ሂሳብ፦</b> {user['wallet']} ብር\n"
         f"━━━━━━━━━━━━━━━━━━━━━\n\n"
