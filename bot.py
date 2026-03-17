@@ -33,9 +33,9 @@ DB_FILE = "fasil_db.json"
 data = {
     "users": {},
     "boards": {
-        "1": {"max": 25, "price": 50, "prize": "1,000", "active": True, "slots": {}},
-        "2": {"max": 50, "price": 100, "prize": "2,500", "active": True, "slots": {}},
-        "3": {"max": 100, "price": 200, "prize": "5,000", "active": True, "slots": {}}
+        "1": {"max": 25, "price": 50, "prize": "1ኛ 200, 2ኛ 100, 3ኛ 50", "active": True, "slots": {}},
+        "2": {"max": 50, "price": 100, "prize": "1ኛ 400, 2ኛ 200, 3ኛ 100", "active": True, "slots": {}},
+        "3": {"max": 100, "price": 200, "prize": "1ኛ 800, 2ኛ 400, 3ኛ 200", "active": True, "slots": {}}
     },
     "pinned_msgs": {"1": None, "2": None, "3": None}
 }
@@ -61,28 +61,32 @@ def get_user(uid, name="ደንበኛ"):
         data["users"][uid] = {"name": name, "wallet": 0}
     return data["users"][uid]
 
-# --- 4. የሰሌዳ ማሳያ (ግሩፕ ላይ - የተስተካከለ ዲዛይን) ---
+# --- 4. የሰሌዳ ማሳያ (ግሩፕ ላይ - የተስተካከለ) ---
 def update_group_board(b_id):
     board = data["boards"][b_id]
     text = f"🎰 <b>FASIL BINGO - ሰሌዳ {b_id} (1-{board['max']})</b>\n"
-    text += f"🎫 መደብ፦ <b>{board['price']} ብር</b> | 🎁 ሽልማት፦ <b>{board['prize']} ብር</b>\n"
+    text += f"🎫 መደብ፦ <b>{board['price']} ብር</b>\n"
     text += f"━━━━━━━━━━━━━━━━━━━━━\n"
     
     line = ""
     for i in range(1, board["max"] + 1):
-        s_i = str(i).zfill(2) # ቁጥሮቹ እኩል እንዲሆኑ (ለምሳሌ 01, 02...)
+        s_i = str(i).zfill(2)
         if str(i) in board["slots"]:
             u_name = board["slots"][str(i)]
-            short = (u_name[:7] + "..") if len(u_name) > 7 else u_name
-            line += f"<code>{s_i}</code>🔴{short}   " # ቅንፍ ተነስቶ ሰፊ ቦታ ተሰጥቷል
+            short = (u_name[:6] + "..") if len(u_name) > 6 else u_name
+            line += f"<code>{s_i}</code>🔴{short}\t\t" # ሰፊ Space ተጨምሯል
         else:
-            line += f"<code>{s_i}</code>⬜️   "
+            line += f"<code>{s_i}</code>⬜️\t\t\t\t"
             
-        if i % 2 == 0: # በየሁለት ቁጥሩ መስመር እንዲቀይር (ለስም ሰፊ ቦታ እንዲኖረው)
+        if i % 2 == 0:
             text += line + "\n"
             line = ""
     text += line
 
+    text += f"\n━━━━━━━━━━━━━━━━━━━━━\n"
+    text += f"🎁 <b>ሽልማት፦ {board['prize']}</b>\n" # ዝርዝር ሽልማት
+    text += f"🤖  ለመጫወት፦ @Fasil_assistant_bot" # የቦት ሊንክ
+    
     try:
         if data["pinned_msgs"].get(b_id):
             bot.edit_message_text(text, GROUP_ID, data["pinned_msgs"][b_id])
@@ -142,7 +146,7 @@ def admin_panel(message):
 def handle_receipts(message):
     uid = str(message.chat.id)
     if message.text in ["🎮 ሰሌዳ ምረጥ", "👤 ፕሮፋይል", "⚙️ Admin Settings"]: return
-    bot.send_message(uid, "⏳ <b>ደረሰኝዎ ደርሶኛል እባኮትን ከ 1 እስከ 5 ደቂቃ ይታገሱኝ...</b>\nእባክዎ እስኪረጋገጥ ይጠብቁ። 🙏")
+    bot.send_message(uid, "⏳ <b>ደረሰኝዎ ደርሶኛል እያረጋገጥኩ ነው እባኮትን ከ 1 እስከ 5 ደቂቃ ይታገሱኝ...</b>\nእባክዎ እስኪረጋገጥ ይጠብቁ። 🙏")
     markup = types.InlineKeyboardMarkup()
     markup.row(types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"approve_{uid}"),
                types.InlineKeyboardButton("❌ ውድቅ", callback_data=f"decline_{uid}"))
@@ -197,6 +201,7 @@ def update_board_value(message, bid, action):
         if action == "price": data["boards"][bid]["price"] = int(new_val)
         else: data["boards"][bid]["prize"] = new_val
         save_data(); bot.send_message(ADMIN_ID, f"✅ የሰሌዳ {bid} {action} ተቀይሯል!")
+        update_group_board(bid) # ሰሌዳው ላይ እንዲታይ update ያደርጋል
     except: bot.send_message(ADMIN_ID, "⚠️ ስህተት! ዋጋ ቁጥር መሆን አለበት።")
 
 def save_name(message, uid):
@@ -253,7 +258,7 @@ def edit_board(call):
     markup.add(types.InlineKeyboardButton("🎫 ዋጋ ቀይር", callback_data=f"set_price_{bid}"),
                types.InlineKeyboardButton("🎁 ሽልማት ወስን", callback_data=f"set_prize_{bid}"))
     markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_manage"))
-    text = f"📊 <b>ሰሌዳ {bid}</b>\n💰 መደብ፦ {b['price']} ብር\n🏆 ሽልማት፦ {b['prize']} ብር"
+    text = f"📊 <b>ሰሌዳ {bid}</b>\n💰 መደብ፦ {b['price']} ብር\n🏆 ሽልማት፦ {b['prize']}"
     bot.edit_message_text(text, ADMIN_ID, call.message.message_id, reply_markup=markup)
 
 def reset_menu(call):
@@ -264,6 +269,14 @@ def reset_menu(call):
 if __name__ == "__main__":
     keep_alive()
     print("Bot is starting...")
+    
+    # የቆዩ ግንኙነቶችን (Webhooks) ለማጽዳትና ግጭት ለማስቀረት
+    bot.remove_webhook() 
+    
     while True:
-        try: bot.polling(none_stop=True, interval=0, timeout=20)
-        except: time.sleep(5)
+        try:
+            # interval=1 ሰከንድ በመጨመር ግጭትን ይቀንሳል
+            bot.polling(none_stop=True, interval=1, timeout=20)
+        except Exception as e:
+            print(f"Error occurred: {e}")
+            time.sleep(5)
