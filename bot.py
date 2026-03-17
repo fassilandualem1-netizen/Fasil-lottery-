@@ -6,7 +6,7 @@ from flask import Flask
 from threading import Thread
 import time
 
-# --- 1. Render መቆያ ---
+# --- 1. Render መቆያ (Flask) ---
 app = Flask('')
 @app.route('/')
 def home(): return "Fasil Bingo is Active!"
@@ -60,23 +60,28 @@ def get_user(uid, name="ደንበኛ"):
         data["users"][uid] = {"name": name, "wallet": 0}
     return data["users"][uid]
 
-# --- 4. ግሩፕ ሰሌዳ ---
+# --- 4. ግሩፕ ሰሌዳ (Update Group) ---
 def update_group_board(b_id):
     board = data["boards"][b_id]
-    text = f"🎰 <b>FASIL BINGO - ሰሌዳ {b_id} (1-{board['max']})</b>\n🎫 መደብ፦ <b>{board['price']} ብር</b>\n🎁 ሽልማት፦ <b>{board['prize']} ብር</b>\n━━━━━━━━━━━━━━━\n"
+    text = f"🎰 <b>FASIL BINGO - ሰሌዳ {b_id} (1-{board['max']})</b>\n"
+    text += f"🎫 መደብ፦ <b>{board['price']} ብር</b> | 🎁 ሽልማት፦ <b>{board['prize']} ብር</b>\n"
+    text += f"━━━━━━━━━━━━━━━\n"
     line = ""
     for i in range(1, board["max"] + 1):
         s_i = str(i)
         if s_i in board["slots"]:
-            short_name = (board["slots"][s_i][:5]) + ".." if len(board["slots"][s_i]) > 5 else board["slots"][s_i]
+            name = board["slots"][s_i]
+            short_name = (name[:5] + "..") if len(name) > 5 else name
             line += f"({s_i})🔴{short_name}  "
-        else: line += f"({s_i})⬜️  "
+        else:
+            line += f"({s_i})⬜️  "
         if i % 3 == 0:
             text += line + "\n"
             line = ""
     text += line
     try:
-        if data["pinned_msgs"][b_id]: bot.edit_message_text(text, GROUP_ID, data["pinned_msgs"][b_id])
+        if data["pinned_msgs"][b_id]:
+            bot.edit_message_text(text, GROUP_ID, data["pinned_msgs"][b_id])
         else:
             m = bot.send_message(GROUP_ID, text)
             bot.pin_chat_message(GROUP_ID, m.message_id)
@@ -84,17 +89,21 @@ def update_group_board(b_id):
             save_data()
     except: pass
 
-# --- 5. ዋና ዋና ትዕዛዞች (Handlers) ---
+# --- 5. ዋና ዋና ትዕዛዞች ---
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
     uid = str(message.chat.id)
     user = get_user(uid, message.from_user.first_name)
-    welcome_text = f"👋 <b>እንኳን ደህና መጡ {message.from_user.first_name}!</b>\n\n💰 ቀሪ ሂሳብ፦ <b>{user['wallet']} ብር</b>\n━━━━━━━━━━━━━━━\n⚠️ ብር ሲያስገቡ የደረሰኝ ፎቶ ወይም መልዕክት እዚህ ይላኩ።"
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     markup.add("🎮 ሰሌዳ ምረጥ", "👤 ፕሮፋይል")
     if int(uid) == ADMIN_ID: markup.add("⚙️ Admin Settings")
-    bot.send_message(uid, welcome_text, reply_markup=markup)
+    bot.send_message(uid, f"👋 <b>እንኳን ደህና መጡ!</b>\n💰 ቀሪ ሂሳብ፦ <b>{user['wallet']} ብር</b>\n\n⚠️ ብር ሲያስገቡ የደረሰኝ ፎቶ ወይም መልዕክት እዚህ ይላኩ።", reply_markup=markup)
+
+@bot.message_handler(func=lambda m: m.text == "👤 ፕሮፋይል")
+def show_profile(message):
+    user = get_user(message.chat.id)
+    bot.send_message(message.chat.id, f"👤 <b>ፕሮፋይል</b>\n📛 ስም፦ {user['name']}\n💰 ቀሪ፦ {user['wallet']} ብር")
 
 @bot.message_handler(func=lambda m: m.text == "🎮 ሰሌዳ ምረጥ")
 def show_boards(message):
@@ -104,26 +113,22 @@ def show_boards(message):
             markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {b_id} | 🎫 {b_info['price']} ብር", callback_data=f"select_{b_id}"))
     bot.send_message(message.chat.id, "<b>ሰሌዳ ይምረጡ፦</b>", reply_markup=markup)
 
-@bot.message_handler(func=lambda m: m.text == "👤 ፕሮፋይል")
-def show_profile(message):
-    user = get_user(message.chat.id)
-    bot.send_message(message.chat.id, f"👤 <b>ፕሮፋይል</b>\n📛 ስም፦ {user['name']}\n💰 ቀሪ፦ {user['wallet']} ብር")
-
 @bot.message_handler(func=lambda m: m.text == "⚙️ Admin Settings" and m.from_user.id == ADMIN_ID)
 def admin_panel(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(types.InlineKeyboardButton("⚙️ ሰሌዳዎችን አስተካክል", callback_data="admin_manage"),
                types.InlineKeyboardButton("🔄 ሰሌዳ አጽዳ (Reset)", callback_data="admin_reset"))
-    bot.send_message(ADMIN_ID, "🛠 <b>የአድሚን መቆጣጠሪያ</b>", reply_markup=markup)
+    bot.send_message(ADMIN_ID, "🛠 <b>Admin Panel</b>", reply_markup=markup)
 
-# --- 6. የደረሰኝ መቀበያ (ከሌሎች መልዕክቶች ተለይቶ) ---
+# --- 6. የደረሰኝ መቀበያ (Forward ጨምሮ) ---
 @bot.message_handler(content_types=['photo', 'text'])
-def handle_receipts_logic(message):
+def handle_incoming_messages(message):
     uid = str(message.chat.id)
+    # አድሚን ከሆነ ወደ ሎጂኩ አይገባም
     if int(uid) == ADMIN_ID: return
 
-    # ደረሰኝ ከሆነ (Forwarded መልዕክትም ቢሆን ይጨምራል)
-    bot.send_message(uid, "⏳ <b>ደረሰኝዎ ለባለቤቱ ተልኳል...</b>\nእባክዎ እስኪረጋገጥ ጥቂት ደቂቃዎችን ይጠብቁ። 🙏")
+    # ደንበኛው ደረሰኝ ሲልክ
+    bot.send_message(uid, "⏳ <b>ደረሰኝዎ ለባለቤቱ ተልኳል...</b>\nእባክዎ እስኪረጋገጥ ይጠብቁ። 🙏")
     
     admin_markup = types.InlineKeyboardMarkup()
     admin_markup.row(types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"approve_{uid}"),
@@ -135,18 +140,19 @@ def handle_receipts_logic(message):
     else:
         bot.send_message(ADMIN_ID, f"{caption}\n📝 <b>ዝርዝር፦</b>\n<code>{message.text}</code>", reply_markup=admin_markup)
 
-# --- 7. CALLBACKS (Approval/Selection) ---
+# --- 7. CALLBACKS (Approvals, Selections) ---
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
     if call.data.startswith('approve_'):
         target_uid = call.data.split('_')[1]
-        msg = bot.send_message(ADMIN_ID, f"💵 ለ ID {target_uid} የሚጨመረውን <b>የብር መጠን</b> ይጻፉ፦")
+        msg = bot.send_message(ADMIN_ID, f"💵 ለ ID {target_uid} የሚጨመረውን <b>ብር</b> ይጻፉ፦")
         bot.register_next_step_handler(msg, finalize_approval, target_uid)
     elif call.data.startswith('decline_'):
         target_uid = call.data.split('_')[1]
-        msg = bot.send_message(ADMIN_ID, "❌ <b>ውድቅ የተደረገበትን ምክንያት</b> ይጻፉ፦")
+        msg = bot.send_message(ADMIN_ID, "❌ ምክንያቱን ይጻፉ፦")
         bot.register_next_step_handler(msg, finalize_decline, target_uid)
-    elif call.data.startswith('select_'): handle_board_selection(call)
+    elif call.data.startswith('select_'):
+        handle_board_selection(call)
     elif call.data == "admin_manage": manage_boards_menu(call)
     elif call.data.startswith('edit_'): edit_specific_board(call)
     elif call.data.startswith('toggle_'):
@@ -169,14 +175,15 @@ def finalize_approval(message, target_uid):
         user = get_user(target_uid)
         user["wallet"] += amount
         save_data()
-        msg = bot.send_message(target_uid, f"✅ <b>{amount} ብር ተጨምሯል!</b>\nአሁን ሙሉ ስምዎን ይጻፉ፦")
+        msg = bot.send_message(target_uid, f"✅ <b>{amount} ብር ተጨምሯል!</b>\n\nአሁን በሰሌዳ ላይ እንዲወጣ የሚፈልጉትን <b>ሙሉ ስምዎን</b> ይጻፉ፦")
         bot.register_next_step_handler(msg, save_registered_name, target_uid)
-    except: bot.send_message(ADMIN_ID, "⚠️ ቁጥር ብቻ ይጻፉ!")
+        bot.send_message(ADMIN_ID, "✅ ፀድቋል")
+    except: bot.send_message(ADMIN_ID, "⚠️ ቁጥር ብቻ!")
 
 def save_registered_name(message, uid):
     data["users"][str(uid)]["name"] = message.text
     save_data()
-    bot.send_message(uid, f"✅ ስምዎ ተመዝግቧል!")
+    bot.send_message(uid, f"✅ ስምዎ <b>{message.text}</b> ተብሎ ተመዝግቧል። አሁን መጫወት ይችላሉ!")
 
 def finalize_decline(message, target_uid):
     bot.send_message(target_uid, f"❌ ደረሰኝዎ ውድቅ ሆኗል። ምክንያት፦ {message.text}")
@@ -185,30 +192,34 @@ def update_board_values(message, b_id, action):
     try:
         if action == "prize": data["boards"][b_id]["prize"] = message.text
         else: data["boards"][b_id]["price"] = int(message.text)
-        save_data(); bot.send_message(ADMIN_ID, "✅ ተቀይሯል።")
-    except: bot.send_message(ADMIN_ID, "⚠️ ስህተት!")
+        save_data(); bot.send_message(ADMIN_ID, "✅ ተቀይሯል")
+    except: bot.send_message(ADMIN_ID, "⚠️ ስህተት")
 
 def handle_board_selection(call):
     b_id = call.data.split('_')[1]
-    user = get_user(call.message.chat.id)
+    uid = str(call.message.chat.id)
+    user = get_user(uid)
     board = data["boards"][b_id]
     if user["wallet"] < board["price"]:
         bot.answer_callback_query(call.id, "⚠️ በቂ ሂሳብ የሎትም!", show_alert=True)
         return
-    msg = bot.send_message(call.message.chat.id, f"🔢 ከ 1-{board['max']} ቁጥር ይጻፉ፦")
+    msg = bot.send_message(uid, f"🔢 ከ 1-{board['max']} ቁጥር ይጻፉ፦")
     bot.register_next_step_handler(msg, finalize_registration, b_id, user["name"])
 
 def finalize_registration(message, b_id, name):
+    uid = str(message.chat.id)
     try:
         num = str(int(message.text))
         board = data["boards"][b_id]
         if num in board["slots"] or int(num) < 1 or int(num) > board["max"]:
-            bot.send_message(message.chat.id, "❌ ቁጥሩ ተይዟል ወይም ስህተት ነው።")
+            bot.send_message(uid, "❌ ቁጥሩ ተይዟል ወይም ስህተት ነው።")
             return
-        data["users"][str(message.chat.id)]["wallet"] -= board["price"]
+        data["users"][uid]["wallet"] -= board["price"]
         board["slots"][num] = name
-        save_data(); bot.send_message(message.chat.id, "✅ ተመዝግበዋል!"); update_group_board(b_id)
-    except: bot.send_message(message.chat.id, "⚠️ ቁጥር ብቻ!")
+        save_data()
+        bot.send_message(uid, f"✅ ተመዝግበዋል! ቁጥር፦ {num}")
+        update_group_board(b_id)
+    except: bot.send_message(uid, "⚠️ ቁጥር ብቻ!")
 
 # --- 8. Admin Menus ---
 def manage_boards_menu(call):
