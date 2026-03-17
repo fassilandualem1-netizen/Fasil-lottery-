@@ -6,10 +6,10 @@ from flask import Flask
 from threading import Thread
 import time
 
-# --- 1. Web Hosting ---
+# --- 1. Web Hosting (For Render) ---
 app = Flask('')
 @app.route('/')
-def home(): return "ፋሲል መዝናኛና ዕድለኛ ዕጣ!"
+def home(): return "Fasil Lotto System is Active!"
 
 def run():
     port = int(os.environ.get("PORT", 8080))
@@ -64,7 +64,7 @@ def get_user(uid, name="ደንበኛ"):
 # --- 4. የሰሌዳ ዲዛይን (Group View) ---
 def update_group_board(b_id):
     board = data["boards"][b_id]
-    text = f"🎰 <b>FASIL BINGO - ሰሌዳ {b_id} (1-{board['max']})</b>\n"
+    text = f"🎰 <b>ፋሲል ዕጣ - ሰሌዳ {b_id} (1-{board['max']})</b>\n"
     text += f"🎫 መደብ፦ <b>{board['price']} ብር</b>\n"
     text += f"━━━━━━━━━━━━━━━━━━━━━\n"
     
@@ -110,7 +110,7 @@ def welcome(message):
     if int(uid) == ADMIN_ID: markup.add("⚙️ Admin Settings")
     
     welcome_text = (
-        f"👋 <b>እንኳን ወደ ፋሲል መዝናኛና ዕድለኛ ዕጣ መጡ!</b>\n\n"
+        f"👋 <b>እንኳን ወደ ፋሲል ዕጣ ደህና መጡ!</b>\n\n"
         f"👤 <b>ስም፦</b> {user['name']}\n"
         f"💰 <b>ቀሪ ሂሳብ፦</b> {user['wallet']} ብር\n"
         f"━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -137,7 +137,6 @@ def my_numbers(message):
 @bot.message_handler(func=lambda m: m.text == "⚙️ Admin Settings" and m.from_user.id == ADMIN_ID)
 def admin_panel(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
-    # Dashboard Info
     stats = ""
     for bid, binfo in data["boards"].items():
         stats += f"📍 ሰሌዳ {bid}: ({len(binfo['slots'])}/{binfo['max']})\n"
@@ -163,7 +162,6 @@ def handle_receipts(message):
 # --- 7. Callback Listener ---
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
-    uid = str(call.message.chat.id)
     if call.data.startswith('approve_'):
         target = call.data.split('_')[1]
         m = bot.send_message(ADMIN_ID, f"💵 ለ ID {target} የሚጨመረውን ብር ይጻፉ፦")
@@ -201,12 +199,10 @@ def process_lookup(message):
         bid, num = message.text.split('-')
         winner_name = data["boards"][bid]["slots"].get(num)
         if winner_name:
-            # የተጠቃሚውን ID መፈለግ
             winner_id = None
             for uid, uinfo in data["users"].items():
                 if uinfo["name"] == winner_name:
                     winner_id = uid; break
-            
             res = f"🏆 <b>አሸናፊ ተገኝቷል!</b>\n\n👤 ስም፦ {winner_name}\n🎰 ሰሌዳ፦ {bid} | ቁጥር፦ {num}\n"
             if winner_id: res += f"🔗 <b>ሊንክ፦</b> <a href='tg://user?id={winner_id}'>ወደ አካውንቱ ሂድ</a>"
             bot.send_message(ADMIN_ID, res)
@@ -254,7 +250,6 @@ def finalize_reg_inline(call, bid, num):
     if user["wallet"] >= board["price"]: handle_selection(call)
     else: bot.edit_message_text(f"✅ ምዝገባ ተጠናቋል።\n💰 ቀሪ ሂሳብ፦ {user['wallet']} ብር", uid, call.message.message_id)
 
-# --- 9. Admin Helpers ---
 def manage_menu(call):
     markup = types.InlineKeyboardMarkup()
     for bid in data["boards"]: markup.add(types.InlineKeyboardButton(f"ሰሌዳ {bid}", callback_data=f"edit_{bid}"))
