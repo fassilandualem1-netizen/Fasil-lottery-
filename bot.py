@@ -9,7 +9,7 @@ import time
 # --- 1. Web Hosting ---
 app = Flask('')
 @app.route('/')
-def home(): return "Fasil Bingo System is Online!"
+def home(): return "ፋሲል መዝናኛና ዕድለኛ ዕጣ!"
 
 def run():
     port = int(os.environ.get("PORT", 8080))
@@ -110,7 +110,7 @@ def welcome(message):
     if int(uid) == ADMIN_ID: markup.add("⚙️ Admin Settings")
     
     welcome_text = (
-        f"👋 <b>እንኳን ወደ ፋሲል ዕጣ ደህና መጡ!</b>\n\n"
+        f"👋 <b>እንኳን ወደ ፋሲል መዝናኛና ዕድለኛ ዕጣ መጡ!</b>\n\n"
         f"👤 <b>ስም፦</b> {user['name']}\n"
         f"💰 <b>ቀሪ ሂሳብ፦</b> {user['wallet']} ብር\n"
         f"━━━━━━━━━━━━━━━━━━━━━\n\n"
