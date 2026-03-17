@@ -64,7 +64,7 @@ def get_user(uid, name="ደንበኛ"):
 # --- 4. የሰሌዳ ማሳያ (ግሩፕ ላይ - የተስተካከለ) ---
 def update_group_board(b_id):
     board = data["boards"][b_id]
-    text = f"🎰 <b>FASIL BINGO - ሰሌዳ {b_id} (1-{board['max']})</b>\n"
+    text = f"🎰 <b>ፋሲል ዕጣ - ሰሌዳ {b_id} (1-{board['max']})</b>\n"
     text += f"🎫 መደብ፦ <b>{board['price']} ብር</b>\n"
     text += f"━━━━━━━━━━━━━━━━━━━━━\n"
     
