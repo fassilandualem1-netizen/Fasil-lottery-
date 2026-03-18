@@ -190,6 +190,7 @@ def admin_panel(message):
 # --- 6. የደረሰኝ መቀበያ ---
 @bot.message_handler(content_types=['photo', 'text'])
 def handle_receipts(message):
+    if message.chat.type != 'private': return
     uid = str(message.chat.id)
     if message.text in ["🎮 ሰሌዳ ምረጥ", "👤 ፕሮፋይል", "⚙️ Admin Settings", "🎫 የያዝኳቸው ቁጥሮች"]: return
     bot.send_message(uid, "⏳ <b>ደረሰኝዎ ደርሶኛል...</b>\nእባክዎ እስኪረጋገጥ ይጠብቁ። 🙏")
