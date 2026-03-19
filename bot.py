@@ -287,12 +287,35 @@ def handle_selection(call):
 
 def finalize_reg_inline(call, bid, num):
     uid = str(call.message.chat.id); user = get_user(uid); board = data["boards"][bid]
-    if user["wallet"] < board["price"]: bot.answer_callback_query(call.id, "⚠️ በቂ ሂሳብ የሎትም!"); return
+    if user["wallet"] < board["price"]:
+        bot.answer_callback_query(call.id, "⚠️ በቂ ሂሳብ የሎትም!"); return
+    
     data["users"][uid]["wallet"] -= board["price"]
     board["slots"][num] = user["name"]
-    save_data(); update_group_board(bid); bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!")
-    if user["wallet"] >= board["price"]: handle_selection(call)
-    else: bot.edit_message_text(f"✅ ምዝገባ ተጠናቋል።\n💰 ቀሪ ሂሳብ፦ {user['wallet']} ብር", uid, call.message.message_id, reply_markup=main_menu_markup(uid))
+    save_data(); update_group_board(bid); 
+    bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!")
+
+    # --- አዲስ ማሳሰቢያ (Notification) ---
+    remaining = board["max"] - len(board["slots"])
+    milestones = [35, 20, 10, 5, 2] 
+    
+    if remaining in milestones:
+        msg = (f"🎰 <b>ሰሌዳ {bid} ሊሞላ ነው!</b>\n"
+               f"━━━━━━━━━━━━━━━━━━━━━\n"
+               f"🔥 ዕጣ ለመውጣት <b>{remaining}</b> ሰዎች ብቻ ቀረን!\n"
+               f"🏃‍♂️ አሁኑኑ እድሎን ይሞክሩ!\n"
+               f"━━━━━━━━━━━━━━━━━━━━━\n"
+               f"🤖 ቦት፦ @Fasil_assistant_bot")
+        try:
+            bot.send_message(GROUP_ID, msg)
+        except:
+            pass
+    # ------------------------------------
+
+    if user["wallet"] >= board["price"]:
+        handle_selection(call)
+    else:
+        bot.edit_message_text(f"✅ ምዝገባ ተጠናቋል።\n💰 ቀሪ ሂሳብ፦ {user['wallet']} ብር", uid, call.message.message_id, reply_markup=main_menu_markup(uid))
 
 def manage_menu(call):
     markup = types.InlineKeyboardMarkup()
