@@ -66,7 +66,7 @@ def save_data():
     try:
         # 1. ወደ Supabase መላክ
         supabase.table("bot_data").upsert({"id": "main_db", "content": data}).execute()
-        # 2. ለጥንቃቄ ደግሞ ወደ ቴሌግራም ቻናል ፋይሉን መላክ (ያንተ ኮድ እንደነበረው)
+        # 2. ለጥንቃቄ ደግሞ ወደ ቴሌግራም ቻናል ፋይሉን መላክ
         with open("temp_db.json", "w") as f:
             json.dump(data, f)
         with open("temp_db.json", "rb") as f:
