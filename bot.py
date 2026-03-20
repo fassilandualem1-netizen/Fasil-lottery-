@@ -5,11 +5,12 @@ import os
 from flask import Flask
 from threading import Thread
 import time
+from supabase import create_client, Client
 
 # --- 1. Web Hosting (Railway እንዳይዘጋ) ---
 app = Flask('')
 @app.route('/')
-def home(): return "Fasil Lotto System is Active!"
+def home(): return "🔥 Fasil Lotto System is Ultra-Active!"
 
 def run():
     port = int(os.environ.get("PORT", 8080))
@@ -20,8 +21,11 @@ def keep_alive():
     t.daemon = True
     t.start()
 
-# --- 2. ቦት መረጃዎች ---
+# --- 2. ቦት እና ዳታቤዝ መረጃዎች ---
 TOKEN = "8721334129:AAGEh7OBPVZVmDaSOXTdP5NPy53LH5ap-0Q"
+SUPABASE_URL = "https://aapxnuzwrkxbzsanatik.supabase.co"
+SUPABASE_KEY = "EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhcHhudXp3cmt4YnpzYW5hdGlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5Njg0NDcsImV4cCI6MjA4OTU0NDQ0N30.FdM3KkTBit3b35wK9obuJvPUhetAWGwL_tqM4pgDM0k"
+
 MY_ID = 8488592165          
 ASSISTANT_ID = 7072611117   
 GROUP_ID = -1003881429974
@@ -29,15 +33,15 @@ DB_CHANNEL_ID = -1003747262103
 
 ADMIN_IDS = [MY_ID, ASSISTANT_ID]
 
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
+
 PAYMENTS = {
     "me": {"tele": "0951381356", "cbe": "1000584461757"},
     "assistant": {"tele": "0973416038", "cbe": "1000718691323"}
 }
 
-bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
-
-# --- 3. ዳታቤዝ አያያዝ (Local JSON) ---
-DB_FILE = "fasil_db.json"
+# --- 3. ዳታቤዝ አያያዝ ---
 data = {
     "users": {},
     "current_shift": "me",
@@ -49,22 +53,26 @@ data = {
     "pinned_msgs": {"1": None, "2": None, "3": None}
 }
 
+def load_data():
+    global data
+    try:
+        res = supabase.table("bot_data").select("content").eq("id", "main_db").execute()
+        if res.data:
+            data.update(res.data['content'])
+            print("✅ ዳታ ተጭኗል")
+    except Exception as e:
+        print(f"⚠️ ዳታ መጫን አልተቻለም: {e}")
+
 def save_data():
     try:
-        with open(DB_FILE, "w") as f:
-            json.dump(data, f)
+        supabase.table("bot_data").upsert({"id": "main_db", "content": data}).execute()
         # Backup to Channel
-        with open(DB_FILE, "rb") as f:
-            bot.send_document(DB_CHANNEL_ID, f, caption=f"🔄 Database Backup - {time.ctime()}")
+        with open("backup.json", "w") as f:
+            json.dump(data, f)
+        with open("backup.json", "rb") as f:
+            bot.send_document(DB_CHANNEL_ID, f, caption=f"🔄 Backup - {time.ctime()}")
     except Exception as e:
-        print(f"Save Error: {e}")
-
-if os.path.exists(DB_FILE):
-    try:
-        with open(DB_FILE, "r") as f:
-            loaded = json.load(f)
-            data.update(loaded)
-    except: pass
+        print(f"⚠️ ዳታ ሴቭ አልተደረገም: {e}")
 
 def get_user(uid, name="ደንበኛ"):
     uid = str(uid)
@@ -216,7 +224,7 @@ def reset_menu(call):
     bot.send_message(call.from_user.id, "የትኛው ይጽዳ?", reply_markup=markup)
 
 if __name__ == "__main__":
-    keep_alive()
+    load_data(); keep_alive()
     bot.remove_webhook()
     while True:
         try: bot.polling(none_stop=True, interval=1, timeout=20)
