@@ -1,17 +1,7 @@
-# 1. Python መጫን
-FROM python:3.10-slim
-
-# 2. በሰርቨሩ ላይ የሚሰራበትን ፎልደር መፍጠር
+FROM python:3.9
 WORKDIR /app
-
-# 3. የላይብረሪ ዝርዝርን (requirements.txt) ኮፒ ማድረግ
-COPY requirements.txt .
-
-# 4. አስፈላጊ የሆኑ ላይብረሪዎችን መጫን
-RUN pip install --no-cache-dir -r requirements.txt
-
-# 5. ሁሉንም የቦት ፋይሎች ኮፒ ማድረግ
 COPY . .
-
-# 6. ቦቱን ማስነሳት
-CMD ["python", "bot.py"]
+RUN pip install -r requirements.txt
+# Railway ላይ ሰርቨሩ እንዳይዘጋ ይህ መስመር ወሳኝ ነው
+EXPOSE 8080
+CMD ["python", "app.py"]
