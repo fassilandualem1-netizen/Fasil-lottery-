@@ -22,7 +22,7 @@ def keep_alive():
     t.start()
 
 # --- 2. ቦት እና ዳታቤዝ መረጃዎች (የራስህን እዚህ ተካ) ---
-TOKEN = 8721334129:AAGEh7OBPVZVmDaSOXTdP5NPy53LH5ap-0Q"
+TOKEN = "8721334129:AAGEh7OBPVZVmDaSOXTdP5NPy53LH5ap-0Q"
 SUPABASE_URL = "https://aapxnuzwrkxbzsanatik.supabase.co"
 SUPABASE_KEY = "EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhcHhudXp3cmt4YnpzYW5hdGlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5Njg0NDcsImV4cCI6MjA4OTU0NDQ0N30.FdM3KkTBit3b35wK9obuJvPUhetAWGwL_tqM4pgDM0k"
 
