@@ -22,7 +22,7 @@ def keep_alive():
 
 # --- 2. ቦት እና Supabase መረጃዎች ---
 # በ Railway Variables ውስጥ ማስገባትህን እርግጠኛ ሁን
-TOKEN = "8721334129:AAHuEJDpuZf5vZ0GzKGPfRALlG3cA1TUmF0"
+TOKEN = "8721334129:AAGEh7OBPVZVmDaSOXTdP5NPy53LH5ap-0Q"
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "የእርስዎ_URL_እዚህ")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "የእርስዎ_KEY_እዚህ")
 
