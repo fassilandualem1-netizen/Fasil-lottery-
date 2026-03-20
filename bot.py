@@ -146,20 +146,25 @@ def callback_listener(call):
     bot.answer_callback_query(call.id)
     is_admin = call.from_user.id in ADMIN_IDS
     
-    if call.data.startswith('approve_') and is_admin:
-        target = call.data.split('_')
+        if call.data.startswith('approve_') and is_admin:
+        target = call.data.split('_') # እዚህ ጋር መጨመርህን እርግጠኛ ሁን
         m = bot.send_message(call.message.chat.id, f"💵 ለ ID {target} የሚጨመረውን ብር ይጻፉ፦")
         bot.register_next_step_handler(m, finalize_app, target)
+        
     elif call.data.startswith('decline_') and is_admin:
-        target = call.data.split('_')
+        target = call.data.split('_') # እዚህም ጋር ይጨመር
         m = bot.send_message(call.message.chat.id, "❌ ውድቅ የተደረገበትን ምክንያት ይጻፉ፦")
         bot.register_next_step_handler(m, finalize_dec, target)
+
     elif call.data.startswith('select_'):
         handle_selection(call)
+       
     elif call.data.startswith('pick_'):
         parts = call.data.split('_')
-        finalize_reg_inline(call, parts, parts)
-    elif call.data == "admin_reset" and is_admin:
+        bid = parts
+        num = parts
+        finalize_reg_inline(call, bid, num)
+   elif call.data == "admin_reset" and is_admin:
         reset_menu(call)
     elif call.data.startswith('doreset_') and is_admin:
         bid = call.data.split('_')
