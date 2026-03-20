@@ -7,7 +7,7 @@ from threading import Thread
 import time
 from supabase import create_client, Client
 
-# --- 1. Web Hosting (ለ Koyeb) ---
+# --- 1. Web Hosting (ለሰርቨር) ---
 app = Flask('')
 @app.route('/')
 def home(): return "Fasil Lotto System is Active!"
@@ -22,12 +22,11 @@ def keep_alive():
     t.start()
 
 # --- 2. ቦት እና ዳታቤዝ መረጃዎች ---
-# አዲሱ ቶከን እዚህ ገብቷል
 TOKEN = "8721334129:AAGEh7OBPVZVmDaSOXTdP5NPy53LH5ap-0Q"
 
-# ⚠️ እነዚህን ከ Supabase Dashboard (Settings -> API) አምጥተህ የግድ ተካቸው
-SUPABASE_URL = "https://your-project.supabase.co" 
-SUPABASE_KEY = "your-anon-key"
+# ✅ ያቀረብከው የ Supabase መረጃ እዚህ ገብቷል
+SUPABASE_URL = "https://aapxnuzwrkxbzsanatik.supabase.co"
+SUPABASE_KEY = "EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhcHhudXp3cmt4YnpzYW5hdGlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5Njg0NDcsImV4cCI6MjA4OTU0NDQ0N30.FdM3KkTBit3b35wK9obuJvPUhetAWGwL_tqM4pgDM0k"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
@@ -36,6 +35,7 @@ MY_ID = 8488592165
 ASSISTANT_ID = 7072611117   
 GROUP_ID = -1003881429974
 DB_CHANNEL_ID = -1003747262103
+
 ADMIN_IDS = [MY_ID, ASSISTANT_ID]
 
 PAYMENTS = {
@@ -59,17 +59,17 @@ def load_data():
     global data
     try:
         res = supabase.table("bot_data").select("content").eq("id", "main_db").execute()
-        if res.data:
+        if res.data and len(res.data) > 0:
             data.update(res.data['content'])
-            print("✅ Data Loaded")
+            print("✅ ዳታ ከ Supabase ተጭኗል።")
     except Exception as e:
-        print(f"⚠️ Load Error: {e}")
+        print(f"❌ Load Error: {e}")
 
 def save_data():
     try:
         supabase.table("bot_data").upsert({"id": "main_db", "content": data}).execute()
     except Exception as e:
-        print(f"⚠️ Save Error: {e}")
+        print(f"❌ Save Error: {e}")
 
 load_data()
 
@@ -96,17 +96,18 @@ def update_group_board(b_id):
     for i in range(1, board["max"] + 1):
         s_i = str(i).zfill(2)
         if str(i) in board["slots"]:
-            line += f"<code>{s_i}</code>🔴\t\t"
+            u_name = board["slots"][str(i)]
+            short = u_name[:5]
+            line += f"<code>{s_i}</code>🔴{short}\t\t"
         else:
-            line += f"<code>{s_i}</code>⬜️\t\t"
+            line += f"<code>{s_i}</code>⬜️\t\t\t"
         if i % 3 == 0:
             text += line + "\n"
             line = ""
-    text += line + "\n"
-    text += f"━━━━━━━━━━━━━━━━━━━━━\n"
+    text += line
+    text += f"\n━━━━━━━━━━━━━━━━━━━━━\n"
     text += f"🎁 <b>ሽልማት፦ {board['prize']}</b>\n"
     text += f"🤖 ለመጫወት፦ @Fasil_assistant_bot"
-    
     try:
         if data["pinned_msgs"].get(b_id):
             bot.edit_message_text(text, GROUP_ID, data["pinned_msgs"][b_id])
@@ -125,7 +126,8 @@ def update_group_board(b_id):
 @bot.message_handler(commands=['start'])
 def welcome(message):
     uid = str(message.chat.id)
-    user = get_user(uid, message.from_user.first_name)
+    get_user(uid, message.from_user.first_name)
+    user = data["users"][uid]
     active_pay = PAYMENTS[data.get("current_shift", "me")]
     
     welcome_text = (
@@ -141,24 +143,22 @@ def welcome(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
-    # ⚠️ ለፍጥነት እና በተኑ እንዲሰራ ይህ የግድ ነው
     bot.answer_callback_query(call.id)
-    uid = str(call.message.chat.id)
     is_admin = call.from_user.id in ADMIN_IDS
-
+    
     if call.data.startswith('approve_') and is_admin:
         target = call.data.split('_')
-        m = bot.send_message(uid, f"💵 ለ ID {target} የሚጨመረውን ብር ይጻፉ፦")
+        m = bot.send_message(call.message.chat.id, f"💵 ለ ID {target} የሚጨመረውን ብር ይጻፉ፦")
         bot.register_next_step_handler(m, finalize_app, target)
     elif call.data.startswith('decline_') and is_admin:
         target = call.data.split('_')
-        m = bot.send_message(uid, "❌ ውድቅ የተደረገበትን ምክንያት ይጻፉ፦")
+        m = bot.send_message(call.message.chat.id, "❌ ውድቅ የተደረገበትን ምክንያት ይጻፉ፦")
         bot.register_next_step_handler(m, finalize_dec, target)
-    elif call.data.startswith('select_'): 
+    elif call.data.startswith('select_'):
         handle_selection(call)
     elif call.data.startswith('pick_'):
-        _, bid, num = call.data.split('_')
-        finalize_reg_inline(call, bid, num)
+        parts = call.data.split('_')
+        finalize_reg_inline(call, parts, parts)
     elif call.data == "admin_reset" and is_admin:
         reset_menu(call)
     elif call.data.startswith('doreset_') and is_admin:
@@ -166,45 +166,44 @@ def callback_listener(call):
         data["boards"][bid]["slots"] = {}
         save_data()
         update_group_board(bid)
-        bot.send_message(uid, f"✅ ሰሌዳ {bid} ጸድቷል!")
+        bot.send_message(call.message.chat.id, f"✅ ሰሌዳ {bid} ጸድቷል!")
 
 def finalize_app(message, target):
     try:
-        amt = int(message.text)
-        data["users"][str(target)]["wallet"] += amt
-        save_data()
-        bot.send_message(target, f"✅ <b>{amt} ብር ተጨምሯል!</b>\nአሁን በሰሌዳ ላይ የሚወጣውን ስምዎን ይጻፉ።")
-        bot.register_next_step_handler_by_chat_id(target, save_name, target)
-    except: bot.send_message(message.chat.id, "⚠️ ቁጥር ብቻ ይጻፉ!")
+        amt = int(message.text.strip())
+        uid_str = str(target)
+        if uid_str in data["users"]:
+            data["users"][uid_str]["wallet"] += amt
+            save_data()
+            bot.send_message(target, f"✅ <b>{amt} ብር ተጨምሯል!</b>")
+            m = bot.send_message(target, "አሁን በሰሌዳ ላይ የሚወጣውን ስምዎን (እስከ 5 ፊደል) ይጻፉ፦")
+            bot.register_next_step_handler_by_chat_id(target, save_name, target)
+        bot.send_message(message.chat.id, "✅ ተጠናቅቋል።")
+    except: bot.send_message(message.chat.id, "⚠️ ስህተት! ቁጥር ብቻ ይጻፉ።")
 
 def save_name(message, uid):
     data["users"][str(uid)]["name"] = message.text[:5]
     save_data()
-    bot.send_message(uid, f"✅ ስምዎ '{message.text[:5]}' ተብሎ ጸድቋል!", reply_markup=main_menu_markup(uid))
+    bot.send_message(uid, f"✅ ስምዎ '{message.text[:5]}' ተብሎ ተመዝግቧል!", reply_markup=main_menu_markup(uid))
 
 def handle_selection(call):
     bid = call.data.split('_')
     user = get_user(call.message.chat.id)
     board = data["boards"][bid]
     if user["wallet"] < board["price"]:
-        bot.send_message(call.message.chat.id, "⚠️ በቂ ሂሳብ የሎትም!")
-        return
+        bot.send_message(call.message.chat.id, "⚠️ በቂ ሂሳብ የሎትም!"); return
     markup = types.InlineKeyboardMarkup(row_width=5)
     btns = [types.InlineKeyboardButton(str(i), callback_data=f"pick_{bid}_{i}") for i in range(1, board["max"] + 1) if str(i) not in board["slots"]]
     markup.add(*btns)
     bot.edit_message_text(f"🎰 <b>ሰሌዳ {bid}</b>\n💰 ዋጋ፦ {board['price']} ብር\n\nቁጥር ይምረጡ፦", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
 def finalize_reg_inline(call, bid, num):
-    uid = str(call.message.chat.id)
-    user = get_user(uid)
-    board = data["boards"][bid]
+    uid = str(call.message.chat.id); user = get_user(uid); board = data["boards"][bid]
     if user["wallet"] < board["price"]: return
-    
     data["users"][uid]["wallet"] -= board["price"]
     board["slots"][num] = user["name"]
-    save_data()
-    update_group_board(bid)
-    bot.edit_message_text(f"✅ ቁጥር {num} ተይዟል!\n💰 ቀሪ ሂሳብ፦ {user['wallet']} ብር", uid, call.message.message_id, reply_markup=main_menu_markup(uid))
+    save_data(); update_group_board(bid)
+    bot.edit_message_text(f"✅ ቁጥር {num} ተመርጧል!\n💰 ቀሪ ሂሳብ፦ {user['wallet']} ብር", uid, call.message.message_id, reply_markup=main_menu_markup(uid))
 
 @bot.message_handler(func=lambda m: m.text == "🎮 ሰሌዳ ምረጥ")
 def show_boards(message):
@@ -238,7 +237,7 @@ def handle_receipts(message):
 def reset_menu(call):
     markup = types.InlineKeyboardMarkup()
     for bid in data["boards"]: markup.add(types.InlineKeyboardButton(f"Reset {bid}", callback_data=f"doreset_{bid}"))
-    bot.send_message(call.from_user.id, "የትኛው ሰሌዳ ይጽዳ?", reply_markup=markup)
+    bot.send_message(call.message.chat.id, "የትኛው ሰሌዳ ይጽዳ?", reply_markup=markup)
 
 def finalize_dec(message, target): 
     bot.send_message(target, f"❌ ደረሰኝዎ ውድቅ ሆኗል። ምክንያት፦ {message.text}")
@@ -246,9 +245,7 @@ def finalize_dec(message, target):
 if __name__ == "__main__":
     keep_alive()
     bot.remove_webhook()
-    print("🚀 Bot is running...")
+    print("🚀 Fasil Bot is LIVE!")
     while True:
-        try:
-            bot.polling(none_stop=True, interval=1, timeout=20)
-        except:
-            time.sleep(5)
+        try: bot.polling(none_stop=True, interval=1, timeout=20)
+        except: time.sleep(5)
