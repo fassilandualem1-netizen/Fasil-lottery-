@@ -1,7 +1,6 @@
 pyTelegramBotAPI
 Flask
 gunicorn
-supabase 
-postgrest
-phyton-dotnev
+supabase
 redis
+python-dotenv
