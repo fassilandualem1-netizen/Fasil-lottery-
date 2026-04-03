@@ -6,6 +6,7 @@ from flask import Flask
 from threading import Thread
 import time
 from supabase import create_client, Client
+import redis  # <--- አዲስ የተጨመረ
 
 # --- 1. Web Hosting (Railway እንዳይዘጋ) ---
 app = Flask('')
@@ -22,9 +23,13 @@ def keep_alive():
     t.start()
 
 # --- 2. ቦት እና ዳታቤዝ መረጃዎች ---
-TOKEN = "8721334129:AAGEh7OBPVZVmDaSOXTdP5NPy53LH5ap-0Q"
+TOKEN = "8721334129:AAEbMUHHLcVTv9pGzTwMwC_Wi4tLx3R_F5k" # አዲሱ ቶክንህ
 SUPABASE_URL = "https://aapxnuzwrkxbzsanatik.supabase.co"
 SUPABASE_KEY = "EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhcHhudXp3cmt4YnpzYW5hdGlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5Njg0NDcsImV4cCI6MjA4OTU0NDQ0N30.FdM3KkTBit3b35wK9obuJvPUhetAWGwL_tqM4pgDM0k"
+
+# Redis (Upstash) መረጃ
+REDIS_URL = "redis://default:gQAAAAAAATbaAAIncDE4MTQ2MThjMjVjYjI0YzU5OGQ0MjMzZGI0MGIwZTkwNXAxNzk1Nzg@sunny-ferret-79578.upstash.io:6379"
+r = redis.from_url(REDIS_URL)
 
 MY_ID = 8488592165          
 ASSISTANT_ID = 7072611117   
@@ -66,7 +71,6 @@ def load_data():
 def save_data():
     try:
         supabase.table("bot_data").upsert({"id": "main_db", "content": data}).execute()
-        # Backup to Channel
         with open("backup.json", "w") as f:
             json.dump(data, f)
         with open("backup.json", "rb") as f:
@@ -122,7 +126,23 @@ def update_group_board(b_id):
         data["pinned_msgs"][b_id] = m.message_id
         save_data()
 
-# --- 5. ዋና ዋና ትዕዛዞች ---
+# --- 5. አዲስ፡ የ SMS መቀበያ (ማጣሪያ ተጨምሮበት) ---
+@bot.message_handler(func=lambda m: True if m.chat.id == MY_ID and not m.text.startswith('/') else False)
+def handle_sms_from_app(message):
+    sms_text = message.text
+    
+    # 127፣ CBE ወይም telebirr ካለበት ብቻ Redis ላይ ይመዘግባል
+    if "127" in sms_text or "CBE" in sms_text or "telebirr" in sms_text:
+        try:
+            r.set("last_payment_sms", sms_text)
+            bot.reply_to(message, "✅ የባንክ መልእክት በ Redis ተመዝግቧል!")
+        except Exception as e:
+            print(f"Redis Error: {e}")
+    else:
+        # ሌላ መልእክት ከሆነ ምንም አያደርግም
+        print("ተራ መልእክት ስለሆነ ችላ ተብሏል።")
+
+# --- 6. ዋና ዋና ትዕዛዞች ---
 @bot.message_handler(commands=['start'])
 def welcome(message):
     uid = str(message.chat.id)
@@ -169,7 +189,8 @@ def callback_listener(call):
         bot.answer_callback_query(call.id, "ሰሌዳው ጸድቷል!")
 
 def handle_selection(call):
-    bid = call.data.split('_'); user = get_user(call.message.chat.id)
+    bid = call.data.split('_')
+    user = get_user(call.message.chat.id)
     board = data["boards"][bid]
     if user["wallet"] < board["price"]:
         bot.answer_callback_query(call.id, "⚠️ በቂ ሂሳብ የሎትም!", show_alert=True); return
@@ -185,14 +206,6 @@ def finalize_reg_inline(call, bid, num):
     board["slots"][num] = user["name"]
     save_data(); update_group_board(bid)
     bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!")
-    
-    # --- Milestones (ማሳሰቢያ) ---
-    remaining = board["max"] - len(board["slots"])
-    milestones =
-    if remaining in milestones:
-        msg = f"🎰 <b>ሰሌዳ {bid} ሊሞላ {remaining} ሰው ብቻ ቀረ! 🔥</b>"
-        try: bot.send_message(GROUP_ID, msg)
-        except: pass
 
 def finalize_app(message, target):
     try:
