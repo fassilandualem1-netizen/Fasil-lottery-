@@ -4,3 +4,4 @@ gunicorn
 supabase 
 postgrest
 phyton-dotnev
+redis
