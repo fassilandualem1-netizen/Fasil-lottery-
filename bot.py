@@ -149,8 +149,11 @@ def handle_receipts(message):
 def callback_listener(call):
     is_admin = call.from_user.id in ADMIN_IDS
     if call.data.startswith('approve_') and is_admin:
-        target = call.data.split('_')
-        m = bot.send_message(call.from_user.id, f"💵 ለ ID {target} የሚጨመር ብር ይጻፉ፦")
+        # እዚህ ጋር ነው ቁጥሩን ብቻ ነጥሎ የሚወስደው
+        target = call.data.split('_') 
+        
+        # መልዕክቱ ላይ ዝርዝሩ (List) እንዳይታይ እንዲህ አስተካክለው
+        m = bot.send_message(call.from_user.id, f"💵 ለ ID <code>{target}</code> የሚጨመር ብር ይጻፉ፦")
         bot.register_next_step_handler(m, finalize_app, target)
     elif call.data.startswith('select_'):
         bid = call.data.split('_')
