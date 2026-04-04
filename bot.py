@@ -146,18 +146,13 @@ def update_group_board(b_id):
     try:
         if b_id in data["pinned_msgs"] and data["pinned_msgs"][b_id]:
             bot.edit_message_text(text, GROUP_ID, data["pinned_msgs"][b_id])
-        else:
-            m = bot.send_message(GROUP_ID, text)
-            bot.pin_chat_message(GROUP_ID, m.message_id)
-            data["pinned_msgs"][b_id] = m.message_id
-            save_data()
             except:
         m = bot.send_message(GROUP_ID, text)
         if "pinned_msgs" not in data: data["pinned_msgs"] = {}
         data["pinned_msgs"][b_id] = m.message_id
         save_data()
 
-
+         
 # --- 5. ዋና ዋና ትዕዛዞች ---
 @bot.message_handler(commands=['start'])
 def welcome(message):
