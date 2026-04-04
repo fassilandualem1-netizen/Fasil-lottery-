@@ -403,20 +403,39 @@ def send_picker_to_group(message, target_id, receipt_mid):
         user_info = bot.get_chat(target_id)
         user_name = user_info.first_name
         
-        # ብሩን ዳታቤዝ ላይ መመዝገብ
+        # 1. ብሩን ዳታቤዝ ላይ መመዝገብ
         user = get_user(target_id, user_name)
         data["users"][str(target_id)]["wallet"] += amt
         save_data()
 
-        # ግሩፕ ላይ ለደረሰኙ Reply አድርጎ በተኑን ይልካል
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("🎰 ቁጥር ለመምረጥ እዚህ ይጫኑ", callback_data=f"u_pick_{target_id}"))
+        # 2. ለተጠቃሚው የሚመጥነውን ሰሌዳ መምረጥ (ለምሳሌ ሰሌዳ 1 በ 50 ብር ከሆነ)
+        # እዚህ ጋር እንደ ብሩ መጠን ሰሌዳውን መለየት ትችላለህ። ለጊዜው ሰሌዳ "1" እንበለው፡
+        bid = "1" 
+        board = data["boards"][bid]
+
+        # 3. ቁጥሮቹን "ዝርግፍ" አድርጎ ማዘጋጀት (Inline Buttons)
+        markup = types.InlineKeyboardMarkup(row_width=5)
+        btns = []
+        for i in range(1, board["max"] + 1):
+            num_str = str(i)
+            if num_str not in board["slots"]:
+                # ጥበቃ (Security)፦ በተኑ ላይ የባለቤቱን ID (target_id) እናስራለን
+                btns.append(types.InlineKeyboardButton(num_str, callback_data=f"p_{target_id}_{bid}_{num_str}"))
+            else:
+                btns.append(types.InlineKeyboardButton("❌", callback_data="taken"))
+        markup.add(*btns)
         
-        text = f"✅ <b>ለ {user_name} ክፍያዎ ተረጋግጧል!</b>\n💰 መጠን፦ <b>{amt} ብር</b>\n⚠️ በተኑ የሚሰራው ለእርስዎ ብቻ ነው።"
+        # 4. ግሩፕ ላይ ወዲያውኑ ምርጫውን መላክ
+        text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
+                f"👤 <b>ተጫዋች፦</b> {user_name}\n"
+                f"💰 <b>ቀሪ ሂሳብ፦</b> {amt} ብር\n\n"
+                f"🎰 <b>ሰሌዳ {bid} - ቁጥርዎን አሁኑኑ ይምረጡ፦</b>")
+        
         bot.send_message(GROUP_ID, text, reply_to_message_id=receipt_mid, reply_markup=markup)
-        bot.send_message(message.chat.id, "✅ በተኑ ወደ ግሩፕ ተልኳል።")
+        bot.send_message(message.chat.id, "✅ ቁጥሮቹ ለተጫዋቹ ተዘርግፈውለታል።")
+        
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ ስህተት! ቁጥር ብቻ ያስገቡ። {e}")
+        bot.send_message(message.chat.id, f"❌ ስህተት! {e}")
 
 def finalize_app(message, target):
     try:
