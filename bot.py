@@ -135,6 +135,12 @@ def update_group_board(b_id):
         m = bot.send_message(GROUP_ID, text)
         data["pinned_msgs"][b_id] = m.message_id
         save_data()
+    # ከአድሚን ብቻ የሚታይ የመሰረዣ ቁልፍ
+    admin_markup = types.InlineKeyboardMarkup()
+    admin_markup.add(types.InlineKeyboardButton("❌ ተጫዋች ሰርዝ (Admin Only)", callback_data=f"admin_delete_{b_id}"))
+    
+    # ሰሌዳውን ሲልክ ለአድሚኑ ብቻ የሰርዝ ቁልፍ እንዲደርሰው ማድረግ ይቻላል
+    # ወይም ደግሞ በተለመደው የፅሁፍ ትዕዛዝ "❌ ተጫዋች ሰርዝ" የሚለውን መጠቀም ይቀላል።
 
 # --- 5. ዋና ዋና ትዕዛዞች ---
 @bot.message_handler(commands=['start'])
