@@ -102,7 +102,7 @@ def update_group_board(b_id):
     current_shift = data.get("current_shift", "me")
     active_pay = PAYMENTS[current_shift]
     
-    # 🎨 ራስጌ (Header) - በላክኸው መሰረት
+    # 🎨 ራስጌ (Header)
     text = "🇪🇹 🏟️ <b>ፋሲል እና ዳመነ ዲጂታል ዕጣ!</b> 🏟️ 🇪🇹\n"
     text += f"              <b>በ {board['price']} ብር</b>\n"
     text += "             👇👇👇👇👇\n"
@@ -117,19 +117,15 @@ def update_group_board(b_id):
     text += "<b>USE IT OR LOSE IT</b>\n"
     text += "━━━━━━━━━━━━━━━━━━━━━\n"
 
-        # 🎫 የቁጥሮች ዝርዝር (በአንድ ረድፍ ወደ ታች)
+    # 🎫 የቁጥሮች ዝርዝር (አንድ ረድፍ ብቻ)
     board_slots = board["slots"]
-    max_num = board["max"]
-    
-    text += "━━━━━━━━━━━━━━━━━━━━━\n"
-    for i in range(1, max_num + 1):
-        num_str = str(i)
-        if num_str in board_slots:
-            # ቁጥሩ ሲያዝ (ስሙን እና ምልክቶችን ያሳያል)
-            text += f"<b>{i}👉</b> {board_slots[num_str]} ✅🏆🙏\n"
+    for i in range(1, board["max"] + 1):
+        n = str(i)
+        if n in board_slots:
+            text += f"<b>{i}👉</b> {board_slots[n]} ✅🏆🙏\n"
         else:
-            # ቁጥሩ ክፍት ሲሆን
             text += f"<b>{i}👉</b> @@@@ ✅🏆🙏\n"
+            
     text += "━━━━━━━━━━━━━━━━━━━━━\n"
     text += "🏟️ <b>ፋሲል እና ዳመነ ዲጂታል ዕጣ!</b> 🏟️\n"
     text += "<b>ስልክ ደውሎ ለማግኘት ከፈለጉ፦</b>\n"
@@ -138,11 +134,8 @@ def update_group_board(b_id):
     
     text += "      <b>ገቢ ማስገቢያ አማራጮች</b>\n"
     text += "         👇👇👇👇👇\n"
-    
-    # ተረኛውን ገቢ ማስገቢያ ያሳያል
-    text += f"👉 <b>Telebirr:</b> <code>{active_pay['tele']}</code> {active_pay['name']}\n"
-    text += f"👉 <b>CBE:</b> <code>{active_pay['cbe']}</code> {active_pay['name']}\n"
-    
+    text += f"👉 <b>Telebirr:</b> <code>{active_pay['tele']}</code>\n"
+    text += f"👉 <b>CBE:</b> <code>{active_pay['cbe']}</code>\n"
     text += f"\n🤖 <b>ለመጫወት እዚህ ይጫኑ፦</b> @{bot.get_me().username}"
 
         # --- ግሩፕ ላይ መልዕክቱን ማስተካከል (Edit) ---
