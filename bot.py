@@ -97,35 +97,56 @@ def main_menu_markup(uid):
 
 # --- 4. የሰሌዳ ዲዛይን (Group View) ---
 def update_group_board(b_id):
+    b_id = str(b_id)
     board = data["boards"][b_id]
-    text = f"🎰 <b>ፋሲል ዕጣ - ሰሌዳ {b_id} (1-{board['max']})</b>\n"
-    text += f"🎫 መደብ፦ <b>{board['price']} ብር</b>\n"
-    text += f"━━━━━━━━━━━━━━━━━━━━━\n"
-    line = ""
+    current_shift = data.get("current_shift", "me")
+    active_pay = PAYMENTS[current_shift]
+    
+    # 🎨 የሰሌዳው ራስጌ (Header)
+    text = "🇪🇹 🏟️ <b>ፋሲል እና ዳመነ ዲጂታል ዕጣ!</b> 🏟️ 🇪🇹\n"
+    text += f"              <b>በ {board['price']} ብር ብቻ</b>\n"
+    text += "             👇👇👇👇👇\n"
+    
+    # 🎁 የሽልማት ዝርዝር
+    prizes = board['prize'].split(',')
+    labels = ["1ኛ🟢", "2ኛ🟡", "3ኛ🔴"]
+    for i, p in enumerate(prizes):
+        if i < 3: text += f"             {labels[i]} {p.strip()} ብር\n"
+
+    text += "\n🏆 <b>መልካም እድል ለሁላችሁም!</b>\n"
+    text += "━━━━━━━━━━━━━━━━━━━━━\n"
+
+    # 🎫 የቁጥሮች ዝርዝር (ቁጥሩ ከተያዘ ስም፣ ካልተያዘ @@@@ ያሳያል)
     for i in range(1, board["max"] + 1):
-        s_i = str(i).zfill(2)
-        if str(i) in board["slots"]:
-            u_name = board["slots"][str(i)]
-            short = u_name[:5]
-            line += f"<code>{s_i}</code>✅{short}\t\t\t\t"
+        num_str = str(i)
+        if num_str in board["slots"]:
+            # ተጫዋቹ የያዘው ቁጥር በቼክ ማርክ ይታያል
+            text += f"<b>{i}👉</b> {board['slots'][num_str]} ✅🏆🙏\n"
         else:
-            line += f"<code>{s_i}</code>⬜️\t\t\t\t\t\t"
-        if i % 2 == 0:
-            text += line + "\n"
-            line = ""
-    text += line
-    text += f"━━━━━━━━━━━━━━━━━━━━━\n"
-    text += f"🎁 <b>ሽልማት፦ {board['prize']}</b>\n"
-    text += f"🤖 ለመጫወት፦ @Fasil_assistant_bot"
+            # ክፍት የሆኑ ቁጥሮች
+            text += f"<b>{i}👉</b> @@@@ ⬜️\n"
+    
+    text += "━━━━━━━━━━━━━━━━━━━━━\n"
+    text += "🏟️ <b>ፋሲል እና ዳመነ ዲጂታል ዕጣ!</b> 🏟️\n"
+    text += "📞 ስልክ፦ 0973416038\n\n"
+    
+    # 🏦 የክፍያ መረጃ (እንደ ተረኛው ይቀያየራል)
+    text += f"🏦 <b>ተረኛ ገቢ ማስገቢያ ({active_pay['name']})፦</b>\n"
+    text += f"👉 <b>Telebirr:</b> <code>{active_pay['tele']}</code>\n"
+    text += f"👉 <b>CBE:</b> <code>{active_pay['cbe']}</code>\n"
+    text += f"\n🤖 <b>ለመጫወት እዚህ ይጫኑ፦</b> @{bot.get_me().username}"
+
+    # 📌 መልዕክቱን ግሩፕ ላይ መላክ ወይም Edit ማድረግ
     try:
-        if data["pinned_msgs"].get(b_id):
+        if b_id in data["pinned_msgs"]:
             bot.edit_message_text(text, GROUP_ID, data["pinned_msgs"][b_id])
         else:
             m = bot.send_message(GROUP_ID, text)
             bot.pin_chat_message(GROUP_ID, m.message_id)
             data["pinned_msgs"][b_id] = m.message_id
             save_data()
-    except:
+    except Exception as e:
+        # መልዕክቱ ከተሰረዘ አዲስ ይልካል
         m = bot.send_message(GROUP_ID, text)
         bot.pin_chat_message(GROUP_ID, m.message_id)
         data["pinned_msgs"][b_id] = m.message_id
