@@ -430,39 +430,44 @@ def callback_listener(call):
 def send_picker_to_group(message, target_id, receipt_mid):
     try:
         amt = int(message.text)
+        # የተጫዋቹን መረጃ በ ID ለማግኘት
         user_info = bot.get_chat(target_id)
-        user_name = user_info.first_name
+        user_name = user_info.first_name if user_info.first_name else "ተጫዋች"
         
-        # 1. ብሩን ዳታቤዝ ላይ መመዝገብ
         user = get_user(target_id, user_name)
         data["users"][str(target_id)]["wallet"] += amt
         save_data()
 
-        # 2. ለተጠቃሚው የሚመጥነውን ሰሌዳ መምረጥ (ለምሳሌ ሰሌዳ 1 በ 50 ብር ከሆነ)
-        # እዚህ ጋር እንደ ብሩ መጠን ሰሌዳውን መለየት ትችላለህ። ለጊዜው ሰሌዳ "1" እንበለው፡
-        bid = "1" 
-        board = data["boards"][bid]
+        # --- ክፍት የሆነውን ሰሌዳ በራሱ እንዲመርጥ ---
+        active_board = None
+        for b_id, b_info in data["boards"].items():
+            # ተጫዋቹ በከፈለው ብር ልክ እና ክፍት የሆነውን ሰሌዳ ይፈልጋል
+            if b_info["active"] and b_info["price"] <= amt:
+                active_board = b_id
+                break
+        
+        if not active_board:
+            bot.send_message(message.chat.id, "❌ ተስማሚ ክፍት ሰሌዳ አልተገኘም!")
+            return
 
-        # 3. ቁጥሮቹን "ዝርግፍ" አድርጎ ማዘጋጀት (Inline Buttons)
+        board = data["boards"][active_board]
         markup = types.InlineKeyboardMarkup(row_width=5)
         btns = []
         for i in range(1, board["max"] + 1):
             num_str = str(i)
             if num_str not in board["slots"]:
-                # ጥበቃ (Security)፦ በተኑ ላይ የባለቤቱን ID (target_id) እናስራለን
-                btns.append(types.InlineKeyboardButton(num_str, callback_data=f"p_{target_id}_{bid}_{num_str}"))
+                btns.append(types.InlineKeyboardButton(num_str, callback_data=f"p_{target_id}_{active_board}_{num_str}"))
             else:
                 btns.append(types.InlineKeyboardButton("❌", callback_data="taken"))
         markup.add(*btns)
         
-        # 4. ግሩፕ ላይ ወዲያውኑ ምርጫውን መላክ
         text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
-                f"👤 <b>ተጫዋች፦</b> {user_name}\n"
-                f"💰 <b>ቀሪ ሂሳብ፦</b> {amt} ብር\n\n"
-                f"🎰 <b>ሰሌዳ {bid} - ቁጥርዎን አሁኑኑ ይምረጡ፦</b>")
+                f"👤 <b>ተጫዋች፦</b> <b>{user_name}</b>\n"
+                f"💰 <b>ቀሪ ሂሳብ፦</b> {data['users'][str(target_id)]['wallet']} ብር\n\n"
+                f"🎰 <b>ሰሌዳ {active_board} - ቁጥርዎን ይምረጡ፦</b>")
         
         bot.send_message(GROUP_ID, text, reply_to_message_id=receipt_mid, reply_markup=markup)
-        bot.send_message(message.chat.id, "✅ ቁጥሮቹ ለተጫዋቹ ተዘርግፈውለታል።")
+        bot.send_message(message.chat.id, f"✅ ለ {user_name} ሰሌዳ {active_board} ተዘርግቷል።")
         
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ ስህተት! {e}")
