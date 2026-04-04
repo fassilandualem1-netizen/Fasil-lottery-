@@ -279,6 +279,36 @@ def admin_manage_menu(call):
     
     bot.edit_message_text("🛠 <b>የአድሚን ስራዎችን ይምረጡ፦</b>", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith('p_'))
+def handle_secure_pick(call):
+    # ዳታውን መበተን (p_ID_BOARD_NUMBER)
+    _, allowed_id, bid, num = call.data.split('_')
+    
+    # 1. የባለቤትነት ቼክ (ጥብቅ ጥበቃ)
+    if str(call.from_user.id) != str(allowed_id):
+        bot.answer_callback_query(call.id, "⚠️ ይቅርታ! ይህ የሌላ ሰው ምርጫ ነው፣ የእርስዎን ደረሰኝ ይላኩ።", show_alert=True)
+        return
+
+    # 2. ቁጥሩን መመዝገብ
+    uid = str(call.from_user.id)
+    user = get_user(uid)
+    board = data["boards"][bid]
+
+    if user["wallet"] < board["price"]:
+        bot.answer_callback_query(call.id, "❌ ሂሳብዎ በቂ አይደለም!", show_alert=True)
+        return
+
+    # ምዝገባ
+    data["users"][uid]["wallet"] -= board["price"]
+    board["slots"][num] = user["name"]
+    save_data()
+    update_group_board(bid)
+    
+    # 3. መልዕክቱን ማጥፋት (አንዴ ከመረጠ በኋላ ቁጥሮቹ እንዳይቆዩ)
+    bot.delete_message(GROUP_ID, call.message.message_id)
+    
+    bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል! መልካም ዕድል!", show_alert=True)
+
 @bot.callback_query_handler(func=lambda call: call.data == "admin_cash")
 def start_cash_reg(call):
     m = bot.send_message(call.from_user.id, "📝 <b>በካሽ ለመመዝገብ፦</b>\nሰሌዳ-ቁጥር ስም ይጻፉ\n\nምሳሌ፦ <code>1-05 አበበ</code>")
