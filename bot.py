@@ -284,41 +284,55 @@ def start_cash_reg(call):
 
 def process_cash_reg(message):
     try:
-        # 1. መልዕክቱን በክፍተት ይከፍላል (ለምሳሌ፦ "2-40 አበበ")
-        # split(' ', 1) ማለት መጀመሪያ የምታገኘውን ክፍያ ብቻ ተጠቀም ማለት ነው
-        parts = message.text.split(' ', 1) 
-        
-        if len(parts) < 2:
-            bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፉን ያስተካክሉ (ለምሳሌ፦ 1-05 አበበ)")
-            return
-
-        board_part = parts # "1-05"
-        name = parts       # "አበበ"
-        
-        # 2. ሰሌዳውንና ቁጥሩን በሰረዝ ይከፍላል
-        if '-' not in board_part:
-            bot.send_message(message.chat.id, "❌ ስህተት! በሰሌዳ እና በቁጥር መካከል ሰረዝ (-) ይጠቀሙ።")
+        text = message.text.strip()
+        # መጀመሪያ በክፍተት ስሙን እና የሰሌዳውን ክፍል ይለያል
+        if ' ' not in text:
+            bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05 አበበ")
             return
             
-        bid, num = board_part.split('-') 
+        board_info, name = text.split(' ', 1)
         
-        # 3. መረጃውን በዳታቤዝ ውስጥ መመዝገብ
+        if '-' not in board_info:
+            bot.send_message(message.chat.id, "❌ ስህተት! በሰሌዳ እና ቁጥር መሀል ሰረዝ (-) ያድርጉ።")
+            return
+            
+        bid, num = board_info.split('-', 1)
+        
         if bid in data["boards"]:
-            # ቁጥሩ ቀድሞ ተይዞ እንደሆነ ቼክ ማድረግ (አማራጭ)
-            if num in data["boards"][bid]["slots"]:
-                bot.send_message(message.chat.id, f"⚠️ ቁጥር {num} ቀድሞ በ {data['boards'][bid]['slots'][num]} ተይዟል!")
+            max_val = data["boards"][bid]["max"]
+            if not num.isdigit() or int(num) > max_val or int(num) < 1:
+                bot.send_message(message.chat.id, f"❌ ስህተት! በሰሌዳ {bid} ላይ ያሉት ቁጥሮች ከ1-{max_val} ብቻ ናቸው።")
                 return
 
-            data["boards"][bid]["slots"][num] = name[:15] # ስሙ እንዳይረዝም በ15 ይገደባል
+            data["boards"][bid]["slots"][num] = name[:15]
             save_data()
-            update_group_board(bid) # ግሩፕ ላይ እንዲታደስ
-            bot.send_message(message.chat.id, f"✅ ሰሌዳ {bid} ቁጥር {num} ለ {name} በካሽ ተመዝግቧል!")
+            update_group_board(bid)
+            bot.send_message(message.chat.id, f"✅ ሰሌዳ {bid} ቁጥር {num} ለ {name} ተመዝግቧል!")
+        else:
+            bot.send_message(message.chat.id, f"❌ ሰሌዳ {bid} አልተገኘም!")
+    except:
+        bot.send_message(message.chat.id, "❌ ሲስተም ስህተት! አጻጻፍ፦ 1-05 አበበ")
+
+def process_admin_delete(message):
+    try:
+        text = message.text.strip()
+        if '-' not in text:
+            bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05")
+            return
+            
+        bid, num = text.split('-', 1)
+        if bid in data["boards"]:
+            if num in data["boards"][bid]["slots"]:
+                del data["boards"][bid]["slots"][num]
+                save_data()
+                update_group_board(bid)
+                bot.send_message(message.chat.id, f"🗑 ሰሌዳ {bid} ቁጥር {num} ተሰርዟል!")
+            else:
+                bot.send_message(message.chat.id, "❌ ይህ ቁጥር ገና አልተመዘገበም!")
         else:
             bot.send_message(message.chat.id, "❌ ሰሌዳው አልተገኘም!")
-            
-    except Exception as e:
-        print(f"Cash Reg Error: {e}")
-        bot.send_message(message.chat.id, "❌ ስህተት ተፈጥሯል። አጻጻፍ፦ 1-05 አበበ")
+    except:
+        bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05")
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_delete")
