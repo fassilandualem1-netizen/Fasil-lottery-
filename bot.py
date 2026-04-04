@@ -152,6 +152,46 @@ def welcome(message):
     if int(uid) in ADMIN_IDS: markup.add("⚙️ Admin Settings")
     bot.send_message(uid, f"👋 እንኳን መጡ {user['name']}!\n💰 ቀሪ ሂሳብ፦ {user['wallet']} ብር", reply_markup=markup)
 
+@bot.message_handler(func=lambda m: m.text == "💵 በካሽ መዝግብ")
+def quick_cash_start(message):
+    if message.from_user.id not in ADMIN_IDS: return
+    # መመሪያውን ለአድሚኑ ያሳያል
+    msg = "📝 <b>ፈጣን ምዝገባ</b>\nእባክዎ እንዲህ ብለው ይጻፉ፦\n<code>ሰሌዳ-ቁጥር ስም</code>\n\n<i>ምሳሌ፦ 1-05 አበበ</i>"
+    m = bot.send_message(message.chat.id, msg)
+    bot.register_next_step_handler(m, process_quick_cash)
+
+def process_quick_cash(message):
+    try:
+        # ጽሁፉን መከፋፈል (ለምሳሌ "1-05 አበበ" -> ["1-05", "አበበ"])
+        parts = message.text.split(' ', 1)
+        if len(parts) < 2: raise Exception("ቅርጹ ስህተት ነው")
+        
+        info, name = parts, parts
+        bid, num = info.split('-')
+        
+        # ሰሌዳው መኖሩን እና ቁጥሩ ክፍት መሆኑን ማረጋገጥ
+        if bid not in data["boards"]:
+            bot.send_message(message.chat.id, "❌ የሰሌዳ ቁጥሩ ስህተት ነው!")
+            return
+            
+        board = data["boards"][bid]
+        if num in board["slots"]:
+            bot.send_message(message.chat.id, f"⚠️ ቁጥር {num} አስቀድሞ በ {board['slots'][num]} ተይዟል!")
+            return
+
+        # መመዝገብ
+        board["slots"][num] = name
+        save_data()
+        update_group_board(bid) # ሰሌዳውን ወዲያው ያድሳል
+        
+        # ለግሩፕ ማሳወቅ (Social Proof)
+        success_msg = f"✅ <b>በካሽ ተመዝግቧል</b>\n👤 ተጫዋች፦ {name}\n🎰 ሰሌዳ፦ {bid}\n🎫 ቁጥር፦ {num}\n\nመልካም እድል! 🍀"
+        bot.send_message(GROUP_ID, success_msg)
+        bot.send_message(message.chat.id, f"✅ {name} በሰሌዳ {bid} ቁጥር {num} ላይ ተመዝግቧል።")
+        
+    except Exception as e:
+        bot.send_message(message.chat.id, "❌ ስህተት! እባክዎ እንደ ምሳሌው ይጻፉ (1-05 አበበ)")
+
 @bot.message_handler(content_types=['photo', 'text'])
 def handle_receipts(message):
     # ከግሩፕ ወይም ከፕራይቬት ደረሰኝ መቀበል
