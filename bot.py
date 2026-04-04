@@ -154,30 +154,32 @@ def update_group_board(b_id):
 
     # --- ግሩፕ ላይ መልዕክቱን ማስተካከል (Edit) ---
     try:
-        # መረጃው ቀድሞ ካለ ኤዲት ለማድረግ ይሞክራል
-        if b_id in data.get("pinned_msgs", {}) and data["pinned_msgs"][b_id]:
+        # በ pinned_msgs ውስጥ መረጃ መኖሩን ማረጋገጥ
+        msg_id = data.get("pinned_msgs", {}).get(b_id)
+        
+        if msg_id:
+            # ካለ ኤዲት ያደርጋል (HTML parse mode እንዳይረሳ!)
             bot.edit_message_text(
-                chat_id=GROUP_ID,
-                message_id=data["pinned_msgs"][b_id],
                 text=text,
+                chat_id=GROUP_ID,
+                message_id=msg_id,
                 parse_mode="HTML"
             )
         else:
-            # መረጃው ከሌለ አዲስ ይልካል
+            # ከሌለ አዲስ ይልካል
             m = bot.send_message(GROUP_ID, text, parse_mode="HTML")
             if "pinned_msgs" not in data: data["pinned_msgs"] = {}
             data["pinned_msgs"][b_id] = m.message_id
             save_data()
-            # አማራጭ፡ መልዕክቱን ፒን (Pin) ለማድረግ
-            # bot.pin_chat_message(GROUP_ID, m.message_id)
 
     except Exception as e:
-        # ኤዲት ማድረግ ካልቻለ (ለምሳሌ መልዕክቱ ከተሰረዘ) አዲስ ይልካል
-        print(f"Error updating board {b_id}: {e}")
+        # ስህተት ቢፈጠር (ለምሳሌ መልዕክቱ ከተሰረዘ) አዲስ ይልካል
+        print(f"Error: {e}")
         m = bot.send_message(GROUP_ID, text, parse_mode="HTML")
         if "pinned_msgs" not in data: data["pinned_msgs"] = {}
         data["pinned_msgs"][b_id] = m.message_id
         save_data()
+
 
 
          
