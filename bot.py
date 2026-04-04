@@ -167,10 +167,20 @@ def callback_listener(call):
 
 def finalize_app(message, target):
     try:
+        # የላክኸው ጽሁፍ ቁጥር መሆኑን ያረጋግጣል
+        if not message.text.isdigit():
+            bot.send_message(message.chat.id, "⚠️ እባክዎ ቁጥር ብቻ ያስገቡ (ለምሳሌ፦ 100)")
+            return
+
         amt = int(message.text)
-        user = get_user(target)
+        uid = str(target) # ID-ውን ወደ String መቀየር
+        
+        user = get_user(uid)
         user["wallet"] += amt
         save_data()
+        
+        # ለAdmin ማረጋገጫ
+        bot.send_message(message.chat.id, f"✅ ለ {user['name']} {amt} ብር ተጨምሯል።")
         
         # ግሩፕ ላይ ምርጫውን መላክ
         markup = types.InlineKeyboardMarkup()
@@ -178,10 +188,11 @@ def finalize_app(message, target):
             if info["active"] and user["wallet"] >= info["price"]:
                 markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {bid} ({info['price']} ብር)", callback_data=f"select_{bid}"))
         
-        msg = f"✅ <b>ክፍያ ጸድቋል!</b>\n👤 ተጠቃሚ፦ <a href='tg://user?id={target}'>{user['name']}</a>\n💰 መጠን፦ {amt} ብር\n\n👇 ሰሌዳ ይምረጡ፦"
+        msg = f"✅ <b>ክፍያ ጸድቋል!</b>\n👤 ተጠቃሚ፦ <a href='tg://user?id={uid}'>{user['name']}</a>\n💰 መጠን፦ {amt} ብር\n\n👇 ሰሌዳ ይምረጡ፦"
         bot.send_message(GROUP_ID, msg, reply_markup=markup)
-        bot.send_message(message.chat.id, "✅ ተጠናቋል።")
-    except: bot.send_message(message.chat.id, "⚠️ ቁጥር ብቻ ይጻፉ!")
+        
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ ስህተት ተፈጥሯል፦ {str(e)}")
 
 def handle_selection(call, bid):
     uid = str(call.from_user.id)
