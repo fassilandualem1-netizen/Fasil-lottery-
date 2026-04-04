@@ -308,6 +308,30 @@ def handle_secure_pick(call):
     bot.delete_message(GROUP_ID, call.message.message_id)
     
     bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል! መልካም ዕድል!", show_alert=True)
+# 4. ወሳኙ ክፍል፦ ገና የሚቀረው ብር ካለ መልሶ ምርጫውን ያሳየዋል
+    if data["users"][uid]["wallet"] >= board["price"]:
+        # አሁንም ብር ስላለው ቁጥሮቹን መልሶ ይዘረግፋል
+        markup = types.InlineKeyboardMarkup(row_width=5)
+        btns = []
+        for i in range(1, board["max"] + 1):
+            n_str = str(i)
+            if n_str not in board["slots"]:
+                btns.append(types.InlineKeyboardButton(n_str, callback_data=f"p_{uid}_{bid}_{n_str}"))
+            else:
+                btns.append(types.InlineKeyboardButton("❌", callback_data="taken"))
+        markup.add(*btns)
+        
+        new_text = (f"♻️ <b>ተጨማሪ ቁጥር ይምረጡ!</b>\n"
+                    f"👤 <b>ተጫዋች፦</b> <b><i><code>{user['name']}</code></i></b>\n"
+                    f"💰 <b>ቀሪ ሂሳብ፦</b> <b>{data['users'][uid]['wallet']} ብር</b>\n\n"
+                    f"🎰 🎰 <b>ሰሌዳ {bid} - ሌላ ቁጥር ይምረጡ፦</b>")
+        
+        # የነበረውን መልዕክት በለውጥ (Edit) ያድሰዋል
+        bot.edit_message_text(new_text, GROUP_ID, call.message.message_id, reply_markup=markup)
+    else:
+        # ብሩ ካለቀ መልዕክቱን ያጠፋዋል
+        bot.delete_message(GROUP_ID, call.message.message_id)
+        bot.send_message(GROUP_ID, f"🎉 <b>{user['name']}</b> ቁጥር መርጠው ጨርሰዋል። መልካም ዕድል!")
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_cash")
 def start_cash_reg(call):
