@@ -220,21 +220,34 @@ def admin_panel(message):
                types.InlineKeyboardButton("🔄 ሰሌዳ አጽዳ (Reset)", callback_data="admin_reset"))
     bot.send_message(message.chat.id, f"🛠 <b>የአድሚን ዳሽቦርድ</b>\n\n{stats}", reply_markup=markup)
 
-@bot.message_handler(content_types=['photo', 'text'])
+@bot.message_handler(content_types=['photo'])
 def handle_receipts(message):
     if message.chat.type != 'private': return 
     uid = str(message.chat.id)
+    
+    # ዋና ሜኑ አዝራሮች ከሆኑ ወደ ሌላ አትለፍ
     if message.text in ["🎮 ሰሌዳ ምረጥ", "👤 ፕሮፋይል", "⚙️ Admin Settings", "🎫 የያዝኳቸው ቁጥሮች"]: return
-    bot.send_message(uid, "⏳ <b>ደረሰኝዎ ደርሶኛል...</b>\nእባክዎ እስኪረጋገጥ ይጠብቁ። 🙏")
+    
+    # ገና ደረሰኝ ሲልክ ስሙን በራስ-ሰር መመዝገብ (ካሌለ)
+    user = get_user(uid, message.from_user.first_name)
+    if user['name'] == "ደንበኛ": 
+        user['name'] = message.from_user.first_name[:5] # የመጀመሪያ 5 ፊደል
+        save_data()
+
+    bot.send_message(uid, "⏳ <b>ደረሰኝዎ ደርሶኛል...</b>\nእባክዎ በአድሚን እስኪረጋገጥ ይጠብቁ። 🙏")
+    
     markup = types.InlineKeyboardMarkup()
     markup.row(types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"approve_{uid}"),
                types.InlineKeyboardButton("❌ ውድቅ", callback_data=f"decline_{uid}"))
+    
     cap = f"📩 <b>አዲስ ደረሰኝ</b>\n👤 <b>ከ፦</b> {message.from_user.first_name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
+    
     for adm in ADMIN_IDS:
         try:
             if message.photo: bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup)
             else: bot.send_message(adm, f"{cap}\n📝 <b>ዝርዝር፦</b>\n<code>{message.text}</code>", reply_markup=markup)
         except: pass
+
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
