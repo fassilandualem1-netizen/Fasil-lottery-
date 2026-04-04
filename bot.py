@@ -385,6 +385,27 @@ def callback_listener(call):
         data["boards"][bid]["slots"] = {}; data["pinned_msgs"][bid] = None
         save_data(); bot.answer_callback_query(call.id, "ሰሌዳው ጸድቷል!"); update_group_board(bid)
 
+def send_picker_to_group(message, target_id, receipt_mid):
+    try:
+        amt = int(message.text)
+        user_info = bot.get_chat(target_id)
+        user_name = user_info.first_name
+        
+        # ብሩን ዳታቤዝ ላይ መመዝገብ
+        user = get_user(target_id, user_name)
+        data["users"][str(target_id)]["wallet"] += amt
+        save_data()
+
+        # ግሩፕ ላይ ለደረሰኙ Reply አድርጎ በተኑን ይልካል
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🎰 ቁጥር ለመምረጥ እዚህ ይጫኑ", callback_data=f"u_pick_{target_id}"))
+        
+        text = f"✅ <b>ለ {user_name} ክፍያዎ ተረጋግጧል!</b>\n💰 መጠን፦ <b>{amt} ብር</b>\n⚠️ በተኑ የሚሰራው ለእርስዎ ብቻ ነው።"
+        bot.send_message(GROUP_ID, text, reply_to_message_id=receipt_mid, reply_markup=markup)
+        bot.send_message(message.chat.id, "✅ በተኑ ወደ ግሩፕ ተልኳል።")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ ስህተት! ቁጥር ብቻ ያስገቡ። {e}")
+
 def finalize_app(message, target):
     try:
         amt = int(message.text)
