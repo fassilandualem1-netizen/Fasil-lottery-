@@ -145,46 +145,22 @@ def update_group_board(b_id):
     
     text += f"\n🤖 <b>ለመጫወት እዚህ ይጫኑ፦</b> @{bot.get_me().username}"
 
-    # ግሩፕ ላይ መልዕክቱን ማስተካከል (Edit)
+        # --- ግሩፕ ላይ መልዕክቱን ማስተካከል (Edit) ---
     try:
-        if b_id in data["pinned_msgs"] and data["pinned_msgs"][b_id]:
-            bot.edit_message_text(text, GROUP_ID, data["pinned_msgs"][b_id])
-            except:
-        m = bot.send_message(GROUP_ID, text)
-        if "pinned_msgs" not in data: data["pinned_msgs"] = {}
-        data["pinned_msgs"][b_id] = m.message_id
-        save_data()
-
-    # --- ግሩፕ ላይ መልዕክቱን ማስተካከል (Edit) ---
-    try:
-        # በ pinned_msgs ውስጥ መረጃ መኖሩን ማረጋገጥ
         msg_id = data.get("pinned_msgs", {}).get(b_id)
-        
         if msg_id:
-            # ካለ ኤዲት ያደርጋል (HTML parse mode እንዳይረሳ!)
-            bot.edit_message_text(
-                text=text,
-                chat_id=GROUP_ID,
-                message_id=msg_id,
-                parse_mode="HTML"
-            )
+            bot.edit_message_text(text, GROUP_ID, msg_id, parse_mode="HTML")
         else:
-            # ከሌለ አዲስ ይልካል
             m = bot.send_message(GROUP_ID, text, parse_mode="HTML")
             if "pinned_msgs" not in data: data["pinned_msgs"] = {}
             data["pinned_msgs"][b_id] = m.message_id
             save_data()
-
-         except Exception as e:
-        # ስህተት ቢፈጠር (ለምሳሌ መልዕክቱ ከተሰረዘ) አዲስ ይልካል
+    except Exception as e:
         print(f"Error: {e}")
         m = bot.send_message(GROUP_ID, text, parse_mode="HTML")
         if "pinned_msgs" not in data: data["pinned_msgs"] = {}
         data["pinned_msgs"][b_id] = m.message_id
         save_data()
-
-
-
          
 # --- 5. ዋና ዋና ትዕዛዞች ---
 @bot.message_handler(commands=['start'])
