@@ -175,7 +175,7 @@ def update_group_board(b_id):
             data["pinned_msgs"][b_id] = m.message_id
             save_data()
 
-    except Exception as e:
+         except Exception as e:
         # ስህተት ቢፈጠር (ለምሳሌ መልዕክቱ ከተሰረዘ) አዲስ ይልካል
         print(f"Error: {e}")
         m = bot.send_message(GROUP_ID, text, parse_mode="HTML")
