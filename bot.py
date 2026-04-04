@@ -263,6 +263,51 @@ def handle_receipts(message):
             else: bot.send_message(adm, f"{cap}\n📝 <b>ዝርዝር፦</b>\n<code>{message.text}</code>", reply_markup=markup)
         except: pass
 
+# --- አድሚን በካሽ ሲመዘግብ ---
+@bot.callback_query_handler(func=lambda call: call.data == "admin_manage" and call.from_user.id in ADMIN_IDS)
+def admin_manage_menu(call):
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("💵 በካሽ መዝግብ", callback_data="admin_cash"),
+        types.InlineKeyboardButton("❌ ቁጥር ሰርዝ", callback_data="admin_delete"),
+        types.InlineKeyboardButton("🔄 ሰሌዳዎችን አስተካክል", callback_data="manage_boards") # የድሮው admin_manage
+    )
+    bot.edit_message_text("🛠 <b>የአድሚን ስራዎችን ይምረጡ፦</b>", call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_cash")
+def start_cash_reg(call):
+    m = bot.send_message(call.from_user.id, "📝 <b>በካሽ ለመመዝገብ፦</b>\nሰሌዳ-ቁጥር ስም ይጻፉ\n\nምሳሌ፦ <code>1-05 አበበ</code>")
+    bot.register_next_step_handler(m, process_cash_reg)
+
+def process_cash_reg(message):
+    try:
+        parts = message.text.split(' ', 1)
+        bid, num = parts.split('-')
+        name = parts
+        if bid in data["boards"]:
+            data["boards"][bid]["slots"][num] = name[:15]
+            save_data()
+            update_group_board(bid) # 👈 እዚህ ጋር ነው ዲዛይኑን ግሩፕ ላይ የሚያድሰው
+            bot.send_message(message.chat.id, f"✅ ሰሌዳ {bid} ቁጥር {num} ለ {name} ተመዝግቧል!")
+        else: bot.send_message(message.chat.id, "❌ ሰሌዳው አልተገኘም!")
+    except: bot.send_message(message.chat.id, "❌ ስህተት! (አጻጻፍ፦ 1-05 አበበ)")
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_delete")
+def start_admin_delete(call):
+    m = bot.send_message(call.from_user.id, "🗑 <b>ቁጥር ለመሰረዝ፦</b>\nሰሌዳ-ቁጥር ይጻፉ\n\nምሳሌ፦ <code>1-05</code>")
+    bot.register_next_step_handler(m, process_admin_delete)
+
+def process_admin_delete(message):
+    try:
+        bid, num = message.text.split('-')
+        if bid in data["boards"] and num in data["boards"][bid]["slots"]:
+            del data["boards"][bid]["slots"][num]
+            save_data()
+            update_group_board(bid) # 👈 እዚህ ጋር ነው ዲዛይኑን ግሩፕ ላይ የሚያድሰው
+            bot.send_message(message.chat.id, f"🗑 ሰሌዳ {bid} ቁጥር {num} ተሰርዟል!")
+    except: bot.send_message(message.chat.id, "❌ ስህተት! (አጻጻፍ፦ 1-05)")
+
+
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
     is_admin = call.from_user.id in ADMIN_IDS
