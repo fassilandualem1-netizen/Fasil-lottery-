@@ -117,16 +117,19 @@ def update_group_board(b_id):
     text += "<b>USE IT OR LOSE IT</b>\n"
     text += "━━━━━━━━━━━━━━━━━━━━━\n"
 
-    # 🎫 የቁጥሮች ዝርዝር (በሙሉ ብቻ)
-    for i in range(1, board["max"] + 1):
+        # 🎫 የቁጥሮች ዝርዝር (በአንድ ረድፍ ወደ ታች)
+    board_slots = board["slots"]
+    max_num = board["max"]
+    
+    text += "━━━━━━━━━━━━━━━━━━━━━\n"
+    for i in range(1, max_num + 1):
         num_str = str(i)
-        if num_str in board["slots"]:
-            # ተጫዋቹ ስም ሲኖረው
-            text += f"<b>{i}👉</b> {board['slots'][num_str]} ✅🏆🙏\n"
+        if num_str in board_slots:
+            # ቁጥሩ ሲያዝ (ስሙን እና ምልክቶችን ያሳያል)
+            text += f"<b>{i}👉</b> {board_slots[num_str]} ✅🏆🙏\n"
         else:
             # ቁጥሩ ክፍት ሲሆን
             text += f"<b>{i}👉</b> @@@@ ✅🏆🙏\n"
-    
     text += "━━━━━━━━━━━━━━━━━━━━━\n"
     text += "🏟️ <b>ፋሲል እና ዳመነ ዲጂታል ዕጣ!</b> 🏟️\n"
     text += "<b>ስልክ ደውሎ ለማግኘት ከፈለጉ፦</b>\n"
