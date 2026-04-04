@@ -245,20 +245,22 @@ def admin_panel(message):
                types.InlineKeyboardButton("🔄 ሰሌዳ አጽዳ (Reset)", callback_data="admin_reset"))
     bot.send_message(message.chat.id, f"🛠 <b>የአድሚን ዳሽቦርድ</b>\n\n{stats}", reply_markup=markup)
 
-@bot.message_handler(content_types=['photo', 'text'])
-def handle_receipts(message):
-    if message.chat.type != 'private': return 
-    uid = str(message.chat.id)
-    if message.text in ["🎮 ሰሌዳ ምረጥ", "👤 ፕሮፋይል", "⚙️ Admin Settings", "🎫 የያዝኳቸው ቁጥሮች"]: return
-    bot.send_message(uid, "⏳ <b>ደረሰኝዎ ደርሶኛል...</b>\nእባክዎ እስኪረጋገጥ ይጠብቁ። 🙏")
+# --- አዲሱ የግሩፕ ደረሰኝ መቀበያ (ከመስመር 175 በታች የሚገባ) ---
+@bot.message_handler(content_types=['photo'], func=lambda m: m.chat.id == GROUP_ID)
+def handle_group_receipt(message):
+    uid = str(message.from_user.id)
+    name = message.from_user.first_name
+    mid = message.message_id # የደረሰኙ መለያ
+
+    # ለአድሚኑ ማሳወቂያ ይላካል
     markup = types.InlineKeyboardMarkup()
-    markup.row(types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"approve_{uid}"),
-               types.InlineKeyboardButton("❌ ውድቅ", callback_data=f"decline_{uid}"))
-    cap = f"📩 <b>አዲስ ደረሰኝ</b>\n👤 <b>ከ፦</b> {message.from_user.first_name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
+    # የደረሰኙን መልዕክት ID (mid) ለይተን እንይዛለን
+    markup.add(types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_{mid}"))
+    
+    cap = f"📩 <b>አዲስ ደረሰኝ ከግሩፕ</b>\n👤 <b>ከ፦</b> {name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
     for adm in ADMIN_IDS:
         try:
-            if message.photo: bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup)
-            else: bot.send_message(adm, f"{cap}\n📝 <b>ዝርዝር፦</b>\n<code>{message.text}</code>", reply_markup=markup)
+            bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup)
         except: pass
 
 # ይህ ክፍል "ሰሌዳ አስተካክል" ሲነካ መልስ እንዲሰጥ ያደርጋል
