@@ -84,20 +84,40 @@ def get_user(uid, name="ደንበኛ"):
 # --- 4. የሰሌዳ ዲዛይን (Group Table) ---
 def update_group_board(b_id):
     board = data["boards"][b_id]
-    text = f"🎰 <b>ፋሲል ዕጣ - ሰሌዳ {b_id}</b>\n🎫 መደብ፦ <b>{board['price']} ብር</b>\n━━━━━━━━━━━━━\n"
-    items = []
+    
+    # ራስጌ (Header)
+    text = "🇪🇹 🏟️ ፋሲል እና ዳመነ ዲጂታል ዕጣ! 🏟️ 🇪🇹\n"
+    text += f"              በ {board['price']} ብር\n"
+    text += "             👇👇👇👇👇\n"
+    
+    # ሽልማት (Prizes) - ከዳታቤዝ ሽልማቱን ነጥሎ ያወጣዋል
+    prizes = board['prize'].split(',')
+    labels = ["1ኛ🟢", "2ኛ🟡", "3ኛ🔴"]
+    for i, p in enumerate(prizes):
+        if i < 3: text += f"             {labels[i]} {p.strip()}\n"
+
+    text += "\n☎️ ለውድ ቤተሰቦቻችን መልካም እድል! 🏆\n"
+    text += "━━━━━━━━━━━━━━━━━━━━━\n"
+
+    # የቁጥሮች ዝርዝር
     for i in range(1, board["max"] + 1):
-        s_i = str(i).zfill(2)
-        if str(i) in board["slots"]:
-            items.append(f"<code>{s_i}</code>✅{board['slots'][str(i)][:4]}")
+        num_str = str(i)
+        if num_str in board["slots"]:
+            # ቁጥሩ ከተያዘ ስሙንና ምልክቱን ያሳያል
+            user_name = board["slots"][num_str]
+            text += f"{i}👉 {user_name} ✅🏆🙏\n"
         else:
-            items.append(f"<code>{s_i}</code>⬜️")
+            # ቁጥሩ ካልተያዘ ባዶ መሆኑን ያሳያል
+            text += f"{i}👉 @@@@ ⬜️\n"
     
-    rows = [items[i:i + 3] for i in range(0, len(items), 3)]
-    for row in rows: text += "  ".join(row) + "\n"
-    
-    text += f"━━━━━━━━━━━━━\n🎁 <b>ሽልማት፦ {board['prize']}</b>"
-    
+    text += "━━━━━━━━━━━━━━━━━━━━━\n"
+    text += "🏟️ ፋሲል እና ዳመነ ዲጂታል ዕጣ! 🏟️\n"
+    text += "📞 ስልክ፦ 0973416038\n\n"
+    text += "🏦 ገቢ ማስገቢያ አማራጮች፦\n"
+    text += "👉 Telebirr: 0951381356 (Fassil)\n"
+    text += "👉 CBE: 1000584461757 (Fassil)\n"
+    text += "👉 CBE: 1000718691323 (Damene)"
+
     try:
         if data["pinned_msgs"].get(b_id):
             bot.edit_message_text(text, GROUP_ID, data["pinned_msgs"][b_id])
