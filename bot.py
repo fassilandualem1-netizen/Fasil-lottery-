@@ -285,13 +285,32 @@ def callback_listener(call):
 
 def finalize_app(message, target):
     try:
+        if not message.text.isdigit():
+            bot.send_message(message.chat.id, "⚠️ እባክዎ ቁጥር ብቻ ያስገቡ (ለምሳሌ፦ 100)")
+            return
+            
         amt = int(message.text)
-        data["users"][str(target)]["wallet"] += amt
+        uid = str(target)
+        
+        if uid not in data["users"]:
+            get_user(uid) # ተጠቃሚው ዳታቤዝ ውስጥ ከሌለ ይፈጥረዋል
+            
+        data["users"][uid]["wallet"] += amt
         save_data()
-        bot.send_message(target, f"✅ <b>{amt} ብር ተጨምሯል!</b>")
-        m = bot.send_message(target, "አሁን በሰሌዳ ላይ የሚወጣውን ስምዎን (እስከ 5 ፊደል) ይጻፉ፦")
-        bot.register_next_step_handler(m, save_name, target)
-    except: bot.send_message(message.chat.id, "⚠️ ስህተት! ቁጥር ብቻ ይጻፉ።")
+        
+        # ለተጠቃሚው ማሳወቅ
+        bot.send_message(uid, f"✅ <b>{amt} ብር ተጨምሯል!</b>\nአሁኑኑ መጫወት ይችላሉ።")
+        
+        # ለአድሚኑ ማረጋገጫ
+        bot.send_message(message.chat.id, f"✅ ለ ID {uid} {amt} ብር ተጨምሯል።")
+        
+        # ግሩፕ ላይ ማስታወቂያ (Social Proof)
+        user_name = data["users"][uid]["name"]
+        bot.send_message(GROUP_ID, f"🔔 <b>የክፍያ ማረጋገጫ</b>\n👤 ተጠቃሚ፦ {user_name}\n💰 መጠን፦ {amt} ብር\n✅ ሂሳብዎ በትክክል ገብቷል! መልካም እድል! 🍀")
+        
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ ስህተት ተፈጥሯል፦ {str(e)}")
+
 
 def save_name(message, uid):
     data["users"][str(uid)]["name"] = message.text[:5]
