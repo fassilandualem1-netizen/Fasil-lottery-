@@ -244,31 +244,26 @@ def handle_group_receipts(message):
 def callback_listener(call):
     is_admin = call.from_user.id in ADMIN_IDS
     
-    # --- 1. ከግሩፕ የመጣ ክፍያ ማጽደቂያ ---
+    # 1. ከግሩፕ የመጣን ክፍያ በግል ማጽደቂያ (ga_)
     if call.data.startswith('ga_') and is_admin:
-        target = call.data.split('_') # እዚህ ጋር መኖር አለበት
-        m = bot.send_message(call.from_user.id, f"💵 ለ ID {target} የሚጨመረውን ብር ይጻፉ፦")
-        bot.register_next_step_handler(m, finalize_group_app, target)
+        target_id = call.data.split('_') # እዚህ ጋር መኖሩን እርግጠኛ ሁን
+        m = bot.send_message(call.from_user.id, f"💵 ለ ID {target_id} የሚጨመረውን ብር ይጻፉ፦")
+        bot.register_next_step_handler(m, finalize_group_app, target_id)
         return
 
-    # --- 2. የድሮው ማጽደቂያ (Private) ---
+    # 2. ከቦቱ (Private) የመጣን ክፍያ ማጽደቂያ (approve_)
     if call.data.startswith('approve_') and is_admin:
-        target = call.data.split('_')
-        m = bot.send_message(call.from_user.id, f"💵 ለ ID {target} የሚጨመረውን ብር ይጻፉ፦")
-        bot.register_next_step_handler(m, finalize_app, target)
-    elif call.data.startswith('decline_') and is_admin:
-        target = call.data.split('_')
-        m = bot.send_message(call.from_user.id, "❌ ውድቅ የተደረገበትን ምክንያት ይጻፉ፦")
-        bot.register_next_step_handler(m, finalize_dec, target)
-    elif call.data.startswith('select_'): 
-        handle_selection(call)
+        target_id = call.data.split('_') # እዚህም ጋር መኖር አለበት
+        m = bot.send_message(call.from_user.id, f"💵 ለ ID {target_id} የሚጨመረውን ብር ይጻፉ፦")
+        bot.register_next_step_handler(m, finalize_app, target_id)
+        return
+    
+    # የተቀሩት (select, pick, etc...) እንደነበሩ ይቀጥሉ
+    elif call.data.startswith('select_'): handle_selection(call)
     elif call.data.startswith('pick_'):
         _, bid, num = call.data.split('_')
         finalize_reg_inline(call, bid, num)
-    elif call.data == "admin_manage" and is_admin: 
-        manage_menu(call)
-    elif call.data.startswith('toggle_') and is_admin:
-        bid = call.data.split('_') # እዚህ ጋር መኖር አለበት
+
         data["boards"][bid]["active"] = not data["boards"][bid]["active"]
         save_data(); edit_board(call)
     elif call.data.startswith('doreset_') and is_admin:
@@ -278,13 +273,21 @@ def callback_listener(call):
 
 def finalize_app(message, target):
     try:
+        # target የሚመጣው እንደ String መሆኑን ለማረጋገጥ
+        target_id = str(target) 
         amt = int(message.text)
-        data["users"][str(target)]["wallet"] += amt
+        
+        if target_id not in data["users"]:
+            get_user(target_id) # ተጠቃሚው ከሌለ እንዲፈጠር
+            
+        data["users"][target_id]["wallet"] += amt
         save_data()
-        bot.send_message(target, f"✅ <b>{amt} ብር ተጨምሯል!</b>")
-        m = bot.send_message(target, "አሁን በሰሌዳ ላይ የሚወጣውን ስምዎን (እስከ 5 ፊደል) ይጻፉ፦")
-        bot.register_next_step_handler(m, save_name, target)
-    except: bot.send_message(message.chat.id, "⚠️ ስህተት! ቁጥር ብቻ ይጻፉ።")
+        
+        bot.send_message(target_id, f"✅ <b>{amt} ብር ተፈቅዷል!</b>")
+        bot.send_message(message.chat.id, "✅ በተሳካ ሁኔታ ተሞልቷል።")
+    except Exception as e:
+        bot.send_message(message.chat.id, "⚠️ ስህተት! ቁጥር ብቻ ይጻፉ።")
+
 
 def save_name(message, uid):
     data["users"][str(uid)]["name"] = message.text[:5]
@@ -365,14 +368,15 @@ def update_board_value(message, bid, action):
 def finalize_group_app(message, target_id):
     try:
         amount = int(message.text)
+        target_id = str(target_id)
         user = get_user(target_id)
         user['wallet'] += amount
         save_data()
         
-        # 1. ለተጠቃሚው በግል ማሳወቅ
+        # ለተጠቃሚው ማሳወቅ
         bot.send_message(target_id, f"✅ {amount} ብር ተፈቅዷል። አሁን ግሩፕ ላይ ሄደው ካርድ ይምረጡ!")
         
-        # 2. ግሩፕ ላይ በተኑን መዘርጋት
+        # ግሩፕ ላይ በተኑን መዘርጋት
         markup = types.InlineKeyboardMarkup(row_width=1)
         for b_id, b_info in data["boards"].items():
             if b_info["active"]:
@@ -380,16 +384,16 @@ def finalize_group_app(message, target_id):
         
         sent_msg = bot.send_message(GROUP_ID, f"🔔 <a href='tg://user?id={target_id}'>የተከበረ ደንበኛ</a>\nክፍያዎ ተረጋግጧል! ካርድ ይምረጡ።", reply_markup=markup)
         
-        # 3. ከ 60 ሰከንድ በኋላ በተኑ እንዲጠፋ ማድረግ (Thread በመጠቀም)
+        # Cleanup Thread
         def auto_delete(msg_id):
             time.sleep(60)
             try: bot.delete_message(GROUP_ID, msg_id)
             except: pass
-            
         Thread(target=auto_delete, args=(sent_msg.message_id,)).start()
         
     except Exception as e:
-        bot.send_message(message.chat.id, f"⚠️ ስህተት! ቁጥር ብቻ ይጻፉ።")
+        bot.send_message(message.chat.id, "⚠️ ስህተት! ቁጥር ብቻ ይጻፉ።")
+
     
 if __name__ == "__main__":
     # ለጊዜው ይህንን ጨምር (አንድ ጊዜ Deploy ካደረግክ በኋላ መልሰህ ብታጠፋው ይሻላል)
