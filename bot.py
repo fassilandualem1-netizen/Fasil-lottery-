@@ -380,6 +380,13 @@ def update_board_value(message, bid, action):
         else: data["boards"][bid]["prize"] = message.text
         save_data(); bot.send_message(message.chat.id, "✅ ተቀይሯል!"); update_group_board(bid)
     except: bot.send_message(message.chat.id, "⚠️ ስህተት!")
+
+@bot.message_handler(commands=['update'])
+def force_update(message):
+    if message.from_user.id in ADMIN_IDS:
+        for bid in data["boards"]:
+            update_group_board(bid)
+        bot.send_message(message.chat.id, "✅ ሁሉም ሰሌዳዎች ግሩፕ ላይ ታድሰዋል!")
     
     
 if __name__ == "__main__":
