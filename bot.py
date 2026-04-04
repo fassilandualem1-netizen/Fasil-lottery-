@@ -102,53 +102,57 @@ def update_group_board(b_id):
     current_shift = data.get("current_shift", "me")
     active_pay = PAYMENTS[current_shift]
     
-    # 🎨 የሰሌዳው ራስጌ (Header)
+    # 🎨 ራስጌ (Header) - በላክኸው መሰረት
     text = "🇪🇹 🏟️ <b>ፋሲል እና ዳመነ ዲጂታል ዕጣ!</b> 🏟️ 🇪🇹\n"
-    text += f"              <b>በ {board['price']} ብር ብቻ</b>\n"
+    text += f"              <b>በ {board['price']} ብር</b>\n"
     text += "             👇👇👇👇👇\n"
     
-    # 🎁 የሽልማት ዝርዝር
     prizes = board['prize'].split(',')
     labels = ["1ኛ🟢", "2ኛ🟡", "3ኛ🔴"]
     for i, p in enumerate(prizes):
-        if i < 3: text += f"             {labels[i]} {p.strip()} ብር\n"
+        if i < 3: text += f"             {labels[i]} {p.strip()}\n"
 
-    text += "\n🏆 <b>መልካም እድል ለሁላችሁም!</b>\n"
+    text += "\n☎️⏰⏰ ለውድ 🏟️ ፋሲል እና ዳመነ ዲጂታል ዕጣ! 🏟️ ቤተሰብ\n"
+    text += "<b>መልካም ቀን🏆 መልካም ጤና🏆 መልካም እድል።</b>\n"
+    text += "<b>USE IT OR LOSE IT</b>\n"
     text += "━━━━━━━━━━━━━━━━━━━━━\n"
 
-    # 🎫 የቁጥሮች ዝርዝር (ቁጥሩ ከተያዘ ስም፣ ካልተያዘ @@@@ ያሳያል)
+    # 🎫 የቁጥሮች ዝርዝር (በሙሉ ብቻ)
     for i in range(1, board["max"] + 1):
         num_str = str(i)
         if num_str in board["slots"]:
-            # ተጫዋቹ የያዘው ቁጥር በቼክ ማርክ ይታያል
+            # ተጫዋቹ ስም ሲኖረው
             text += f"<b>{i}👉</b> {board['slots'][num_str]} ✅🏆🙏\n"
         else:
-            # ክፍት የሆኑ ቁጥሮች
-            text += f"<b>{i}👉</b> @@@@ ⬜️\n"
+            # ቁጥሩ ክፍት ሲሆን
+            text += f"<b>{i}👉</b> @@@@ ✅🏆🙏\n"
     
     text += "━━━━━━━━━━━━━━━━━━━━━\n"
     text += "🏟️ <b>ፋሲል እና ዳመነ ዲጂታል ዕጣ!</b> 🏟️\n"
-    text += "📞 ስልክ፦ 0973416038\n\n"
+    text += "<b>ስልክ ደውሎ ለማግኘት ከፈለጉ፦</b>\n"
+    text += "         👇👇👇\n"
+    text += "      👉 <code>0973416038</code>\n\n"
     
-    # 🏦 የክፍያ መረጃ (እንደ ተረኛው ይቀያየራል)
-    text += f"🏦 <b>ተረኛ ገቢ ማስገቢያ ({active_pay['name']})፦</b>\n"
-    text += f"👉 <b>Telebirr:</b> <code>{active_pay['tele']}</code>\n"
-    text += f"👉 <b>CBE:</b> <code>{active_pay['cbe']}</code>\n"
+    text += "      <b>ገቢ ማስገቢያ አማራጮች</b>\n"
+    text += "         👇👇👇👇👇\n"
+    
+    # ተረኛውን ገቢ ማስገቢያ ያሳያል
+    text += f"👉 <b>Telebirr:</b> <code>{active_pay['tele']}</code> {active_pay['name']}\n"
+    text += f"👉 <b>CBE:</b> <code>{active_pay['cbe']}</code> {active_pay['name']}\n"
+    
     text += f"\n🤖 <b>ለመጫወት እዚህ ይጫኑ፦</b> @{bot.get_me().username}"
 
-    # 📌 መልዕክቱን ግሩፕ ላይ መላክ ወይም Edit ማድረግ
+    # ግሩፕ ላይ መልዕክቱን ማስተካከል (Edit)
     try:
-        if b_id in data["pinned_msgs"]:
+        if b_id in data["pinned_msgs"] and data["pinned_msgs"][b_id]:
             bot.edit_message_text(text, GROUP_ID, data["pinned_msgs"][b_id])
         else:
             m = bot.send_message(GROUP_ID, text)
             bot.pin_chat_message(GROUP_ID, m.message_id)
             data["pinned_msgs"][b_id] = m.message_id
             save_data()
-    except Exception as e:
-        # መልዕክቱ ከተሰረዘ አዲስ ይልካል
+    except:
         m = bot.send_message(GROUP_ID, text)
-        bot.pin_chat_message(GROUP_ID, m.message_id)
         data["pinned_msgs"][b_id] = m.message_id
         save_data()
 
