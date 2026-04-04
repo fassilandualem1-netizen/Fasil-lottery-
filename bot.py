@@ -354,15 +354,25 @@ def process_admin_delete(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
     is_admin = call.from_user.id in ADMIN_IDS
-    if call.data.startswith('approve_') and is_admin:
-        target = call.data.split('_')[1]
-        m = bot.send_message(call.from_user.id, f"💵 ለ ID {target} የሚጨመረውን ብር ይጻፉ፦")
-        bot.register_next_step_handler(m, finalize_app, target)
-    elif call.data.startswith('decline_') and is_admin:
-        target = call.data.split('_')[1]
-        m = bot.send_message(call.from_user.id, "❌ ውድቅ የተደረገበትን ምክንያት ይጻፉ፦")
-        bot.register_next_step_handler(m, finalize_dec, target)
+    
+    # --- አዲሱ የማረጋገጫ ክፍል ---
+    if call.data.startswith('g_app_') and is_admin:
+        _, _, target_id, receipt_mid = call.data.split('_')
+        msg = bot.send_message(call.from_user.id, f"💰 ለ {target_id} የሚጨመረውን ብር ይጻፉ፦")
+        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid)
+    
+    elif call.data.startswith('u_pick_'):
+        allowed_id = call.data.split('_')
+        if str(call.from_user.id) != str(allowed_id):
+            bot.answer_callback_query(call.id, "❌ ይቅርታ፣ ይህ በተን ለእርስዎ አልተፈቀደም!", show_alert=True)
+            return
+        # በተኑን አንዴ ስለተጠቀመበት እናጠፋዋለን
+        bot.delete_message(GROUP_ID, call.message.message_id)
+        show_boards(call.message)
+    # -----------------------------------
+
     elif call.data.startswith('select_'): handle_selection(call)
+    # ... የቀረው ኮድህ ይቀጥላል ...
     elif call.data.startswith('pick_'):
         _, bid, num = call.data.split('_')
         finalize_reg_inline(call, bid, num)
