@@ -306,16 +306,24 @@ def start_cash_reg(call):
 
 def process_cash_reg(message):
     try:
-        parts = message.text.split(' ', 1)
-        bid, num = parts.split('-')
+        # ለምሳሌ መልዕክቱ "1-05 አበበ" ቢሆን
+        parts = message.text.split(' ', 1) # ['1-05', 'አበበ']
+        bid_num = parts.split('-')     # ['1', '05']
+        
+        bid = bid_num
+        num = bid_num
         name = parts
+
         if bid in data["boards"]:
-            data["boards"][bid]["slots"][num] = name[:15]
+            data["boards"][bid]["slots"][num] = name[:15] # ስሙን አሳጥሮ መመዝገብ
             save_data()
-            update_group_board(bid) # 👈 እዚህ ጋር ነው ዲዛይኑን ግሩፕ ላይ የሚያድሰው
+            update_group_board(bid) # ግሩፕ ላይ ዲዛይኑን ያድሳል
             bot.send_message(message.chat.id, f"✅ ሰሌዳ {bid} ቁጥር {num} ለ {name} ተመዝግቧል!")
-        else: bot.send_message(message.chat.id, "❌ ሰሌዳው አልተገኘም!")
-    except: bot.send_message(message.chat.id, "❌ ስህተት! (አጻጻፍ፦ 1-05 አበበ)")
+        else:
+            bot.send_message(message.chat.id, "❌ ሰሌዳው አልተገኘም!")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ ስህተት! አጻጻፍ፦ 1-05 አበበ")
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_delete")
 def start_admin_delete(call):
