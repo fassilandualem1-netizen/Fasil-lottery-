@@ -150,7 +150,7 @@ def handle_receipts(message):
     user = get_user(uid, message.from_user.first_name)
     # ስሙ ገና "ደንበኛ" ከሆነ በቴሌግራም ስሙ መተካት
     if user['name'] == "ደንበኛ": 
-        user['name'] = message.from_user.first_name[:5]
+        user['name'] = message.from_user.first_name[:10]
         save_data()
 
     markup = types.InlineKeyboardMarkup()
