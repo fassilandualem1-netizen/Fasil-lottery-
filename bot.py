@@ -278,23 +278,41 @@ def start_cash_reg(call):
 
 def process_cash_reg(message):
     try:
-        # መልዕክቱን በክፍተት ይከፍላል (ምሳሌ፦ "2-40 sraw")
+        # 1. መልዕክቱን በክፍተት ይከፍላል (ለምሳሌ፦ "2-40 አበበ")
+        # split(' ', 1) ማለት መጀመሪያ የምታገኘውን ክፍያ ብቻ ተጠቀም ማለት ነው
         parts = message.text.split(' ', 1) 
-        board_part = parts # "2-40"
-        name = parts       # "sraw"
         
-        # ሰሌዳውንና ቁጥሩን በሰረዝ ይከፍላል
+        if len(parts) < 2:
+            bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፉን ያስተካክሉ (ለምሳሌ፦ 1-05 አበበ)")
+            return
+
+        board_part = parts # "1-05"
+        name = parts       # "አበበ"
+        
+        # 2. ሰሌዳውንና ቁጥሩን በሰረዝ ይከፍላል
+        if '-' not in board_part:
+            bot.send_message(message.chat.id, "❌ ስህተት! በሰሌዳ እና በቁጥር መካከል ሰረዝ (-) ይጠቀሙ።")
+            return
+            
         bid, num = board_part.split('-') 
         
+        # 3. መረጃውን በዳታቤዝ ውስጥ መመዝገብ
         if bid in data["boards"]:
-            data["boards"][bid]["slots"][num] = name[:15]
+            # ቁጥሩ ቀድሞ ተይዞ እንደሆነ ቼክ ማድረግ (አማራጭ)
+            if num in data["boards"][bid]["slots"]:
+                bot.send_message(message.chat.id, f"⚠️ ቁጥር {num} ቀድሞ በ {data['boards'][bid]['slots'][num]} ተይዟል!")
+                return
+
+            data["boards"][bid]["slots"][num] = name[:15] # ስሙ እንዳይረዝም በ15 ይገደባል
             save_data()
-            update_group_board(bid)
-            bot.send_message(message.chat.id, f"✅ ሰሌዳ {bid} ቁጥር {num} ለ {name} ተመዝግቧል!")
+            update_group_board(bid) # ግሩፕ ላይ እንዲታደስ
+            bot.send_message(message.chat.id, f"✅ ሰሌዳ {bid} ቁጥር {num} ለ {name} በካሽ ተመዝግቧል!")
         else:
             bot.send_message(message.chat.id, "❌ ሰሌዳው አልተገኘም!")
-    except:
-        bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05 አበበ")
+            
+    except Exception as e:
+        print(f"Cash Reg Error: {e}")
+        bot.send_message(message.chat.id, "❌ ስህተት ተፈጥሯል። አጻጻፍ፦ 1-05 አበበ")
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_delete")
