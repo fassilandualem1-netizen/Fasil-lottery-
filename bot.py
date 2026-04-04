@@ -85,12 +85,16 @@ def get_user(uid, name="ደንበኛ"):
 def update_group_board(b_id):
     board = data["boards"][b_id]
     
+    # አሁን ያለውን ሽፍት እና ተዛማጅ የክፍያ መረጃ መሳብ
+    current_shift = data.get("current_shift", "me")
+    active_pay = PAYMENTS[current_shift]
+    
     # ራስጌ (Header)
     text = "🇪🇹 🏟️ ፋሲል እና ዳመነ ዲጂታል ዕጣ! 🏟️ 🇪🇹\n"
     text += f"              በ {board['price']} ብር\n"
     text += "             👇👇👇👇👇\n"
     
-    # ሽልማት (Prizes) - ከዳታቤዝ ሽልማቱን ነጥሎ ያወጣዋል
+    # ሽልማት (Prizes)
     prizes = board['prize'].split(',')
     labels = ["1ኛ🟢", "2ኛ🟡", "3ኛ🔴"]
     for i, p in enumerate(prizes):
@@ -103,20 +107,21 @@ def update_group_board(b_id):
     for i in range(1, board["max"] + 1):
         num_str = str(i)
         if num_str in board["slots"]:
-            # ቁጥሩ ከተያዘ ስሙንና ምልክቱን ያሳያል
             user_name = board["slots"][num_str]
             text += f"{i}👉 {user_name} ✅🏆🙏\n"
         else:
-            # ቁጥሩ ካልተያዘ ባዶ መሆኑን ያሳያል
             text += f"{i}👉 @@@@ ⬜️\n"
     
     text += "━━━━━━━━━━━━━━━━━━━━━\n"
     text += "🏟️ ፋሲል እና ዳመነ ዲጂታል ዕጣ! 🏟️\n"
     text += "📞 ስልክ፦ 0973416038\n\n"
-    text += "🏦 ገቢ ማስገቢያ አማራጮች፦\n"
-    text += "👉 Telebirr: 0951381356 (Fassil)\n"
-    text += "👉 CBE: 1000584461757 (Fassil)\n"
-    text += "👉 CBE: 1000718691323 (Damene)"
+    
+    # በሽፍቱ መሰረት የሚቀያየር የገቢ ማስገቢያ አማራጭ
+    text += f"🏦 <b>ተረኛ ገቢ ማስገቢያ ({current_shift})፦</b>\n"
+    text += f"👉 Telebirr: <code>{active_pay['tele']}</code>\n"
+    text += f"👉 CBE: <code>{active_pay['cbe']}</code>\n\n"
+    
+    text += "⚠️ ብር ሲያስገቡ የደረሰኝ ፎቶ መላክ አይርሱ!"
 
     try:
         if data["pinned_msgs"].get(b_id):
