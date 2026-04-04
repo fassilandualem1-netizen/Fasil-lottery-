@@ -117,13 +117,13 @@ def update_group_board(b_id):
     text += "<b>USE IT OR LOSE IT</b>\n"
     text += "━━━━━━━━━━━━━━━━━━━━━\n"
 
-        # 🎫 የቁጥሮች ዝርዝር (በመስመሮች መካከል ክፍተት ተጨምሯል)
+            # 🎫 የቁጥሮች ዝርዝር (ስሙ Bold ሆኖ እንዲታይ ተደርጓል)
     board_slots = board["slots"]
     for i in range(1, board["max"] + 1):
         n = str(i)
         if n in board_slots:
-            # መጨረሻ ላይ \n\n በመጨመር ባዶ መስመር እንፈጥራለን
-            text += f"<b>{i}👉</b> {board_slots[n]} ✅🏆🙏\n\n"
+            # {board_slots[n]} የሚለውን በ <b> ታግ አቅፈነዋል
+            text += f"<b>{i}👉</b> <b>{board_slots[n]}</b> ✅🏆🙏\n\n"
         else:
             text += f"<b>{i}👉</b> @@@@ ✅🏆🙏\n\n"
             
