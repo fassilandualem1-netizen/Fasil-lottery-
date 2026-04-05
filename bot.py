@@ -251,19 +251,24 @@ def admin_panel(message):
 @bot.message_handler(content_types=['photo'])
 def handle_photos(message):
     uid = str(message.from_user.id)
+    u_name = message.from_user.first_name if message.from_user.first_name else "User"
+    mid = message.message_id
     
-    # 1. መጀመሪያ ግሩፕ መሆኑን ቼክ ያደርጋል
     if message.chat.id == GROUP_ID:
-        mid = message.message_id
         markup = types.InlineKeyboardMarkup()
-        # ስሙን (message.from_user.first_name) እዚህ ጋር እንጨምረዋለን
-        u_name = message.from_user.first_name if message.from_user.first_name else "User"
+        # ስሙን በ 4ኛ ኢንዴክስ ላይ እናሳልፋለን
         markup.add(types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_{mid}_{u_name}"))
         
         cap = f"📩 <b>አዲስ ደረሰኝ</b>\n👤 <b>ከ፦</b> {u_name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
         for adm in ADMIN_IDS:
             bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup)
             
+    elif message.chat.type == 'private' and message.from_user.id not in ADMIN_IDS:
+        bot.reply_to(message, "⏳ ደረሰኝዎ ለባለቤቱ ተልኳል፣ እባክዎ ግሩፕ ላይ ይጠብቁ።")
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_0_{u_name}"))
+        for adm in ADMIN_IDS:
+            bot.send_photo(adm, message.photo[-1].file_id, caption=f"📩 <b>የውስጥ ደረሰኝ</b>\n👤 {u_name}", reply_markup=markup)
 
         # 2. የግል (Private) ከሆነና አድሚን ካልሆነ
     elif message.chat.type == 'private' and message.from_user.id not in ADMIN_IDS:
