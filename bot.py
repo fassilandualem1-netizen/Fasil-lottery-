@@ -292,7 +292,7 @@ def callback_listener(call):
     parts = call.data.split('_')
     
     # 1. ማጽደቂያ (Approve)
-        if call.data.startswith('g_app_') and is_admin:
+            if call.data.startswith('g_app_') and is_admin:
         parts = call.data.split('_')
         
         # እዚህ ጋር ነው ስህተቱ፤ parts ብቻ ሳይሆን ቁጥሩን (Index) መጨመር አለብህ
