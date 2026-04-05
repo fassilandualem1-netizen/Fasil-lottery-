@@ -443,6 +443,39 @@ def process_admin_delete(message):
 def callback_listener(call):
     is_admin = call.from_user.id in ADMIN_IDS
     
+    # 1. የአድሚን ተግባራት
+    if call.data == "admin_manage" and is_admin:
+        admin_manage_menu(call)
+    
+    elif call.data == "admin_cash" and is_admin:
+        m = bot.send_message(call.from_user.id, "📝 <b>በካሽ ለመመዝገብ፦</b>\nሰሌዳ-ቁጥር ስም ይጻፉ (ምሳሌ፦ 1-05 አበበ)")
+        bot.register_next_step_handler(m, process_cash_reg)
+        
+    elif call.data == "admin_delete" and is_admin:
+        m = bot.send_message(call.from_user.id, "🗑 <b>ቁጥር ለመሰረዝ፦</b>\nሰሌዳ-ቁጥር ይጻፉ (ምሳሌ፦ 1-05)")
+        bot.register_next_step_handler(m, process_admin_delete)
+
+    # 2. የደረሰኝ ማጽደቂያ (g_app_)
+    elif call.data.startswith('g_app_') and is_admin:
+        _, _, target_id, receipt_mid = call.data.split('_')
+        msg = bot.send_message(call.from_user.id, f"💰 ለ {target_id} የሚጨመረውን ብር ይጻፉ፦")
+        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid)
+
+    # 3. የሰሌዳ ምርጫዎች (ተጫዋች)
+    elif call.data.startswith('select_'): handle_selection(call)
+    elif call.data.startswith('p_'): handle_secure_pick(call)
+    elif call.data.startswith('pick_'):
+        _, bid, num = call.data.split('_')
+        finalize_reg_inline(call, bid, num)
+    
+    # 4. ሰሌዳ Reset እና ማስተካከያ
+    elif call.data == "admin_reset" and is_admin: reset_menu(call)
+    elif call.data.startswith('doreset_') and is_admin:
+        bid = call.data.split('_')
+        data["boards"][bid]["slots"] = {}
+        save_data(); update_group_board(bid)
+        bot.answer_callback_query(call.id, "✅ ሰሌዳው ጸድቷል!")
+    
     # --- አዲሱ የማረጋገጫ ክፍል ---
     if call.data.startswith('g_app_') and is_admin:
         _, _, target_id, receipt_mid = call.data.split('_')
