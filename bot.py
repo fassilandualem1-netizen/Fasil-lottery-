@@ -488,26 +488,20 @@ def callback_listener(call):
         data["boards"][bid]["slots"] = {}; data["pinned_msgs"][bid] = None
         save_data(); bot.answer_callback_query(call.id, "ሰሌዳው ጸድቷል!"); update_group_board(bid)
 
-def send_picker_to_group(message, target_id, receipt_mid):
+def send_picker_to_group(message, target_id, receipt_mid, user_name):
     try:
         amt = int(message.text)
-        # 1. የተጫዋቹን መረጃ ከቴሌግራም ሰርቨር ላይ በትክክል መሳብ
-        user_info = bot.get_chat(target_id)
-        
-        # ስሙ ካለው ስሙን፣ ካልሆነ ደግሞ "ተጫዋች" እንዲል
-        raw_name = user_info.first_name if user_info.first_name else "ተጫዋች"
-        # ስሙን Bold እና Italic አድርገን ለሰሌዳው እናዘጋጃለን (እስከ 5 ፊደል)
-        clean_name = raw_name[:5] 
+        clean_name = user_name[:5] # ስሙን እዚህ ጋር በቀጥታ እንጠቀማለን
 
-        # 2. ዳታቤዝ ላይ ስሙን "ደንበኛ" በሚለው ፋንታ በቴሌግራም ስሙ መተካት
+        # ዳታቤዝ ላይ መመዝገብ
         if str(target_id) not in data["users"]:
             data["users"][str(target_id)] = {"name": clean_name, "wallet": 0}
-        else:
-            # የቆየ ስም ካለውም በቅርብ ስሙ እንዲታደስ
-            data["users"][str(target_id)]["name"] = clean_name
-            
+        
         data["users"][str(target_id)]["wallet"] += amt
+        data["users"][str(target_id)]["name"] = clean_name
         save_data()
+
+        # ... የሰሌዳ መክፈቻ ኮድ ... (ምንም አይነት bot.get_chat መጠቀም አያስፈልግም)
 
         # 3. ክፍት ሰሌዳ መምረጥ
         active_board = None
