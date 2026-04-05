@@ -468,58 +468,45 @@ def callback_listener(call):
 
 def send_picker_to_group(message, target_id, receipt_mid):
     try:
-        amt = int(message.text)
-        # 1. የተጫዋቹን መረጃ ከቴሌግራም ሰርቨር ላይ በትክክል መሳብ
+        amt = int(message.text) # አድሚኑ ያስገባው የብር መጠን
         user_info = bot.get_chat(target_id)
         
-        # ስሙ ካለው ስሙን፣ ካልሆነ ደግሞ "ተጫዋች" እንዲል
         raw_name = user_info.first_name if user_info.first_name else "ተጫዋች"
-        # ስሙን Bold እና Italic አድርገን ለሰሌዳው እናዘጋጃለን (እስከ 5 ፊደል)
-        clean_name = raw_name[:5] 
+        clean_name = raw_name[:10] 
 
-        # 2. ዳታቤዝ ላይ ስሙን "ደንበኛ" በሚለው ፋንታ በቴሌግራም ስሙ መተካት
         if str(target_id) not in data["users"]:
             data["users"][str(target_id)] = {"name": clean_name, "wallet": 0}
         else:
-            # የቆየ ስም ካለውም በቅርብ ስሙ እንዲታደስ
             data["users"][str(target_id)]["name"] = clean_name
             
         data["users"][str(target_id)]["wallet"] += amt
         save_data()
 
-        # 3. ክፍት ሰሌዳ መምረጥ
-        active_board = None
+        # ተስማሚ ሰሌዳ መምረጥ
+        active_board = "1"
         for b_id, b_info in data["boards"].items():
-            if b_info["active"] and b_info["price"] <= amt:
+            if b_info["active"] and b_info["price"] <= data["users"][str(target_id)]["wallet"]:
                 active_board = b_id
-                break
         
-        if not active_board:
-            bot.send_message(message.chat.id, "❌ ክፍት ሰሌዳ የለም!")
-            return
-
         board = data["boards"][active_board]
-        markup = types.InlineKeyboardMarkup(row_width=5)
-        btns = []
-        for i in range(1, board["max"] + 1):
-            n_str = str(i)
-            if n_str not in board["slots"]:
-                btns.append(types.InlineKeyboardButton(n_str, callback_data=f"p_{target_id}_{active_board}_{n_str}"))
-            else:
-                btns.append(types.InlineKeyboardButton("❌", callback_data="taken"))
-        markup.add(*btns)
+        # ስንት ቁጥር መያዝ እንደሚችል ማስላት
+        can_pick = data["users"][str(target_id)]["wallet"] // board["price"]
+
+        markup = generate_picker_markup(target_id, active_board)
         
-        # 4. ግልጽ የሆነ Bold እና Italic ስም በመልዕክቱ ላይ
         text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
                 f"👤 <b>ተጫዋች፦</b> <b><i><code>{clean_name}</code></i></b>\n"
-                f"💰 <b>ቀሪ ሂሳብ፦</b> <b>{data['users'][str(target_id)]['wallet']} ብር</b>\n\n"
-                f"🎰 <b>ሰሌዳ {active_board} - ቁጥርዎን ይምረጡ፦</b>")
+                f"💰 <b>ጠቅላላ ሂሳብ፦</b> <b>{data['users'][str(target_id)]['wallet']} ብር</b>\n"
+                f"🎫 <b>መያዝ የሚችሉት፦</b> <b>{can_pick} ቁጥሮች</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                f"🎰 <b>ሰሌዳ {active_board} - እባክዎ ቁጥርዎን ይምረጡ፦</b>")
         
         bot.send_message(GROUP_ID, text, reply_to_message_id=receipt_mid, reply_markup=markup)
-        bot.send_message(message.chat.id, f"✅ ለ {clean_name} ሰሌዳ {active_board} ተዘርግቷል።")
+        bot.send_message(message.chat.id, f"✅ ለ {clean_name} {can_pick} ቁጥር ምርጫ ተዘርግቷል።")
         
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ ስህተት! {e}")
+
 
 
 def finalize_app(message, target):
