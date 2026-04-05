@@ -285,55 +285,29 @@ def handle_group_receipts(message):
 @bot.callback_query_handler(func=lambda call: True)
 def master_callback_listener(call):
     is_admin = call.from_user.id in ADMIN_IDS
-    data_split = call.data.split('_')
-    cmd = data_split
-
-        # ✅ ማጽደቂያ (Approve) ክፍል
-    if call.data.startswith('g_app_') and is_admin:
-        parts = call.data.split('_')
-        
-        # ዳታውን ከዝርዝሩ (parts) ውስጥ ነጥሎ ማውጣት
-        target_id = parts     # የተጫዋቹ ID
-        receipt_mid = parts   # የደረሰኙ Message ID
-        user_name = parts if len(parts) > 4 else "ተጫዋች"
-
-        # ለባለቤቱ መልዕክት መላክ
-        msg = bot.send_message(call.message.chat.id, f"💰 ለ <b>{user_name}</b> የሚጨመረውን ብር ይጻፉ፦")
-        
-        # መረጃዎቹን ለሚቀጥለው ፈንክሽን ማስተላለፍ
-        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid, user_name)
-
-    # ❌ ውድቅ ማድረጊያ
-    elif call.data.startswith('g_rej_') and is_admin:
-        bot.send_message(data_split, "❌ ይቅርታ፣ የላኩት ደረሰኝ ተቀባይነት አላገኘም።")
-        bot.answer_callback_query(call.id, "ደረሰኙ ውድቅ ተደርጓል!")
-
-    # 🎰 ቁጥር መምረጫ (p_ID_BID_NUM)
-    elif cmd == 'p':
-        allowed_id = data_split
-        bid = data_split
-        num = data_split
-        
-        if str(call.from_user.id) != str(allowed_id):
-            bot.answer_callback_query(call.id, "⚠️ ይቅርታ! ይህ የሌላ ሰው ምርጫ ነው!", show_alert=True)
-            return
-        
-        # ምዝገባ እና ቼክ እዚህ ይገባል (አንተ ከላይ በጻፍከው handle_secure_pick Logic መሰረት)
-        process_secure_pick(call, allowed_id, bid, num)
-
-def process_secure_pick(call, uid, bid, num):
-    # ... (የነበረው ኮድ)
+    d = call.data.split('_')
     
-    if data["users"][uid]["wallet"] >= data["boards"][bid]["price"]:
-        # ገና ብር ካለው በተኑን አድስለት
-        # ... (የነበረው markup ኮድ)
-        bot.edit_message_text(new_text, GROUP_ID, call.message.message_id, reply_markup=markup)
-    else:
-        # ብር ከጨረሰ በተኑን አጥፋው
-        bot.delete_message(GROUP_ID, call.message.message_id)
-        bot.send_message(GROUP_ID, f"🎉 <b>{user['name']}</b> መርጠው ጨርሰዋል መልካም ዕድል!")
+    # 1. አጽድቅ (Approve)
+    if call.data.startswith('g_app_') and is_admin:
+        uid, mid, name = d, d, d
+        m = bot.send_message(call.message.chat.id, f"💰 ለ <b>{name}</b> የሚጨመረውን ብር ይጻፉ፦")
+        bot.register_next_step_handler(m, process_approve, uid, mid, name)
 
-    # ⚙️ አድሚን ዳሽቦርድ ማስተካከያ
+    # 2. ውድቅ አድርግ (Decline)
+    elif call.data.startswith('g_dec_') and is_admin:
+        uid, mid, name = d, d, d
+        m = bot.send_message(call.message.chat.id, f"🚫 ለ <b>{name}</b> የውድቅ ማድረጊያ ምክንያት ይጻፉ፦")
+        bot.register_next_step_handler(m, process_decline_reason, uid, mid, name)
+
+    # 3. ቁጥር መምረጫ (p_ID_BID_NUM)
+    elif call.data.startswith('p_'):
+        uid, bid, num = d, d, d
+        if str(call.from_user.id) != str(uid):
+            bot.answer_callback_query(call.id, "❌ ይህ የእርስዎ ምርጫ አይደለም!", show_alert=True)
+            return
+        finalize_p_pick(call, uid, bid, num)
+
+    # 4. አድሚን ዳሽቦርድ (የነበረው ስህተት እዚህ ጋር ነው)
     elif call.data == "admin_manage" and is_admin:
         markup = types.InlineKeyboardMarkup(row_width=2)
         markup.add(types.InlineKeyboardButton("💵 በካሽ መዝግብ", callback_data="admin_cash"),
@@ -343,31 +317,17 @@ def process_secure_pick(call, uid, bid, num):
         markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="back_to_admin"))
         bot.edit_message_text("🛠 <b>የአድሚን ስራዎችን ይምረጡ፦</b>", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
+    # 5. ሌሎች አድሚን ትዕዛዞች
     elif call.data == "admin_cash" and is_admin:
-        m = bot.send_message(call.from_user.id, "📝 <b>በካሽ መዝግብ፦</b> 1-05 አበበ")
+        m = bot.send_message(call.from_user.id, "📝 አጻጻፍ፦ 1-05 አበበ")
         bot.register_next_step_handler(m, process_cash_reg)
 
-    # ❌ ውድቅ ማድረጊያ (Decline)
-    elif call.data.startswith('g_dec_') and is_admin:
-        d = call.data.split('_')
-        uid = d
-        mid = d
-        name = d
-        
-        m = bot.send_message(call.message.chat.id, f"🚫 ለ <b>{name}</b> የውድቅ ማድረጊያ ምክንያት ይጻፉ፦\n(ምሳሌ፦ ደረሰኙ ትክክል አይደለም)")
-        # ምክንያቱን ለመቀበል ወደ process_decline_reason እንልካለን
-        bot.register_next_step_handler(m, process_decline_reason, uid, mid, name)
-
     elif call.data == "admin_delete" and is_admin:
-        m = bot.send_message(call.from_user.id, "🗑 <b>ቁጥር ሰርዝ፦</b> 1-05")
+        m = bot.send_message(call.from_user.id, "🗑 አጻጻፍ፦ 1-05")
         bot.register_next_step_handler(m, process_admin_delete)
 
-    elif call.data.startswith('edit_') and is_admin:
-        edit_board(call)
-
     elif call.data == "back_to_admin" and is_admin:
-        # ወደ ዋናው አድሚን ፔጅ ይመልሰዋል
-        admin_panel(call.message)
+        admin_panel_msg(call.message)
         bot.delete_message(call.message.chat.id, call.message.message_id)
 
 # --- 3. ለብቻው የወጣ የቁጥር መመዝገቢያ Logic ---
