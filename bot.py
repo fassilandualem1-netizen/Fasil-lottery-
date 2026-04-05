@@ -266,6 +266,24 @@ def handle_group_receipt(message):
         except: pass
 
 # ይህ ክፍል "ሰሌዳ አስተካክል" ሲነካ መልስ እንዲሰጥ ያደርጋል
+
+def generate_picker_markup(uid, bid):
+    board = data["boards"][bid]
+    markup = types.InlineKeyboardMarkup(row_width=5)
+    btns = []
+    # ከ 1 እስከ ሰሌዳው ማብቂያ (ለምሳሌ 25) ድረስ ያሉትን ቁጥሮች መፈተሽ
+    for i in range(1, board["max"] + 1):
+        n_str = str(i)
+        if n_str not in board["slots"]:
+            # ቁጥሩ ክፍት ከሆነ ምርጫውን እንዲያሳይ
+            btns.append(types.InlineKeyboardButton(n_str, callback_data=f"p_{uid}_{bid}_{n_str}"))
+        else:
+            # ቁጥሩ ተይዞ ከሆነ X እንዲያሳይ
+            btns.append(types.InlineKeyboardButton("❌", callback_data="taken"))
+    
+    markup.add(*btns)
+    return markup
+
 @bot.callback_query_handler(func=lambda call: call.data in ["admin_manage", "manage_boards"] and call.from_user.id in ADMIN_IDS)
 def admin_manage_menu(call):
     markup = types.InlineKeyboardMarkup(row_width=2)
