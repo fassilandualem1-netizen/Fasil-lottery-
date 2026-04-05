@@ -435,10 +435,17 @@ def process_admin_delete(message):
 def callback_listener(call):
     is_admin = call.from_user.id in ADMIN_IDS
     
-    # --- አዲሱ የማረጋገጫ ክፍል ---
+        # --- 1. በ callback_listener ውስጥ ያለውን ይሄን ክፍል ፈልግ ---
     if call.data.startswith('g_app_') and is_admin:
-        _, _, target_id, receipt_mid = call.data.split('_')
-        msg = bot.send_message(call.from_user.id, f"💰 ለ {target_id} የሚጨመረውን ብር ይጻፉ፦")
+        # ዳታውን በ '_' ሰረዝ መበተን
+        data_parts = call.data.split('_')
+        
+        # በትክክል ቦታቸውን መያዝ (g=0, app=1, target_id=2, receipt_mid=3)
+        target_id = data_parts
+        receipt_mid = data_parts
+        
+        # አሁን ለብቻው ቁጥሩን ብቻ ያወጣዋል
+        msg = bot.send_message(call.from_user.id, f"💰 ለ <code>{target_id}</code> የሚጨመረውን ብር ይጻፉ፦")
         bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid)
     
     elif call.data.startswith('u_pick_'):
