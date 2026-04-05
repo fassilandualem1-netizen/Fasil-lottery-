@@ -248,19 +248,19 @@ def admin_panel(message):
     bot.send_message(message.chat.id, f"🛠 <b>የአድሚን ዳሽቦርድ</b>\n\n{stats}", reply_markup=markup)
 
 # --- 1. የፎቶ መቀበያ (ከግሩፕ ብቻ) ---
-@bot.message_handler(content_types=['photo'])
-def handle_photos(message):
+@bot.message_handler(content_types=['photo'], func=lambda m: m.chat.id == GROUP_ID)
+def handle_group_receipt(message):
     uid = str(message.from_user.id)
-    # አድሚን ከሆነና በ Next Step Handler ካልመጣ በቀር እንደ ደረሰኝ አይቆጠርም
-    if message.chat.id == GROUP_ID:
-        mid = message.message_id
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_{mid}"),
-                   types.InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"g_rej_{uid}_{mid}"))
-        
-        cap = f"📩 <b>አዲስ ደረሰኝ</b>\n👤 <b>ከ፦</b> {message.from_user.first_name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
-        for adm in ADMIN_IDS:
-            bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup)
+    name = message.from_user.first_name if message.from_user.first_name else "ተጫዋች"
+    mid = message.message_id
+
+    markup = types.InlineKeyboardMarkup()
+    # እዚህ ጋር ስሙን (name) በ callback_data ውስጥ ጨምረነዋል
+    markup.add(types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_{mid}_{name}"))
+    
+    cap = f"📩 <b>አዲስ ደረሰኝ</b>\n👤 <b>ከ፦</b> {name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
+    for adm in ADMIN_IDS:
+        bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup)
     
     # በግል (Private) ለሚልኩ ተራ ተጠቃሚዎች
     elif message.chat.type == 'private' and message.from_user.id not in ADMIN_IDS:
