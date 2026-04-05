@@ -269,8 +269,8 @@ def handle_photos(message):
         bot.reply_to(message, "⏳ ደረሰኝዎ ለባለቤቱ ተልኳል፣ እባክዎ ግሩፕ ላይ ይጠብቁ።")
         # ለአድሚን መላክ
         for adm in ADMIN_IDS:
-            bot.send_photo(adm, message.photo[-1].file_id, caption=f"📩 የውስጥ ደረሰኝ ከ {message.from_user.first_name}") <code>{uid}</code>", 
-                           reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_0")))
+            bot.send_photo(adm, message.photo[-1].file_id, caption=f"📩 የውስጥ ደረሰኝ ከ {message.from_user.first_name}")
+                       reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_0")))
 
 # --- 2. ሁሉንም Callback በአንድ ላይ የሚይዝ (The Master Listener) ---
 @bot.callback_query_handler(func=lambda call: True)
