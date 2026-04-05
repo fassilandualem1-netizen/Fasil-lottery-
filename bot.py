@@ -292,12 +292,19 @@ def callback_listener(call):
     parts = call.data.split('_')
     
     # 1. ማጽደቂያ (Approve)
-    if call.data.startswith('g_app_') and is_admin:
-        target_id = parts
-        receipt_mid = parts
-        u_name = parts if len(parts) > 4 else "ተጫዋች"
-        msg = bot.send_message(call.message.chat.id, f"💰 ለ <b>{u_name}</b> የሚጨመረውን ብር ይጻፉ፦")
-        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid, u_name)
+        if call.data.startswith('g_app_') and is_admin:
+        parts = call.data.split('_')
+        
+        # እዚህ ጋር ነው ስህተቱ፤ parts ብቻ ሳይሆን ቁጥሩን (Index) መጨመር አለብህ
+        target_id = parts    # የተጫዋቹ ID ቁጥር ብቻ
+        receipt_mid = parts   # የደረሰኙ መለያ ቁጥር ብቻ
+        user_name = parts if len(parts) > 4 else "ተጫዋች" # ስሙ ብቻ
+        
+        # አሁን ቦቱ ስሙን ብቻ ይዞ ይጠይቅሃል
+        msg = bot.send_message(call.message.chat.id, f"💰 ለ <b>{user_name}</b> የሚጨመረውን ብር ይጻፉ፦")
+        
+        # መረጃዎቹን ለሚቀጥለው ፈንክሽን እናስተላልፋለን
+        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid, user_name)
 
     # 2. ቁጥር መምረጫ
     elif call.data.startswith('p_'):
