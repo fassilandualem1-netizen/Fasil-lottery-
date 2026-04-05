@@ -457,6 +457,27 @@ def process_admin_delete(message):
     except:
         bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05")
 
+def process_decline_reason(message, uid, mid, name):
+    reason = message.text
+    
+    # ለተጫዋቹ ግሩፕ ላይ መልዕክት መላክ (ለደረሰኙ Reply በማድረግ)
+    decline_text = (f"❌ <b>ደረሰኝዎ ውድቅ ሆኗል!</b>\n"
+                    f"👤 <b>ተጫዋች፦</b> {name}\n"
+                    f"📝 <b>ምክንያት፦</b> <i>{reason}</i>\n\n"
+                    f"⚠️ እባክዎ በትክክል መላክዎን ያረጋግጡ ወይም ባለቤቱን ያነጋግሩ።")
+    
+    try:
+        # mid "0" ካልሆነ Reply ያደርጋል
+        if mid != "0":
+            bot.send_message(GROUP_ID, decline_text, reply_to_message_id=int(mid))
+        else:
+            bot.send_message(uid, decline_text) # የግል ከሆነ ለራሱ ይላካል
+            
+        bot.send_message(message.chat.id, f"✅ የውድቅ ማድረጊያ መልዕክት ለ {name} ተልኳል።")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ መልዕክቱን መላክ አልተቻለም፦ {e}")
+
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_delete")
 def start_admin_delete(call):
