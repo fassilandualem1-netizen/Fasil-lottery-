@@ -156,50 +156,69 @@ def handle_photos(message):
     for adm in ADMIN_IDS:
         bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup)
 
-# --- 6. የ "Approve" Logic ማስተካከያ (Bad Request Fix) ---
+# 1. አድሚኑ 'አጽድቅ' ሲነካ
 @bot.callback_query_handler(func=lambda call: call.data.startswith('g_app_'))
-def approve_payment(call):
-    is_admin = call.from_user.id in ADMIN_IDS
-    if is_admin:
-        parts = call.data.split('_')
-        target_id = parts
-        receipt_mid = parts
-        user_name = parts if len(parts) > 4 else "ተጫዋች"
+def start_approval_process(call):
+    if call.from_user.id in ADMIN_IDS:
+        # ዳታውን በጥንቃቄ እንበታትነው
+        data_parts = call.data.split('_')
         
-        msg = bot.send_message(call.message.chat.id, f"💰 ለ <b>{user_name}</b> የሚጨመረውን ብር ይጻፉ፦")
-        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid, user_name)
+        # index 2 = uid, index 3 = mid, index 4 = name
+        uid = data_parts
+        mid = data_parts
+        u_name = data_parts if len(data_parts) > 4 else "ተጫዋች"
 
-def send_picker_to_group(message, target_id, receipt_mid, user_name):
+        # ለ Admin መልዕክት መላክ
+        prompt = bot.send_message(call.message.chat.id, f"💰 <b>ለ {u_name} የሚጨመር ብር፦</b>\n(ቁጥር ብቻ ይጻፉ)")
+        
+        # መረጃዎቹን ወደ ቀጣዩ ፈንክሽን ማስተላለፍ
+        bot.register_next_step_handler(prompt, process_admin_amount, uid, mid, u_name)
+
+# 2. አድሚኑ ብር ሲጽፍ ተቀብሎ ግሩፕ ላይ በተን የሚልክ ፈንክሽን
+def process_admin_amount(message, uid, mid, u_name):
     try:
-        amt = int(message.text)
-        user = get_user(target_id, user_name)
-        user["wallet"] += amt
+        # አድሚኑ የጻፈው ብር
+        amount = int(message.text)
+        
+        # የተጫዋቹን መረጃ ማደስ
+        user = get_user(uid, u_name)
+        user["wallet"] += amount
         save_data()
 
-        active_board = "1" 
-        board = data["boards"][active_board]
+        # ግሩፕ ላይ የሚላከው ቁጥር መምረጫ (Inline Button)
+        b_id = "1" # ወይም የፈለግከው ሰሌዳ
+        board = data["boards"][b_id]
         
         markup = types.InlineKeyboardMarkup(row_width=5)
         btns = []
         for i in range(1, board["max"] + 1):
             n = str(i)
             if n not in board["slots"]:
-                btns.append(types.InlineKeyboardButton(n, callback_data=f"p_{target_id}_{active_board}_{n}"))
+                # p_UID_BID_NUM ፎርማት
+                btns.append(types.InlineKeyboardButton(n, callback_data=f"p_{uid}_{b_id}_{n}"))
             else:
                 btns.append(types.InlineKeyboardButton("❌", callback_data="taken"))
         markup.add(*btns)
-        
-        text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n👤 <b>ተጫዋች፦</b> {user_name}\n💰 <b>ቀሪ፦</b> {user['wallet']} ብር\n\n🎰 <b>ቁጥርዎን ይምረጡ፦</b>")
-        
-        # ✅ int() በመጠቀም የ Bad Request ስህተትን እንከላከላለን
-        if receipt_mid != "0":
-            bot.send_message(GROUP_ID, text, reply_to_message_id=int(receipt_mid), reply_markup=markup)
+
+        # ግሩፕ ላይ መልዕክት መላክ (ለደረሰኙ Reply በማድረግ)
+        group_text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
+                      f"👤 <b>ተጫዋች፦</b> {u_name}\n"
+                      f"💰 <b>የተጨመረ፦</b> {amount} ብር\n"
+                      f"💵 <b>ቀሪ ሂሳብ፦</b> {user['wallet']} ብር\n\n"
+                      f"🎰 <b>እባክዎ ቁጥር ይምረጡ፦</b>")
+
+        # mid "0" ካልሆነ Reply ያደርጋል
+        if mid != "0":
+            bot.send_message(GROUP_ID, group_text, reply_to_message_id=int(mid), reply_markup=markup)
         else:
-            bot.send_message(GROUP_ID, text, reply_markup=markup)
-            
-        bot.send_message(message.chat.id, f"✅ ለ {user_name} ተዘርግቷል።")
+            bot.send_message(GROUP_ID, group_text, reply_markup=markup)
+
+        bot.send_message(message.chat.id, f"✅ ለ {u_name} {amount} ብር ተጨምሮ በተን ተልኳል።")
+
+    except ValueError:
+        bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ይጻፉ! (ሂደቱን በድጋሚ ይጀምሩ)")
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ ስህተት፦ {e}")
+        bot.send_message(message.chat.id, f"❌ ችግር ተፈጠረ፦ {e}")
 
 # --- 7. የቁጥር ምርጫ Logic ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('p_'))
