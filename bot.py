@@ -349,10 +349,16 @@ def master_callback_listener(call):
 
 # --- 3. ለብቻው የወጣ የቁጥር መመዝገቢያ Logic ---
 def process_secure_pick(call, uid, bid, num):
-    user = get_user(uid)
-    board = data["boards"][bid]
+    # ... (የነበረው ኮድ)
     
-    if user["wallet"] < board["price"]:
+    if data["users"][uid]["wallet"] >= data["boards"][bid]["price"]:
+        # ገና ብር ካለው በተኑን አድስለት
+        # ... (የነበረው markup ኮድ)
+        bot.edit_message_text(new_text, GROUP_ID, call.message.message_id, reply_markup=markup)
+    else:
+        # ብር ከጨረሰ በተኑን አጥፋው
+        bot.delete_message(GROUP_ID, call.message.message_id)
+        bot.send_message(GROUP_ID, f"🎉 <b>{user['name']}</b> መርጠው ጨርሰዋል መልካም ዕድል!")
         bot.answer_callback_query(call.id, "❌ ሂሳብዎ በቂ አይደለም!", show_alert=True)
         bot.delete_message(GROUP_ID, call.message.message_id)
         return
