@@ -347,6 +347,17 @@ def process_secure_pick(call, uid, bid, num):
         m = bot.send_message(call.from_user.id, "📝 <b>በካሽ መዝግብ፦</b> 1-05 አበበ")
         bot.register_next_step_handler(m, process_cash_reg)
 
+    # ❌ ውድቅ ማድረጊያ (Decline)
+    elif call.data.startswith('g_dec_') and is_admin:
+        d = call.data.split('_')
+        uid = d
+        mid = d
+        name = d
+        
+        m = bot.send_message(call.message.chat.id, f"🚫 ለ <b>{name}</b> የውድቅ ማድረጊያ ምክንያት ይጻፉ፦\n(ምሳሌ፦ ደረሰኙ ትክክል አይደለም)")
+        # ምክንያቱን ለመቀበል ወደ process_decline_reason እንልካለን
+        bot.register_next_step_handler(m, process_decline_reason, uid, mid, name)
+
     elif call.data == "admin_delete" and is_admin:
         m = bot.send_message(call.from_user.id, "🗑 <b>ቁጥር ሰርዝ፦</b> 1-05")
         bot.register_next_step_handler(m, process_admin_delete)
