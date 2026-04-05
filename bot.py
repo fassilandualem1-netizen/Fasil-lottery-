@@ -565,6 +565,70 @@ def handle_selection(call):
     markup.add(*btns)
     bot.edit_message_text(f"🎰 <b>ሰሌዳ {bid}</b>\n💰 ቀሪ ሂሳብ፦ {user['wallet']} ብር\n\nቁጥር ይምረጡ፦", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
+def process_approve(message, uid, mid, name):
+    try:
+        amt = int(message.text)
+        user = get_user(uid, name)
+        user["wallet"] += amt
+        save_data()
+        
+        # ለጊዜው ሰሌዳ 1ን እንዲመርጥ እናድርገው (ወይም በምርጫ ማድረግ ትችላለህ)
+        bid = "1" 
+        board = data["boards"][bid]
+        
+        markup = types.InlineKeyboardMarkup(row_width=5)
+        btns = []
+        for i in range(1, board["max"] + 1):
+            n = str(i)
+            if n not in board["slots"]:
+                btns.append(types.InlineKeyboardButton(n, callback_data=f"p_{uid}_{bid}_{n}"))
+            else:
+                btns.append(types.InlineKeyboardButton("❌", callback_data="taken"))
+        markup.add(*btns)
+        
+        text = (f"✅ <b>ክፍያ ጸድቋል!</b>\n"
+                f"👤 <b>ተጫዋች፦</b> <b><i><code>{name}</code></i></b>\n"
+                f"💰 <b>ቀሪ ሂሳብ፦</b> <b>{user['wallet']} ብር</b>\n\n"
+                f"🎰 <b>እባክዎ ቁጥር ይምረጡ፦</b>")
+        
+        # ግሩፕ ላይ ለደረሰኙ Reply አድርጎ ይልካል
+        bot.send_message(GROUP_ID, text, reply_to_message_id=int(mid), reply_markup=markup)
+        bot.send_message(message.chat.id, f"✅ ለ {name} {amt} ብር ተጨምሮ ቁጥር መምረጫ ተልኳል።")
+        
+    except:
+        bot.send_message(message.chat.id, "⚠️ ስህተት! እባክዎ ቁጥር ብቻ ይጻፉ።")
+
+def finalize_p_pick(call, uid, bid, num):
+    user = get_user(uid)
+    board = data["boards"][bid]
+    
+    if user["wallet"] < board["price"]:
+        bot.answer_callback_query(call.id, "❌ ሂሳብዎ በቂ አይደለም!", show_alert=True)
+        bot.delete_message(GROUP_ID, call.message.message_id)
+        return
+
+    # ብር መቀነስና መመዝገብ
+    user["wallet"] -= board["price"]
+    board["slots"][num] = user["name"]
+    save_data()
+    update_group_board(bid) # ዋናውን ሰሌዳ ግሩፕ ላይ ያድሳል
+    
+    bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!")
+
+    # ገና ብር ካለው በኑን አድስለት፣ ካለቀበት አጥፋው
+    if user["wallet"] >= board["price"]:
+        markup = types.InlineKeyboardMarkup(row_width=5)
+        btns = [types.InlineKeyboardButton(str(i), callback_data=f"p_{uid}_{bid}_{i}") if str(i) not in board["slots"] else types.InlineKeyboardButton("❌", callback_data="t") for i in range(1, board["max"] + 1)]
+        markup.add(*btns)
+        
+        new_text = (f"♻️ <b>ተጨማሪ ቁጥር ይምረጡ!</b>\n"
+                    f"👤 <b>ተጫዋች፦</b> <b><i><code>{user['name']}</code></i></b>\n"
+                    f"💰 <b>ቀሪ፦</b> {user['wallet']} ብር")
+        bot.edit_message_text(new_text, GROUP_ID, call.message.message_id, reply_markup=markup)
+    else:
+        bot.delete_message(GROUP_ID, call.message.message_id)
+        bot.send_message(GROUP_ID, f"🎉 <b>{user['name']}</b> መርጠው ጨርሰዋል መልካም ዕድል!")
+
 def finalize_reg_inline(call, bid, num):
     uid = str(call.message.chat.id); user = get_user(uid); board = data["boards"][bid]
     if user["wallet"] < board["price"]: bot.answer_callback_query(call.id, "⚠️ በቂ ሂሳብ የሎትም!"); return
