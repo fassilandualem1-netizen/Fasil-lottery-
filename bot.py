@@ -435,18 +435,24 @@ def process_admin_delete(message):
 def callback_listener(call):
     is_admin = call.from_user.id in ADMIN_IDS
     
-        # --- 1. በ callback_listener ውስጥ ያለውን ይሄን ክፍል ፈልግ ---
-    if call.data.startswith('g_app_') and is_admin:
-        # ዳታውን በ '_' ሰረዝ መበተን
-        data_parts = call.data.split('_')
+            if call.data.startswith('g_app_') and is_admin:
+        # 1. ዳታውን በ '_' እንበታትነዋለን
+        parts = call.data.split('_')
         
-        # በትክክል ቦታቸውን መያዝ (g=0, app=1, target_id=2, receipt_mid=3)
-        target_id = data_parts
-        receipt_mid = data_parts
+        # 2. እያንዳንዱን መረጃ ለየብቻ እናወጣለን
+        target_id = parts      # የተጫዋቹ ID (ለምሳሌ 5122026260)
+        receipt_mid = parts    # የደረሰኙ መለያ (ለምሳሌ 206)
         
-        # አሁን ለብቻው ቁጥሩን ብቻ ያወጣዋል
-        msg = bot.send_message(call.from_user.id, f"💰 ለ <code>{target_id}</code> የሚጨመረውን ብር ይጻፉ፦")
-        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid)
+        # 3. አሁን ስሙን ከደረሰኙ ላይ በቀጥታ እንውሰድ (ከላይ በነገርኩህ መሰረት ካደረግከው)
+        # አራተኛው ክፍል (index 4) ላይ ስሙ ይኖራል
+        user_name = parts if len(parts) > 4 else "ተጫዋች"
+
+        # 4. መልዕክቱን ሲልክ ['g', 'app'...] የሚለውን እንዳያመጣ እንዲህ እናደርጋለን
+        msg = bot.send_message(call.message.chat.id, f"💰 ለ <b>{user_name}</b> የሚጨመረውን ብር ይጻፉ፦")
+        
+        # 5. መረጃዎቹን ለሚቀጥለው ፈንክሽን እናስተላልፋለን
+        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid, user_name)
+
     
     elif call.data.startswith('u_pick_'):
         allowed_id = call.data.split('_')
