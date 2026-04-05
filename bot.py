@@ -477,16 +477,13 @@ def callback_listener(call):
     if call.data == "admin_manage" and is_admin:
         admin_manage_menu(call)
     
-    elif call.data == "admin_cash" and is_admin:
+        elif call.data == "admin_cash" and is_admin:
         m = bot.send_message(call.from_user.id, "📝 <b>በካሽ ለመመዝገብ፦</b>\nሰሌዳ-ቁጥር ስም ይጻፉ (ምሳሌ፦ 1-05 አበበ)")
         bot.register_next_step_handler(m, process_cash_reg)
         
-        elif call.data == "admin_delete" and is_admin:
-        # መጀመሪያ ለተጠቃሚው መመሪያ ይላካል
+    elif call.data == "admin_delete" and is_admin: # ✅ ከ 'elif' ጋር እኩል መሆን አለበት
         m = bot.send_message(call.from_user.id, "🗑 <b>ቁጥር ለመሰረዝ፦</b>\nሰሌዳ-ቁጥር ይጻፉ (ምሳሌ፦ 1-05)")
-        # ⚠️ ቀጣዩን ጽሁፍ እንዲጠብቅ ትዕዛዝ ይሰጠዋል
         bot.register_next_step_handler(m, process_admin_delete)
-
     # 2. የደረሰኝ ማጽደቂያ (g_app_)
     elif call.data.startswith('g_app_') and is_admin:
         _, _, target_id, receipt_mid = call.data.split('_')
