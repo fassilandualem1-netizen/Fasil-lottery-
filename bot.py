@@ -250,6 +250,8 @@ def admin_panel(message):
 # --- አዲሱ የግሩፕ ደረሰኝ መቀበያ (ከመስመር 175 በታች የሚገባ) ---
 @bot.message_handler(content_types=['photo'], func=lambda m: m.chat.id == GROUP_ID)
 def handle_group_receipt(message):
+    if int(message.from_user.id) in ADMIN_IDS and message.content_type == 'text':
+        return # አድሚኑ ጽሁፍ ሲልክ ቦቱ ዝም ይላል (እንደ ደረሰኝ አይቆጥረውም)
     uid = str(message.from_user.id)
     name = message.from_user.first_name
     mid = message.message_id # የደረሰኙ መለያ
