@@ -364,14 +364,18 @@ def send_picker_to_group(message, target_id, receipt_mid, user_name):
 
 def show_picker_in_group(uid, bid, reply_to):
     board = data["boards"][bid]; user = get_user(uid)
-    markup = types.InlineKeyboardMarkup(row_width=5)
-    btns = [types.InlineKeyboardButton(str(i), callback_data=f"p_{uid}_{bid}_{i}") if str(i) not in board["slots"] else types.InlineKeyboardButton("❌", callback_data="t") for i in range(1, board["max"] + 1)]
-    markup.add(*btns)
-    text = f"🎰 <b>ሰሌዳ {bid} - ቁጥር ይምረጡ</b>\n👤 <b>ተጫዋች፦</b> {user['name']}\n💰 <b>ቀሪ፦</b> {user['wallet']} ብር"
-    bot.send_message(GROUP_ID, text, reply_to_message_id=reply_to, reply_markup=markup)
-    else:
-        bot.delete_message(GROUP_ID, call.message.message_id)
-        bot.send_message(GROUP_ID, f"🎉 <b>{user['name']}</b> መርጠው ጨርሰዋል መልካም ዕድል!")
+            # የቁጥሮች መምረጫ በተኖች
+        markup = types.InlineKeyboardMarkup(row_width=5)
+        btns = [types.InlineKeyboardButton(str(i), callback_data=f"p_{uid}_{bid}_{i}") if str(i) not in board["slots"] else types.InlineKeyboardButton("❌", callback_data="t") for i in range(1, board["max"] + 1)]
+        markup.add(*btns)
+
+        text = f"🎰 <b>ሰሌዳ {bid} - ቁጥር ይምረጡ</b>\n👤 <b>ተጫዋች፦</b> {user['name']}\n💰 <b>ቀሪ፦</b> {user['wallet']} ብር"
+        
+        # ብር ካለው ለቁጥር መምረጫ በተኑን ይልካል
+        if user["wallet"] >= board["price"]:
+            bot.send_message(GROUP_ID, text, reply_to_message_id=reply_to, reply_markup=markup)
+        else:
+            bot.send_message(GROUP_ID, f"🎉 <b>{user['name']}</b> መርጠው ጨርሰዋል መልካም ዕድል!")
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_cash")
 def start_cash_reg(call):
