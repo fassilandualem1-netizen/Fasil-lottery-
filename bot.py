@@ -453,8 +453,10 @@ def callback_listener(call):
         m = bot.send_message(call.from_user.id, "📝 <b>በካሽ ለመመዝገብ፦</b>\nሰሌዳ-ቁጥር ስም ይጻፉ (ምሳሌ፦ 1-05 አበበ)")
         bot.register_next_step_handler(m, process_cash_reg)
         
-    elif call.data == "admin_delete" and is_admin:
+        elif call.data == "admin_delete" and is_admin:
+        # መጀመሪያ ለተጠቃሚው መመሪያ ይላካል
         m = bot.send_message(call.from_user.id, "🗑 <b>ቁጥር ለመሰረዝ፦</b>\nሰሌዳ-ቁጥር ይጻፉ (ምሳሌ፦ 1-05)")
+        # ⚠️ ቀጣዩን ጽሁፍ እንዲጠብቅ ትዕዛዝ ይሰጠዋል
         bot.register_next_step_handler(m, process_admin_delete)
 
     # 2. የደረሰኝ ማጽደቂያ (g_app_)
