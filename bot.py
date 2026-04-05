@@ -477,7 +477,7 @@ def callback_listener(call):
     if call.data == "admin_manage" and is_admin:
         admin_manage_menu(call)
     
-        elif call.data == "admin_cash" and is_admin:
+    elif call.data == "admin_cash" and is_admin:
         m = bot.send_message(call.from_user.id, "📝 <b>በካሽ ለመመዝገብ፦</b>\nሰሌዳ-ቁጥር ስም ይጻፉ (ምሳሌ፦ 1-05 አበበ)")
         bot.register_next_step_handler(m, process_cash_reg)
         
