@@ -301,36 +301,36 @@ def admin_manage_menu(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('p_'))
 def handle_secure_pick(call):
-    # ዳታውን መበተን (p_ID_BOARD_NUMBER)
+    # 1. ዳታውን መበተን
     _, allowed_id, bid, num = call.data.split('_')
     
-    # 1. የባለቤትነት ቼክ (ጥብቅ ጥበቃ)
+    # የባለቤትነት ቼክ
     if str(call.from_user.id) != str(allowed_id):
-        bot.answer_callback_query(call.id, "⚠️ ይቅርታ! ይህ የሌላ ሰው ምርጫ ነው፣ የእርስዎን ደረሰኝ ይላኩ።", show_alert=True)
+        bot.answer_callback_query(call.id, "⚠️ ይቅርታ! ይህ የሌላ ሰው ምርጫ ነው።", show_alert=True)
         return
 
-    # 2. ቁጥሩን መመዝገብ
     uid = str(call.from_user.id)
     user = get_user(uid)
     board = data["boards"][bid]
 
+    # ሂሳብ ቼክ
     if user["wallet"] < board["price"]:
         bot.answer_callback_query(call.id, "❌ ሂሳብዎ በቂ አይደለም!", show_alert=True)
+        try: bot.delete_message(GROUP_ID, call.message.message_id)
+        except: pass
         return
 
-    # ምዝገባ
+    # 2. ምዝገባ እና ብር መቀነስ
     data["users"][uid]["wallet"] -= board["price"]
     board["slots"][num] = user["name"]
     save_data()
     update_group_board(bid)
     
-    # 3. መልዕክቱን ማጥፋት (አንዴ ከመረጠ በኋላ ቁጥሮቹ እንዳይቆዩ)
-    bot.delete_message(GROUP_ID, call.message.message_id)
-    
-    bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል! መልካም ዕድል!", show_alert=True)
-# 4. ወሳኙ ክፍል፦ ገና የሚቀረው ብር ካለ መልሶ ምርጫውን ያሳየዋል
+    bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!", show_alert=False)
+
+    # 3. ወሳኙ ክፍል፦ ገና የሚቀረው ብር ካለ ሜሴጁን አያጥፋው፣ "Edit" ያድርገው
     if data["users"][uid]["wallet"] >= board["price"]:
-        # አሁንም ብር ስላለው ቁጥሮቹን መልሶ ይዘረግፋል
+        # አሁንም ብር ስላለው የቁጥሮቹን ሰሌዳ እንደገና ማዘጋጀት
         markup = types.InlineKeyboardMarkup(row_width=5)
         btns = []
         for i in range(1, board["max"] + 1):
@@ -346,16 +346,16 @@ def handle_secure_pick(call):
                     f"💰 <b>ቀሪ ሂሳብ፦</b> <b>{data['users'][uid]['wallet']} ብር</b>\n\n"
                     f"🎰 🎰 <b>ሰሌዳ {bid} - ሌላ ቁጥር ይምረጡ፦</b>")
         
-                # የነበረውን መልዕክት በለውጥ (Edit) ያድሰዋል
+        # ⚠️ እዚህ ጋር ነው Edit የሚደረገው (Delete አይደረግም)
         bot.edit_message_text(new_text, GROUP_ID, call.message.message_id, reply_markup=markup)
+    
     else:
-        # ብሩ ካለቀ ምርጫውን አጥፍቶ መልካም ዕድል ይበለው
+        # 4. ብሩ ካለቀ ብቻ ሜሴጁን አጥፍቶ መልካም ዕድል ይበለው
         try:
             bot.delete_message(GROUP_ID, call.message.message_id)
         except:
             pass
 
-        # 🏆 የምስራች መልዕክት
         success_msg = (
             f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n"
             f"🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n"
