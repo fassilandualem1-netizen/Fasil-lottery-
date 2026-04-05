@@ -476,28 +476,18 @@ def process_admin_delete(message):
             bot.send_message(message.chat.id, f"🗑 ሰሌዳ {bid} ቁጥር {num} ተሰርዟል!")
     except: bot.send_message(message.chat.id, "❌ ስህተት! (አጻጻፍ፦ 1-05)")
 
-
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
     is_admin = call.from_user.id in ADMIN_IDS
+    parts = call.data.split('_')
     
-            if call.data.startswith('g_app_') and is_admin:
-        # 1. ዳታውን በ '_' እንበታትነዋለን
-        parts = call.data.split('_')
-        
-        # 2. እያንዳንዱን መረጃ ለየብቻ እናወጣለን
-        target_id = parts      # የተጫዋቹ ID (ለምሳሌ 5122026260)
-        receipt_mid = parts    # የደረሰኙ መለያ (ለምሳሌ 206)
-        
-        # 3. አሁን ስሙን ከደረሰኙ ላይ በቀጥታ እንውሰድ (ከላይ በነገርኩህ መሰረት ካደረግከው)
-        # አራተኛው ክፍል (index 4) ላይ ስሙ ይኖራል
-        user_name = parts if len(parts) > 4 else "ተጫዋች"
-
-        # 4. መልዕክቱን ሲልክ ['g', 'app'...] የሚለውን እንዳያመጣ እንዲህ እናደርጋለን
-        msg = bot.send_message(call.message.chat.id, f"💰 ለ <b>{user_name}</b> የሚጨመረውን ብር ይጻፉ፦")
-        
-        # 5. መረጃዎቹን ለሚቀጥለው ፈንክሽን እናስተላልፋለን
-        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid, user_name)
+    # ይህ መስመር (484) ከላይኛው "parts" ጋር እኩል መሆን አለበት
+    if call.data.startswith('g_app_') and is_admin:
+        target_id = parts
+        receipt_mid = parts
+        u_name = parts if len(parts) > 4 else "ተጫዋች"
+        msg = bot.send_message(call.message.chat.id, f"💰 ለ <b>{u_name}</b> የሚጨመረውን ብር ይጻፉ፦")
+        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid, u_name)
 
     
     elif call.data.startswith('u_pick_'):
