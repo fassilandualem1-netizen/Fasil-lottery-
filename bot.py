@@ -287,16 +287,16 @@ def generate_picker_markup(uid, bid):
 @bot.callback_query_handler(func=lambda call: call.data in ["admin_manage", "manage_boards"] and call.from_user.id in ADMIN_IDS)
 def admin_manage_menu(call):
     markup = types.InlineKeyboardMarkup(row_width=2)
+    # 🛠 ዋናዎቹ በተኖች
     markup.add(
         types.InlineKeyboardButton("💵 በካሽ መዝግብ", callback_data="admin_cash"),
-        types.InlineKeyboardButton("❌ ቁጥር ሰርዝ", callback_data="admin_delete")
+        types.InlineKeyboardButton("🗑 ቁጥር ሰርዝ", callback_data="admin_delete")
     )
-    # የሰሌዳዎቹን ዝርዝር እዚህ ጋር ጨምርላቸው
+    # የሰሌዳዎቹ ዝርዝር
     for bid in data["boards"]:
         markup.add(types.InlineKeyboardButton(f"⚙️ ሰሌዳ {bid} አስተካክል", callback_data=f"edit_{bid}"))
     
     markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_panel_back"))
-    
     bot.edit_message_text("🛠 <b>የአድሚን ስራዎችን ይምረጡ፦</b>", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('p_'))
