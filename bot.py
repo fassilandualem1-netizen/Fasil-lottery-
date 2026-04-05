@@ -264,13 +264,22 @@ def handle_photos(message):
         for adm in ADMIN_IDS:
             bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup)
             
-    # 2. ቀጥሎ የግል (Private) መሆኑን ቼክ ያደርጋል (ይህ መስመር ነው ስህተት ያሳየብህ)
+
+        # 2. የግል (Private) ከሆነና አድሚን ካልሆነ
     elif message.chat.type == 'private' and message.from_user.id not in ADMIN_IDS:
         bot.reply_to(message, "⏳ ደረሰኝዎ ለባለቤቱ ተልኳል፣ እባክዎ ግሩፕ ላይ ይጠብቁ።")
-        # ለአድሚን መላክ
+        
+        # ለአድሚን ማሳወቂያ መላክ
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_0_Private"))
+        
         for adm in ADMIN_IDS:
-            bot.send_photo(adm, message.photo[-1].file_id, caption=f"📩 የውስጥ ደረሰኝ ከ {message.from_user.first_name}")
-                       reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_0")))
+            try:
+                bot.send_photo(adm, message.photo[-1].file_id, 
+                               caption=f"📩 <b>የውስጥ ደረሰኝ</b>\n👤 {message.from_user.first_name}", 
+                               reply_markup=markup)
+            except:
+                pass
 
 # --- 2. ሁሉንም Callback በአንድ ላይ የሚይዝ (The Master Listener) ---
 @bot.callback_query_handler(func=lambda call: True)
