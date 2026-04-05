@@ -372,43 +372,32 @@ def send_picker_to_group(message, target_id, receipt_mid, user_name):
 def send_picker_to_group(message, target_id, receipt_mid, user_name):
     try:
         amt = int(message.text)
-        clean_name = user_name[:10] 
-
-        if str(target_id) not in data["users"]:
-            data["users"][str(target_id)] = {"name": clean_name, "wallet": 0}
+        # ⚠️ ዋናው ማስተካከያ፡- mid ቁጥር መሆኑን እናረጋግጥ
+        mid = int(receipt_mid) 
         
-        data["users"][str(target_id)]["wallet"] += amt
-        data["users"][str(target_id)]["name"] = clean_name
+        user = get_user(target_id, user_name)
+        user["wallet"] += amt
         save_data()
 
         # ክፍት ሰሌዳ መምረጥ
-        active_board = "1"
-        for b_id, b_info in data["boards"].items():
-            if b_info["active"] and b_info["price"] <= amt:
-                active_board = b_id
+        active_bid = "1"
+        for bid, binfo in data["boards"].items():
+            if binfo["active"] and binfo["price"] <= amt:
+                active_bid = bid
                 break
-
-        board = data["boards"][active_board]
+        
+        board = data["boards"][active_bid]
         markup = types.InlineKeyboardMarkup(row_width=5)
-        btns = []
-        for i in range(1, board["max"] + 1):
-            n_str = str(i)
-            if n_str not in board["slots"]:
-                btns.append(types.InlineKeyboardButton(n_str, callback_data=f"p_{target_id}_{active_board}_{n_str}"))
-            else:
-                btns.append(types.InlineKeyboardButton("❌", callback_data="taken"))
+        btns = [types.InlineKeyboardButton(str(i), callback_data=f"p_{target_id}_{active_bid}_{i}") if str(i) not in board["slots"] else types.InlineKeyboardButton("❌", callback_data="t") for i in range(1, board["max"] + 1)]
         markup.add(*btns)
         
-        text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
-                f"👤 <b>ተጫዋች፦</b> <b><i><code>{clean_name}</code></i></b>\n"
-                f"💰 <b>ቀሪ ሂሳብ፦</b> <b>{data['users'][str(target_id)]['wallet']} ብር</b>\n\n"
-                f"🎰 <b>ሰሌዳ {active_board} - ቁጥር ይምረጡ፦</b>")
+        text = f"✅ <b>ክፍያ ተረጋግጧል!</b>\n👤 <b>ተጫዋች፦</b> {user_name}\n💰 <b>ቀሪ፦</b> {user['wallet']} ብር"
         
-        bot.send_message(GROUP_ID, text, reply_to_message_id=receipt_mid, reply_markup=markup)
-        bot.send_message(message.chat.id, f"✅ ለ {clean_name} ተዘርግቷል።")
-        
+        # እዚህ ጋር mid መግባቱን እርግጠኛ ሁን
+        bot.send_message(GROUP_ID, text, reply_to_message_id=mid, reply_markup=markup)
+        bot.send_message(message.chat.id, "✅ በተሳካ ሁኔታ ተልኳል!")
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ ስህተት፦ ቁጥር ብቻ ያስገቡ።")
+        bot.send_message(message.chat.id, f"❌ ስህተት ተፈጥሯል! ቁጥር ብቻ ያስገቡ።")
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_cash")
 def start_cash_reg(call):
