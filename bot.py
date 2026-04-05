@@ -328,25 +328,24 @@ def handle_secure_pick(call):
                     f"💰 <b>ቀሪ ሂሳብ፦</b> <b>{data['users'][uid]['wallet']} ብር</b>\n\n"
                     f"🎰 🎰 <b>ሰሌዳ {bid} - ሌላ ቁጥር ይምረጡ፦</b>")
         
-        # የነበረውን መልዕክት በለውጥ (Edit) ያድሰዋል
+                # የነበረውን መልዕክት በለውጥ (Edit) ያድሰዋል
         bot.edit_message_text(new_text, GROUP_ID, call.message.message_id, reply_markup=markup)
     else:
-                # ብሩ ካለቀ ምርጫውን አቁሞ "መልካም ዕድል" ይበለው
-        else:
+        # ብሩ ካለቀ ምርጫውን አጥፍቶ መልካም ዕድል ይበለው
+        try:
             bot.delete_message(GROUP_ID, call.message.message_id)
-            
-            # 🏆 የምስራች መልዕክት በ Bold እና በኢሞጂ
-            success_msg = (
-                f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n"
-                f"🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n"
-                f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"✨ <b>መልካም ዕድል ይሁንሎት! 🏆</b>\n"
-                f"👉 @{bot.get_me().username}"
-            )
-            
-            # ይበልጥ ደስ እንዲል የ "Party" ኢሞጂ ወይም ስቲከር መላክ ይቻላል
-            bot.send_message(GROUP_ID, success_msg)
+        except:
+            pass
 
+        # 🏆 የምስራች መልዕክት
+        success_msg = (
+            f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n"
+            f"🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"✨ <b>መልካም ዕድል ይሁንሎት! 🏆</b>\n"
+            f"👉 @{bot.get_me().username}"
+        )
+        bot.send_message(GROUP_ID, success_msg)
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_cash")
 def start_cash_reg(call):
