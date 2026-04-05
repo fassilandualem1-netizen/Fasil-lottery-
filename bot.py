@@ -312,49 +312,52 @@ def handle_secure_pick(call):
         return
 
     uid = str(call.from_user.id)
-    user = get_user(uid)
-    board = data["boards"][bid]
+    # ዳታውን በቀጥታ ከ data dictionary መውሰድ ስህተትን ይቀንሳል
+    user = data["users"].get(uid)
+    board = data.get("boards", {}).get(bid)
 
-    # ሂሳብ ቼክ
-    if user["wallet"] < board["price"]:
+    if not user or not board:
+        bot.answer_callback_query(call.id, "❌ ስህተት ተፈጥሯል!", show_alert=True)
+        return
+
+    board_price = int(board["price"])
+    
+    # 2. ሂሳብ ቼክ (ብሩ ከሰሌዳው ዋጋ ያነሰ መሆኑን ማረጋገጥ)
+    if user["wallet"] < board_price:
         bot.answer_callback_query(call.id, "❌ ሂሳብዎ በቂ አይደለም!", show_alert=True)
-        try: bot.delete_message(GROUP_ID, call.message.message_id)
+        try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
         return
 
-    # 2. ምዝገባ እና ብር መቀነስ
-    data["users"][uid]["wallet"] -= board["price"]
+    # 3. ምዝገባ እና ብር መቀነስ
+    # ቁጥሩ ቀድሞ ከተያዘ መከላከል
+    if num in board["slots"]:
+        bot.answer_callback_query(call.id, "❌ ይህ ቁጥር ቀድሞ ተይዟል!", show_alert=True)
+        # ሰሌዳውን በ "Edit" ማደስ (Buttons እንዲስተካከሉ)
+        refresh_picker(call, uid, bid)
+        return
+
+    # ብር መቀነስ እና ቁጥር መመዝገብ
+    data["users"][uid]["wallet"] -= board_price
     board["slots"][num] = user["name"]
     save_data()
+    
+    # ግሩፕ ላይ ያለውን ዋና ሰሌዳ (Design) ማደስ
     update_group_board(bid)
     
     bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!", show_alert=False)
 
-    # 3. ወሳኙ ክፍል፦ ገና የሚቀረው ብር ካለ ሜሴጁን አያጥፋው፣ "Edit" ያድርገው
-    if data["users"][uid]["wallet"] >= board["price"]:
-        # አሁንም ብር ስላለው የቁጥሮቹን ሰሌዳ እንደገና ማዘጋጀት
-        markup = types.InlineKeyboardMarkup(row_width=5)
-        btns = []
-        for i in range(1, board["max"] + 1):
-            n_str = str(i)
-            if n_str not in board["slots"]:
-                btns.append(types.InlineKeyboardButton(n_str, callback_data=f"p_{uid}_{bid}_{n_str}"))
-            else:
-                btns.append(types.InlineKeyboardButton("❌", callback_data="taken"))
-        markup.add(*btns)
-        
-        new_text = (f"♻️ <b>ተጨማሪ ቁጥር ይምረጡ!</b>\n"
-                    f"👤 <b>ተጫዋች፦</b> <b><i><code>{user['name']}</code></i></b>\n"
-                    f"💰 <b>ቀሪ ሂሳብ፦</b> <b>{data['users'][uid]['wallet']} ብር</b>\n\n"
-                    f"🎰 🎰 <b>ሰሌዳ {bid} - ሌላ ቁጥር ይምረጡ፦</b>")
-        
-        # ⚠️ እዚህ ጋር ነው Edit የሚደረገው (Delete አይደረግም)
-        bot.edit_message_text(new_text, GROUP_ID, call.message.message_id, reply_markup=markup)
+    # 4. ወሳኙ ክፍል፦ ተጫዋቹ አሁንም ሌላ ቁጥር ለመግዛት ብር ካለው "Edit" ያድርገው
+    # እዚህ ጋር የተቀነሰውን አዲሱን ሂሳብ እንፈትሻለን
+    current_wallet = data["users"][uid]["wallet"]
     
+    if current_wallet >= board_price:
+        # 🔄 ሰሌዳውን ሳያጠፋ ማደሻ (Function በመጠቀም ኮዱን አሳጥረነዋል)
+        refresh_picker(call, uid, bid)
     else:
-        # 4. ብሩ ካለቀ ብቻ ሜሴጁን አጥፍቶ መልካም ዕድል ይበለው
+        # 5. ብሩ ካለቀ ብቻ መልዕክቱን አጥፍቶ መልካም ዕድል ይበለው
         try:
-            bot.delete_message(GROUP_ID, call.message.message_id)
+            bot.delete_message(call.message.chat.id, call.message.message_id)
         except:
             pass
 
@@ -365,7 +368,32 @@ def handle_secure_pick(call):
             f"✨ <b>መልካም ዕድል ይሁንሎት! 🏆</b>\n"
             f"👉 @{bot.get_me().username}"
         )
-        bot.send_message(GROUP_ID, success_msg)
+        bot.send_message(call.message.chat.id, success_msg, parse_mode="HTML")
+
+# 🛠 ሰሌዳውን ሳያጠፋ (Edit) እንዲያድስ የሚረዳ ረዳት ፈንክሽን
+def refresh_picker(call, uid, bid):
+    board = data["boards"][bid]
+    user = data["users"][uid]
+    
+    markup = types.InlineKeyboardMarkup(row_width=5)
+    btns = []
+    for i in range(1, board["max"] + 1):
+        n_str = str(i)
+        if n_str not in board["slots"]:
+            btns.append(types.InlineKeyboardButton(n_str, callback_data=f"p_{uid}_{bid}_{n_str}"))
+        else:
+            btns.append(types.InlineKeyboardButton("❌", callback_data="taken"))
+    markup.add(*btns)
+    
+    new_text = (f"♻️ <b>ተጨማሪ ቁጥር ይምረጡ!</b>\n"
+                f"👤 <b>ተጫዋች፦</b> <b><i><code>{user['name']}</code></i></b>\n"
+                f"💰 <b>ቀሪ ሂሳብ፦</b> <b>{user['wallet']} ብር</b>\n\n"
+                f"🎰 🎰 <b>ሰሌዳ {bid} - ሌላ ቁጥር ይምረጡ፦</b>")
+    
+    try:
+        bot.edit_message_text(new_text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    except Exception as e:
+        print(f"Edit error: {e}")
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_cash")
 def start_cash_reg(call):
