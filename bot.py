@@ -249,18 +249,18 @@ def admin_panel(message):
 
 # --- 1. የፎቶ መቀበያ (ከግሩፕ ብቻ) ---
 @bot.message_handler(content_types=['photo'])
-def handle_photos(message):
-    uid = str(message.from_user.id)
-    
-    # 1. መጀመሪያ ግሩፕ መሆኑን ቼክ ያደርጋል
+def handle_group_receipts(message):
     if message.chat.id == GROUP_ID:
-        mid = message.message_id
+        uid = str(message.from_user.id)
+        u_name = message.from_user.first_name or "ተጫዋች"
+        mid = message.message_id 
+
         markup = types.InlineKeyboardMarkup()
-        # ስሙን (message.from_user.first_name) እዚህ ጋር እንጨምረዋለን
-        u_name = message.from_user.first_name if message.from_user.first_name else "User"
+        # Approve እና Decline በተኖች
         markup.add(types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_{mid}_{u_name}"))
+        markup.add(types.InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"g_dec_{uid}_{mid}_{u_name}"))
         
-        cap = f"📩 <b>አዲስ ደረሰኝ</b>\n👤 <b>ከ፦</b> {u_name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
+        cap = f"📩 <b>አዲስ ደረሰኝ ከግሩፕ</b>\n👤 <b>ከ፦</b> {u_name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
         for adm in ADMIN_IDS:
             bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup)
             
