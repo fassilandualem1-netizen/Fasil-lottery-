@@ -288,12 +288,20 @@ def master_callback_listener(call):
     data_split = call.data.split('_')
     cmd = data_split
 
-    # ✅ ማጽደቂያ (Approve)
+        # ✅ ማጽደቂያ (Approve) ክፍል
     if call.data.startswith('g_app_') and is_admin:
-        target_id = data_split
-        receipt_mid = data_split
-        msg = bot.send_message(call.from_user.id, f"💰 ለ <code>{target_id}</code> የሚጨመረውን ብር ይጻፉ፦")
-        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid)
+        parts = call.data.split('_')
+        
+        # ዳታውን ከዝርዝሩ (parts) ውስጥ ነጥሎ ማውጣት
+        target_id = parts     # የተጫዋቹ ID
+        receipt_mid = parts   # የደረሰኙ Message ID
+        user_name = parts if len(parts) > 4 else "ተጫዋች"
+
+        # ለባለቤቱ መልዕክት መላክ
+        msg = bot.send_message(call.message.chat.id, f"💰 ለ <b>{user_name}</b> የሚጨመረውን ብር ይጻፉ፦")
+        
+        # መረጃዎቹን ለሚቀጥለው ፈንክሽን ማስተላለፍ
+        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid, user_name)
 
     # ❌ ውድቅ ማድረጊያ
     elif call.data.startswith('g_rej_') and is_admin:
