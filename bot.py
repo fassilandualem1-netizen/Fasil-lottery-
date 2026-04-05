@@ -321,6 +321,18 @@ def master_callback_listener(call):
         # ምዝገባ እና ቼክ እዚህ ይገባል (አንተ ከላይ በጻፍከው handle_secure_pick Logic መሰረት)
         process_secure_pick(call, allowed_id, bid, num)
 
+def process_secure_pick(call, uid, bid, num):
+    # ... (የነበረው ኮድ)
+    
+    if data["users"][uid]["wallet"] >= data["boards"][bid]["price"]:
+        # ገና ብር ካለው በተኑን አድስለት
+        # ... (የነበረው markup ኮድ)
+        bot.edit_message_text(new_text, GROUP_ID, call.message.message_id, reply_markup=markup)
+    else:
+        # ብር ከጨረሰ በተኑን አጥፋው
+        bot.delete_message(GROUP_ID, call.message.message_id)
+        bot.send_message(GROUP_ID, f"🎉 <b>{user['name']}</b> መርጠው ጨርሰዋል መልካም ዕድል!")
+
     # ⚙️ አድሚን ዳሽቦርድ ማስተካከያ
     elif call.data == "admin_manage" and is_admin:
         markup = types.InlineKeyboardMarkup(row_width=2)
@@ -352,14 +364,8 @@ def process_secure_pick(call, uid, bid, num):
     # ... (የነበረው ኮድ)
     
     if data["users"][uid]["wallet"] >= data["boards"][bid]["price"]:
-        # ገና ብር ካለው በተኑን አድስለት
-        # ... (የነበረው markup ኮድ)
-        bot.edit_message_text(new_text, GROUP_ID, call.message.message_id, reply_markup=markup)
-    else:
-        # ብር ከጨረሰ በተኑን አጥፋው
-        bot.delete_message(GROUP_ID, call.message.message_id)
-        bot.send_message(GROUP_ID, f"🎉 <b>{user['name']}</b> መርጠው ጨርሰዋል መልካም ዕድል!")
-        bot.answer_callback_query(call.id, "❌ ሂሳብዎ በቂ አይደለም!", show_alert=True)
+       
+bot.answer_callback_query(call.id, "❌ ሂሳብዎ በቂ አይደለም!", show_alert=True)
         bot.delete_message(GROUP_ID, call.message.message_id)
         return
 
