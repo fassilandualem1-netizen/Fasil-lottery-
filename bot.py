@@ -248,25 +248,28 @@ def admin_panel(message):
     bot.send_message(message.chat.id, f"🛠 <b>የአድሚን ዳሽቦርድ</b>\n\n{stats}", reply_markup=markup)
 
 # --- 1. የፎቶ መቀበያ (ከግሩፕ ብቻ) ---
-@bot.message_handler(content_types=['photo'], func=lambda m: m.chat.id == GROUP_ID)
-def handle_group_receipt(message):
+@bot.message_handler(content_types=['photo'])
+def handle_photos(message):
     uid = str(message.from_user.id)
-    name = message.from_user.first_name if message.from_user.first_name else "ተጫዋች"
-    mid = message.message_id
-
-    markup = types.InlineKeyboardMarkup()
-    # እዚህ ጋር ስሙን (name) በ callback_data ውስጥ ጨምረነዋል
-    markup.add(types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_{mid}_{name}"))
     
-    cap = f"📩 <b>አዲስ ደረሰኝ</b>\n👤 <b>ከ፦</b> {name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
-    for adm in ADMIN_IDS:
-        bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup)
-    
-    # በግል (Private) ለሚልኩ ተራ ተጠቃሚዎች
+    # 1. መጀመሪያ ግሩፕ መሆኑን ቼክ ያደርጋል
+    if message.chat.id == GROUP_ID:
+        mid = message.message_id
+        markup = types.InlineKeyboardMarkup()
+        # ስሙን (message.from_user.first_name) እዚህ ጋር እንጨምረዋለን
+        u_name = message.from_user.first_name if message.from_user.first_name else "User"
+        markup.add(types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_{mid}_{u_name}"))
+        
+        cap = f"📩 <b>አዲስ ደረሰኝ</b>\n👤 <b>ከ፦</b> {u_name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
+        for adm in ADMIN_IDS:
+            bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup)
+            
+    # 2. ቀጥሎ የግል (Private) መሆኑን ቼክ ያደርጋል (ይህ መስመር ነው ስህተት ያሳየብህ)
     elif message.chat.type == 'private' and message.from_user.id not in ADMIN_IDS:
         bot.reply_to(message, "⏳ ደረሰኝዎ ለባለቤቱ ተልኳል፣ እባክዎ ግሩፕ ላይ ይጠብቁ።")
+        # ለአድሚን መላክ
         for adm in ADMIN_IDS:
-            bot.send_photo(adm, message.photo[-1].file_id, caption=f"📩 <b>የውስጥ ደረሰኝ</b>\n👤 {message.from_user.first_name}\n🆔 <code>{uid}</code>", 
+            bot.send_photo(adm, message.photo[-1].file_id, caption=f"📩 የውስጥ ደረሰኝ ከ {message.from_user.first_name}") <code>{uid}</code>", 
                            reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_0")))
 
 # --- 2. ሁሉንም Callback በአንድ ላይ የሚይዝ (The Master Listener) ---
