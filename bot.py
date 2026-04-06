@@ -1,4 +1,4 @@
-import telebot
+import  telebot
 from telebot import types
 import json
 import os
@@ -619,7 +619,7 @@ def callback_listener(call):
     except:
         pass
     # --- አዲሱ የማረጋገጫ ክፍል ---
-        elif call.data.startswith('g_app_') and is_admin:
+    elif call.data.startswith('g_app_') and is_admin:
         # 1. መረጃውን መበተን
         _, _, target_id, receipt_mid = call.data.split('_')
 
