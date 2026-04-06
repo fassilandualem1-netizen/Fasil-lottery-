@@ -508,33 +508,25 @@ def callback_listener(call):
     bot.answer_callback_query(call.id)
 
 def handle_secure_pick(call):
-    # 1. መረጃዎቹን ከ Callback Data መበተን
     _, allowed_id, bid, num = call.data.split('_')
-    
-    # 2. ተጫዋቹን እና ሰሌዳውን ለይቶ ማወቅ
     uid = str(call.from_user.id)
     user = data["users"].get(uid)
     board = data["boards"].get(bid)
     
-    if not user or not board: return # ለጥንቃቄ
+    if not user or not board: return 
     
     board_price = int(board["price"])
-
-    # 3. ብር መቀነስ እና መመዝገብ
     data["users"][uid]["wallet"] -= board_price
     board["slots"][num] = user["name"]
     save_data()
     update_group_board(bid)
     
-    # 4. አዲሱን ቀሪ ሂሳብ መለየት
     current_wallet = data["users"][uid]["wallet"]
 
-    # 5. የ if/else logic (ምርጫውን ለመቀጠል ወይም ለማቆም)
     if current_wallet >= board_price:
         refresh_picker(call, uid, bid)
     else:
         try:
-            # ይህ መስመር ከ try በታች ገባ ብሎ መጻፍ አለበት
             bot.edit_message_text(
                 f"✅ ምርጫዎን አጠናቀዋል!\n💰 ቀሪ ሂሳብ፦ {current_wallet} ብር", 
                 call.message.chat.id, 
@@ -544,18 +536,17 @@ def handle_secure_pick(call):
         except:
             pass
 
-# --- ከላይኛው ፈንክሽን ውጭ እና በ callback_listener ውስጥ መሆን ያለባቸው elif መስመሮች ---
-
-        elif call.data == "admin_reset" and is_admin:
+    # እነዚህ መስመሮች በ callback_listener(call): ስር ካለው IF/ELIF ጋር ይሂዱ
+    elif call.data == "admin_reset" and is_admin:
         reset_menu(call)
 
     elif call.data.startswith('doreset_') and is_admin:
-        # bidን ለማግኘት መጨመር አለበት ምክንያቱም split ዝርዝር (list) ስለሚሰጥ
-        bid = call.data.split('_') 
-        if bid in data["boards"]:
-            data["boards"][bid]["slots"] = {}
+        # መኖሩን እርግጠኛ ሁን
+        bid_id = call.data.split('_') 
+        if bid_id in data["boards"]:
+            data["boards"][bid_id]["slots"] = {}
             save_data()
-            update_group_board(bid)
+            update_group_board(bid_id)
             bot.answer_callback_query(call.id, "✅ ሰሌዳው ጸድቷል!")
 
     # --- አዲሱ የማረጋገጫ ክፍል ---
