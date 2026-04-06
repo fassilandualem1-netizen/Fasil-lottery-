@@ -491,12 +491,23 @@ def callback_listener(call):
         msg = bot.send_message(call.from_user.id, f"💰 ለ {target_id} የሚጨመረውን ብር ይጻፉ፦")
         bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid)
 
+       # ... (ከላይ ያሉት የአድሚን elif መስመሮች እንዳሉ ሆነው)
+
     # 3. የሰሌዳ ምርጫዎች (ተጫዋች)
     elif call.data.startswith('select_'):
         handle_selection(call)
         
     elif call.data.startswith('p_'):
         handle_secure_pick(call) 
+
+    # ⚠️ ስህተቱ እዚህ አካባቢ ነው! ከዚህ በታች 'else' ካለህ አጥፋው።
+    # ሁሉም 'elif' መስመሮች እኩል መሆናቸውን አረጋግጥ።
+
+    elif call.data == "admin_reset" and is_admin: 
+        reset_menu(call)
+        
+    elif call.data.startswith('doreset_') and is_admin:
+        # ... የሪሴት ኮድ
 
 # ---------------------------------------------------------
 # ከ callback_listener ፈንክሽን ውጭ (በተናጠል) መጻፍ ያለበት ክፍል
