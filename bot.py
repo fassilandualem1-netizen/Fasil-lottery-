@@ -526,6 +526,7 @@ def handle_secure_pick(call):
     if current_wallet >= board_price:
         refresh_picker(call, uid, bid)
     else:
+            else:
         try:
             bot.edit_message_text(
                 f"✅ ምርጫዎን አጠናቀዋል!\n💰 ቀሪ ሂሳብ፦ {current_wallet} ብር", 
@@ -536,17 +537,27 @@ def handle_secure_pick(call):
         except:
             pass
 
-    # እነዚህ መስመሮች በ callback_listener(call): ስር ካለው IF/ELIF ጋር ይሂዱ
+# ⚠️ እዚህ ጋር ፈንክሽኑ ያበቃል። ከታች ያሉት መስመሮች በ callback_listener ውስጥ መሆን አለባቸው።
+# በ Render ላይ ስህተት የፈጠረው ከዚህ በታች ያለው elif ከአንድ else ቀጥሎ ስለገባ ነው።
+
+@bot.callback_query_handler(func=lambda call: True)
+def callback_listener(call):
+    is_admin = call.from_user.id in ADMIN_IDS
+    
+    # 1. መጀመሪያ በ 'if' ይጀምራል
+    if call.data == "admin_manage" and is_admin:
+        admin_manage_menu(call)
+        
+    # 2. ከዚያ 'elif' ይቀጥላል
     elif call.data == "admin_reset" and is_admin:
         reset_menu(call)
 
     elif call.data.startswith('doreset_') and is_admin:
-        # መኖሩን እርግጠኛ ሁን
-        bid_id = call.data.split('_') 
-        if bid_id in data["boards"]:
-            data["boards"][bid_id]["slots"] = {}
+        bid = call.data.split('_') # መኖሩን እርግጠኛ ሁን
+        if bid in data["boards"]:
+            data["boards"][bid]["slots"] = {}
             save_data()
-            update_group_board(bid_id)
+            update_group_board(bid)
             bot.answer_callback_query(call.id, "✅ ሰሌዳው ጸድቷል!")
 
     # --- አዲሱ የማረጋገጫ ክፍል ---
