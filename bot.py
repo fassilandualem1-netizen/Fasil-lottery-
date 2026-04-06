@@ -544,18 +544,33 @@ def handle_secure_pick(call):
         except:
             pass
 
-# --- ከላይኛው ፈንክሽን ውጭ እና በ callback_listener ውስጥ መሆን ያለባቸው elif መስመሮች ---
+    # --- ከላይኛው ፈንክሽን ውጭ እና በ callback_listener ውስጥ መሆን ያለባቸው elif መስመሮች ---
 
     elif call.data == "admin_reset" and is_admin:
+        # መደጋገምን ለመከላከል
+        if is_already_processed(call.id):
+            return
         reset_menu(call)
 
     elif call.data.startswith('doreset_') and is_admin:
-        # እዚህ ጋር split('_') መሆን አለበት የሰሌዳውን ቁጥር ለማግኘት
-        bid = call.data.split('_') 
-        data["boards"][bid]["slots"] = {}
-        save_data()
-        update_group_board(bid)
-        bot.answer_callback_query(call.id, "✅ ሰሌዳው ጸድቷል!")
+        # 1. መደጋገምን ለመከላከል
+        if is_already_processed(call.data):
+            return
+
+        # 2. የሰሌዳውን ቁጥር ለማግኘት መጨመር አለበት
+        bid_parts = call.data.split('_')
+        if len(bid_parts) > 1:
+            bid = bid_parts 
+            
+            # 3. ዳታውን ማጽዳት
+            data["boards"][bid]["slots"] = {}
+            save_data()
+            
+            # 4. ግሩፑ ላይ ያለውን ሰሌዳ ማደስ
+            update_group_board(bid)
+            
+            # 5. ለ Telegram ምላሽ መስጠት (Double request ለመከላከል ወሳኝ ነው)
+            bot.answer_callback_query(call.id, "✅ ሰሌዳው በስኬት ጸድቷል!")
 
 
     # --- አዲሱ የማረጋገጫ ክፍል ---
