@@ -532,7 +532,7 @@ def handle_secure_pick(call):
     # 5. የ if/else logic (ምርጫውን ለመቀጠል ወይም ለማቆም)
     if current_wallet >= board_price:
         refresh_picker(call, uid, bid)
-        else:
+    else:
         try:
             # ይህ መስመር ከ try በታች ገባ ብሎ መጻፍ አለበት
             bot.edit_message_text(
@@ -544,14 +544,14 @@ def handle_secure_pick(call):
         except:
             pass
 
-# ⚠️ እዚህ ጋር ነው ስህተቱ! እነዚህ መስመሮች ወደ ግራ (ከግድግዳው 0 ክፍተት) መጀመር አለባቸው።
-# ይህ 'callback_listener' ፈንክሽን ውስጥ ያለ 'elif' መሆን አለበት።
+# --- ከላይኛው ፈንክሽን ውጭ እና በ callback_listener ውስጥ መሆን ያለባቸው elif መስመሮች ---
 
     elif call.data == "admin_reset" and is_admin:
         reset_menu(call)
 
     elif call.data.startswith('doreset_') and is_admin:
-        bid = call.data.split('_')
+        # እዚህ ጋር split('_') መሆን አለበት የሰሌዳውን ቁጥር ለማግኘት
+        bid = call.data.split('_') 
         data["boards"][bid]["slots"] = {}
         save_data()
         update_group_board(bid)
