@@ -546,16 +546,17 @@ def handle_secure_pick(call):
 
 # --- ከላይኛው ፈንክሽን ውጭ እና በ callback_listener ውስጥ መሆን ያለባቸው elif መስመሮች ---
 
-    elif call.data == "admin_reset" and is_admin:
+        elif call.data == "admin_reset" and is_admin:
         reset_menu(call)
 
     elif call.data.startswith('doreset_') and is_admin:
-        # እዚህ ጋር split('_') መሆን አለበት የሰሌዳውን ቁጥር ለማግኘት
+        # bidን ለማግኘት መጨመር አለበት ምክንያቱም split ዝርዝር (list) ስለሚሰጥ
         bid = call.data.split('_') 
-        data["boards"][bid]["slots"] = {}
-        save_data()
-        update_group_board(bid)
-        bot.answer_callback_query(call.id, "✅ ሰሌዳው ጸድቷል!")
+        if bid in data["boards"]:
+            data["boards"][bid]["slots"] = {}
+            save_data()
+            update_group_board(bid)
+            bot.answer_callback_query(call.id, "✅ ሰሌዳው ጸድቷል!")
 
     # --- አዲሱ የማረጋገጫ ክፍል ---
     if call.data.startswith('g_app_') and is_admin:
