@@ -532,14 +532,17 @@ def handle_secure_pick(call):
     # 5. የ if/else logic (ምርጫውን ለመቀጠል ወይም ለማቆም)
     if current_wallet >= board_price:
         refresh_picker(call, uid, bid)
-    else:
-        try:                 
-        bot.edit_message_text(f"✅ ምርጫዎን አጠናቀዋል!\n💰 ቀሪ ሂሳብ፦ {current_wallet} ብር", 
-                              call.message.chat.id, 
-                              call.message.message_id, 
-                              reply_markup=None)
+        else:
+        try:
+            # ይህ መስመር ከ try በታች ገባ ብሎ መጻፍ አለበት
+            bot.edit_message_text(
+                f"✅ ምርጫዎን አጠናቀዋል!\n💰 ቀሪ ሂሳብ፦ {current_wallet} ብር", 
+                call.message.chat.id, 
+                call.message.message_id, 
+                reply_markup=None
+            )
         except:
-        pass
+            pass
 
 # ⚠️ እዚህ ጋር ነው ስህተቱ! እነዚህ መስመሮች ወደ ግራ (ከግድግዳው 0 ክፍተት) መጀመር አለባቸው።
 # ይህ 'callback_listener' ፈንክሽን ውስጥ ያለ 'elif' መሆን አለበት።
