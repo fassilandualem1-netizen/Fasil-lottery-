@@ -472,46 +472,40 @@ def process_admin_delete(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
     is_admin = call.from_user.id in ADMIN_IDS
-    
+    data_query = call.data # ስሙን ለይተን እንያዘው
+
     # 1. የአድሚን ተግባራት
-    if call.data == "admin_manage" and is_admin:
+    if data_query == "admin_manage" and is_admin:
         admin_manage_menu(call)
-    
-    elif call.data == "admin_cash" and is_admin:
+    elif data_query == "admin_cash" and is_admin:
         m = bot.send_message(call.from_user.id, "📝 <b>በካሽ ለመመዝገብ፦</b>\nሰሌዳ-ቁጥር ስም ይጻፉ (ምሳሌ፦ 1-05 አበበ)")
         bot.register_next_step_handler(m, process_cash_reg)
-        
-    elif call.data == "admin_delete" and is_admin:
+    elif data_query == "admin_delete" and is_admin:
         m = bot.send_message(call.from_user.id, "🗑 <b>ቁጥር ለመሰረዝ፦</b>\nሰሌዳ-ቁጥር ይጻፉ (ምሳሌ፦ 1-05)")
         bot.register_next_step_handler(m, process_admin_delete)
+    elif data_query == "admin_reset" and is_admin: 
+        reset_menu(call)
+    elif data_query == "lookup_winner" and is_admin:
+        m = bot.send_message(call.from_user.id, "አሸናፊ ለመፈለግ ሰሌዳ እና ቁጥር ይጻፉ (ለምሳሌ: 2-13)፦")
+        bot.register_next_step_handler(m, process_lookup)
 
-    # 2. የደረሰኝ ማጽደቂያ (g_app_)
-    elif call.data.startswith('g_app_') and is_admin:
-        _, _, target_id, receipt_mid = call.data.split('_')
+    # 2. የደረሰኝ ማጽደቂያ
+    elif data_query.startswith('g_app_') and is_admin:
+        _, _, target_id, receipt_mid = data_query.split('_')
         msg = bot.send_message(call.from_user.id, f"💰 ለ {target_id} የሚጨመረውን ብር ይጻፉ፦")
         bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid)
 
-       # ... (ከላይ ያሉት የአድሚን elif መስመሮች እንዳሉ ሆነው)
-
     # 3. የሰሌዳ ምርጫዎች (ተጫዋች)
-    elif call.data.startswith('select_'):
+    elif data_query.startswith('select_'):
         handle_selection(call)
-        
-    elif call.data.startswith('p_'):
-        handle_secure_pick(call) 
-
-    # ⚠️ ስህተቱ እዚህ አካባቢ ነው! ከዚህ በታች 'else' ካለህ አጥፋው።
-    # ሁሉም 'elif' መስመሮች እኩል መሆናቸውን አረጋግጥ።
-
-    elif call.data == "admin_reset" and is_admin: 
-        reset_menu(call)
-        
-    elif call.data.startswith('doreset_') and is_admin:
-        # ... የሪሴት ኮድ
-
-# ---------------------------------------------------------
-# ከ callback_listener ፈንክሽን ውጭ (በተናጠል) መጻፍ ያለበት ክፍል
-# ---------------------------------------------------------
+    elif data_query.startswith('p_'):
+        handle_secure_pick(call)
+    elif data_query.startswith('pick_'):
+        _, bid, num = data_query.split('_')
+        finalize_reg_inline(call, bid, num)
+    
+    # የ 'None' ስህተት እንዳይመጣ
+    bot.answer_callback_query(call.id)
 
 def handle_secure_pick(call):
     # 1. መረጃዎቹን ከ Callback Data መበተን
