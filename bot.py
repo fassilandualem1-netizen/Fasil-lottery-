@@ -594,6 +594,23 @@ def callback_listener(call):
         m = bot.send_message(call.from_user.id, f"የሰሌዳ {bid} አዲስ ዋጋ/ሽልማት ይጻፉ፦")
         bot.register_next_step_handler(m, update_board_value, bid, action)
     elif call.data == "admin_reset" and is_admin: reset_menu(call)
+    
+    elif call.data.startswith('u_select_'):
+        _, _, target_id, bid = call.data.split('_')
+        if str(call.from_user.id) != str(target_id):
+            bot.answer_callback_query(call.id, "⚠️ ይህ የእርስዎ ምርጫ አይደለም!", show_alert=True)
+            return
+        
+        # ሰሌዳውን ሲመርጥ ቁጥሮቹን ያሳየዋል
+        markup = generate_picker_markup(target_id, bid)
+        board_price = data["boards"][bid]["price"]
+        can_pick = data["users"][target_id]["wallet"] // board_price
+        
+        text = (f"🎰 <b>ሰሌዳ {bid} ተመርጧል!</b>\n"
+                f"🎫 መያዝ የሚችሉት፦ <b>{can_pick} ቁጥሮች</b>\n"
+                f"እባክዎ ቁጥር ይምረጡ፦")
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup)
+
     elif call.data.startswith('doreset_') and is_admin:
         bid = call.data.split('_')[1]
         data["boards"][bid]["slots"] = {}; data["pinned_msgs"][bid] = None
