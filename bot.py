@@ -602,40 +602,60 @@ def callback_listener(call):
 def send_picker_to_group(message, target_id, receipt_mid):
     try:
         amt = int(message.text) # አድሚኑ ያስገባው የብር መጠን
-        user_info = bot.get_chat(target_id)
+        uid = str(target_id)
+        user_info = bot.get_chat(uid)
         
         raw_name = user_info.first_name if user_info.first_name else "ተጫዋች"
         clean_name = raw_name[:10] 
 
-        if str(target_id) not in data["users"]:
-            data["users"][str(target_id)] = {"name": clean_name, "wallet": 0}
+        if uid not in data["users"]:
+            data["users"][uid] = {"name": clean_name, "wallet": 0}
         else:
-            data["users"][str(target_id)]["name"] = clean_name
+            data["users"][uid]["name"] = clean_name
             
-        data["users"][str(target_id)]["wallet"] += amt
+        data["users"][uid]["wallet"] += amt
         save_data()
 
-        # ተስማሚ ሰሌዳ መምረጥ
-        active_board = "1"
+        # 1. ክፍት የሆኑና ብሩ የሚበቃቸውን ሰሌዳዎች በሙሉ መለየት
+        available_boards = []
         for b_id, b_info in data["boards"].items():
-            if b_info["active"] and b_info["price"] <= data["users"][str(target_id)]["wallet"]:
-                active_board = b_id
-        
-        board = data["boards"][active_board]
-        # ስንት ቁጥር መያዝ እንደሚችል ማስላት
-        can_pick = data["users"][str(target_id)]["wallet"] // board["price"]
+            if b_info.get("active", True) and b_info["price"] <= data["users"][uid]["wallet"]:
+                available_boards.append(b_id)
 
-        markup = generate_picker_markup(target_id, active_board)
+        # 2. የሰሌዳዎቹን ብዛት አይቶ ውሳኔ መስጠት
+        if not available_boards:
+            bot.send_message(message.chat.id, "⚠️ ለተጫዋቹ ሂሳብ የሚመጥን ክፍት ሰሌዳ አልተገኘም!")
+            return
+
+        if len(available_boards) == 1:
+            # ✅ አንዱ ብቻ ከሆነ ክፍት - አውቶማቲክ በተኑን ይልካል
+            bid = available_boards
+            board = data["boards"][bid]
+            can_pick = data["users"][uid]["wallet"] // board["price"] # የቁጥር ስሌት
+            
+            markup = generate_picker_markup(uid, bid)
+            text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
+                    f"👤 <b>ተጫዋች፦</b> <b><i><code>{clean_name}</code></i></b>\n"
+                    f"💰 <b>ጠቅላላ ሂሳብ፦</b> <b>{data['users'][uid]['wallet']} ብር</b>\n"
+                    f"🎫 <b>መያዝ የሚችሉት፦</b> <b>{can_pick} ቁጥሮች</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"🎰 <b>ሰሌዳ {bid} - እባክዎ ቁጥርዎን ይምረጡ፦</b>")
+            bot.send_message(GROUP_ID, text, reply_to_message_id=receipt_mid, reply_markup=markup)
         
-        text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
-                f"👤 <b>ተጫዋች፦</b> <b><i><code>{clean_name}</code></i></b>\n"
-                f"💰 <b>ጠቅላላ ሂሳብ፦</b> <b>{data['users'][str(target_id)]['wallet']} ብር</b>\n"
-                f"🎫 <b>መያዝ የሚችሉት፦</b> <b>{can_pick} ቁጥሮች</b>\n"
-                f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🎰 <b>ሰሌዳ {active_board} - እባክዎ ቁጥርዎን ይምረጡ፦</b>")
-        
-        bot.send_message(GROUP_ID, text, reply_to_message_id=receipt_mid, reply_markup=markup)
-        bot.send_message(message.chat.id, f"✅ ለ {clean_name} {can_pick} ቁጥር ምርጫ ተዘርግቷል።")
+        else:
+            # ✅ ሁለት ወይም ሦስት ከሆኑ - ሰሌዳ እንዲመርጥ ያደርጋል
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            for b_id in available_boards:
+                price = data["boards"][b_id]["price"]
+                markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {b_id} (🎫 {price} ብር)", callback_data=f"u_select_{uid}_{b_id}"))
+            
+            text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
+                    f"👤 <b>ተጫዋች፦</b> <b><i><code>{clean_name}</code></i></b>\n"
+                    f"💰 <b>ጠቅላላ ሂሳብ፦</b> <b>{data['users'][uid]['wallet']} ብር</b>\n"
+                    f"❓ <b>እባክዎ መጫወት የሚፈልጉትን ሰሌዳ ይምረጡ፦</b>")
+            bot.send_message(GROUP_ID, text, reply_to_message_id=receipt_mid, reply_markup=markup)
+
+        bot.send_message(message.chat.id, f"✅ ለ {clean_name} የክፍያ ማረጋገጫ ተልኳል።")
         
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ ስህተት! {e}")
