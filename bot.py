@@ -507,30 +507,52 @@ def callback_listener(call):
     # የ 'None' ስህተት እንዳይመጣ
     bot.answer_callback_query(call.id)
 
+# --- 6. Callback Logic (Indentation የተስተካከለ እና Duplicate የሚከላከል) ---
+
+def is_already_processed(receipt_id):
+    key = f"proc_receipt:{receipt_id}"
+    if redis.get(key):
+        return True
+    # ለ 60 ሰከንድ ተረክቤዋለሁ ብሎ መመዝገብ
+    redis.setex(key, 60, "true")
+    return False
+
 def handle_secure_pick(call):
     # 1. መረጃዎቹን ከ Callback Data መበተን
     _, allowed_id, bid, num = call.data.split('_')
 
-    # 2. ተጫዋቹን እና ሰሌዳውን ለይቶ ማወቅ
+    # የባለቤትነት ቼክ
+    if str(call.from_user.id) != str(allowed_id):
+        bot.answer_callback_query(call.id, "⚠️ ይቅርታ! ይህ የሌላ ሰው ምርጫ ነው።", show_alert=True)
+        return
+
     uid = str(call.from_user.id)
     user = data["users"].get(uid)
     board = data["boards"].get(bid)
 
     if not user or not board: 
-        return # ለጥንቃቄ
+        return 
 
     board_price = int(board["price"])
 
-    # 3. ብር መቀነስ እና መመዝገብ
+    # 2. ብር መቀነስ እና መመዝገብ
+    if user["wallet"] < board_price:
+        bot.answer_callback_query(call.id, "❌ ሂሳብዎ በቂ አይደለም!", show_alert=True)
+        return
+
+    if num in board["slots"]:
+        bot.answer_callback_query(call.id, "❌ ይህ ቁጥር ቀድሞ ተይዟል!", show_alert=True)
+        refresh_picker(call, uid, bid)
+        return
+
     data["users"][uid]["wallet"] -= board_price
     board["slots"][num] = user["name"]
     save_data()
     update_group_board(bid)
 
-    # 4. አዲሱን ቀሪ ሂሳብ መለየት
+    # 3. አዲሱን ቀሪ ሂሳብ መለየት
     current_wallet = data["users"][uid]["wallet"]
 
-    # 5. የ if/else logic (ምርጫውን ለመቀጠል ወይም ለማቆም)
     if current_wallet >= board_price:
         refresh_picker(call, uid, bid)
     else:
@@ -543,6 +565,7 @@ def handle_secure_pick(call):
             )
         except:
             pass
+    bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
@@ -564,21 +587,37 @@ def callback_listener(call):
         m = bot.send_message(call.from_user.id, "አሸናፊ ለመፈለግ ሰሌዳ እና ቁጥር ይጻፉ (ለምሳሌ: 2-13)፦")
         bot.register_next_step_handler(m, process_lookup)
 
-    # ⚠️ እዚህ ጋር ነው ማስተካከያው (ከላይ ካሉት elif ጋር ትይዩ መሆን አለባቸው)
-    elif data_query == "admin_reset" and is_admin:
-        if is_already_processed(call.id):
+    # 2. የደረሰኝ ማጽደቂያ (Wallet ላይ ብር እንዳይደገም)
+    elif data_query.startswith('g_app_') and is_admin:
+        _, _, target_id, receipt_mid = data_query.split('_')
+        
+        # ደረሰኙ አንዴ ብቻ እንዲሰራ መቆለፊያ
+        if is_already_processed(receipt_mid):
+            bot.answer_callback_query(call.id, "⚠️ ይህ ደረሰኝ ቀድሞውኑ እየተሰራ ነው!")
             return
-        reset_menu(call)
 
+        msg = bot.send_message(call.from_user.id, f"💰 ለ {target_id} የሚጨመረውን ብር ይጻፉ፦")
+        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid)
+
+    # 3. የሰሌዳ ምርጫዎች (ተጫዋች)
+    elif data_query.startswith('select_'):
+        handle_selection(call)
+    elif data_query.startswith('p_'):
+        handle_secure_pick(call)
     elif data_query.startswith('doreset_') and is_admin:
-        if is_already_processed(data_query):
-            return
-        bid = data_query.split('_') # እዚህ ጋር መኖሩን አረጋግጥ
+        # መደጋገምን መከላከል
+        if is_already_processed(data_query): return
+        
+        bid = data_query.split('_')
         data["boards"][bid]["slots"] = {}
         save_data()
         update_group_board(bid)
         bot.answer_callback_query(call.id, "✅ ሰሌዳው ጸድቷል!")
-
+    
+    try:
+        bot.answer_callback_query(call.id)
+    except:
+        pass
     # --- አዲሱ የማረጋገጫ ክፍል ---
         elif call.data.startswith('g_app_') and is_admin:
         # 1. መረጃውን መበተን
