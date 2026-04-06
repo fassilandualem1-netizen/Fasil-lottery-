@@ -526,7 +526,6 @@ def handle_secure_pick(call):
     if current_wallet >= board_price:
         refresh_picker(call, uid, bid)
     else:
-            else:
         try:
             bot.edit_message_text(
                 f"✅ ምርጫዎን አጠናቀዋል!\n💰 ቀሪ ሂሳብ፦ {current_wallet} ብር", 
