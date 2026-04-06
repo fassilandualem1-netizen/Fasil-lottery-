@@ -557,7 +557,6 @@ def handle_secure_pick(call):
         update_group_board(bid)
         bot.answer_callback_query(call.id, "✅ ሰሌዳው ጸድቷል!")
 
-
     # --- አዲሱ የማረጋገጫ ክፍል ---
     if call.data.startswith('g_app_') and is_admin:
         _, _, target_id, receipt_mid = call.data.split('_')
