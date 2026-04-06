@@ -492,11 +492,31 @@ def callback_listener(call):
 
     # 3. የሰሌዳ ምርጫዎች (ተጫዋች)
     elif call.data.startswith('select_'): handle_selection(call)
-    elif call.data.startswith('p_'): handle_secure_pick(call)
-    elif call.data.startswith('pick_'):
-        _, bid, num = call.data.split('_')
-        finalize_reg_inline(call, bid, num)
+    elif call.data.startswith('p_'): 
+def handle_secure_pick(call):
+    # ... (የመጀመሪያው የቼክ ኮድ እዚህ አለ) ...
     
+    # 1. ብር መቀነስ
+    data["users"][uid]["wallet"] -= board_price
+    board["slots"][num] = user["name"]
+    save_data()
+    update_group_board(bid)
+    
+    # 2. አዲሱን ቀሪ ሂሳብ እዚሁ መለየት (Variable መስጠት)
+    current_wallet = data["users"][uid]["wallet"]
+
+    # 3. አንተ የጻፍከው ክፍል እዚህ ውስጥ ይግባ (Indent ተደርጎ)
+    if current_wallet >= board_price:
+        refresh_picker(call, uid, bid)
+    else:
+        try:
+            bot.edit_message_text(f"✅ ምርጫዎን አጠናቀዋል!\n💰 ቀሪ ሂሳብ፦ {current_wallet} ብር", 
+                                  call.message.chat.id, 
+                                  call.message.message_id, 
+                                  reply_markup=None)
+        except:
+            pass
+  
     # 4. ሰሌዳ Reset እና ማስተካከያ
     elif call.data == "admin_reset" and is_admin: reset_menu(call)
     elif call.data.startswith('doreset_') and is_admin:
