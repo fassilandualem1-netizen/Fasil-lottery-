@@ -481,9 +481,10 @@ def callback_listener(call):
         m = bot.send_message(call.from_user.id, "📝 <b>በካሽ ለመመዝገብ፦</b>\nሰሌዳ-ቁጥር ስም ይጻፉ (ምሳሌ፦ 1-05 አበበ)")
         bot.register_next_step_handler(m, process_cash_reg)
         
-    elif call.data == "admin_delete" and is_admin: # ✅ ከ 'elif' ጋር እኩል መሆን አለበት
+    elif call.data == "admin_delete" and is_admin:
         m = bot.send_message(call.from_user.id, "🗑 <b>ቁጥር ለመሰረዝ፦</b>\nሰሌዳ-ቁጥር ይጻፉ (ምሳሌ፦ 1-05)")
         bot.register_next_step_handler(m, process_admin_delete)
+
     # 2. የደረሰኝ ማጽደቂያ (g_app_)
     elif call.data.startswith('g_app_') and is_admin:
         _, _, target_id, receipt_mid = call.data.split('_')
@@ -495,21 +496,24 @@ def callback_listener(call):
         handle_selection(call)
         
     elif call.data.startswith('p_'):
-        # 👈 እዚህ ጋር ፈንክሽኑን መጥራት ብቻ ነው ያለብህ
         handle_secure_pick(call) 
 
-# ከ callback_listener ፈንክሽን ውጭ (በተናጠል) ደግሞ ይህንን ጻፍ፦
+# ---------------------------------------------------------
+# ከ callback_listener ፈንክሽን ውጭ (በተናጠል) መጻፍ ያለበት ክፍል
+# ---------------------------------------------------------
+
 def handle_secure_pick(call):
     # 1. መረጃዎቹን ከ Callback Data መበተን
     _, allowed_id, bid, num = call.data.split('_')
     
-    # 2. ተጫዋቹን እና ሰሌዳውን ለይቶ ማወቅ (እነዚህ መስመሮች የግድ ያስፈልጋሉ)
+    # 2. ተጫዋቹን እና ሰሌዳውን ለይቶ ማወቅ
     uid = str(call.from_user.id)
     user = data["users"].get(uid)
     board = data["boards"].get(bid)
+    
+    if not user or not board: return # ለጥንቃቄ
+    
     board_price = int(board["price"])
-
-    # --- የባለቤትነት እና የሂሳብ ቼክ እዚህ ጋር ይገባል (አንተ ኮድ ውስጥ ስላለ አልደገምኩትም) ---
 
     # 3. ብር መቀነስ እና መመዝገብ
     data["users"][uid]["wallet"] -= board_price
@@ -520,7 +524,7 @@ def handle_secure_pick(call):
     # 4. አዲሱን ቀሪ ሂሳብ መለየት
     current_wallet = data["users"][uid]["wallet"]
 
-    # 5. አንተ የጻፍከው የ if/else logic
+    # 5. የ if/else logic (ምርጫውን ለመቀጠል ወይም ለማቆም)
     if current_wallet >= board_price:
         refresh_picker(call, uid, bid)
     else:
