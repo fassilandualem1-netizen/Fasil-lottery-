@@ -491,21 +491,36 @@ def callback_listener(call):
         bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid)
 
     # 3. የሰሌዳ ምርጫዎች (ተጫዋች)
-    elif call.data.startswith('select_'): handle_selection(call)
-    elif call.data.startswith('p_'): 
+    elif call.data.startswith('select_'):
+        handle_selection(call)
+        
+    elif call.data.startswith('p_'):
+        # 👈 እዚህ ጋር ፈንክሽኑን መጥራት ብቻ ነው ያለብህ
+        handle_secure_pick(call) 
+
+# ከ callback_listener ፈንክሽን ውጭ (በተናጠል) ደግሞ ይህንን ጻፍ፦
 def handle_secure_pick(call):
-    # ... (የመጀመሪያው የቼክ ኮድ እዚህ አለ) ...
+    # 1. መረጃዎቹን ከ Callback Data መበተን
+    _, allowed_id, bid, num = call.data.split('_')
     
-    # 1. ብር መቀነስ
+    # 2. ተጫዋቹን እና ሰሌዳውን ለይቶ ማወቅ (እነዚህ መስመሮች የግድ ያስፈልጋሉ)
+    uid = str(call.from_user.id)
+    user = data["users"].get(uid)
+    board = data["boards"].get(bid)
+    board_price = int(board["price"])
+
+    # --- የባለቤትነት እና የሂሳብ ቼክ እዚህ ጋር ይገባል (አንተ ኮድ ውስጥ ስላለ አልደገምኩትም) ---
+
+    # 3. ብር መቀነስ እና መመዝገብ
     data["users"][uid]["wallet"] -= board_price
     board["slots"][num] = user["name"]
     save_data()
     update_group_board(bid)
     
-    # 2. አዲሱን ቀሪ ሂሳብ እዚሁ መለየት (Variable መስጠት)
+    # 4. አዲሱን ቀሪ ሂሳብ መለየት
     current_wallet = data["users"][uid]["wallet"]
 
-    # 3. አንተ የጻፍከው ክፍል እዚህ ውስጥ ይግባ (Indent ተደርጎ)
+    # 5. አንተ የጻፍከው የ if/else logic
     if current_wallet >= board_price:
         refresh_picker(call, uid, bid)
     else:
@@ -516,7 +531,7 @@ def handle_secure_pick(call):
                                   reply_markup=None)
         except:
             pass
-  
+
     # 4. ሰሌዳ Reset እና ማስተካከያ
     elif call.data == "admin_reset" and is_admin: reset_menu(call)
     elif call.data.startswith('doreset_') and is_admin:
