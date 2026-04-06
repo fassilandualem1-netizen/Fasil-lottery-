@@ -633,7 +633,31 @@ def callback_listener(call):
         m = bot.send_message(call.from_user.id, f"የሰሌዳ {bid} አዲስ ዋጋ/ሽልማት ይጻፉ፦")
         bot.register_next_step_handler(m, update_board_value, bid, action)
     elif call.data == "admin_reset" and is_admin: reset_menu(call)
-    
+    elif call.data.startswith('reject_'):
+        _, target_id, msg_id = call.data.split('_')
+        
+        # 1. ለአድሚኑ መልስ መስጠት
+        bot.answer_callback_query(call.id, "❌ ደረሰኙ ውድቅ ተደርጓል!", show_alert=True)
+        
+        # 2. የአድሚኑን መልዕክት ማደስ (Buttons እንዲጠፉ)
+        bot.edit_message_caption(
+            caption=f"❌ ይህ ደረሰኝ ውድቅ ተደርጓል!\n👤 የተጫዋች ID፦ <code>{target_id}</code>",
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=None,
+            parse_mode="HTML"
+        )
+        
+        # 3. ለተጫዋቹ ደረሰኙ ውድቅ መሆኑን ማሳወቅ
+        reject_text = (f"❌ <b>ደረሰኝዎ ውድቅ ተደርጓል!</b>\n\n"
+                       f"ምክንያቱ፦ ደረሰኙ ትክክል አይደለም ወይም ቀደም ብሎ ጥቅም ላይ ውሏል።\n"
+                       f"እባክዎ ትክክለኛውን ደረሰኝ ደግመው ይላኩ ወይም አድሚኑን ያነጋግሩ።")
+        
+        try:
+            bot.send_message(target_id, reject_text, parse_mode="HTML")
+        except:
+            # ተጫዋቹ ቦቱን ብሎክ ካደረገ እንዳይቆም
+            pass
     elif call.data.startswith('u_select_'):
         _, _, target_id, bid = call.data.split('_')
         if str(call.from_user.id) != str(target_id):
