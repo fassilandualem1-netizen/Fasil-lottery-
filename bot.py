@@ -683,12 +683,17 @@ def force_update(message):
     
     
 if __name__ == "__main__":
-    # ለጊዜው ይህንን ጨምር (አንድ ጊዜ Deploy ካደረግክ በኋላ መልሰህ ብታጠፋው ይሻላል)
-    save_data()
+    # 1. ዳታው መጀመሪያ መጫኑን አረጋግጥ
+    load_data() 
     
+    # 2. ሰርቨሩ በህይወት እንዲቆይ (Flask)
     keep_alive()
-    # ... ሌላው የ bot.polling ኮድ ይቀጥላል
+    
+    # 3. የድሮ Webhook ካለ ማጽዳት
     bot.remove_webhook()
-    while True:
-        try: bot.polling(none_stop=True, interval=1, timeout=20)
-        except: time.sleep(5)
+    
+    print("Fasil Bot is starting...")
+    
+    # 4. ዋናው ማስተካከያ (በ 'while True' ፋንታ ይህንን ተጠቀም)
+    # skip_pending=True -> ቦቱ ደርቦ እንዳይመልስ ያደርገዋል
+    bot.infinity_polling(skip_pending=True, timeout=60, long_polling_timeout=20)
