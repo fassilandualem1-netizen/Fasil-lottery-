@@ -646,6 +646,14 @@ def send_picker_to_group(message, target_id, receipt_mid):
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ ስህተት! {e}")
 
+def is_already_processed(receipt_id):
+    key = f"proc_receipt:{receipt_id}"
+    if redis.get(key):
+        return True
+    # ለ 60 ሰከንድ ተረክቤዋለሁ ብሎ መመዝገብ
+    redis.setex(key, 60, "true")
+    return False
+
 
 
 def finalize_app(message, target):
