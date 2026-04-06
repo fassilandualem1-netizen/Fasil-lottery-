@@ -281,24 +281,30 @@ def admin_panel(message):
     bot.send_message(message.chat.id, f"🛠 <b>የአድሚን ዳሽቦርድ</b>\n\n{stats}", reply_markup=markup)
 
 # --- አዲሱ የግሩፕ ደረሰኝ መቀበያ (ከመስመር 175 በታች የሚገባ) ---
-@bot.message_handler(content_types=['photo'], func=lambda m: m.chat.id == GROUP_ID)
-def handle_group_receipt(message):
-    if int(message.from_user.id) in ADMIN_IDS and message.content_type == 'text':
-        return # አድሚኑ ጽሁፍ ሲልክ ቦቱ ዝም ይላል (እንደ ደረሰኝ አይቆጥረውም)
-    uid = str(message.from_user.id)
-    name = message.from_user.first_name
-    mid = message.message_id # የደረሰኙ መለያ
+@bot.message_handler(content_types=['photo'])
+def handle_receipt(message):
+    user_id = message.from_user.id
+    user_name = message.from_user.first_name
+    photo_id = message.photo[-1].file_id # ትልቁን ፎቶ ለመውሰድ
+    message_id = message.message_id
 
-    # ለአድሚኑ ማሳወቂያ ይላካል
+    # 1. መጀመሪያ በተኖቹን እንሰራለን
     markup = types.InlineKeyboardMarkup()
-    # የደረሰኙን መልዕክት ID (mid) ለይተን እንይዛለን
-    markup.add(types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_{mid}"))
-    
-    cap = f"📩 <b>አዲስ ደረሰኝ ከግሩፕ</b>\n👤 <b>ከ፦</b> {name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
-    for adm in ADMIN_IDS:
-        try:
-            bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup)
-        except: pass
+    btn_approve = types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"approve_{user_id}_{message_id}")
+    btn_reject = types.InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"reject_{user_id}_{message_id}")
+    markup.add(btn_approve, btn_reject)
+
+    # 2. ለአድሚኑ ፎቶውን ከነበተኑ እንልካለን
+    bot.send_photo(
+        ADMIN_ID, 
+        photo_id, 
+        caption=f"📩 <b>አዲስ ደረሰኝ ቀርቧል</b>\n👤 <b>ከ፦</b> {user_name}\n🆔 <b>ID፦</b> <code>{user_id}</code>", 
+        reply_markup=markup,
+        parse_mode="HTML"
+    )
+
+    # 3. ለተጫዋቹ መላኩን እናረጋግጥለታለን
+    bot.reply_to(message, "⏳ ደረሰኝዎ ለአድሚን ተልኳል፣ እባክዎ እስከሚረጋገጥ ይጠብቁ።")
 
 # ይህ ክፍል "ሰሌዳ አስተካክል" ሲነካ መልስ እንዲሰጥ ያደርጋል
 
