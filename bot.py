@@ -510,14 +510,15 @@ def callback_listener(call):
 def handle_secure_pick(call):
     # 1. መረጃዎቹን ከ Callback Data መበተን
     _, allowed_id, bid, num = call.data.split('_')
-    
+
     # 2. ተጫዋቹን እና ሰሌዳውን ለይቶ ማወቅ
     uid = str(call.from_user.id)
     user = data["users"].get(uid)
     board = data["boards"].get(bid)
-    
-    if not user or not board: return # ለጥንቃቄ
-    
+
+    if not user or not board: 
+        return # ለጥንቃቄ
+
     board_price = int(board["price"])
 
     # 3. ብር መቀነስ እና መመዝገብ
@@ -525,7 +526,7 @@ def handle_secure_pick(call):
     board["slots"][num] = user["name"]
     save_data()
     update_group_board(bid)
-    
+
     # 4. አዲሱን ቀሪ ሂሳብ መለየት
     current_wallet = data["users"][uid]["wallet"]
 
@@ -544,7 +545,7 @@ def handle_secure_pick(call):
         except:
             pass
 
-    # --- ከላይኛው ፈንክሽን ውጭ እና በ callback_listener ውስጥ መሆን ያለባቸው elif መስመሮች ---
+# ⚠️ ከዚህ በታች ያሉት መስመሮች በ 'callback_listener' ውስጥ ካሉ ሌሎች elif መስመሮች ጋር ትይዩ መሆን አለባቸው
 
     elif call.data == "admin_reset" and is_admin:
         # መደጋገምን ለመከላከል
@@ -556,22 +557,13 @@ def handle_secure_pick(call):
         # 1. መደጋገምን ለመከላከል
         if is_already_processed(call.data):
             return
-
-        # 2. የሰሌዳውን ቁጥር ለማግኘት መጨመር አለበት
-        bid_parts = call.data.split('_')
-        if len(bid_parts) > 1:
-            bid = bid_parts 
-            
-            # 3. ዳታውን ማጽዳት
-            data["boards"][bid]["slots"] = {}
-            save_data()
-            
-            # 4. ግሩፑ ላይ ያለውን ሰሌዳ ማደስ
-            update_group_board(bid)
-            
-            # 5. ለ Telegram ምላሽ መስጠት (Double request ለመከላከል ወሳኝ ነው)
-            bot.answer_callback_query(call.id, "✅ ሰሌዳው በስኬት ጸድቷል!")
-
+        
+        # 2. የሰሌዳውን ቁጥር ለማግኘት
+        bid = call.data.split('_')
+        data["boards"][bid]["slots"] = {}
+        save_data()
+        update_group_board(bid)
+        bot.answer_callback_query(call.id, "✅ ሰሌዳው ጸድቷል!")
 
     # --- አዲሱ የማረጋገጫ ክፍል ---
         elif call.data.startswith('g_app_') and is_admin:
