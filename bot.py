@@ -559,8 +559,16 @@ def handle_secure_pick(call):
 
 
     # --- አዲሱ የማረጋገጫ ክፍል ---
-    if call.data.startswith('g_app_') and is_admin:
+        elif call.data.startswith('g_app_') and is_admin:
+        # 1. መረጃውን መበተን
         _, _, target_id, receipt_mid = call.data.split('_')
+
+        # 2. ይህ ደረሰኝ ቀድሞ ተረክቦት እንደሆነ ቼክ ማድረግ
+        if is_already_processed(receipt_mid):
+            bot.answer_callback_query(call.id, "⚠️ ይህ ደረሰኝ ቀድሞውኑ እየተሰራ ነው!")
+            return
+
+        # 3. ካልተሰራ ወደ ቀጣዩ ደረጃ ማለፍ
         msg = bot.send_message(call.from_user.id, f"💰 ለ {target_id} የሚጨመረውን ብር ይጻፉ፦")
         bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid)
     
