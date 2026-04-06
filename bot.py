@@ -599,19 +599,18 @@ def handle_secure_pick(call):
         save_data(); bot.answer_callback_query(call.id, "ሰሌዳው ጸድቷል!"); update_group_board(bid)
 
 def send_picker_to_group(message, target_id, receipt_mid):
-    try:
-        amt = int(message.text) # አድሚኑ ያስገባው የብር መጠን
-        user_info = bot.get_chat(target_id)
-        
-        raw_name = user_info.first_name if user_info.first_name else "ተጫዋች"
-        clean_name = raw_name[:10] 
+    # መደጋገምን በሁለተኛ ደረጃ መከላከል
+    final_lock = f"final_done:{receipt_mid}"
+    if redis.get(final_lock):
+        return # ቀድሞ ተሰርቶ አልቋል
 
-        if str(target_id) not in data["users"]:
-            data["users"][str(target_id)] = {"name": clean_name, "wallet": 0}
-        else:
-            data["users"][str(target_id)]["name"] = clean_name
-            
-        data["users"][str(target_id)]["wallet"] += amt
+    try:
+        amount = int(message.text)
+        # ብሩን ከመጨመርህ በፊት "ተሰርቷል" ብለህ ቆልፈው
+        redis.setex(final_lock, 3600, "done") 
+        
+        # 1. ብሩን ለተጠቃሚው ዋሌት ላይ መደመር
+        data["users"][target_id]["wallet"] += amount
         save_data()
 
         # ተስማሚ ሰሌዳ መምረጥ
