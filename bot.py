@@ -192,6 +192,39 @@ def start_broadcast(message):
     else:
         bot.reply_to(message, "❌ ይህ ለባለቤቱ ብቻ የተፈቀደ ነው!")
 
+def find_winner_account(bid, winning_num):
+    board = data["boards"].get(bid)
+    if not board:
+        return "⚠️ ሰሌዳው አልተገኘም!"
+
+    # 1. አሸናፊውን ስም ከሰሌዳው ላይ ማውጣት
+    winner_name = board["slots"].get(str(winning_num))
+
+    if winner_name:
+        winner_id = None
+        # 2. በስሙ ተጠቅመን በዳታቤዛችን ውስጥ ያለውን የቴሌግራም ID መፈለግ
+        for uid, user_info in data["users"].items():
+            if user_info["name"] == winner_name:
+                winner_id = uid
+                break
+        
+        if winner_id:
+            # ✅ አሸናፊውን በሊንክ መልክ ማዘጋጀት (ይህ አካውንቱን በቀጥታ ለመጫን ይረዳል)
+            mention = f'<a href="tg://user?id={winner_id}">{winner_name}</a>'
+            
+            text = (f"🎊 <b>እንኳን ደስ አሎት!</b> 🎊\n\n"
+                    f"🎰 <b>ሰሌዳ፦</b> {bid}\n"
+                    f"🎫 <b>አሸናፊ ቁጥር፦</b> {winning_num}\n"
+                    f"👤 <b>አሸናፊ፦</b> {mention}\n" # 👈 ስሙን ስትነካው ወደ አካውንቱ ይወስደሃል
+                    f"🆔 <b>User ID፦</b> <code>{winner_id}</code>\n"
+                    f"💰 <b>ቀሪ ሂሳብ፦</b> {data['users'][winner_id]['wallet']} ብር")
+            
+            bot.send_message(GROUP_ID, text, parse_mode="HTML")
+        else:
+            bot.send_message(GROUP_ID, f"⚠️ አሸናፊው {winner_name} ተገኝቷል፣ ግን IDው በዳታቤዝ ውስጥ የለም።")
+    else:
+        bot.send_message(GROUP_ID, f"⚠️ በሰሌዳ {bid} ላይ ቁጥር {winning_num} አልተያዘም!")
+
 def send_to_all(message):
     users = list(data["users"].keys())
     count = 0
