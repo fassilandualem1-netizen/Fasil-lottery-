@@ -533,22 +533,28 @@ def handle_secure_pick(call):
     if current_wallet >= board_price:
         refresh_picker(call, uid, bid)
     else:
-        try:
-            bot.edit_message_text(f"✅ ምርጫዎን አጠናቀዋል!\n💰 ቀሪ ሂሳብ፦ {current_wallet} ብር", 
-                                  call.message.chat.id, 
-                                  call.message.message_id, 
-                                  reply_markup=None)
+        try:                 
+        bot.edit_message_text(f"✅ ምርጫዎን አጠናቀዋል!\n💰 ቀሪ ሂሳብ፦ {current_wallet} ብር", 
+                              call.message.chat.id, 
+                              call.message.message_id, 
+                              reply_markup=None)
         except:
-            pass
+        pass
 
-    # 4. ሰሌዳ Reset እና ማስተካከያ
-    elif call.data == "admin_reset" and is_admin: reset_menu(call)
+# ⚠️ እዚህ ጋር ነው ስህተቱ! እነዚህ መስመሮች ወደ ግራ (ከግድግዳው 0 ክፍተት) መጀመር አለባቸው።
+# ይህ 'callback_listener' ፈንክሽን ውስጥ ያለ 'elif' መሆን አለበት።
+
+    elif call.data == "admin_reset" and is_admin:
+        reset_menu(call)
+
     elif call.data.startswith('doreset_') and is_admin:
         bid = call.data.split('_')
         data["boards"][bid]["slots"] = {}
-        save_data(); update_group_board(bid)
+        save_data()
+        update_group_board(bid)
         bot.answer_callback_query(call.id, "✅ ሰሌዳው ጸድቷል!")
-    
+
+
     # --- አዲሱ የማረጋገጫ ክፍል ---
     if call.data.startswith('g_app_') and is_admin:
         _, _, target_id, receipt_mid = call.data.split('_')
