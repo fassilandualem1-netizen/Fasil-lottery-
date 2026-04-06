@@ -535,7 +535,6 @@ def handle_secure_pick(call):
         refresh_picker(call, uid, bid)
     else:
         try:
-            # ይህ መስመር ከ try በታች ገባ ብሎ መጻፍ አለበት
             bot.edit_message_text(
                 f"✅ ምርጫዎን አጠናቀዋል!\n💰 ቀሪ ሂሳብ፦ {current_wallet} ብር", 
                 call.message.chat.id, 
@@ -545,21 +544,36 @@ def handle_secure_pick(call):
         except:
             pass
 
-# ⚠️ ከዚህ በታች ያሉት መስመሮች በ 'callback_listener' ውስጥ ካሉ ሌሎች elif መስመሮች ጋር ትይዩ መሆን አለባቸው
+@bot.callback_query_handler(func=lambda call: True)
+def callback_listener(call):
+    is_admin = call.from_user.id in ADMIN_IDS
+    data_query = call.data 
 
-    elif call.data == "admin_reset" and is_admin:
-        # መደጋገምን ለመከላከል
+    # 1. የአድሚን ተግባራት
+    if data_query == "admin_manage" and is_admin:
+        admin_manage_menu(call)
+    elif data_query == "admin_cash" and is_admin:
+        m = bot.send_message(call.from_user.id, "📝 <b>በካሽ ለመመዝገብ፦</b>\nሰሌዳ-ቁጥር ስም ይጻፉ (ምሳሌ፦ 1-05 አበበ)")
+        bot.register_next_step_handler(m, process_cash_reg)
+    elif data_query == "admin_delete" and is_admin:
+        m = bot.send_message(call.from_user.id, "🗑 <b>ቁጥር ለመሰረዝ፦</b>\nሰሌዳ-ቁጥር ይጻፉ (ምሳሌ፦ 1-05)")
+        bot.register_next_step_handler(m, process_admin_delete)
+    elif data_query == "admin_reset" and is_admin: 
+        reset_menu(call)
+    elif data_query == "lookup_winner" and is_admin:
+        m = bot.send_message(call.from_user.id, "አሸናፊ ለመፈለግ ሰሌዳ እና ቁጥር ይጻፉ (ለምሳሌ: 2-13)፦")
+        bot.register_next_step_handler(m, process_lookup)
+
+    # ⚠️ እዚህ ጋር ነው ማስተካከያው (ከላይ ካሉት elif ጋር ትይዩ መሆን አለባቸው)
+    elif data_query == "admin_reset" and is_admin:
         if is_already_processed(call.id):
             return
         reset_menu(call)
 
-    elif call.data.startswith('doreset_') and is_admin:
-        # 1. መደጋገምን ለመከላከል
-        if is_already_processed(call.data):
+    elif data_query.startswith('doreset_') and is_admin:
+        if is_already_processed(data_query):
             return
-        
-        # 2. የሰሌዳውን ቁጥር ለማግኘት
-        bid = call.data.split('_')
+        bid = data_query.split('_') # እዚህ ጋር መኖሩን አረጋግጥ
         data["boards"][bid]["slots"] = {}
         save_data()
         update_group_board(bid)
