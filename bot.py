@@ -382,22 +382,27 @@ def handle_secure_pick(call):
     update_group_board(bid)
     bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!")
 
+    # ብር ካለው ሰሌዳውን ያድስ፣ ከሌለው መልዕክት ይላክ
     if data["users"][uid]["wallet"] >= int(board["price"]):
         refresh_picker(call, uid, bid)
-        else:
+    else:
         # 1. የያዛቸውን ቁጥሮች ዝርዝር ማዘጋጀት
         my_nums = [n for n, o in board["slots"].items() if o == user['name']]
-        txt = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n📌 <b>ቁጥሮችዎ፦</b> <code>{', '.join(sorted(my_nums, key=int))}</code>"
+        numbers_str = ", ".join(sorted(my_nums, key=int))
         
         # 2. የድሮውን ሰሌዳ ማጥፋት
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-        
-        # 3. አዲሱን መልዕክት መላክ
-        sent = bot.send_message(GROUP_ID, txt, parse_mode="HTML")
-        
-        # 4. መፍትሔው፦ በአንድ መስመር መልዕክቱን ማጥፋት (ክፍተት አይፈልግም)
+        try:
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+        except:
+            pass
+            
+        # 3. የደስታ መግለጫ መልዕክቱን መላክ
+        success_text = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n📌 <b>የያዟቸው፦</b> <code>{numbers_str}</code>\n━━━━━━━━━━━━━\n✨ <b>መልካም ዕድል! 🏆</b>"
+        sent_msg = bot.send_message(GROUP_ID, success_text, parse_mode="HTML")
+
+        # 4. መልዕክቱን ከ10 ሰከንድ በኋላ የሚያጠፋው ክፍል (በአንድ መስመር)
         import threading
-        threading.Timer(10, lambda: bot.delete_message(GROUP_ID, sent.message_id)).start()
+        threading.Timer(10, lambda: (bot.delete_message(GROUP_ID, sent_msg.message_id) if True else None)).start()
 
 # 🛠 ሰሌዳውን ሳያጠፋ (Edit) እንዲያድስ የሚረዳ ረዳት ፈንክሽን
 def refresh_picker(call, uid, bid):
