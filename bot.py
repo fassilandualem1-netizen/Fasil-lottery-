@@ -393,8 +393,8 @@ def handle_secure_pick(call):
         # 2. የድሮውን ሰሌዳ ማጥፋት
     try:
             bot.delete_message(call.message.chat.id, call.message.message_id)
-        except:
-            pass
+    except:
+          pass
             
         # 3. የደስታ መግለጫ መልዕክቱን መላክ
         success_text = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n📌 <b>የያዟቸው፦</b> <code>{numbers_str}</code>\n━━━━━━━━━━━━━\n✨ <b>መልካም ዕድል! 🏆</b>"
