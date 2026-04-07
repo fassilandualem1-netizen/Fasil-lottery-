@@ -668,17 +668,31 @@ def send_picker_to_group(message, target_id, receipt_mid):
 
 def finalize_app(message, target):
     try:
+        # 1. የገባውን የብር መጠን ወደ ቁጥር መቀየር
         amt = int(message.text)
-        data["users"][str(target)]["wallet"] += amt
-        save_data()
+        uid = str(target)
         
-        bot.send_message(target, f"✅ <b>{amt} ብር ተጨምሯል!</b>", parse_mode="HTML")
-        
-        m = bot.send_message(target, "አሁን በሰሌዳ ላይ የሚወጣውን ስምዎን (እስከ 5 ፊደል) ይጻፉ፦")
-        bot.register_next_step_handler(m, save_name, target)
-        
-    except:
+        # 2. ለተጠቃሚው ብር መጨመር
+        if uid in data["users"]:
+            data["users"][uid]["wallet"] += amt
+            save_data()
+            
+            # 3. ማረጋገጫ መላክ
+            bot.send_message(target, f"✅ <b>{amt} ብር ተጨምሯል!</b>", parse_mode="HTML")
+            
+            # 4. ስም እንዲያስመዘግብ መጠየቅ
+            m = bot.send_message(target, "አሁን በሰሌዳ ላይ የሚወጣውን ስምዎን (እስከ 5 ፊደል) ይጻፉ፦")
+            bot.register_next_step_handler(m, save_name, target)
+        else:
+            bot.send_message(message.chat.id, "❌ ተጠቃሚው በዳታቤዝ ውስጥ አልተገኘም።")
+            
+    except ValueError:
+        # ቁጥር ካልተጻፈ የሚመጣ ስህተት
         bot.send_message(message.chat.id, "⚠️ ስህተት! እባክዎ ቁጥር ብቻ ይጻፉ።")
+    except Exception as e:
+        # ሌላ ያልታሰበ ስህተት ካለ
+        bot.send_message(message.chat.id, f"❌ ስህተት ተፈጥሯል፦ {e}")
+
 
 def save_name(message, uid):
     data["users"][str(uid)]["name"] = message.text[:5]
