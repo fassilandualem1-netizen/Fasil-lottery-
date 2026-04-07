@@ -247,38 +247,35 @@ def admin_panel(message):
     # አዲስ ከመላክ ይልቅ መልዕክቱን ማደስ (Edit) ይሻላል
     bot.send_message(message.chat.id, f"🛠 <b>የአድሚን ዳሽቦርድ</b>\n\n{stats}", reply_markup=markup)
 
-# --- አዲሱ የግሩፕ ደረሰኝ መቀበያ (ከመስመር 175 በታች የሚገባ) ---
-# ይህን ከላይ ከኢምፖርቶች በታች አንድ ጊዜ ብቻ ይጻፉ
-processed_msgs = set()
+# --- 1. የግሩፕ ደረሰኝ መቀበያ (ከድርብ መከላከያ ጋር) ---
+processed_msgs = set() # ይህ ከላይ ከኢምፖርቶች በታች ይሁን
 
 @bot.message_handler(content_types=['photo'], func=lambda m: m.chat.id == GROUP_ID)
 def handle_group_receipt(message):
     global processed_msgs
     
-    # 🛑 ቼክ፦ ይህ ደረሰኝ ቀድሞ ለአድሚኑ ተልኮ ከሆነ ዝለለው (ድርብ እንዳይሆን)
+    # አድሚን ከሆነ ደረሰኝ አያስፈልግም
+    if message.from_user.id in ADMIN_IDS:
+        return
+
+    # 🛑 ድርብ ሜሴጅ መከላከያ
     if message.message_id in processed_msgs:
         return
-    
-    # የመልዕክቱን መለያ መመዝገብ
     processed_msgs.add(message.message_id)
     
-    # ሜሞሪ እንዳይሞላ የቆዩትን ዝርዝር አጽዳ
-    if len(processed_msgs) > 100:
+    # ዝርዝሩ በጣም እንዳያብጥ መቆጣጠሪያ
+    if len(processed_msgs) > 200:
         processed_msgs.clear()
 
-    # አድሚን ከሆነ ዝለለው
-    if int(message.from_user.id) in ADMIN_IDS:
-        return
-
     uid = str(message.from_user.id)
-    name = message.from_user.first_name
+    name = message.from_user.first_name if message.from_user.first_name else "ተጫዋች"
     mid = message.message_id
 
     markup = types.InlineKeyboardMarkup()
-    # የደረሰኙን mid በመጠቀም 'አጽድቅ' ሲባል የትኛው እንደሆነ እንዲለይ ያደርጋል
-    markup.add(types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_{mid}"))
+    # ለአድሚን የሚሄድ 'አጽድቅ' በተን
+    markup.add(types.InlineKeyboardButton("✅ አጽድቅ (Approve)", callback_data=f"g_app_{uid}_{mid}"))
     
-    cap = f"📩 <b>አዲስ ደረሰኝ ከግሩፕ</b>\n👤 <b>ከ፦</b> {name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
+    cap = f"📩 <b>አዲስ ደረሰኝ ከግሩፕ</b>\n━━━━━━━━━━━━━\n👤 <b>ከ፦</b> {name}\n🆔 <b>ID፦</b> <code>{uid}</code>\n📍 <b>ሁኔታ፦</b> በመጠባበቅ ላይ..."
     
     for adm in ADMIN_IDS:
         try:
@@ -286,68 +283,67 @@ def handle_group_receipt(message):
         except: 
             pass
 
-# ይህ ክፍል "ሰሌዳ አስተካክል" ሲነካ መልስ እንዲሰጥ ያደርጋል
-
+# --- 2. የቁጥር መምረጫ ዲዛይን (Picker) ---
 def generate_picker_markup(uid, bid):
+    load_data() # የቅርብ ጊዜውን ዳታ ለማግኘት
     board = data["boards"][bid]
     markup = types.InlineKeyboardMarkup(row_width=5)
     btns = []
-    # ከ 1 እስከ ሰሌዳው ማብቂያ (ለምሳሌ 25) ድረስ ያሉትን ቁጥሮች መፈተሽ
+    
     for i in range(1, board["max"] + 1):
         n_str = str(i)
         if n_str not in board["slots"]:
-            # ቁጥሩ ክፍት ከሆነ ምርጫውን እንዲያሳይ
+            # ቁጥሩ ክፍት ከሆነ
             btns.append(types.InlineKeyboardButton(n_str, callback_data=f"p_{uid}_{bid}_{n_str}"))
         else:
-            # ቁጥሩ ተይዞ ከሆነ X እንዲያሳይ
+            # ቁጥሩ ከተያዘ
             btns.append(types.InlineKeyboardButton("❌", callback_data="taken"))
     
     markup.add(*btns)
+    # ተመለስ በተን ከተፈለገ እዚህ መጨመር ይቻላል
     return markup
 
+# --- 3. የአድሚን ዳሽቦርድ (የተስተካከለ) ---
 @bot.callback_query_handler(func=lambda call: call.data == "admin_manage")
 def admin_manage_menu(call):
-    # 1. መጀመሪያ ዳታውን ከፋይሉ ላይ አንብቦ እንዲያድስ (Refresh) ማድረግ
-    # ዳታውን የምታነብበት ፈንክሽን load_data() ከሆነ እንዲህ ጥራው፦
-    global data
-    try:
-        # ዳታውን በምትጠቀምበት መንገድ መሰረት እዚህ ጋር Refresh አድርገው
-        # ለምሳሌ፦ with open('data.json', 'r') as f: data = json.load(f)
-        pass 
-    except: pass
+    if call.from_user.id not in ADMIN_IDS: return
 
-    # 2. የአድሚን ዳሽቦርድ ጽሁፉን ማዘጋጀት
+    # 🔄 ዳታውን Force Refresh ማድረግ (ከ Redis ወይም ፋይል)
+    load_data()
+
     status_text = "🛠 <b>የአድሚን ዳሽቦርድ</b>\n"
-    status_text += "━━━━━━━━━━━━━━━━━━━━━\n\n"
+    status_text += "━━━━━━━━━━━━━━━━━━━━━\n"
     
+    # የእያንዳንዱን ሰሌዳ ሁኔታ መዘርዘር
+    active_boards = []
     for bid in sorted(data["boards"].keys()):
         b_info = data["boards"][bid]
         filled = len(b_info.get("slots", {}))
         total = b_info.get("max", 0)
-        status_text += f"📍 <b>ሰሌዳ {bid}፦</b> <code>({filled}/{total})</code>\n"
+        status = "🟢" if b_info.get("active") else "🔴"
+        status_text += f"{status} <b>ሰሌዳ {bid}፦</b> <code>({filled}/{total})</code> ተይዟል\n"
+        active_boards.append(bid)
     
-    status_text += "\n✨ <i>መረጃው አሁን ላይ ያለውን ሁኔታ ያሳያል</i>"
+    status_text += "\n✨ <i>መረጃው አሁን ላይ ያለውን ሁኔታ ያሳያል።</i>"
 
-    # 3. በተኖቹን ማዘጋጀት
     markup = types.InlineKeyboardMarkup(row_width=2)
+    # ዋና ዋና ትዕዛዞች
     markup.add(
         types.InlineKeyboardButton("💵 በካሽ መዝግብ", callback_data="admin_cash"),
         types.InlineKeyboardButton("🗑 ቁጥር ሰርዝ", callback_data="admin_delete")
     )
-    # ለሰሌዳዎች ማስተካከያ በተኖች
-    for bid in data["boards"]:
-        markup.add(types.InlineKeyboardButton(f"⚙️ ሰሌዳ {bid} አስተካክል", callback_data=f"edit_{bid}"))
     
+    # ለእያንዳንዱ ሰሌዳ የማስተካከያ በተን
+    board_btns = []
+    for bid in active_boards:
+        board_btns.append(types.InlineKeyboardButton(f"⚙️ ሰሌዳ {bid}", callback_data=f"edit_{bid}"))
+    markup.add(*board_btns)
+    
+    markup.add(types.InlineKeyboardButton("🔄 Refresh", callback_data="admin_manage"))
     markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_panel_back"))
 
-    # 4. ወዲያውኑ ለውጡን Save ማድረግ (ለጥንቃቄ)
-    save_data()
-
-    # 5. ሜሴጁን Edit ብቻ ማድረግ (ድርብ ሜሴጅ እንዳይመጣ ይከላከላል)
     try:
-        # Loading ምልክቱ እንዲጠፋ መጀመሪያ ምላሽ መስጠት
         bot.answer_callback_query(call.id)
-        
         bot.edit_message_text(
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
@@ -355,8 +351,8 @@ def admin_manage_menu(call):
             reply_markup=markup,
             parse_mode="HTML"
         )
-    except Exception as e:
-        # Edit ማድረግ ካልተቻለ ብቻ አዲስ መላክ
+    except:
+        # Edit ማድረግ ካልተቻለ (ለምሳሌ ሜሴጁ በጣም የቆየ ከሆነ) አዲስ ይልካል
         bot.send_message(call.message.chat.id, status_text, reply_markup=markup, parse_mode="HTML")
 
 # --- ይህ ክፍል መስመር 300 አካባቢ ይግባ ---
