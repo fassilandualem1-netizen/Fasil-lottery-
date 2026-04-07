@@ -361,64 +361,71 @@ def process_admin_delete(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
     is_admin = call.from_user.id in ADMIN_IDS
+    uid = str(call.from_user.id)
     
-    # 1. ማፅደቂያ (Approve)
+    # 1. አድሚኑ ማፅደቂያ ሲነካ
     if call.data.startswith('approve_') and is_admin:
-        parts = call.data.split('_')
-        target = parts
+        target = call.data.split('_')
         m = bot.send_message(call.from_user.id, f"💵 ለ ID {target} የሚጨመረውን ብር ይጻፉ፦")
         bot.register_next_step_handler(m, finalize_app, target)
 
-    # 2. ውድቅ ማድረጊያ (Decline/Reject)
+    # 2. ውድቅ ማድረጊያ (Decline)
     elif call.data.startswith('decline_') and is_admin:
-        parts = call.data.split('_')
-        target = parts
-        # አድሚኑ ጋር ያለውን በተን ማጥፋት
+        target = call.data.split('_')
         bot.edit_message_caption("❌ ደረሰኙ ውድቅ ተደርጓል", call.message.chat.id, call.message.message_id, reply_markup=None)
         m = bot.send_message(call.from_user.id, "❌ ውድቅ የተደረገበትን ምክንያት ይጻፉ፦")
         bot.register_next_step_handler(m, finalize_dec, target)
 
-    # 3. አሸናፊ መፈለጊያ
+    # 3. ከብዙ ሰሌዳዎች አንዱን ሲመርጡ (u_select_)
+    elif call.data.startswith('u_select_'):
+        parts = call.data.split('_')
+        target_id = parts
+        bid = parts
+        
+        if uid != target_id:
+            bot.answer_callback_query(call.id, "⚠️ ይህ የእርስዎ ምርጫ አይደለም!", show_alert=True)
+            return
+            
+        markup = generate_picker_markup(uid, bid)
+        text = (f"🎰 <b>ሰሌዳ {bid} ተመርጧል!</b>\n"
+                f"💰 <b>ቀሪ ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n"
+                f"እባክዎ ቁጥር ይምረጡ፦")
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+    # 4. ዝርግፍ ቁጥሮች ላይ ምርጫ ሲያደርጉ (p_)
+    elif call.data.startswith('p_'):
+        parts = call.data.split('_')
+        target_id = parts
+        bid = parts
+        num = parts
+        
+        if uid != target_id:
+            bot.answer_callback_query(call.id, "⚠️ ይህ የእርስዎ ምርጫ አይደለም!", show_alert=True)
+            return
+            
+        # ወደ ዋናው የክፍያ ፈንክሽን መላክ (finalize_reg_inline ጋር ተመሳሳይ ስራ ይሰራል)
+        call.data = f"pick_{bid}_{num}"
+        finalize_reg_inline(call, bid, num)
+
+    # 5. የተቀሩት የአድሚን እና የቦት ተግባራት
     elif call.data == "lookup_winner" and is_admin:
         m = bot.send_message(call.from_user.id, "አሸናፊ ለመፈለግ ሰሌዳ እና ቁጥር ይጻፉ (ለምሳሌ: 2-13)፦")
         bot.register_next_step_handler(m, process_lookup)
-
-    # 4. ሌሎቹ የአድሚን ተግባራት
-    elif call.data == "admin_manage" and is_admin: 
-        admin_manage_menu(call)
-    elif call.data == "admin_reset" and is_admin: 
-        reset_menu(call)
-    elif call.data.startswith('doreset_') and is_admin:
-        bid = call.data.split('_')
-        data["boards"][bid]["slots"] = {}
-        data["pinned_msgs"][bid] = None
-        save_data()
-        bot.answer_callback_query(call.id, "ሰሌዳው ጸድቷል!")
-        update_group_board(bid)
-    
-    # 5. የተጫዋች ምርጫዎች
-    elif call.data.startswith('select_'): handle_selection(call)
-    elif call.data.startswith('pick_'):
-        _, bid, num = call.data.split('_')
-        finalize_reg_inline(call, bid, num)
- call.data == "lookup_winner" and is_admin:
-        m = bot.send_message(call.from_user.id, "አሸናፊ ለመፈለግ ሰሌዳ እና ቁጥር ይጻፉ (ለምሳሌ: 2-13)፦")
-        bot.register_next_step_handler(m, process_lookup)
-    elif call.data == "admin_manage" and is_admin: manage_menu(call)
+    elif call.data == "admin_manage" and is_admin: admin_manage_menu(call)
     elif call.data.startswith('edit_') and is_admin: edit_board(call)
     elif call.data.startswith('toggle_') and is_admin:
-        bid = call.data.split('_')[1]
+        bid = call.data.split('_')
         data["boards"][bid]["active"] = not data["boards"][bid]["active"]
         save_data(); edit_board(call)
-    elif call.data.startswith('set_') and is_admin:
-        _, action, bid = call.data.split('_')
-        m = bot.send_message(call.from_user.id, f"የሰሌዳ {bid} አዲስ ዋጋ/ሽልማት ይጻፉ፦")
-        bot.register_next_step_handler(m, update_board_value, bid, action)
     elif call.data == "admin_reset" and is_admin: reset_menu(call)
     elif call.data.startswith('doreset_') and is_admin:
-        bid = call.data.split('_')[1]
+        bid = call.data.split('_')
         data["boards"][bid]["slots"] = {}; data["pinned_msgs"][bid] = None
         save_data(); bot.answer_callback_query(call.id, "ሰሌዳው ጸድቷል!"); update_group_board(bid)
+    elif call.data.startswith('select_'): handle_selection(call)
+    elif call.data == "taken":
+        bot.answer_callback_query(call.id, "❌ ይህ ቁጥር ተይዟል!")
+
 
 def finalize_app(message, target_id):
     try:
