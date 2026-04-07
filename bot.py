@@ -437,16 +437,19 @@ def handle_secure_pick(call):
         # ግሩፕ ላይ መላክ
         sent_msg = bot.send_message(GROUP_ID, success_text, parse_mode="HTML")
 
-        # 4. ከ10 ሰከንድ በኋላ መልዕክቱን የሚያጠፋ ፈንክሽን
+                # 4. 🛑 መልዕክቱን ከ10 ሰከንድ በኋላ የሚያጠፋው ክፍል
         def delete_later(chat_id, message_id):
             try:
+                # ከ try ስር ያለው ኮድ ቢያንስ አንድ መስመር ወደ ውስጥ መግባት አለበት
                 bot.delete_message(chat_id, message_id)
-            except:
-                pass
+            except Exception as e:
+                # ስህተት ቢኖር እንኳ ፕሮግራሙ እንዳይቆም
+                print(f"ማጥፋት አልተቻለም፦ {e}")
 
         # threading በመጠቀም ለ10 ሰከንድ ቀጠሮ መያዝ
         import threading
-        threading.Timer(10, delete_later, args=[GROUP_ID, sent_msg.message_id]).start()
+        timer = threading.Timer(10, delete_later, args=[GROUP_ID, sent_msg.message_id])
+        timer.start()
 
 # 🛠 ሰሌዳውን ሳያጠፋ (Edit) እንዲያድስ የሚረዳ ረዳት ፈንክሽን
 def refresh_picker(call, uid, bid):
