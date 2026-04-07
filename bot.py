@@ -541,45 +541,56 @@ def callback_listener(call):
 
 def send_picker_to_group(message, target_id, receipt_mid):
     try:
-        amt = int(message.text) # አድሚኑ ያስገባው የብር መጠን
+        # 1. የገንዘብ መጠኑን ማረጋገጥ
+        if not message.text.isdigit():
+            return bot.send_message(message.chat.id, "❌ እባክዎ ትክክለኛ የብር መጠን በቁጥር ብቻ ያስገቡ።")
+            
+        amt = int(message.text)
         user_info = bot.get_chat(target_id)
         
         raw_name = user_info.first_name if user_info.first_name else "ተጫዋች"
-        clean_name = raw_name[:10] 
+        clean_name = raw_name[:10] # ስም ረጅም ከሆነ ለመቀነስ
 
+        # 2. የተጠቃሚ መረጃ ማዘመን
         if str(target_id) not in data["users"]:
             data["users"][str(target_id)] = {"name": clean_name, "wallet": 0}
-        else:
-            data["users"][str(target_id)]["name"] = clean_name
-            
+        
+        data["users"][str(target_id)]["name"] = clean_name
         data["users"][str(target_id)]["wallet"] += amt
         save_data()
 
-        # ተስማሚ ሰሌዳ መምረጥ
-        active_board = "1"
+        # 3. ተስማሚ ሰሌዳ መምረጥ (Logic Improvement)
+        active_board = None
+        # በዋጋቸው ተለይተው የተቀመጡ ሰሌዳዎችን መፈለግ
         for b_id, b_info in data["boards"].items():
             if b_info["active"] and b_info["price"] <= data["users"][str(target_id)]["wallet"]:
                 active_board = b_id
         
+        if not active_board:
+            return bot.send_message(message.chat.id, "❌ በቂ ብር የለም ወይም ንቁ የሆነ ሰሌዳ አልተገኘም።")
+
         board = data["boards"][active_board]
-        # ስንት ቁጥር መያዝ እንደሚችል ማስላት
         can_pick = data["users"][str(target_id)]["wallet"] // board["price"]
 
+        # 4. የቁጥር መምረጫ ቁልፎች (Markup)
         markup = generate_picker_markup(target_id, active_board)
         
-        text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
+        text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n\n"
                 f"👤 <b>ተጫዋች፦</b> <b><i><code>{clean_name}</code></i></b>\n"
                 f"💰 <b>ጠቅላላ ሂሳብ፦</b> <b>{data['users'][str(target_id)]['wallet']} ብር</b>\n"
                 f"🎫 <b>መያዝ የሚችሉት፦</b> <b>{can_pick} ቁጥሮች</b>\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🎰 <b>ሰሌዳ {active_board} - እባክዎ ቁጥርዎን ይምረጡ፦</b>")
+                f"🎰 <b>ሰሌዳ {active_board} (ዋጋ {board['price']} ብር)</b>\n"
+                f"👇 እባክዎ ቁጥርዎን ይምረጡ፦")
         
-        bot.send_message(GROUP_ID, text, reply_to_message_id=receipt_mid, reply_markup=markup)
-        bot.send_message(message.chat.id, f"✅ ለ {clean_name} {can_pick} ቁጥር ምርጫ ተዘርግቷል።")
+        # ለግሩፑ መላክ
+        bot.send_message(GROUP_ID, text, reply_to_message_id=receipt_mid, reply_markup=markup, parse_mode="HTML")
+        # ለአድሚኑ ማረጋገጫ
+        bot.send_message(message.chat.id, f"✅ ለ {clean_name} የ {can_pick} ቁጥር ምርጫ ወደ ግሩፕ ተልኳል።")
         
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ ስህተት! {e}")
-
+        print(f"Error: {e}") # ለዲባግ
+        bot.send_message(message.chat.id, f"❌ ስህተት ተፈጥሯል! እባክዎ ደግመው ይሞክሩ።")
 
 
 def finalize_app(message, target):
