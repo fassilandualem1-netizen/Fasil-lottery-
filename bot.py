@@ -363,7 +363,7 @@ def admin_manage_menu(call):
 def handle_secure_pick(call):
     # 1. ዳታውን መበተን
     _, allowed_id, bid, num = call.data.split('_')
-    
+
     # የባለቤትነት ቼክ
     if str(call.from_user.id) != str(allowed_id):
         bot.answer_callback_query(call.id, "⚠️ ይቅርታ! ይህ የሌላ ሰው ምርጫ ነው።", show_alert=True)
@@ -379,7 +379,7 @@ def handle_secure_pick(call):
         return
 
     board_price = int(board["price"])
-    
+
     # 2. ሂሳብ ቼክ (ብሩ ከሰሌዳው ዋጋ ያነሰ መሆኑን ማረጋገጥ)
     if user["wallet"] < board_price:
         bot.answer_callback_query(call.id, "❌ ሂሳብዎ በቂ አይደለም!", show_alert=True)
@@ -401,15 +401,15 @@ def handle_secure_pick(call):
     data["users"][uid]["wallet"] -= board_price
     board["slots"][num] = user["name"]
     save_data()
-    
+
     # ግሩፕ ላይ ያለውን ዋና ሰሌዳ (Design) ማደስ
     update_group_board(bid)
-    
+
     bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!", show_alert=False)
 
     # 4. ወሳኙ ክፍል፦ ተጫዋቹ አሁንም ሌላ ቁጥር ለመግዛት ብር ካለው "Edit" ያድርገው
     current_wallet = data["users"][uid]["wallet"]
-    
+
     if current_wallet >= board_price:
         refresh_picker(call, uid, bid)
     else:
@@ -423,27 +423,26 @@ def handle_secure_pick(call):
         except:
             pass
 
-                       # 3. የደስታ መግለጫ መልዕክቱን መላክ
+        # 3. የደስታ መግለጫ መልዕክቱን መላክ
         success_text = (
             f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n"
-            f"🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n"
+            f"🎫 <b>ቁጥሮችዎን በተካለ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n"
             f"📌 <b>የያዟቸው ቁጥሮች፦</b> <code>{numbers_str}</code>\n"
             f"━━━━━━━━━━━━━━━━━━━━━\n"
             f"✨ <b>መልካም ዕድል ይሁንሎት! 🏆</b>"
         )
-        
+
         sent_msg = bot.send_message(GROUP_ID, success_text, parse_mode="HTML")
 
-        # 4. ቀላሉ የማጥፊያ መንገድ (በአንድ መስመር)
+        # 4. ቀላሉ የማጥፊያ መንገድ
         import threading
         def delete_msg():
             try:
                 bot.delete_message(GROUP_ID, sent_msg.message_id)
             except:
                 pass
-        
-        threading.Timer(10, delete_msg).start()
 
+        threading.Timer(10, delete_msg).start()
                 
 
 # 🛠 ሰሌዳውን ሳያጠፋ (Edit) እንዲያድስ የሚረዳ ረዳት ፈንክሽን
