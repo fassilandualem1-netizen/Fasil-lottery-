@@ -423,7 +423,7 @@ def handle_secure_pick(call):
         except:
             pass
 
-                # 3. የደስታ መግለጫ መልዕክቱን መላክ
+                       # 3. የደስታ መግለጫ መልዕክቱን መላክ
         success_text = (
             f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n"
             f"🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n"
@@ -436,7 +436,13 @@ def handle_secure_pick(call):
 
         # 4. ቀላሉ የማጥፊያ መንገድ (በአንድ መስመር)
         import threading
-        threading.Timer(10, lambda: bot.delete_message(GROUP_ID, sent_msg.message_id)).start()
+        def delete_msg():
+            try:
+                bot.delete_message(GROUP_ID, sent_msg.message_id)
+            except:
+                pass
+        
+        threading.Timer(10, delete_msg).start()
 
                 
 
