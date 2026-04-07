@@ -359,45 +359,55 @@ def admin_manage_menu(call):
         # Edit ማድረግ ካልተቻለ ብቻ አዲስ መላክ
         bot.send_message(call.message.chat.id, status_text, reply_markup=markup, parse_mode="HTML")
 
+# --- ይህ ክፍል መስመር 300 አካባቢ ይግባ ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('p_'))
 def handle_secure_pick(call):
-    _, allowed_id, bid, num = call.data.split('_')
+    # 1. መረጃዎችን መለየት
+    try:
+        _, allowed_id, bid, num = call.data.split('_')
+    except:
+        return
+        
     if str(call.from_user.id) != str(allowed_id):
         return bot.answer_callback_query(call.id, "⚠️ የሌላ ሰው ምርጫ ነው!", show_alert=True)
-
+    
     uid = str(call.from_user.id)
-    user, board = data["users"].get(uid), data["boards"].get(bid)
-
+    user = data["users"].get(uid)
+    board = data["boards"].get(bid)
+    
+    # 2. ሂሳብ መፈተሽ
     if not user or user["wallet"] < int(board["price"]):
         return bot.answer_callback_query(call.id, "❌ ሂሳብዎ በቂ አይደለም!", show_alert=True)
-
+    
+    # 3. ቁጥሩ መያዙን መፈተሽ
     if num in board["slots"]:
         return refresh_picker(call, uid, bid)
 
-    # ቁጥሩን መመዝገብ
+    # 4. መመዝገብ እና ዳታ ሴቭ ማድረግ
     data["users"][uid]["wallet"] -= int(board["price"])
     board["slots"][num] = user["name"]
-    save_data(); update_group_board(bid)
+    save_data()
+    update_group_board(bid)
     bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!")
 
-    # ብር ካለው ሰሌዳውን ያድስ
+    # 5. ተከታታይ ምርጫ ወይም መጨረሻ
     if data["users"][uid]["wallet"] >= int(board["price"]):
-        return refresh_picker(call, uid, bid)
+        refresh_picker(call, uid, bid)
+    else:
+        # ምርጫ ሲያበቃ መልዕክት መላክ
+        my_nums = [n for n, o in board["slots"].items() if o == user['name']]
+        numbers_str = ", ".join(sorted(my_nums, key=int))
+        
+        # የድሮውን ሰሌዳ ማጥፋት
+        try: bot.delete_message(call.message.chat.id, call.message.message_id)
+        except: pass
+        
+        success_text = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n📌 <b>የያዟቸው፦</b> <code>{numbers_str}</code>\n━━━━━━━━━━━━━\n✨ <b>መልካም ዕድል! 🏆</b>"
+        sent_msg = bot.send_message(GROUP_ID, success_text, parse_mode="HTML")
 
-    # ብር ከሌለው (ምርጫ ሲያበቃ) መልዕክቱን መላክ
-    my_nums = [n for n, o in board["slots"].items() if o == user['name']]
-    numbers_str = ", ".join(sorted(my_nums, key=int))
-    
-    # ሰሌዳውን አጥፍቶ የደስታ መግለጫ መላክ (ያለ try)
-    bot.delete_message(call.message.chat.id, call.message.message_id)
-    
-    success_text = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n📌 <b>የያዟቸው፦</b> <code>{numbers_str}</code>\n━━━━━━━━━━━━━\n✨ <b>መልካም ዕድል! 🏆</b>"
-    sent_msg = bot.send_message(GROUP_ID, success_text, parse_mode="HTML")
-
-    # መልዕክቱን በ10 ሰከንድ የሚያጠፋው ክፍል (በአንድ መስመር)
-    import threading
-    threading.Timer(10, lambda: bot.delete_message(GROUP_ID, sent_msg.message_id)).start()
-
+        # በ 10 ሰከንድ ውስጥ መልዕክቱን ማጥፋት
+        import threading
+        threading.Timer(10, lambda: bot.delete_message(GROUP_ID, sent_msg.message_id) if True else None).start()
 
 # 🛠 ሰሌዳውን ሳያጠፋ (Edit) እንዲያድስ የሚረዳ ረዳት ፈንክሽን
 def refresh_picker(call, uid, bid):
