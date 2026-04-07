@@ -650,9 +650,8 @@ def send_picker_to_group(message, target_id, receipt_mid):
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🎰 <b>ሰሌዳ {active_board} - እባክዎ ቁጥርዎን ይምረጡ፦</b>")
 
-    # --- 1. ደረሰኝ ማጽደቂያ ክፍል (በአድሚን የሚሰራ) ---
+    # 1. ደረሰኙን ጽሁፍ መቀየር
     try:
-        # አድሚኑ ጋር ያለውን የፎቶ ጽሁፍ መቀየር
         bot.edit_message_caption(
             chat_id=message.chat.id, 
             message_id=message.message_id, 
@@ -662,48 +661,36 @@ def send_picker_to_group(message, target_id, receipt_mid):
     except:
         pass
 
-    # ለግሩፑ እና ለአድሚኑ ማረጋገጫ መላክ
+    # 2. ለግሩፑ እና ለአድሚኑ ማረጋገጫ መላክ
     bot.send_message(GROUP_ID, text, reply_markup=markup)
     bot.send_message(message.chat.id, f"✅ ለ {clean_name} የ {can_pick} ቁጥር ምርጫ ተዘርግቷል።")
 
-# --- 2. የብር መጠን መቀበያ ፈንክሽን ---
+# 3. የብር መጠን መቀበያ ፈንክሽን
 def finalize_app(message, target):
     try:
-        # የገባውን የብር መጠን ወደ ቁጥር መቀየር
         amt = int(message.text)
         uid = str(target)
-        
-        # ለተጠቃሚው ብር መጨመር
         if uid in data["users"]:
             data["users"][uid]["wallet"] += amt
             save_data()
-            
-            # ለተጫዋቹ ማረጋገጫ መላክ
             bot.send_message(target, f"✅ <b>{amt} ብር ተጨምሯል!</b>", parse_mode="HTML")
-            
-            # ስም እንዲያስመዘግብ መጠየቅ
             m = bot.send_message(target, "አሁን በሰሌዳ ላይ የሚወጣውን ስምዎን (እስከ 5 ፊደል) ይጻፉ፦")
             bot.register_next_step_handler(m, save_name, target)
         else:
-            bot.send_message(message.chat.id, "❌ ተጠቃሚው በዳታቤዝ ውስጥ አልተገኘም።")
-            
-    except ValueError:
-        bot.send_message(message.chat.id, "⚠️ ስህተት! እባክዎ ቁጥር ብቻ ይጻፉ።")
-    except Exception as e:
-        bot.send_message(message.chat.id, f"❌ ስህተት ተፈጥሯል፦ {e}")
+            bot.send_message(message.chat.id, "❌ ተጠቃሚው አልተገኘም።")
+    except:
+        bot.send_message(message.chat.id, "⚠️ ስህተት! ቁጥር ብቻ ይጻፉ።")
 
-# --- 3. የስም መቀየሪያ ፈንክሽን ---
+# 4. የስም መቀየሪያ ፈንክሽን
 def save_name(message, uid):
     try:
-        clean_name = message.text[:5]
-        data["users"][str(uid)]["name"] = clean_name
+        new_name = message.text[:5]
+        data["users"][str(uid)]["name"] = new_name
         save_data()
-        
-        bot.send_message(uid, f"✅ ስምዎ '{clean_name}' ተብሎ ተመዝግቧል!", reply_markup=main_menu_markup(uid))
-        # የሰሌዳ ምርጫውን እንዲያይ ማድረግ
-        select_board(message) 
+        bot.send_message(uid, f"✅ ስምዎ '{new_name}' ተብሎ ተመዝግቧል!", reply_markup=main_menu_markup(uid))
     except:
         pass
+
 
 
 def process_lookup(message):
