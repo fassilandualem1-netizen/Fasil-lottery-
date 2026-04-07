@@ -512,19 +512,21 @@ def callback_listener(call):
         bot.answer_callback_query(call.id, "✅ ሰሌዳው ጸድቷል!")
     
     # --- አዲሱ የማረጋገጫ ክፍል ---
-        elif call.data.startswith('g_app_') and is_admin:
+    
+    elif call.data.startswith('g_app_') and is_admin:
         _, _, target_id, receipt_mid = call.data.split('_')
         
-        # 🛑 ድርብ እንዳይሆን የቀድሞውን በተን እናጠፋለን
+        # 🛑 Double Click ለመከላከል የቀድሞውን በተን እናጥፋለን
         try:
             bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
         
-        # 🛑 ማንኛውንም ቀድሞ የተመዘገበ step እናጸዳለን
+        # 🛑 ማንኛውንም ቀድሞ የተመዘገበ step እናጸዳለን (ይህ ነው ድርብ መደመርን የሚያስቆመው)
         bot.clear_step_handler_by_chat_id(chat_id=call.from_user.id)
         
         msg = bot.send_message(call.from_user.id, f"💰 ለ {target_id} የሚጨመረውን ብር ይጻፉ፦")
         bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid)
+
     
     elif call.data.startswith('u_pick_'):
         allowed_id = call.data.split('_')
@@ -571,18 +573,19 @@ def send_picker_to_group(message, target_id, receipt_mid):
         amt = int(message.text)
         uid = str(target_id)
         
-        # የተጫዋች መረጃ
+        # የተጫዋች መረጃ ማግኘት
         user_info = bot.get_chat(target_id)
         clean_name = (user_info.first_name if user_info.first_name else "ተጫዋች")[:10]
 
         if uid not in data["users"]:
             data["users"][uid] = {"name": clean_name, "wallet": 0}
         
+        # ብር መደመር (አንድ ጊዜ ብቻ)
         data["users"][uid]["name"] = clean_name
-        data["users"][uid]["wallet"] += amt # 👈 እዚህ ጋር አሁን አንድ ጊዜ ብቻ ነው የሚጨምረው
+        data["users"][uid]["wallet"] += amt
         save_data()
 
-        # የሰሌዳ ምርጫ አመክንዮ
+        # ተስማሚ ሰሌዳ መምረጥ
         active_board = "1"
         for b_id, b_info in data["boards"].items():
             if b_info["active"] and b_info["price"] <= data["users"][uid]["wallet"]:
@@ -599,7 +602,7 @@ def send_picker_to_group(message, target_id, receipt_mid):
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🎰 <b>ሰሌዳ {active_board} - እባክዎ ቁጥርዎን ይምረጡ፦</b>")
 
-        # 🛑 ግሩፕ ላይ ሜሴጁ እንዳይደራረብ የድሮውን ደረሰኝ ማጥፋት
+        # 🛑 ግሩፕ ላይ የድሮውን ደረሰኝ ማጥፋት (Clean)
         try:
             bot.delete_message(GROUP_ID, int(receipt_mid))
         except: pass
