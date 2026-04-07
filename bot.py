@@ -159,20 +159,28 @@ def update_group_board(b_id):
 # --- 5. ዋና ዋና ትዕዛዞች ---
 @bot.message_handler(commands=['start'])
 def welcome(message):
-    uid = str(message.chat.id)
-    user = get_user(uid, message.from_user.first_name)
-    active_pay = PAYMENTS[data.get("current_shift", "me")]
+    uid = message.chat.id
     
-    welcome_text = (
-        f"👋 <b>እንኳን ወደ ፋሲል መዝናኛና ዕድለኛ ዕጣ መጡ!</b>\n\n"
-        f"👤 <b>ስም፦</b> {user['name']}\n"
-        f"💰 <b>ቀሪ ሂሳብ፦</b> {user['wallet']} ብር\n"
-        f"━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"🏦 <b>Telebirr:</b> <code>{active_pay['tele']}</code>\n"
-        f"🔸 <b>CBE:</b> <code>{active_pay['cbe']}</code>\n\n"
-        f"⚠️ <b>ብር ሲያስገቡ የደረሰኙን ፎቶ ወይም መልዕክት እዚህ ይላኩ።</b>"
-    )
-    bot.send_message(uid, welcome_text, reply_markup=main_menu_markup(uid))
+    # 🕵️‍♂️ አድሚን መሆኑን ማረጋገጥ
+    if uid in ADMIN_IDS:
+        user = get_user(uid, message.from_user.first_name)
+        welcome_text = (
+            f"👋 <b>እንኳን ደህና መጡ ጌታዬ! (Admin)</b>\n\n"
+            f"🛠 እዚህ ቦት ላይ ሰሌዳዎችን መቆጣጠር እና ደረሰኞችን ማጽደቅ ይችላሉ።\n"
+            f"ግሩፕ ላይ የተላኩ ደረሰኞችን እዚህ ይደርሶዎታል።"
+        )
+        # አድሚን ከሆነ ብቻ ሜኑ ይከፈትለታል
+        bot.send_message(uid, welcome_text, reply_markup=main_menu_markup(uid), parse_mode="HTML")
+    
+    else:
+        # ⛔️ ተራ ተጠቃሚ ከሆነ የሚሰጠው ምላሽ
+        bot.send_message(
+            uid, 
+            "⚠️ <b>ይህ ቦት ለአድሚን አገልግሎት ብቻ የተዘጋጀ ነው!</b>\n\n"
+            "እባክዎ ለመጫወት እና ደረሰኝ ለመላክ ወደ ዋናው ግሩፕ ይሂዱ።\n"
+            f"📍 <b>ግሩፕ፦</b> {GROUP_ID}", # ወይም የግሩፑን ሊንክ እዚህ መጻፍ ትችላለህ
+            parse_mode="HTML"
+        )
 
 @bot.message_handler(commands=['shift'])
 def toggle_shift(message):
