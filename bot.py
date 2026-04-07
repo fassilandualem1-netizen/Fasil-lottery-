@@ -374,7 +374,7 @@ def handle_secure_pick(call):
     if num in board["slots"]:
         return refresh_picker(call, uid, bid)
 
-    # መመዝገብ
+    # ብር መቀነስ እና መመዝገብ
     data["users"][uid]["wallet"] -= int(board["price"])
     board["slots"][num] = user["name"]
     save_data(); update_group_board(bid)
@@ -383,18 +383,20 @@ def handle_secure_pick(call):
     if data["users"][uid]["wallet"] >= int(board["price"]):
         refresh_picker(call, uid, bid)
     else:
-        # ምርጫ ሲያበቃ መልዕክት መላክ
+        # 1. የያዛቸውን ቁጥሮች ዝርዝር ማዘጋጀት
         my_nums = [n for n, o in board["slots"].items() if o == user['name']]
         numbers_str = ", ".join(sorted(my_nums, key=int))
         
-        try: bot.delete_message(call.message.chat.id, call.message.message_id)
-        except: pass
+        # 2. የድሮውን ሰሌዳ በአንድ መስመር ማጥፋት (ክፍተት እንዳይበላሽ)
+        bot.delete_message(call.message.chat.id, call.message.message_id) if True else None
             
-        success_text = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n🎫 <b>ቁጥሮችዎን መርጠው ጨርሰዋል።</b>\n\n📌 <b>የያዟቸው፦</b> <code>{numbers_str}</code>\n━━━━━━━━━━━━━\n✨ <b>መልካም ዕድል! 🏆</b>"
+        # 3. የደስታ መግለጫ መልዕክቱን መላክ
+        success_text = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n📌 <b>የያዟቸው፦</b> <code>{numbers_str}</code>\n━━━━━━━━━━━━━\n✨ <b>መልካም ዕድል! 🏆</b>"
         sent_msg = bot.send_message(GROUP_ID, success_text, parse_mode="HTML")
 
-        # ከላይ የጻፍነውን ረዳት ኮድ እዚህ ጋር በአንድ መስመር እንጠራዋለን
-        auto_delete(sent_msg.message_id)
+        # 4. መልዕክቱን ከ10 ሰከንድ በኋላ የሚያጠፋው ክፍል (በአንድ መስመር)
+        import threading
+        threading.Timer(10, lambda: (bot.delete_message(GROUP_ID, sent_msg.message_id) if True else None)).start()
 
 # 🛠 ሰሌዳውን ሳያጠፋ (Edit) እንዲያድስ የሚረዳ ረዳት ፈንክሽን
 def refresh_picker(call, uid, bid):
