@@ -103,7 +103,7 @@ def update_group_board(b_id):
     current_shift = data.get("current_shift", "me")
     active_pay = PAYMENTS[current_shift]
     
-    # 🎨 ራስጌ (Header)
+    # --- 🎨 ራስጌ (Header) ---
     text = "🇪🇹 🏟️ <b>ፋሲል እና ዳመነ ዲጂታል ዕጣ!</b> 🏟️ 🇪🇹\n"
     text += f"              <b>በ {board['price']} ብር</b>\n"
     text += "             👇👇👇👇👇\n"
@@ -111,23 +111,27 @@ def update_group_board(b_id):
     prizes = board['prize'].split(',')
     labels = ["1ኛ🟢", "2ኛ🟡", "3ኛ🔴"]
     for i, p in enumerate(prizes):
-        if i < 3: text += f"             {labels[i]} {p.strip()}\n"
+        if i < 3: 
+            # ሽልማቱን በትክክል ለማስቀመጥ (ምሳሌ፦ 1ኛ🟢 1ኛ 1200)
+            text += f"             {labels[i]} {p.strip()}\n"
 
     text += "\n☎️⏰⏰ ለውድ 🏟️ ፋሲል እና ዳመነ ዲጂታል ዕጣ! 🏟️ ቤተሰብ\n"
     text += "<b>መልካም ቀን🏆 መልካም ጤና🏆 መልካም እድል።</b>\n"
     text += "<b>USE IT OR LOSE IT</b>\n"
     text += "━━━━━━━━━━━━━━━━━━━━━\n"
 
-        # 🎫 የቁጥሮች ዝርዝር (በመስመሮች መካከል ክፍተት ተጨምሯል)
+    # --- 🎫 የቁጥሮች ዝርዝር (ከላይ ወደ ታች) ---
     board_slots = board["slots"]
     for i in range(1, board["max"] + 1):
         n = str(i)
         if n in board_slots:
-            # መጨረሻ ላይ \n\n በመጨመር ባዶ መስመር እንፈጥራለን
+            # ቁጥሩ ከተያዘ ስሙን ያሳያል
             text += f"<b>{i}👉</b> {board_slots[n]} ✅🏆🙏\n\n"
         else:
+            # ካልተያዘ @@@@ ያሳያል
             text += f"<b>{i}👉</b> @@@@ ✅🏆🙏\n\n"
             
+    # --- 👣 ግርጌ (Footer) ---
     text += "━━━━━━━━━━━━━━━━━━━━━\n"
     text += "🏟️ <b>ፋሲል እና ዳመነ ዲጂታል ዕጣ!</b> 🏟️\n"
     text += "<b>ስልክ ደውሎ ለማግኘት ከፈለጉ፦</b>\n"
@@ -140,7 +144,7 @@ def update_group_board(b_id):
     text += f"👉 <b>CBE:</b> <code>{active_pay['cbe']}</code>\n"
     text += f"\n🤖 <b>ለመጫወት እዚህ ይጫኑ፦</b> @{bot.get_me().username}"
 
-        # --- ግሩፕ ላይ መልዕክቱን ማስተካከል (Edit) ---
+    # --- ግሩፕ ላይ መልዕክቱን ማስተካከል (Edit/Send) ---
     try:
         msg_id = data.get("pinned_msgs", {}).get(b_id)
         if msg_id:
@@ -151,11 +155,11 @@ def update_group_board(b_id):
             data["pinned_msgs"][b_id] = m.message_id
             save_data()
     except Exception as e:
-        print(f"Error: {e}")
         m = bot.send_message(GROUP_ID, text, parse_mode="HTML")
         if "pinned_msgs" not in data: data["pinned_msgs"] = {}
         data["pinned_msgs"][b_id] = m.message_id
         save_data()
+
          
 # --- 5. ዋና ዋና ትዕዛዞች ---
 @bot.message_handler(commands=['start'])
