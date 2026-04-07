@@ -552,7 +552,7 @@ def callback_listener(call):
         save_data(); bot.answer_callback_query(call.id, "ሰሌዳው ጸድቷል!"); update_group_board(bid)
 
 def send_picker_to_group(message, target_id, receipt_mid):
-    # 🛑 መጀመሪያ የነበረውን ማንኛውንም ቀጣይ ስቴፕ እናጥፋ (Double call ለመከላከል)
+    # 🛑 ወዲያውኑ ሃንድለሩን ማጽዳት (Double call መከላከያ)
     bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
 
     try:
@@ -560,55 +560,46 @@ def send_picker_to_group(message, target_id, receipt_mid):
             return bot.send_message(message.chat.id, "❌ እባክዎ ቁጥር ብቻ ያስገቡ።")
             
         amt = int(message.text)
-        
-        # ዳታውን ከማደስህ በፊት 'target_id' ትክክል መሆኑን ቼክ አድርግ
         uid = str(target_id)
         
-        # ተጫዋቹን መፈለግ/መፍጠር
+        # የተጫዋች መረጃ
+        user_info = bot.get_chat(target_id)
+        clean_name = (user_info.first_name if user_info.first_name else "ተጫዋች")[:10]
+
         if uid not in data["users"]:
-            user_info = bot.get_chat(target_id)
-            clean_name = (user_info.first_name if user_info.first_name else "ተጫዋች")[:10]
             data["users"][uid] = {"name": clean_name, "wallet": 0}
         
-        # ብር መደመር (እዚህ ጋር ነው ድርብ እንዳይሆን ጥንቃቄ የምናደርገው)
-        data["users"][uid]["wallet"] += amt
+        data["users"][uid]["name"] = clean_name
+        data["users"][uid]["wallet"] += amt # 👈 እዚህ ጋር አሁን አንድ ጊዜ ብቻ ነው የሚጨምረው
         save_data()
-        
-        # የቀረው ኮድ (ሰሌዳ መምረጥና መላክ)...
-        # [ቀደም ብዬ የሰጠሁህ የ clean ኮድ እዚህ ይቀጥላል]
 
-        # 3. ተስማሚ ሰሌዳ መምረጥ (Logic Improvement)
-        active_board = None
-        # በዋጋቸው ተለይተው የተቀመጡ ሰሌዳዎችን መፈለግ
+        # የሰሌዳ ምርጫ አመክንዮ
+        active_board = "1"
         for b_id, b_info in data["boards"].items():
-            if b_info["active"] and b_info["price"] <= data["users"][str(target_id)]["wallet"]:
+            if b_info["active"] and b_info["price"] <= data["users"][uid]["wallet"]:
                 active_board = b_id
         
-        if not active_board:
-            return bot.send_message(message.chat.id, "❌ በቂ ብር የለም ወይም ንቁ የሆነ ሰሌዳ አልተገኘም።")
-
         board = data["boards"][active_board]
-        can_pick = data["users"][str(target_id)]["wallet"] // board["price"]
-
-        # 4. የቁጥር መምረጫ ቁልፎች (Markup)
+        can_pick = data["users"][uid]["wallet"] // board["price"]
         markup = generate_picker_markup(target_id, active_board)
         
         text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n\n"
                 f"👤 <b>ተጫዋች፦</b> <b><i><code>{clean_name}</code></i></b>\n"
-                f"💰 <b>ጠቅላላ ሂሳብ፦</b> <b>{data['users'][str(target_id)]['wallet']} ብር</b>\n"
+                f"💰 <b>ጠቅላላ ሂሳብ፦</b> <b>{data['users'][uid]['wallet']} ብር</b>\n"
                 f"🎫 <b>መያዝ የሚችሉት፦</b> <b>{can_pick} ቁጥሮች</b>\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🎰 <b>ሰሌዳ {active_board} (ዋጋ {board['price']} ብር)</b>\n"
-                f"👇 እባክዎ ቁጥርዎን ይምረጡ፦")
-        
-        # ለግሩፑ መላክ
-        bot.send_message(GROUP_ID, text, reply_to_message_id=receipt_mid, reply_markup=markup, parse_mode="HTML")
-        # ለአድሚኑ ማረጋገጫ
-        bot.send_message(message.chat.id, f"✅ ለ {clean_name} የ {can_pick} ቁጥር ምርጫ ወደ ግሩፕ ተልኳል።")
+                f"🎰 <b>ሰሌዳ {active_board} - እባክዎ ቁጥርዎን ይምረጡ፦</b>")
+
+        # 🛑 ግሩፕ ላይ ሜሴጁ እንዳይደራረብ የድሮውን ደረሰኝ ማጥፋት
+        try:
+            bot.delete_message(GROUP_ID, int(receipt_mid))
+        except: pass
+
+        bot.send_message(GROUP_ID, text, reply_markup=markup)
+        bot.send_message(message.chat.id, f"✅ ለ {clean_name} የ {can_pick} ቁጥር ምርጫ ተዘርግቷል።")
         
     except Exception as e:
-        print(f"Error: {e}") # ለዲባግ
-        bot.send_message(message.chat.id, f"❌ ስህተት ተፈጥሯል! እባክዎ ደግመው ይሞክሩ።")
+        bot.send_message(message.chat.id, f"❌ ስህተት፦ {e}")
 
 
 def finalize_app(message, target):
