@@ -412,19 +412,18 @@ def handle_secure_pick(call):
     if current_wallet >= board_price:
         # 🔄 ሰሌዳውን ሳያጠፋ ማደሻ (Function በመጠቀም ኮዱን አሳጥረነዋል)
         refresh_picker(call, uid, bid)
-            # ከላይ የነበሩት if/elif ካለቁ በኋላ...
-    else:
-        # 1. ተጫዋቹ የያዛቸውን ቁጥሮች ማዘጋጀት
+                else:
+        # 1. ተጫዋቹ የያዛቸውን ቁጥሮች ዝርዝር ማዘጋጀት
         my_numbers = [num for num, owner in board["slots"].items() if owner == user['name']]
         numbers_str = ", ".join(sorted(my_numbers, key=int))
 
-        # 2. የቆየውን ምርጫ ሰሌዳ ማጥፋት (Clean እንዲሆን)
+        # 2. የቆየውን የቁጥር መምረጫ ሰሌዳ ወዲያውኑ ማጥፋት (Clean እንዲሆን)
         try:
             bot.delete_message(call.message.chat.id, call.message.message_id)
         except:
             pass
 
-        # 3. የደስታ መግለጫ መልዕክቱን መላክ
+        # 3. የደስታ መግለጫ መልዕክቱን ለተጫዋቹ መላክ
         success_text = (
             f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n"
             f"🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n"
@@ -433,16 +432,17 @@ def handle_secure_pick(call):
             f"✨ <b>መልካም ዕድል ይሁንሎት! 🏆</b>"
         )
         
+        # መልዕክቱን ግሩፕ ላይ መላክ
         sent_msg = bot.send_message(GROUP_ID, success_text, parse_mode="HTML")
 
-        # 4. 🛑 10 ሰከንድ ቆይቶ መልዕክቱን የሚያጠፋው ክፍል
+        # 4. 🛑 መልዕክቱን ከ10 ሰከንድ በኋላ የሚያጠፋው ብልህ ዘዴ
         def delete_later(chat_id, message_id):
             try:
                 bot.delete_message(chat_id, message_id)
             except:
                 pass
 
-        # threading በመጠቀም ለ10 ሰከንድ ቀጠሮ መያዝ
+        # threading በመጠቀም ለ10 ሰከንድ ቀጠሮ መያዝ (ከላይ import threading ማለታችሁን አረጋግጡ)
         import threading
         threading.Timer(10, delete_later, args=[GROUP_ID, sent_msg.message_id]).start()
 
