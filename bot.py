@@ -391,7 +391,7 @@ def handle_secure_pick(call):
         numbers_str = ", ".join(sorted(my_nums, key=int))
         
         # 2. የድሮውን ሰሌዳ ማጥፋት
-        try:
+    try:
             bot.delete_message(call.message.chat.id, call.message.message_id)
         except:
             pass
