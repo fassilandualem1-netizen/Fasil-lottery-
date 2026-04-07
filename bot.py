@@ -524,7 +524,7 @@ def callback_listener(call):
         bot.clear_step_handler_by_chat_id(chat_id=call.from_user.id)
         
         msg = bot.send_message(call.from_user.id, f"💰 ለ {target_id} የሚጨመረውን ብር ይጻፉ፦")
-        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid))
+        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid)
     
     elif call.data.startswith('u_pick_'):
         allowed_id = call.data.split('_')
