@@ -412,27 +412,41 @@ def handle_secure_pick(call):
     if current_wallet >= board_price:
         # 🔄 ሰሌዳውን ሳያጠፋ ማደሻ (Function በመጠቀም ኮዱን አሳጥረነዋል)
         refresh_picker(call, uid, bid)
+        import threading # ይህን ከላይ ከኢምፖርቶች ጋር ይጨምሩ
+
+# ... (ሌላኛው የኮድ ክፍል እንዳለ ሆኖ)
+
         else:
-        # 5. ብሩ ካለቀ በኋላ የያዛቸውን ቁጥሮች ዝርዝር ማዘጋጀት
+        # 1. ተጫዋቹ የያዛቸውን ቁጥሮች ዝርዝር ማዘጋጀት
+        my_numbers = [num for num, owner in board["slots"].items() if owner == user['name']]
+        numbers_str = ", ".join(sorted(my_numbers, key=int))
+
+        # 2. የአድሚኑን "ብር ጻፍ" የሚለውን ጥያቄ ማጥፋት (ካለ)
         try:
             bot.delete_message(call.message.chat.id, call.message.message_id)
         except:
             pass
 
-        # ተጫዋቹ በዚሁ ሰሌዳ (bid) ላይ የያዛቸውን ቁጥሮች መፈለግ
-        my_numbers = [num for num, owner in board["slots"].items() if owner == user['name']]
-        # ቁጥሮቹን በቅደም ተከተል ለማስቀመጥ (ለምሳሌ፦ 5, 12, 20)
-        numbers_str = ", ".join(sorted(my_numbers, key=int))
-
-        success_msg = (
+        # 3. የደስታ መግለጫ መልዕክቱን ግሩፕ ላይ መላክ
+        success_text = (
             f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n"
             f"🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n"
             f"📌 <b>የያዟቸው ቁጥሮች፦</b> <code>{numbers_str}</code>\n"
             f"━━━━━━━━━━━━━━━━━━━━━\n"
-            f"✨ <b>መልካም ዕድል ይሁንሎት! 🏆</b>\n"
-            f"👉 @{bot.get_me().username}"
+            f"✨ <b>መልካም ዕድል ይሁንሎት! 🏆</b>"
         )
-        bot.send_message(call.message.chat.id, success_msg, parse_mode="HTML")
+        
+        sent_msg = bot.send_message(GROUP_ID, success_text, parse_mode="HTML")
+
+        # 4. 🛑 ወሳኝ፦ መልዕክቱን ከ10 ሰከንድ በኋላ የሚያጠፋ ፈንክሽን
+        def delete_later(chat_id, message_id):
+            try:
+                bot.delete_message(chat_id, message_id)
+            except:
+                pass
+
+        # ከ10 ሰከንድ በኋላ እንዲሰራ ቀጠሮ መያዝ
+        threading.Timer(10, delete_later, args=[GROUP_ID, sent_msg.message_id]).start()
 
 # 🛠 ሰሌዳውን ሳያጠፋ (Edit) እንዲያድስ የሚረዳ ረዳት ፈንክሽን
 def refresh_picker(call, uid, bid):
