@@ -420,15 +420,48 @@ def callback_listener(call):
         data["boards"][bid]["slots"] = {}; data["pinned_msgs"][bid] = None
         save_data(); bot.answer_callback_query(call.id, "ሰሌዳው ጸድቷል!"); update_group_board(bid)
 
-def finalize_app(message, target):
+def finalize_app(message, target_id):
     try:
         amt = int(message.text)
-        data["users"][str(target)]["wallet"] += amt
+        uid = str(target_id)
+        
+        if uid not in data["users"]:
+            data["users"][uid] = {"name": "ተጫዋች", "wallet": 0}
+            
+        data["users"][uid]["wallet"] += amt
         save_data()
-        bot.send_message(target, f"✅ <b>{amt} ብር ተጨምሯል!</b>")
-        m = bot.send_message(target, "አሁን በሰሌዳ ላይ የሚወጣውን ስምዎን (እስከ 5 ፊደል) ይጻፉ፦")
-        bot.register_next_step_handler(m, save_name, target)
-    except: bot.send_message(message.chat.id, "⚠️ ስህተት! ቁጥር ብቻ ይጻፉ።")
+        
+        user_name = data["users"][uid]["name"]
+        
+        # 1. ክፍት የሆኑ ሰሌዳዎችን መለየት
+        active_boards = [bid for bid, info in data["boards"].items() if info["active"]]
+        
+        if len(active_boards) == 1:
+            # ✅ አንድ ሰሌዳ ብቻ ከሆነ -> ቀጥታ የቁጥር ዝርግፍ (Picker)
+            bid = active_boards
+            markup = generate_picker_markup(uid, bid) # Picker የሚያመጣው ፈንክሽን
+            text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
+                    f"👤 <b>ተጫዋች፦</b> {user_name}\n"
+                    f"💰 <b>ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n"
+                    f"🎰 <b>ሰሌዳ {bid}</b> - እባክዎ ቁጥር ይምረጡ፦")
+            bot.send_message(GROUP_ID, text, reply_markup=markup)
+            
+        else:
+            # ✅ ከአንድ በላይ ከሆኑ -> "ሰሌዳ ምረጥ" የሚል በተን
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            for bid in active_boards:
+                price = data["boards"][bid]["price"]
+                markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {bid} ({price} ብር)", callback_data=f"u_select_{uid}_{bid}"))
+            
+            text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
+                    f"👤 <b>ተጫዋች፦</b> {user_name}\n"
+                    f"💰 <b>ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n\n"
+                    f"❓ <b>እባክዎ መጫወት የሚፈልጉትን ሰሌዳ ይምረጡ፦</b>")
+            bot.send_message(GROUP_ID, text, reply_markup=markup)
+
+        bot.send_message(message.chat.id, "✅ ማረጋገጫ ግሩፕ ላይ ተልኳል።")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ ስህተት፦ {e}")
 
 def save_name(message, uid):
     data["users"][str(uid)]["name"] = message.text[:5]
