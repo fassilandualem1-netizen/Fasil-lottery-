@@ -650,9 +650,7 @@ def send_picker_to_group(message, target_id, receipt_mid):
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🎰 <b>ሰሌዳ {active_board} - እባክዎ ቁጥርዎን ይምረጡ፦</b>")
 
-        # 🛑 ግሩፕ ላይ የድሮውን ደረሰኝ ማጥፋት (Clean)
-        try:
-                    # 🛑 ደረሰኙን ከማጥፋት ይልቅ ጽሁፉን በመቀየር 'ተከፍሏል' የሚል ምልክት ማድረግ
+                # 🛑 ደረሰኙን ከማጥፋት ይልቅ ጽሁፉን በመቀየር 'ተከፍሏል' የሚል ምልክት ማድረግ
         try:
             # አድሚኑ ጋር ያለውን የፎቶ ጽሁፍ መቀየር
             bot.edit_message_caption(
@@ -664,13 +662,9 @@ def send_picker_to_group(message, target_id, receipt_mid):
         except:
             pass
 
-
+        # ግሩፕ ላይ መልዕክት መላክ (ከላይኛው ጋር እኩል መሆን አለበት)
         bot.send_message(GROUP_ID, text, reply_markup=markup)
         bot.send_message(message.chat.id, f"✅ ለ {clean_name} የ {can_pick} ቁጥር ምርጫ ተዘርግቷል።")
-        
-    except Exception as e:
-        bot.send_message(message.chat.id, f"❌ ስህተት፦ {e}")
-
 
 def finalize_app(message, target):
     try:
