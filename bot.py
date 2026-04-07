@@ -249,28 +249,35 @@ def admin_panel(message):
                types.InlineKeyboardButton("🔄 ሰሌዳ አጽዳ (Reset)", callback_data="admin_reset"))
     bot.send_message(message.chat.id, f"🛠 <b>የአድሚን ዳሽቦርድ</b>\n\n{stats}", reply_markup=markup)
 
-@bot.message_handler(content_types=['photo', 'text'])
-def handle_receipts(message):
-    if message.chat.type != 'private': return 
-    uid = str(message.chat.id)
-    if message.text in ["🎮 ሰሌዳ ምረጥ", "👤 ፕሮፋይል", "⚙️ Admin Settings", "🎫 የያዝኳቸው ቁጥሮች"]: return
-    
-    bot.send_message(uid, "⏳ <b>ደረሰኝዎ ደርሶኛል...</b>\nእባክዎ እስኪረጋገጥ ይጠብቁ። 🙏")
-    
-    # በተኖቹን ማስተካከያ
-    markup = types.InlineKeyboardMarkup()
-    btn_approve = types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"approve_{uid}_{message.message_id}")
-    btn_reject = types.InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"decline_{uid}_{message.message_id}")
+# --- ከግሩፕ የሚላኩ ደረሰኞችን መቀበያ ---
+@bot.message_handler(content_types=['photo'], func=lambda m: m.chat.id == GROUP_ID)
+def handle_group_receipt(message):
+    # 🕵️‍♂️ አድሚን ራሱ ፎቶ ቢልክ ለአድሚን አይላክም
+    if message.from_user.id in ADMIN_IDS:
+        return 
+
+    uid = str(message.from_user.id)
+    name = message.from_user.first_name if message.from_user.first_name else "ተጫዋች"
+    mid = message.message_id
+
+    # ✅ 'አጽድቅ' እና 'ውድቅ አድርግ' በተኖች
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    btn_approve = types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_{mid}")
+    btn_reject = types.InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"g_rej_{uid}_{mid}")
     markup.add(btn_approve, btn_reject)
     
-    cap = f"📩 <b>አዲስ ደረሰኝ</b>\n👤 <b>ከ፦</b> {message.from_user.first_name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
+    cap = f"📩 <b>አዲስ ደረሰኝ ከግሩፕ</b>\n━━━━━━━━━━━━━\n"
+    cap += f"👤 <b>ከ፦</b> {name}\n"
+    cap += f"🆔 <b>ID፦</b> <code>{uid}</code>\n"
+    cap += f"📝 <b>ዝርዝር፦</b> ግሩፕ ላይ የተላከ ደረሰኝ"
+
+    # ለአድሚኖች በሙሉ መላክ
     for adm in ADMIN_IDS:
         try:
-            if message.photo: 
-                bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup)
-            else: 
-                bot.send_message(adm, f"{cap}\n📝 <b>ዝርዝር፦</b>\n<code>{message.text}</code>", reply_markup=markup)
-        except: pass
+            bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup, parse_mode="HTML")
+        except:
+            pass
+
 
 # ይህ ክፍል "ሰሌዳ አስተካክል" ሲነካ መልስ እንዲሰጥ ያደርጋል
 @bot.callback_query_handler(func=lambda call: call.data in ["admin_manage", "manage_boards"] and call.from_user.id in ADMIN_IDS)
