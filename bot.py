@@ -650,55 +650,61 @@ def send_picker_to_group(message, target_id, receipt_mid):
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🎰 <b>ሰሌዳ {active_board} - እባክዎ ቁጥርዎን ይምረጡ፦</b>")
 
-                # 🛑 ደረሰኙን ከማጥፋት ይልቅ ጽሁፉን በመቀየር 'ተከፍሏል' የሚል ምልክት ማድረግ
-        try:
-            # አድሚኑ ጋር ያለውን የፎቶ ጽሁፍ መቀየር
-            bot.edit_message_caption(
-                chat_id=message.chat.id, 
-                message_id=message.message_id, 
-                caption=f"✅ <b>ይህ ደረሰኝ ጸድቋል!</b>\n💰 <b>የተመዘገበው ብር፦</b> {amt} ብር\n👤 <b>ተጫዋች፦</b> {clean_name}",
-                parse_mode="HTML"
-            )
-        except:
-            pass
+    # --- 1. ደረሰኝ ማጽደቂያ ክፍል (በአድሚን የሚሰራ) ---
+    try:
+        # አድሚኑ ጋር ያለውን የፎቶ ጽሁፍ መቀየር
+        bot.edit_message_caption(
+            chat_id=message.chat.id, 
+            message_id=message.message_id, 
+            caption=f"✅ <b>ይህ ደረሰኝ ጸድቋል!</b>\n💰 <b>የተመዘገበው ብር፦</b> {amt} ብር\n👤 <b>ተጫዋች፦</b> {clean_name}",
+            parse_mode="HTML"
+        )
+    except:
+        pass
 
-        # ግሩፕ ላይ መልዕክት መላክ (ከላይኛው ጋር እኩል መሆን አለበት)
-        bot.send_message(GROUP_ID, text, reply_markup=markup)
-        bot.send_message(message.chat.id, f"✅ ለ {clean_name} የ {can_pick} ቁጥር ምርጫ ተዘርግቷል።")
+    # ለግሩፑ እና ለአድሚኑ ማረጋገጫ መላክ
+    bot.send_message(GROUP_ID, text, reply_markup=markup)
+    bot.send_message(message.chat.id, f"✅ ለ {clean_name} የ {can_pick} ቁጥር ምርጫ ተዘርግቷል።")
 
+# --- 2. የብር መጠን መቀበያ ፈንክሽን ---
 def finalize_app(message, target):
     try:
-        # 1. የገባውን የብር መጠን ወደ ቁጥር መቀየር
+        # የገባውን የብር መጠን ወደ ቁጥር መቀየር
         amt = int(message.text)
         uid = str(target)
         
-        # 2. ለተጠቃሚው ብር መጨመር
+        # ለተጠቃሚው ብር መጨመር
         if uid in data["users"]:
             data["users"][uid]["wallet"] += amt
             save_data()
             
-            # 3. ማረጋገጫ መላክ
+            # ለተጫዋቹ ማረጋገጫ መላክ
             bot.send_message(target, f"✅ <b>{amt} ብር ተጨምሯል!</b>", parse_mode="HTML")
             
-            # 4. ስም እንዲያስመዘግብ መጠየቅ
+            # ስም እንዲያስመዘግብ መጠየቅ
             m = bot.send_message(target, "አሁን በሰሌዳ ላይ የሚወጣውን ስምዎን (እስከ 5 ፊደል) ይጻፉ፦")
             bot.register_next_step_handler(m, save_name, target)
         else:
             bot.send_message(message.chat.id, "❌ ተጠቃሚው በዳታቤዝ ውስጥ አልተገኘም።")
             
     except ValueError:
-        # ቁጥር ካልተጻፈ የሚመጣ ስህተት
         bot.send_message(message.chat.id, "⚠️ ስህተት! እባክዎ ቁጥር ብቻ ይጻፉ።")
     except Exception as e:
-        # ሌላ ያልታሰበ ስህተት ካለ
         bot.send_message(message.chat.id, f"❌ ስህተት ተፈጥሯል፦ {e}")
 
-
+# --- 3. የስም መቀየሪያ ፈንክሽን ---
 def save_name(message, uid):
-    data["users"][str(uid)]["name"] = message.text[:5]
-    save_data()
-    bot.send_message(uid, f"✅ ስምዎ '{message.text[:5]}' ተብሎ ተመዝግቧል!", reply_markup=main_menu_markup(uid))
-    show_boards(message)
+    try:
+        clean_name = message.text[:5]
+        data["users"][str(uid)]["name"] = clean_name
+        save_data()
+        
+        bot.send_message(uid, f"✅ ስምዎ '{clean_name}' ተብሎ ተመዝግቧል!", reply_markup=main_menu_markup(uid))
+        # የሰሌዳ ምርጫውን እንዲያይ ማድረግ
+        select_board(message) 
+    except:
+        pass
+
 
 def process_lookup(message):
     try:
