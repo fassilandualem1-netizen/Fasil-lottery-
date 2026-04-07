@@ -483,8 +483,20 @@ def callback_listener(call):
         bot.register_next_step_handler(m, process_admin_delete)
     elif call.data.startswith('g_app_') and is_admin:
         _, _, target_id, receipt_mid = call.data.split('_')
+        
+        # 🛑 ወሳኝ፦ ቀደም ብሎ የተመዘገበ ማንኛውም handler ካለ እናጸዳለን
+        bot.clear_step_handler_by_chat_id(chat_id=call.from_user.id)
+        
         msg = bot.send_message(call.from_user.id, f"💰 ለ {target_id} የሚጨመረውን ብር ይጻፉ፦")
+        
+        # አዲሱን handler መመዝገብ
         bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid)
+        
+        # በተኑን ደርቦ እንዳይጫነው ማጥፋት
+        try:
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+        except:
+            pass
     elif call.data.startswith('p_'):
         handle_secure_pick(call)
     elif call.data.startswith('select_'):
