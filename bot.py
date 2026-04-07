@@ -668,8 +668,18 @@ def send_picker_to_group(message, target_id, receipt_mid):
 
         # 🛑 ግሩፕ ላይ የድሮውን ደረሰኝ ማጥፋት (Clean)
         try:
-            bot.delete_message(GROUP_ID, int(receipt_mid))
-        except: pass
+                    # 🛑 ደረሰኙን ከማጥፋት ይልቅ ጽሁፉን በመቀየር 'ተከፍሏል' የሚል ምልክት ማድረግ
+        try:
+            # አድሚኑ ጋር ያለውን የፎቶ ጽሁፍ መቀየር
+            bot.edit_message_caption(
+                chat_id=message.chat.id, 
+                message_id=message.message_id, 
+                caption=f"✅ <b>ይህ ደረሰኝ ጸድቋል!</b>\n💰 <b>የተመዘገበው ብር፦</b> {amt} ብር\n👤 <b>ተጫዋች፦</b> {clean_name}",
+                parse_mode="HTML"
+            )
+        except:
+            pass
+
 
         bot.send_message(GROUP_ID, text, reply_markup=markup)
         bot.send_message(message.chat.id, f"✅ ለ {clean_name} የ {can_pick} ቁጥር ምርጫ ተዘርግቷል።")
