@@ -619,6 +619,39 @@ def edit_board(call):
     markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_manage"))
     bot.edit_message_text(f"📊 <b>ሰሌዳ {bid}</b>\n💰 መደብ፦ {b['price']}\n🏆 ሽልማት፦ {b['prize']}", call.from_user.id, call.message.message_id, reply_markup=markup)
 
+# ✅ ብር ጨምሮ ግሩፕ ላይ Picker የሚልከው
+def finalize_app(message, target_id):
+    try:
+        amt = int(message.text)
+        load_data()
+        uid = str(target_id)
+        user = get_user(uid)
+        user["wallet"] += amt
+        save_data()
+        
+        # የቁጥር መምረጫ (Picker) ለግሩፕ ማዘጋጀት
+        active_boards = [bid for bid, info in data["boards"].items() if info["active"]]
+        markup = types.InlineKeyboardMarkup(row_width=1)
+        for bid in active_boards:
+            markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {bid} ({data['boards'][bid]['price']} ብር)", callback_data=f"u_select_{uid}_{bid}"))
+        
+        # ግሩፕ ላይ ማሳወቅ
+        text = f"✅ <b>ክፍያ ተረጋግጧል!</b>\n👤 <b>ተጫዋች፦</b> {user['name']}\n💰 <b>የተጨመረ፦</b> {amt} ብር\n\n👇 እባክዎ መጫወት የሚፈልጉትን ሰሌዳ ይምረጡ፦"
+        bot.send_message(GROUP_ID, text, reply_markup=markup, parse_mode="HTML")
+        bot.send_message(message.chat.id, "✅ በተሳካ ሁኔታ ጽድቋል።")
+    except:
+        bot.send_message(message.chat.id, "❌ ስህተት! እባክዎ ቁጥር ብቻ ያስገቡ።")
+
+# ❌ ለተጫዋቹ የውድቅ መልዕክት የሚልከው
+def finalize_rejection(message, target_id):
+    reason = message.text
+    try:
+        rej_text = f"❌ <b>ደረሰኝዎ ውድቅ ተደርጓል!</b>\n━━━━━━━━━━━━━\n📝 <b>ምክንያት፦</b> {reason}\n\n🙏 እባክዎ በትክክለኛ መረጃ በድጋሚ ግሩፕ ላይ ይላኩ።"
+        bot.send_message(target_id, rej_text, parse_mode="HTML")
+        bot.send_message(message.chat.id, "✅ የውድቅ መልዕክት ለተጫዋቹ ተልኳል።")
+    except:
+        bot.send_message(message.chat.id, "⚠️ ለተጫዋቹ መልዕክት ማድረስ አልተቻለም (ቦቱን Start አላደረገም)።")
+
 def reset_menu(call):
     markup = types.InlineKeyboardMarkup()
     for bid in data["boards"]: markup.add(types.InlineKeyboardButton(f"Reset {bid}", callback_data=f"doreset_{bid}"))
