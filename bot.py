@@ -412,38 +412,23 @@ def handle_secure_pick(call):
 
     if current_wallet >= board_price:
         refresh_picker(call, uid, bid)
-    else:
-        # 1. ተጫዋቹ የያዛቸውን ቁጥሮች ዝርዝር ማዘጋጀት
+        else:
+        # 1. የያዛቸውን ቁጥሮች ዝርዝር ማዘጋጀት
         my_numbers = [n for n, owner in board["slots"].items() if owner == user['name']]
         numbers_str = ", ".join(sorted(my_numbers, key=int))
 
-        # 2. የቆየውን የቁጥር መምረጫ ሰሌዳ ማጥፋት
-        try:
-            bot.delete_message(call.message.chat.id, call.message.message_id)
-        except:
-            pass
+        # 2. የቆየውን ሰሌዳ ማጥፋት (ክፍተት እንዳይበላሽ በአንድ መስመር)
+        try: bot.delete_message(call.message.chat.id, call.message.message_id)
+        except: pass
 
-        # 3. የደስታ መግለጫ መልዕክቱን መላክ
-        success_text = (
-            f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n"
-            f"🎫 <b>ቁጥሮችዎን በተካለ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n"
-            f"📌 <b>የያዟቸው ቁጥሮች፦</b> <code>{numbers_str}</code>\n"
-            f"━━━━━━━━━━━━━━━━━━━━━\n"
-            f"✨ <b>መልካም ዕድል ይሁንሎት! 🏆</b>"
-        )
-
+        # 3. መልዕክቱን መላክ
+        success_text = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠዋል።</b>\n📌 <b>የያዟቸው፦</b> <code>{numbers_str}</code>\n━━━━━━━━━━━━━\n✨ <b>መልካም ዕድል!</b>"
         sent_msg = bot.send_message(GROUP_ID, success_text, parse_mode="HTML")
 
-        # 4. ቀላሉ የማጥፊያ መንገድ
+        # 4. መፍትሔው፦ ይህን አንድ መስመር ብቻ ተጠቀም (ክፍተት አይፈልግም)
         import threading
-        def delete_msg():
-            try:
-                bot.delete_message(GROUP_ID, sent_msg.message_id)
-            except:
-                pass
+        threading.Timer(10, lambda: (bot.delete_message(GROUP_ID, sent_msg.message_id) if True else None)).start()
 
-        threading.Timer(10, delete_msg).start()
-                
 
 # 🛠 ሰሌዳውን ሳያጠፋ (Edit) እንዲያድስ የሚረዳ ረዳት ፈንክሽን
 def refresh_picker(call, uid, bid):
