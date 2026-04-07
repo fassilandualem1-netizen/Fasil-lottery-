@@ -286,20 +286,59 @@ def generate_picker_markup(uid, bid):
     markup.add(*btns)
     return markup
 
-@bot.callback_query_handler(func=lambda call: call.data in ["admin_manage", "manage_boards"] and call.from_user.id in ADMIN_IDS)
+@bot.callback_query_handler(func=lambda call: call.data == "admin_manage")
 def admin_manage_menu(call):
+    # 1. መጀመሪያ ዳታውን ከፋይሉ ላይ አንብቦ እንዲያድስ (Refresh) ማድረግ
+    # ዳታውን የምታነብበት ፈንክሽን load_data() ከሆነ እንዲህ ጥራው፦
+    global data
+    try:
+        # ዳታውን በምትጠቀምበት መንገድ መሰረት እዚህ ጋር Refresh አድርገው
+        # ለምሳሌ፦ with open('data.json', 'r') as f: data = json.load(f)
+        pass 
+    except: pass
+
+    # 2. የአድሚን ዳሽቦርድ ጽሁፉን ማዘጋጀት
+    status_text = "🛠 <b>የአድሚን ዳሽቦርድ</b>\n"
+    status_text += "━━━━━━━━━━━━━━━━━━━━━\n\n"
+    
+    for bid in sorted(data["boards"].keys()):
+        b_info = data["boards"][bid]
+        filled = len(b_info.get("slots", {}))
+        total = b_info.get("max", 0)
+        status_text += f"📍 <b>ሰሌዳ {bid}፦</b> <code>({filled}/{total})</code>\n"
+    
+    status_text += "\n✨ <i>መረጃው አሁን ላይ ያለውን ሁኔታ ያሳያል</i>"
+
+    # 3. በተኖቹን ማዘጋጀት
     markup = types.InlineKeyboardMarkup(row_width=2)
-    # 🛠 ዋናዎቹ በተኖች
     markup.add(
         types.InlineKeyboardButton("💵 በካሽ መዝግብ", callback_data="admin_cash"),
         types.InlineKeyboardButton("🗑 ቁጥር ሰርዝ", callback_data="admin_delete")
     )
-    # የሰሌዳዎቹ ዝርዝር
+    # ለሰሌዳዎች ማስተካከያ በተኖች
     for bid in data["boards"]:
         markup.add(types.InlineKeyboardButton(f"⚙️ ሰሌዳ {bid} አስተካክል", callback_data=f"edit_{bid}"))
     
     markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_panel_back"))
-    bot.edit_message_text("🛠 <b>የአድሚን ስራዎችን ይምረጡ፦</b>", call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+    # 4. ወዲያውኑ ለውጡን Save ማድረግ (ለጥንቃቄ)
+    save_data()
+
+    # 5. ሜሴጁን Edit ብቻ ማድረግ (ድርብ ሜሴጅ እንዳይመጣ ይከላከላል)
+    try:
+        # Loading ምልክቱ እንዲጠፋ መጀመሪያ ምላሽ መስጠት
+        bot.answer_callback_query(call.id)
+        
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=status_text,
+            reply_markup=markup,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        # Edit ማድረግ ካልተቻለ ብቻ አዲስ መላክ
+        bot.send_message(call.message.chat.id, status_text, reply_markup=markup, parse_mode="HTML")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('p_'))
 def handle_secure_pick(call):
