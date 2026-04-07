@@ -361,73 +361,33 @@ def admin_manage_menu(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('p_'))
 def handle_secure_pick(call):
-    # 1. ዳታውን መበተን
     _, allowed_id, bid, num = call.data.split('_')
-
-    # የባለቤትነት ቼክ
     if str(call.from_user.id) != str(allowed_id):
-        bot.answer_callback_query(call.id, "⚠️ ይቅርታ! ይህ የሌላ ሰው ምርጫ ነው።", show_alert=True)
-        return
+        return bot.answer_callback_query(call.id, "⚠️ የሌላ ሰው ምርጫ ነው!", show_alert=True)
 
-    uid = str(call.from_user.id)
-    # ዳታውን በቀጥታ ከ data dictionary መውሰድ ስህተትን ይቀንሳል
-    user = data["users"].get(uid)
-    board = data.get("boards", {}).get(bid)
+    uid, name = str(call.from_user.id), call.from_user.first_name
+    user, board = data["users"].get(uid), data["boards"].get(bid)
+    if not user or user["wallet"] < int(board["price"]):
+        return bot.answer_callback_query(call.id, "❌ ሂሳብዎ በቂ አይደለም!", show_alert=True)
 
-    if not user or not board:
-        bot.answer_callback_query(call.id, "❌ ስህተት ተፈጥሯል!", show_alert=True)
-        return
-
-    board_price = int(board["price"])
-
-    # 2. ሂሳብ ቼክ (ብሩ ከሰሌዳው ዋጋ ያነሰ መሆኑን ማረጋገጥ)
-    if user["wallet"] < board_price:
-        bot.answer_callback_query(call.id, "❌ ሂሳብዎ በቂ አይደለም!", show_alert=True)
-        try:
-            bot.delete_message(call.message.chat.id, call.message.message_id)
-        except:
-            pass
-        return
-
-    # 3. ምዝገባ እና ብር መቀነስ
-    # ቁጥሩ ቀድሞ ከተያዘ መከላከል
     if num in board["slots"]:
-        bot.answer_callback_query(call.id, "❌ ይህ ቁጥር ቀድሞ ተይዟል!", show_alert=True)
-        # ሰሌዳውን በ "Edit" ማደስ (Buttons እንዲስተካከሉ)
-        refresh_picker(call, uid, bid)
-        return
+        return refresh_picker(call, uid, bid)
 
-    # ብር መቀነስ እና ቁጥር መመዝገብ
-    data["users"][uid]["wallet"] -= board_price
+    data["users"][uid]["wallet"] -= int(board["price"])
     board["slots"][num] = user["name"]
-    save_data()
+    save_data(); update_group_board(bid)
+    bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!")
 
-    # ግሩፕ ላይ ያለውን ዋና ሰሌዳ (Design) ማደስ
-    update_group_board(bid)
-
-    bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!", show_alert=False)
-
-    # 4. ወሳኙ ክፍል፦ ተጫዋቹ አሁንም ሌላ ቁጥር ለመግዛት ብር ካለው "Edit" ያድርገው
-    current_wallet = data["users"][uid]["wallet"]
-
-    if current_wallet >= board_price:
+    if data["users"][uid]["wallet"] >= int(board["price"]):
         refresh_picker(call, uid, bid)
-        else:
-        # 1. የያዛቸውን ቁጥሮች ዝርዝር ማዘጋጀት
-        my_numbers = [n for n, owner in board["slots"].items() if owner == user['name']]
-        numbers_str = ", ".join(sorted(my_numbers, key=int))
-
-        # 2. የቆየውን ሰሌዳ ማጥፋት (ክፍተት እንዳይበላሽ በአንድ መስመር)
+    else:
+        my_nums = [n for n, o in board["slots"].items() if o == user['name']]
+        txt = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n📌 <b>ቁጥሮችዎ፦</b> <code>{', '.join(sorted(my_nums, key=int))}</code>"
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
-
-        # 3. መልዕክቱን መላክ
-        success_text = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠዋል።</b>\n📌 <b>የያዟቸው፦</b> <code>{numbers_str}</code>\n━━━━━━━━━━━━━\n✨ <b>መልካም ዕድል!</b>"
-        sent_msg = bot.send_message(GROUP_ID, success_text, parse_mode="HTML")
-
-        # 4. መፍትሔው፦ ይህን አንድ መስመር ብቻ ተጠቀም (ክፍተት አይፈልግም)
+        sent = bot.send_message(GROUP_ID, txt, parse_mode="HTML")
         import threading
-        threading.Timer(10, lambda: (bot.delete_message(GROUP_ID, sent_msg.message_id) if True else None)).start()
+        threading.Timer(10, lambda: bot.delete_message(GROUP_ID, sent.message_id)).start()
 
 
 # 🛠 ሰሌዳውን ሳያጠፋ (Edit) እንዲያድስ የሚረዳ ረዳት ፈንክሽን
