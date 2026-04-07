@@ -671,10 +671,14 @@ def finalize_app(message, target):
         amt = int(message.text)
         data["users"][str(target)]["wallet"] += amt
         save_data()
-        bot.send_message(target, f"✅ <b>{amt} ብር ተጨምሯል!</b>")
+        
+        bot.send_message(target, f"✅ <b>{amt} ብር ተጨምሯል!</b>", parse_mode="HTML")
+        
         m = bot.send_message(target, "አሁን በሰሌዳ ላይ የሚወጣውን ስምዎን (እስከ 5 ፊደል) ይጻፉ፦")
         bot.register_next_step_handler(m, save_name, target)
-    except: bot.send_message(message.chat.id, "⚠️ ስህተት! ቁጥር ብቻ ይጻፉ።")
+        
+    except:
+        bot.send_message(message.chat.id, "⚠️ ስህተት! እባክዎ ቁጥር ብቻ ይጻፉ።")
 
 def save_name(message, uid):
     data["users"][str(uid)]["name"] = message.text[:5]
