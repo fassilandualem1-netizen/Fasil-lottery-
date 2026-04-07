@@ -90,10 +90,11 @@ def get_user(uid, name="ደንበኛ"):
     return data["users"][uid]
 
 def main_menu_markup(uid):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.add("🎮 ሰሌዳ ምረጥ", "👤 ፕሮፋይል", "🎫 የያዝኳቸው ቁጥሮች")
-    if int(uid) in ADMIN_IDS: markup.add("⚙️ Admin Settings")
-    return markup
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    if int(uid) in ADMIN_IDS:
+        markup.add("⚙️ Admin Settings") # አድሚን ብቻ ይሄን ያያል
+        return markup
+    return types.ReplyKeyboardRemove() # ሌላ ሰው ምንም አያይም
 
 # --- 4. የሰሌዳ ዲዛይን (Group View) ---
 def update_group_board(b_id):
