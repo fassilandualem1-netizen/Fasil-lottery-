@@ -485,56 +485,9 @@ def generate_picker_markup(uid, bid):
     return markup
 
 
-def finalize_app(message, target_id):
-    try:
-        amt = int(message.text)
-        uid = str(target_id)
-        
-        if uid not in data["users"]:
-            data["users"][uid] = {"name": "ተጫዋች", "wallet": 0}
-            
-        data["users"][uid]["wallet"] += amt
-        save_data()
-        
-        user_name = data["users"][uid]["name"]
-        active_boards = [bid for bid, info in data["boards"].items() if info["active"]]
-        
-        # ✅ አንድ ሰሌዳ ብቻ ክፍት ከሆነ ቀጥታ የቁጥር ዝርግፍ ይላካል
-        if len(active_boards) == 1:
-            bid = active_boards
-            markup = generate_picker_markup(uid, bid)
-            text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
-                    f"👤 <b>ተጫዋች፦</b> {user_name}\n"
-                    f"💰 <b>ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n"
-                    f"🎰 <b>ሰሌዳ {bid}</b> - እባክዎ ቁጥር ይምረጡ፦")
-            bot.send_message(GROUP_ID, text, reply_markup=markup)
-            
-        # ✅ ከአንድ በላይ ከሆኑ ምርጫ እንዲመጣ ይደረጋል
-        else:
-            markup = types.InlineKeyboardMarkup(row_width=1)
-            for bid in active_boards:
-                price = data["boards"][bid]["price"]
-                markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {bid} ({price} ብር)", callback_data=f"u_select_{uid}_{bid}"))
-            
-            text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
-                    f"👤 <b>ተጫዋች፦</b> {user_name}\n"
-                    f"💰 <b>ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n\n"
-                    f"❓ <b>እባክዎ መጫወት የሚፈልጉትን ሰሌዳ ይምረጡ፦</b>")
-            bot.send_message(GROUP_ID, text, reply_markup=markup)
-
-        bot.send_message(message.chat.id, "✅ ማረጋገጫ ግሩፕ ላይ ተልኳል።")
-    except Exception as e:
-        bot.send_message(message.chat.id, f"❌ ስህተት፦ {e}")
-
-def save_name(message, uid):
-    data["users"][str(uid)]["name"] = message.text[:5]
-    save_data()
-    bot.send_message(uid, f"✅ ስምዎ '{message.text[:5]}' ተብሎ ተመዝግቧል!", reply_markup=main_menu_markup(uid))
-    show_boards(message)
-
 def process_lookup(message):
     try:
-        load_data() # ዳታውን ማደስ
+        load_data()
         text = message.text.strip()
         
         if '-' not in text:
@@ -549,22 +502,26 @@ def process_lookup(message):
             winner_name = board_slots.get(num)
             
             if winner_name:
-                # በዳታቤዝ ውስጥ User ID መኖሩን መፈለግ
-                winner_id = next((u for u, i in data["users"].items() if i["name"] == winner_name), None)
+                # ✅ ትክክለኛውን የተጫዋች ID ብቻ መፈለጊያ (የግሩፕ IDን ችላ ይላል)
+                winner_id = None
+                for uid, info in data["users"].items():
+                    if info.get("name") == winner_name and not uid.startswith('-'):
+                        winner_id = uid
+                        break
                 
                 res = f"🏆 <b>አሸናፊ ተገኝቷል!</b>\n\n"
                 
                 if winner_id:
-                    # ✅ እዚህ ጋር ነው የአካውንት ሊንኩ የሚፈጠረው
+                    # የተጫዋች አካውንት ሊንክ
                     res += f"👤 <b>ተጫዋች፦</b> <a href='tg://user?id={winner_id}'>{winner_name}</a>\n"
                     res += f"🆔 <b>User ID፦</b> <code>{winner_id}</code>\n"
                 else:
-                    # IDው ካልተገኘ (በካሽ የተመዘገበ ከሆነ)
+                    # IDው ካልተገኘ (በካሽ የተመዘገበ)
                     res += f"👤 <b>ተጫዋች፦</b> {winner_name} (በካሽ የተመዘገበ)\n"
                 
                 res += f"🎰 <b>ሰሌዳ፦</b> {bid} | <b>ቁጥር፦</b> {num}\n"
                 res += f"━━━━━━━━━━━━━━━━━━━━━\n"
-                res += f"🔗 <i>ከላይ ያለውን ስም በመንካት ቀጥታ ማውራት ይችላሉ።</i>"
+                res += f"🔗 <i>ስሙን በመንካት በቀጥታ ማውራት ይችላሉ።</i>"
                 
                 bot.send_message(message.chat.id, res, parse_mode="HTML")
             else: 
