@@ -628,19 +628,36 @@ def finalize_app(message, target_id):
         user = get_user(uid)
         user["wallet"] += amt
         save_data()
-        
-        # የቁጥር መምረጫ (Picker) ለግሩፕ ማዘጋጀት
+
         active_boards = [bid for bid, info in data["boards"].items() if info["active"]]
-        markup = types.InlineKeyboardMarkup(row_width=1)
-        for bid in active_boards:
-            markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {bid} ({data['boards'][bid]['price']} ብር)", callback_data=f"u_select_{uid}_{bid}"))
+        markup = types.InlineKeyboardMarkup(row_width=5) # ቁጥሮቹን ጎን ለጎን ለመደርደር
+
+        # ሀ. ሰሌዳ ከአንድ በላይ ከሆነ መጀመሪያ ሰሌዳ ያስመርጥ
+        if len(active_boards) > 1:
+            for bid in active_boards:
+                markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {bid} ({data['boards'][bid]['price']} ብር)", callback_data=f"u_select_{uid}_{bid}"))
+            text = f"✅ <b>ክፍያ ጸድቋል!</b>\n👤 ተጫዋች፦ {user['name']}\n💰 ሂሳብ፦ {user['wallet']} ብር\n\n👇 እባክዎ መጀመሪያ ሰሌዳ ይምረጡ፦"
         
-        # ግሩፕ ላይ ማሳወቅ
-        text = f"✅ <b>ክፍያ ተረጋግጧል!</b>\n👤 <b>ተጫዋች፦</b> {user['name']}\n💰 <b>የተጨመረ፦</b> {amt} ብር\n\n👇 እባክዎ መጫወት የሚፈልጉትን ሰሌዳ ይምረጡ፦"
+        # ለ. ሰሌዳ አንድ ብቻ ከሆነ ቀጥታ ቁጥሮቹን ይዘርገፍ
+        else:
+            bid = active_boards
+            price = data["boards"][bid]["price"]
+            slots = data["boards"][bid].get("slots", {})
+            max_slots = data["boards"][bid]["max"]
+            
+            # ክፍት የሆኑ ቁጥሮችን ብቻ በ Button መዘርገፍ
+            btns = []
+            for i in range(1, max_slots + 1):
+                if str(i) not in slots:
+                    btns.append(types.InlineKeyboardButton(str(i), callback_data=f"pick_{bid}_{i}_{uid}"))
+            
+            markup.add(*btns)
+            text = f"✅ <b>ክፍያ ጸድቋል!</b>\n👤 ተጫዋች፦ {user['name']}\n💰 ሂሳብ፦ {user['wallet']} ብር\n\n👇 እባክዎ ቁጥር ይምረጡ (ሰሌዳ {bid})፦"
+
         bot.send_message(GROUP_ID, text, reply_markup=markup, parse_mode="HTML")
-        bot.send_message(message.chat.id, "✅ በተሳካ ሁኔታ ጽድቋል።")
+        bot.send_message(message.chat.id, "✅ በተሳካ ሁኔታ ተልኳል።")
     except:
-        bot.send_message(message.chat.id, "❌ ስህተት! እባክዎ ቁጥር ብቻ ያስገቡ።")
+        bot.send_message(message.chat.id, "❌ ስህተት ተከስቷል። ቁጥር ብቻ ማስገባትዎን ያረጋግጡ።")
 
 # ❌ ለተጫዋቹ የውድቅ መልዕክት የሚልከው
 def finalize_rejection(message, target_id):
