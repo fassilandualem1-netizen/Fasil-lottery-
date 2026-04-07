@@ -426,6 +426,20 @@ def callback_listener(call):
     elif call.data == "taken":
         bot.answer_callback_query(call.id, "❌ ይህ ቁጥር ተይዟል!")
 
+def generate_picker_markup(uid, bid):
+    board = data["boards"][bid]
+    markup = types.InlineKeyboardMarkup(row_width=5)
+    btns = []
+    for i in range(1, board["max"] + 1):
+        n_str = str(i)
+        # ቁጥሩ ከተያዘ ❌ ያሳያል፣ ካልተያዘ ቁጥሩን ያሳያል
+        if n_str not in board["slots"]:
+            btns.append(types.InlineKeyboardButton(n_str, callback_data=f"p_{uid}_{bid}_{n_str}"))
+        else:
+            btns.append(types.InlineKeyboardButton("❌", callback_data="taken"))
+    markup.add(*btns)
+    return markup
+
 
 def finalize_app(message, target_id):
     try:
