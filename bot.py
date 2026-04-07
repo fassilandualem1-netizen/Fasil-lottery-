@@ -453,22 +453,20 @@ def finalize_app(message, target_id):
         save_data()
         
         user_name = data["users"][uid]["name"]
-        
-        # 1. ክፍት የሆኑ ሰሌዳዎችን መለየት
         active_boards = [bid for bid, info in data["boards"].items() if info["active"]]
         
+        # ✅ አንድ ሰሌዳ ብቻ ክፍት ከሆነ ቀጥታ የቁጥር ዝርግፍ ይላካል
         if len(active_boards) == 1:
-            # ✅ አንድ ሰሌዳ ብቻ ከሆነ -> ቀጥታ የቁጥር ዝርግፍ (Picker)
             bid = active_boards
-            markup = generate_picker_markup(uid, bid) # Picker የሚያመጣው ፈንክሽን
+            markup = generate_picker_markup(uid, bid)
             text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
                     f"👤 <b>ተጫዋች፦</b> {user_name}\n"
                     f"💰 <b>ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n"
                     f"🎰 <b>ሰሌዳ {bid}</b> - እባክዎ ቁጥር ይምረጡ፦")
             bot.send_message(GROUP_ID, text, reply_markup=markup)
             
+        # ✅ ከአንድ በላይ ከሆኑ ምርጫ እንዲመጣ ይደረጋል
         else:
-            # ✅ ከአንድ በላይ ከሆኑ -> "ሰሌዳ ምረጥ" የሚል በተን
             markup = types.InlineKeyboardMarkup(row_width=1)
             for bid in active_boards:
                 price = data["boards"][bid]["price"]
