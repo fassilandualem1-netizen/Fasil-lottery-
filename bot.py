@@ -473,18 +473,16 @@ def process_admin_delete(message):
 def callback_listener(call):
     is_admin = call.from_user.id in ADMIN_IDS
     
-    # 1. የአድሚን ተግባራት
+    # ሁሉም 'if' እና 'elif' ትይዩ መሆን አለባቸው
     if call.data == "admin_manage" and is_admin:
         admin_manage_menu(call)
     
-    elif call.data == "admin_cash" and is_admin:
-        m = bot.send_message(call.from_user.id, "📝 <b>በካሽ ለመመዝገብ፦</b>\nሰሌዳ-ቁጥር ስም ይጻፉ (ምሳሌ፦ 1-05 አበበ)")
+    elif call.data == "admin_cash" and is_admin: # 👈 ይሄ መስመር ነው SyntaxError የሰጠህ
+        m = bot.send_message(call.from_user.id, "📝 <b>በካሽ ለመመዝገብ፦</b>\nሰሌዳ-ቁጥር ስም ይጻፉ")
         bot.register_next_step_handler(m, process_cash_reg)
         
-        elif call.data == "admin_delete" and is_admin:
-        # መጀመሪያ ለተጠቃሚው መመሪያ ይላካል
-        m = bot.send_message(call.from_user.id, "🗑 <b>ቁጥር ለመሰረዝ፦</b>\nሰሌዳ-ቁጥር ይጻፉ (ምሳሌ፦ 1-05)")
-        # ⚠️ ቀጣዩን ጽሁፍ እንዲጠብቅ ትዕዛዝ ይሰጠዋል
+    elif call.data == "admin_delete" and is_admin: # 👈 ይሄም አብሮ መስተካከል አለበት
+        m = bot.send_message(call.from_user.id, "🗑 <b>ቁጥር ለመሰረዝ፦</b>\nሰሌዳ-ቁጥር ይጻፉ")
         bot.register_next_step_handler(m, process_admin_delete)
 
     # 2. የደረሰኝ ማጽደቂያ (g_app_)
