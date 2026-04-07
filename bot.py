@@ -384,58 +384,47 @@ def approve_receipt_step(call):
 
 # --- 2. ብሩን ተቀብሎ መጨረሻ ላይ የሚሰራው ---
 def finalize_app(message, target_id):
-    # 1. መጀመሪያ መልዕክቱ መኖሩን ማረጋገጥ
-    if not message.text:
-        msg = bot.send_message(message.chat.id, "❌ ባዶ መልዕክት ነው! እባክዎ ቁጥር ብቻ ይጻፉ፦")
-        bot.register_next_step_handler(msg, finalize_app, target_id)
+    # 🕵️‍♂️ አድሚን መሆኑን ማረጋገጥ
+    if message.from_user.id not in ADMIN_IDS:
         return
 
-    amt_text = message.text.strip()
-
-    # 2. አድሚኑ ትዕዛዝ (ለምሳሌ /start) ከላከ ይቁም
-    if amt_text.startswith('/'):
-        bot.send_message(message.chat.id, "⚠️ ትዕዛዝ ተቋርጧል።")
-        return
-
-    # 3. የገባው ጽሁፍ ቁጥር መሆኑን ማረጋገጥ
-    if not amt_text.isdigit():
-        msg = bot.send_message(message.chat.id, f"❌ ስህተት! <b>{amt_text}</b> ቁጥር አይደለም። እባክዎ ቁጥር ብቻ ያስገቡ (ለምሳሌ፦ 100)፦", parse_mode="HTML")
+    # 1. መጀመሪያ መልዕክቱ ቁጥር መሆኑን ማረጋገጥ
+    if not message.text or not message.text.strip().isdigit():
+        msg = bot.send_message(message.chat.id, "❌ ስህተት! እባክዎ ቁጥር ብቻ ያስገቡ (ለምሳሌ፦ 100)፦")
         bot.register_next_step_handler(msg, finalize_app, target_id)
         return
 
     try:
-        amt = int(amt_text)
+        amt = int(message.text.strip())
         load_data()
         uid = str(target_id)
         user = get_user(uid)
         user["wallet"] += amt
         save_data()
 
+        # ንቁ ሰሌዳዎችን መፈለግ
         active_boards = [bid for bid, info in data["boards"].items() if info["active"]]
         markup = types.InlineKeyboardMarkup(row_width=5)
         
-        # --- ለተጫዋቹ Inline Button የመዘርገፍ ስራ ---
-        
-        # ሀ. ሰሌዳ 1 ብቻ ካለ - ቀጥታ ቁጥሮችን (Buttons) ይዘረግፋል
+        # ✅ መስተካከያ፦ አንድ ሰሌዳ ብቻ ካለ በመጠቀም ሰሌዳውን መለየት
         if len(active_boards) == 1:
-            bid = active_boards
-            board = data["boards"].get(bid)
+            bid = active_boards 
+            board = data["boards"][bid]
             slots = board.get("slots", {})
-            max_slots = board.get("max", 100)
+            max_slots = board.get("max", 25)
             
             btns = []
             for i in range(1, max_slots + 1):
                 if str(i) not in slots:
-                    # ተጫዋቹ ቁጥር እንዲመርጥ
                     btns.append(types.InlineKeyboardButton(str(i), callback_data=f"pick_{bid}_{i}_{uid}"))
             
             markup.add(*btns)
             text = (f"✅ <b>ክፍያ ጸድቋል!</b>\n"
                     f"👤 <b>ተጫዋች፦</b> {user['name']}\n"
                     f"💰 <b>ሂሳብ፦</b> {user['wallet']} ብር\n\n"
-                    f"👇 <b>እባክዎ ከታች ካሉት ቁጥሮች ይምረጡ፦</b>")
+                    f"👇 <b>እባክዎ ቁጥርዎን ይምረጡ፦</b>")
         
-        # ለ. ሰሌዳ ከአንድ በላይ ከሆነ - መጀመሪያ ሰሌዳ ያስመርጣል
+        # ሰሌዳ ከአንድ በላይ ከሆነ
         else:
             for b in active_boards:
                 markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {b}", callback_data=f"u_select_{uid}_{b}"))
@@ -446,11 +435,11 @@ def finalize_app(message, target_id):
 
         # ግሩፕ ላይ መላክ
         bot.send_message(GROUP_ID, text, reply_markup=markup, parse_mode="HTML")
-        # ለአድሚኑ ማረጋገጫ
         bot.send_message(message.chat.id, f"✅ ለ {user['name']} {amt} ብር ተጨምሮ ቁጥር መምረጫ ተልኳል።")
 
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ የሲስተም ስህተት፦ {str(e)}")
+        bot.send_message(message.chat.id, f"❌ ስህተት ተከስቷል፦ {str(e)}")
+
 
 # --- 🔴 የውድቅ (Reject) Logic ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('g_rej_'))
