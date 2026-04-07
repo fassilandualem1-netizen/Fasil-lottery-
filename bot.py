@@ -366,8 +366,7 @@ def handle_secure_pick(call):
         return bot.answer_callback_query(call.id, "⚠️ የሌላ ሰው ምርጫ ነው!", show_alert=True)
 
     uid = str(call.from_user.id)
-    user = data["users"].get(uid)
-    board = data["boards"].get(bid)
+    user, board = data["users"].get(uid), data["boards"].get(bid)
 
     if not user or user["wallet"] < int(board["price"]):
         return bot.answer_callback_query(call.id, "❌ ሂሳብዎ በቂ አይደለም!", show_alert=True)
@@ -375,33 +374,27 @@ def handle_secure_pick(call):
     if num in board["slots"]:
         return refresh_picker(call, uid, bid)
 
-    # ብር መቀነስ እና መመዝገብ
+    # መመዝገብ
     data["users"][uid]["wallet"] -= int(board["price"])
     board["slots"][num] = user["name"]
-    save_data()
-    update_group_board(bid)
+    save_data(); update_group_board(bid)
     bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!")
 
     if data["users"][uid]["wallet"] >= int(board["price"]):
         refresh_picker(call, uid, bid)
     else:
-        # 1. የያዛቸውን ቁጥሮች ዝርዝር ማዘጋጀት
+        # ምርጫ ሲያበቃ መልዕክት መላክ
         my_nums = [n for n, o in board["slots"].items() if o == user['name']]
         numbers_str = ", ".join(sorted(my_nums, key=int))
         
-        # 2. የድሮውን ሰሌዳ ማጥፋት
-        try:
-            bot.delete_message(call.message.chat.id, call.message.message_id)
-        except:
-            pass
+        try: bot.delete_message(call.message.chat.id, call.message.message_id)
+        except: pass
             
-        # 3. አንተ የፈለግኸው የደስታ መግለጫ መልዕክት
-        success_text = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n📌 <b>የያዟቸው፦</b> <code>{numbers_str}</code>\n━━━━━━━━━━━━━\n✨ <b>መልካም ዕድል! 🏆</b>"
+        success_text = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n🎫 <b>ቁጥሮችዎን መርጠው ጨርሰዋል።</b>\n\n📌 <b>የያዟቸው፦</b> <code>{numbers_str}</code>\n━━━━━━━━━━━━━\n✨ <b>መልካም ዕድል! 🏆</b>"
         sent_msg = bot.send_message(GROUP_ID, success_text, parse_mode="HTML")
 
-        # 4. መልዕክቱን ከ10 ሰከንድ በኋላ የሚያጠፋው ክፍል
-        import threading
-        threading.Timer(10, lambda: (bot.delete_message(GROUP_ID, sent_msg.message_id) if True else None)).start()
+        # ከላይ የጻፍነውን ረዳት ኮድ እዚህ ጋር በአንድ መስመር እንጠራዋለን
+        auto_delete(sent_msg.message_id)
 
 # 🛠 ሰሌዳውን ሳያጠፋ (Edit) እንዲያድስ የሚረዳ ረዳት ፈንክሽን
 def refresh_picker(call, uid, bid):
