@@ -249,10 +249,10 @@ def admin_panel(message):
                types.InlineKeyboardButton("🔄 ሰሌዳ አጽዳ (Reset)", callback_data="admin_reset"))
     bot.send_message(message.chat.id, f"🛠 <b>የአድሚን ዳሽቦርድ</b>\n\n{stats}", reply_markup=markup)
 
-# --- ከግሩፕ የሚላኩ ደረሰኞችን መቀበያ ---
+# --- 1. ከግሩፕ የሚላኩ ደረሰኞችን መቀበያ ---
 @bot.message_handler(content_types=['photo'], func=lambda m: m.chat.id == GROUP_ID)
 def handle_group_receipt(message):
-    # 🕵️‍♂️ አድሚን ራሱ ፎቶ ቢልክ ለአድሚን አይላክም
+    # 🕵️‍♂️ አድሚኑ ራሱ ግሩፕ ላይ ፎቶ ቢልክ ምንም አያድርግ
     if message.from_user.id in ADMIN_IDS:
         return 
 
@@ -260,23 +260,33 @@ def handle_group_receipt(message):
     name = message.from_user.first_name if message.from_user.first_name else "ተጫዋች"
     mid = message.message_id
 
-    # ✅ 'አጽድቅ' እና 'ውድቅ አድርግ' በተኖች
     markup = types.InlineKeyboardMarkup(row_width=2)
     btn_approve = types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_{mid}")
     btn_reject = types.InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"g_rej_{uid}_{mid}")
     markup.add(btn_approve, btn_reject)
     
-    cap = f"📩 <b>አዲስ ደረሰኝ ከግሩፕ</b>\n━━━━━━━━━━━━━\n"
-    cap += f"👤 <b>ከ፦</b> {name}\n"
-    cap += f"🆔 <b>ID፦</b> <code>{uid}</code>\n"
-    cap += f"📝 <b>ዝርዝር፦</b> ግሩፕ ላይ የተላከ ደረሰኝ"
+    cap = (f"📩 <b>አዲስ ደረሰኝ ከግሩፕ</b>\n━━━━━━━━━━━━━\n"
+           f"👤 <b>ከ፦</b> {name}\n"
+           f"🆔 <b>ID፦</b> <code>{uid}</code>\n"
+           f"📝 <b>ዝርዝር፦</b> ግሩፕ ላይ የተላከ ደረሰኝ")
 
-    # ለአድሚኖች በሙሉ መላክ
     for adm in ADMIN_IDS:
         try:
             bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup, parse_mode="HTML")
         except:
             pass
+
+# --- 2. በቦቱ (Private) የሚላኩ ፎቶዎችን መከልከል ---
+@bot.message_handler(content_types=['photo', 'text'], func=lambda m: m.chat.type == 'private')
+def block_private_receipts(message):
+    # ✅ በጣም አስፈላጊ፦ አድሚን ከሆነ በቦቱ ውስጥ የሚጽፈው ነገር (ለምሳሌ 2-01 ወይም 50) 
+    # እንደ ደረሰኝ እንዳይቆጠር ወዲያውኑ ስራውን ያቁም (Return)
+    if message.from_user.id in ADMIN_IDS:
+        return 
+
+    # ተራ ተጫዋች ፎቶ ከላከ ብቻ "ግሩፕ ላይ ላክ" ይበለው
+    if message.content_type == 'photo':
+        bot.reply_to(message, "⚠️ <b>ደረሰኝ እዚህ አይቀበልም!</b>\nእባክዎ ግሩፕ ላይ ይላኩ።", parse_mode="HTML")
 
 
 # ይህ ክፍል "ሰሌዳ አስተካክል" ሲነካ መልስ እንዲሰጥ ያደርጋል
