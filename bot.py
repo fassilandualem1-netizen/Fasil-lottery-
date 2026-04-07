@@ -380,23 +380,24 @@ def handle_secure_pick(call):
     save_data(); update_group_board(bid)
     bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!")
 
-    # ብር ካለው ሰሌዳውን ያድስ (ያለ else መስመር)
+    # ብር ካለው ሰሌዳውን ያድስ
     if data["users"][uid]["wallet"] >= int(board["price"]):
         return refresh_picker(call, uid, bid)
 
-    # ብር ከሌለው (ምርጫ ሲያበቃ) የደስታ መግለጫ መላክ
+    # ብር ከሌለው (ምርጫ ሲያበቃ) መልዕክቱን መላክ
     my_nums = [n for n, o in board["slots"].items() if o == user['name']]
     numbers_str = ", ".join(sorted(my_nums, key=int))
     
-    # ሰሌዳውን አጥፍቶ መልዕክት መላክ (ያለ try መስመር)
+    # ሰሌዳውን አጥፍቶ የደስታ መግለጫ መላክ (ያለ try)
     bot.delete_message(call.message.chat.id, call.message.message_id)
     
     success_text = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n📌 <b>የያዟቸው፦</b> <code>{numbers_str}</code>\n━━━━━━━━━━━━━\n✨ <b>መልካም ዕድል! 🏆</b>"
     sent_msg = bot.send_message(GROUP_ID, success_text, parse_mode="HTML")
 
-    # መልዕክቱን በ10 ሰከንድ የሚያጠፋው ክፍል (በአንድ መስመር ብቻ)
+    # መልዕክቱን በ10 ሰከንድ የሚያጠፋው ክፍል (በአንድ መስመር)
     import threading
     threading.Timer(10, lambda: bot.delete_message(GROUP_ID, sent_msg.message_id)).start()
+
 
 # 🛠 ሰሌዳውን ሳያጠፋ (Edit) እንዲያድስ የሚረዳ ረዳት ፈንክሽን
 def refresh_picker(call, uid, bid):
