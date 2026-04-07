@@ -393,16 +393,22 @@ def handle_secure_pick(call):
     if current_wallet >= board_price:
         # 🔄 ሰሌዳውን ሳያጠፋ ማደሻ (Function በመጠቀም ኮዱን አሳጥረነዋል)
         refresh_picker(call, uid, bid)
-    else:
-        # 5. ብሩ ካለቀ ብቻ መልዕክቱን አጥፍቶ መልካም ዕድል ይበለው
+        else:
+        # 5. ብሩ ካለቀ በኋላ የያዛቸውን ቁጥሮች ዝርዝር ማዘጋጀት
         try:
             bot.delete_message(call.message.chat.id, call.message.message_id)
         except:
             pass
 
+        # ተጫዋቹ በዚሁ ሰሌዳ (bid) ላይ የያዛቸውን ቁጥሮች መፈለግ
+        my_numbers = [num for num, owner in board["slots"].items() if owner == user['name']]
+        # ቁጥሮቹን በቅደም ተከተል ለማስቀመጥ (ለምሳሌ፦ 5, 12, 20)
+        numbers_str = ", ".join(sorted(my_numbers, key=int))
+
         success_msg = (
             f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n"
-            f"🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n"
+            f"🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n"
+            f"📌 <b>የያዟቸው ቁጥሮች፦</b> <code>{numbers_str}</code>\n"
             f"━━━━━━━━━━━━━━━━━━━━━\n"
             f"✨ <b>መልካም ዕድል ይሁንሎት! 🏆</b>\n"
             f"👉 @{bot.get_me().username}"
