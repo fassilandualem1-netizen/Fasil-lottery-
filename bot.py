@@ -361,19 +361,47 @@ def process_admin_delete(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
     is_admin = call.from_user.id in ADMIN_IDS
+    
+    # 1. ማፅደቂያ (Approve)
     if call.data.startswith('approve_') and is_admin:
-        target = call.data.split('_')[1]
+        parts = call.data.split('_')
+        target = parts
         m = bot.send_message(call.from_user.id, f"💵 ለ ID {target} የሚጨመረውን ብር ይጻፉ፦")
         bot.register_next_step_handler(m, finalize_app, target)
+
+    # 2. ውድቅ ማድረጊያ (Decline/Reject)
     elif call.data.startswith('decline_') and is_admin:
-        target = call.data.split('_')[1]
+        parts = call.data.split('_')
+        target = parts
+        # አድሚኑ ጋር ያለውን በተን ማጥፋት
+        bot.edit_message_caption("❌ ደረሰኙ ውድቅ ተደርጓል", call.message.chat.id, call.message.message_id, reply_markup=None)
         m = bot.send_message(call.from_user.id, "❌ ውድቅ የተደረገበትን ምክንያት ይጻፉ፦")
         bot.register_next_step_handler(m, finalize_dec, target)
+
+    # 3. አሸናፊ መፈለጊያ
+    elif call.data == "lookup_winner" and is_admin:
+        m = bot.send_message(call.from_user.id, "አሸናፊ ለመፈለግ ሰሌዳ እና ቁጥር ይጻፉ (ለምሳሌ: 2-13)፦")
+        bot.register_next_step_handler(m, process_lookup)
+
+    # 4. ሌሎቹ የአድሚን ተግባራት
+    elif call.data == "admin_manage" and is_admin: 
+        admin_manage_menu(call)
+    elif call.data == "admin_reset" and is_admin: 
+        reset_menu(call)
+    elif call.data.startswith('doreset_') and is_admin:
+        bid = call.data.split('_')
+        data["boards"][bid]["slots"] = {}
+        data["pinned_msgs"][bid] = None
+        save_data()
+        bot.answer_callback_query(call.id, "ሰሌዳው ጸድቷል!")
+        update_group_board(bid)
+    
+    # 5. የተጫዋች ምርጫዎች
     elif call.data.startswith('select_'): handle_selection(call)
     elif call.data.startswith('pick_'):
         _, bid, num = call.data.split('_')
         finalize_reg_inline(call, bid, num)
-    elif call.data == "lookup_winner" and is_admin:
+ call.data == "lookup_winner" and is_admin:
         m = bot.send_message(call.from_user.id, "አሸናፊ ለመፈለግ ሰሌዳ እና ቁጥር ይጻፉ (ለምሳሌ: 2-13)፦")
         bot.register_next_step_handler(m, process_lookup)
     elif call.data == "admin_manage" and is_admin: manage_menu(call)
