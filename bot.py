@@ -117,13 +117,13 @@ def update_group_board(b_id):
     text += "<b>USE IT OR LOSE IT</b>\n"
     text += "━━━━━━━━━━━━━━━━━━━━━\n"
 
-                # 🎫 የቁጥሮች ዝርዝር (ስሙ Bold, Italic እና Code ሆኖ እንዲታይ)
+        # 🎫 የቁጥሮች ዝርዝር (በመስመሮች መካከል ክፍተት ተጨምሯል)
     board_slots = board["slots"]
     for i in range(1, board["max"] + 1):
         n = str(i)
         if n in board_slots:
-            # <b><i><code> ስሙን ይበልጥ ያጎላዋል
-            text += f"<b>{i}👉</b> <b><i><code>{board_slots[n]}</code></i></b> ✅🏆🙏\n\n"
+            # መጨረሻ ላይ \n\n በመጨመር ባዶ መስመር እንፈጥራለን
+            text += f"<b>{i}👉</b> {board_slots[n]} ✅🏆🙏\n\n"
         else:
             text += f"<b>{i}👉</b> @@@@ ✅🏆🙏\n\n"
             
@@ -192,39 +192,6 @@ def start_broadcast(message):
     else:
         bot.reply_to(message, "❌ ይህ ለባለቤቱ ብቻ የተፈቀደ ነው!")
 
-def find_winner_account(bid, winning_num):
-    board = data["boards"].get(bid)
-    if not board:
-        return "⚠️ ሰሌዳው አልተገኘም!"
-
-    # 1. አሸናፊውን ስም ከሰሌዳው ላይ ማውጣት
-    winner_name = board["slots"].get(str(winning_num))
-
-    if winner_name:
-        winner_id = None
-        # 2. በስሙ ተጠቅመን በዳታቤዛችን ውስጥ ያለውን የቴሌግራም ID መፈለግ
-        for uid, user_info in data["users"].items():
-            if user_info["name"] == winner_name:
-                winner_id = uid
-                break
-        
-        if winner_id:
-            # ✅ አሸናፊውን በሊንክ መልክ ማዘጋጀት (ይህ አካውንቱን በቀጥታ ለመጫን ይረዳል)
-            mention = f'<a href="tg://user?id={winner_id}">{winner_name}</a>'
-            
-            text = (f"🎊 <b>እንኳን ደስ አሎት!</b> 🎊\n\n"
-                    f"🎰 <b>ሰሌዳ፦</b> {bid}\n"
-                    f"🎫 <b>አሸናፊ ቁጥር፦</b> {winning_num}\n"
-                    f"👤 <b>አሸናፊ፦</b> {mention}\n" # 👈 ስሙን ስትነካው ወደ አካውንቱ ይወስደሃል
-                    f"🆔 <b>User ID፦</b> <code>{winner_id}</code>\n"
-                    f"💰 <b>ቀሪ ሂሳብ፦</b> {data['users'][winner_id]['wallet']} ብር")
-            
-            bot.send_message(GROUP_ID, text, parse_mode="HTML")
-        else:
-            bot.send_message(GROUP_ID, f"⚠️ አሸናፊው {winner_name} ተገኝቷል፣ ግን IDው በዳታቤዝ ውስጥ የለም።")
-    else:
-        bot.send_message(GROUP_ID, f"⚠️ በሰሌዳ {bid} ላይ ቁጥር {winning_num} አልተያዘም!")
-
 def send_to_all(message):
     users = list(data["users"].keys())
     count = 0
@@ -276,163 +243,39 @@ def admin_panel(message):
     markup.add(types.InlineKeyboardButton("⚙️ ሰሌዳዎችን አስተካክል", callback_data="admin_manage"),
                types.InlineKeyboardButton("🔍 አሸናፊ ፈልግ", callback_data="lookup_winner"),
                types.InlineKeyboardButton("🔄 ሰሌዳ አጽዳ (Reset)", callback_data="admin_reset"))
-    
-    # አዲስ ከመላክ ይልቅ መልዕክቱን ማደስ (Edit) ይሻላል
     bot.send_message(message.chat.id, f"🛠 <b>የአድሚን ዳሽቦርድ</b>\n\n{stats}", reply_markup=markup)
 
-# --- አዲሱ የግሩፕ ደረሰኝ መቀበያ (ከመስመር 175 በታች የሚገባ) ---
-@bot.message_handler(content_types=['photo'])
-def handle_receipt(message):
-    user_id = message.from_user.id
-    user_name = message.from_user.first_name
-    photo_id = message.photo[-1].file_id # ትልቁን ፎቶ ለመውሰድ
-    message_id = message.message_id
-
-    # 1. መጀመሪያ በተኖቹን እንሰራለን
+@bot.message_handler(content_types=['photo', 'text'])
+def handle_receipts(message):
+    if message.chat.type != 'private': return 
+    uid = str(message.chat.id)
+    if message.text in ["🎮 ሰሌዳ ምረጥ", "👤 ፕሮፋይል", "⚙️ Admin Settings", "🎫 የያዝኳቸው ቁጥሮች"]: return
+    bot.send_message(uid, "⏳ <b>ደረሰኝዎ ደርሶኛል...</b>\nእባክዎ እስኪረጋገጥ ይጠብቁ። 🙏")
     markup = types.InlineKeyboardMarkup()
-    btn_approve = types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"approve_{user_id}_{message_id}")
-    btn_reject = types.InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"reject_{user_id}_{message_id}")
-    markup.add(btn_approve, btn_reject)
-
-    # 2. ለአድሚኑ ፎቶውን ከነበተኑ እንልካለን
-    bot.send_photo(
-        ADMIN_ID, 
-        photo_id, 
-        caption=f"📩 <b>አዲስ ደረሰኝ ቀርቧል</b>\n👤 <b>ከ፦</b> {user_name}\n🆔 <b>ID፦</b> <code>{user_id}</code>", 
-        reply_markup=markup,
-        parse_mode="HTML"
-    )
-
-    # 3. ለተጫዋቹ መላኩን እናረጋግጥለታለን
-    bot.reply_to(message, "⏳ ደረሰኝዎ ለአድሚን ተልኳል፣ እባክዎ እስከሚረጋገጥ ይጠብቁ።")
+    markup.row(types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"approve_{uid}"),
+               types.InlineKeyboardButton("❌ ውድቅ", callback_data=f"decline_{uid}"))
+    cap = f"📩 <b>አዲስ ደረሰኝ</b>\n👤 <b>ከ፦</b> {message.from_user.first_name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
+    for adm in ADMIN_IDS:
+        try:
+            if message.photo: bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup)
+            else: bot.send_message(adm, f"{cap}\n📝 <b>ዝርዝር፦</b>\n<code>{message.text}</code>", reply_markup=markup)
+        except: pass
 
 # ይህ ክፍል "ሰሌዳ አስተካክል" ሲነካ መልስ እንዲሰጥ ያደርጋል
-
-def generate_picker_markup(uid, bid):
-    board = data["boards"][bid]
-    markup = types.InlineKeyboardMarkup(row_width=5)
-    btns = []
-    # ከ 1 እስከ ሰሌዳው ማብቂያ (ለምሳሌ 25) ድረስ ያሉትን ቁጥሮች መፈተሽ
-    for i in range(1, board["max"] + 1):
-        n_str = str(i)
-        if n_str not in board["slots"]:
-            # ቁጥሩ ክፍት ከሆነ ምርጫውን እንዲያሳይ
-            btns.append(types.InlineKeyboardButton(n_str, callback_data=f"p_{uid}_{bid}_{n_str}"))
-        else:
-            # ቁጥሩ ተይዞ ከሆነ X እንዲያሳይ
-            btns.append(types.InlineKeyboardButton("❌", callback_data="taken"))
-    
-    markup.add(*btns)
-    return markup
-
 @bot.callback_query_handler(func=lambda call: call.data in ["admin_manage", "manage_boards"] and call.from_user.id in ADMIN_IDS)
 def admin_manage_menu(call):
     markup = types.InlineKeyboardMarkup(row_width=2)
-    # 🛠 ዋናዎቹ በተኖች
     markup.add(
         types.InlineKeyboardButton("💵 በካሽ መዝግብ", callback_data="admin_cash"),
-        types.InlineKeyboardButton("🗑 ቁጥር ሰርዝ", callback_data="admin_delete")
+        types.InlineKeyboardButton("❌ ቁጥር ሰርዝ", callback_data="admin_delete")
     )
-    # የሰሌዳዎቹ ዝርዝር
+    # የሰሌዳዎቹን ዝርዝር እዚህ ጋር ጨምርላቸው
     for bid in data["boards"]:
         markup.add(types.InlineKeyboardButton(f"⚙️ ሰሌዳ {bid} አስተካክል", callback_data=f"edit_{bid}"))
     
     markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_panel_back"))
+    
     bot.edit_message_text("🛠 <b>የአድሚን ስራዎችን ይምረጡ፦</b>", call.message.chat.id, call.message.message_id, reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('p_'))
-def handle_secure_pick(call):
-    # 1. ዳታውን መበተን
-    _, allowed_id, bid, num = call.data.split('_')
-    
-    # የባለቤትነት ቼክ
-    if str(call.from_user.id) != str(allowed_id):
-        bot.answer_callback_query(call.id, "⚠️ ይቅርታ! ይህ የሌላ ሰው ምርጫ ነው።", show_alert=True)
-        return
-
-    uid = str(call.from_user.id)
-    # ዳታውን በቀጥታ ከ data dictionary መውሰድ ስህተትን ይቀንሳል
-    user = data["users"].get(uid)
-    board = data.get("boards", {}).get(bid)
-
-    if not user or not board:
-        bot.answer_callback_query(call.id, "❌ ስህተት ተፈጥሯል!", show_alert=True)
-        return
-
-    board_price = int(board["price"])
-    
-    # 2. ሂሳብ ቼክ (ብሩ ከሰሌዳው ዋጋ ያነሰ መሆኑን ማረጋገጥ)
-    if user["wallet"] < board_price:
-        bot.answer_callback_query(call.id, "❌ ሂሳብዎ በቂ አይደለም!", show_alert=True)
-        try: bot.delete_message(call.message.chat.id, call.message.message_id)
-        except: pass
-        return
-
-    # 3. ምዝገባ እና ብር መቀነስ
-    # ቁጥሩ ቀድሞ ከተያዘ መከላከል
-    if num in board["slots"]:
-        bot.answer_callback_query(call.id, "❌ ይህ ቁጥር ቀድሞ ተይዟል!", show_alert=True)
-        # ሰሌዳውን በ "Edit" ማደስ (Buttons እንዲስተካከሉ)
-        refresh_picker(call, uid, bid)
-        return
-
-    # ብር መቀነስ እና ቁጥር መመዝገብ
-    data["users"][uid]["wallet"] -= board_price
-    board["slots"][num] = user["name"]
-    save_data()
-    
-    # ግሩፕ ላይ ያለውን ዋና ሰሌዳ (Design) ማደስ
-    update_group_board(bid)
-    
-    bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!", show_alert=False)
-
-    # 4. ወሳኙ ክፍል፦ ተጫዋቹ አሁንም ሌላ ቁጥር ለመግዛት ብር ካለው "Edit" ያድርገው
-    # እዚህ ጋር የተቀነሰውን አዲሱን ሂሳብ እንፈትሻለን
-    current_wallet = data["users"][uid]["wallet"]
-    
-    if current_wallet >= board_price:
-        # 🔄 ሰሌዳውን ሳያጠፋ ማደሻ (Function በመጠቀም ኮዱን አሳጥረነዋል)
-        refresh_picker(call, uid, bid)
-    else:
-        # 5. ብሩ ካለቀ ብቻ መልዕክቱን አጥፍቶ መልካም ዕድል ይበለው
-        try:
-            bot.delete_message(call.message.chat.id, call.message.message_id)
-        except:
-            pass
-
-        success_msg = (
-            f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n"
-            f"🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━━\n"
-            f"✨ <b>መልካም ዕድል ይሁንሎት! 🏆</b>\n"
-            f"👉 @{bot.get_me().username}"
-        )
-        bot.send_message(call.message.chat.id, success_msg, parse_mode="HTML")
-
-# 🛠 ሰሌዳውን ሳያጠፋ (Edit) እንዲያድስ የሚረዳ ረዳት ፈንክሽን
-def refresh_picker(call, uid, bid):
-    board = data["boards"][bid]
-    user = data["users"][uid]
-    
-    markup = types.InlineKeyboardMarkup(row_width=5)
-    btns = []
-    for i in range(1, board["max"] + 1):
-        n_str = str(i)
-        if n_str not in board["slots"]:
-            btns.append(types.InlineKeyboardButton(n_str, callback_data=f"p_{uid}_{bid}_{n_str}"))
-        else:
-            btns.append(types.InlineKeyboardButton("❌", callback_data="taken"))
-    markup.add(*btns)
-    
-    new_text = (f"♻️ <b>ተጨማሪ ቁጥር ይምረጡ!</b>\n"
-                f"👤 <b>ተጫዋች፦</b> <b><i><code>{user['name']}</code></i></b>\n"
-                f"💰 <b>ቀሪ ሂሳብ፦</b> <b>{user['wallet']} ብር</b>\n\n"
-                f"🎰 🎰 <b>ሰሌዳ {bid} - ሌላ ቁጥር ይምረጡ፦</b>")
-    
-    try:
-        bot.edit_message_text(new_text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
-    except Exception as e:
-        print(f"Edit error: {e}")
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_cash")
 def start_cash_reg(call):
@@ -511,111 +354,15 @@ def process_admin_delete(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
     is_admin = call.from_user.id in ADMIN_IDS
-    data_query = call.data # ስሙን ለይተን እንያዘው
-
-    # 1. የአድሚን ተግባራት
-    if data_query == "admin_manage" and is_admin:
-        admin_manage_menu(call)
-    elif data_query == "admin_cash" and is_admin:
-        m = bot.send_message(call.from_user.id, "📝 <b>በካሽ ለመመዝገብ፦</b>\nሰሌዳ-ቁጥር ስም ይጻፉ (ምሳሌ፦ 1-05 አበበ)")
-        bot.register_next_step_handler(m, process_cash_reg)
-    elif data_query == "admin_delete" and is_admin:
-        m = bot.send_message(call.from_user.id, "🗑 <b>ቁጥር ለመሰረዝ፦</b>\nሰሌዳ-ቁጥር ይጻፉ (ምሳሌ፦ 1-05)")
-        bot.register_next_step_handler(m, process_admin_delete)
-    elif data_query == "admin_reset" and is_admin: 
-        reset_menu(call)
-    elif data_query == "lookup_winner" and is_admin:
-        m = bot.send_message(call.from_user.id, "አሸናፊ ለመፈለግ ሰሌዳ እና ቁጥር ይጻፉ (ለምሳሌ: 2-13)፦")
-        bot.register_next_step_handler(m, process_lookup)
-
-    # 2. የደረሰኝ ማጽደቂያ
-    elif data_query.startswith('g_app_') and is_admin:
-        _, _, target_id, receipt_mid = data_query.split('_')
-        msg = bot.send_message(call.from_user.id, f"💰 ለ {target_id} የሚጨመረውን ብር ይጻፉ፦")
-        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid)
-
-    # 3. የሰሌዳ ምርጫዎች (ተጫዋች)
-    elif data_query.startswith('select_'):
-        handle_selection(call)
-    elif data_query.startswith('p_'):
-        handle_secure_pick(call)
-    elif data_query.startswith('pick_'):
-        _, bid, num = data_query.split('_')
-        finalize_reg_inline(call, bid, num)
-    
-    # የ 'None' ስህተት እንዳይመጣ
-    bot.answer_callback_query(call.id)
-
-def handle_secure_pick(call):
-    _, allowed_id, bid, num = call.data.split('_')
-    uid = str(call.from_user.id)
-    user = data["users"].get(uid)
-    board = data["boards"].get(bid)
-    
-    if not user or not board: return 
-    
-    board_price = int(board["price"])
-    data["users"][uid]["wallet"] -= board_price
-    board["slots"][num] = user["name"]
-    save_data()
-    update_group_board(bid)
-    
-    current_wallet = data["users"][uid]["wallet"]
-
-    if current_wallet >= board_price:
-        refresh_picker(call, uid, bid)
-    else:
-        try:
-            bot.edit_message_text(
-                f"✅ ምርጫዎን አጠናቀዋል!\n💰 ቀሪ ሂሳብ፦ {current_wallet} ብር", 
-                call.message.chat.id, 
-                call.message.message_id, 
-                reply_markup=None
-            )
-        except:
-            pass
-
-# ⚠️ እዚህ ጋር ፈንክሽኑ ያበቃል። ከታች ያሉት መስመሮች በ callback_listener ውስጥ መሆን አለባቸው።
-# በ Render ላይ ስህተት የፈጠረው ከዚህ በታች ያለው elif ከአንድ else ቀጥሎ ስለገባ ነው።
-
-@bot.callback_query_handler(func=lambda call: True)
-def callback_listener(call):
-    is_admin = call.from_user.id in ADMIN_IDS
-    
-    # 1. መጀመሪያ በ 'if' ይጀምራል
-    if call.data == "admin_manage" and is_admin:
-        admin_manage_menu(call)
-        
-    # 2. ከዚያ 'elif' ይቀጥላል
-    elif call.data == "admin_reset" and is_admin:
-        reset_menu(call)
-
-    elif call.data.startswith('doreset_') and is_admin:
-        bid = call.data.split('_') # መኖሩን እርግጠኛ ሁን
-        if bid in data["boards"]:
-            data["boards"][bid]["slots"] = {}
-            save_data()
-            update_group_board(bid)
-            bot.answer_callback_query(call.id, "✅ ሰሌዳው ጸድቷል!")
-
-    # --- አዲሱ የማረጋገጫ ክፍል ---
-    if call.data.startswith('g_app_') and is_admin:
-        _, _, target_id, receipt_mid = call.data.split('_')
-        msg = bot.send_message(call.from_user.id, f"💰 ለ {target_id} የሚጨመረውን ብር ይጻፉ፦")
-        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid)
-    
-    elif call.data.startswith('u_pick_'):
-        allowed_id = call.data.split('_')
-        if str(call.from_user.id) != str(allowed_id):
-            bot.answer_callback_query(call.id, "❌ ይቅርታ፣ ይህ በተን ለእርስዎ አልተፈቀደም!", show_alert=True)
-            return
-        # በተኑን አንዴ ስለተጠቀመበት እናጠፋዋለን
-        bot.delete_message(GROUP_ID, call.message.message_id)
-        show_boards(call.message)
-    # -----------------------------------
-
+    if call.data.startswith('approve_') and is_admin:
+        target = call.data.split('_')[1]
+        m = bot.send_message(call.from_user.id, f"💵 ለ ID {target} የሚጨመረውን ብር ይጻፉ፦")
+        bot.register_next_step_handler(m, finalize_app, target)
+    elif call.data.startswith('decline_') and is_admin:
+        target = call.data.split('_')[1]
+        m = bot.send_message(call.from_user.id, "❌ ውድቅ የተደረገበትን ምክንያት ይጻፉ፦")
+        bot.register_next_step_handler(m, finalize_dec, target)
     elif call.data.startswith('select_'): handle_selection(call)
-    # ... የቀረው ኮድህ ይቀጥላል ...
     elif call.data.startswith('pick_'):
         _, bid, num = call.data.split('_')
         finalize_reg_inline(call, bid, num)
@@ -633,114 +380,10 @@ def callback_listener(call):
         m = bot.send_message(call.from_user.id, f"የሰሌዳ {bid} አዲስ ዋጋ/ሽልማት ይጻፉ፦")
         bot.register_next_step_handler(m, update_board_value, bid, action)
     elif call.data == "admin_reset" and is_admin: reset_menu(call)
-    elif call.data.startswith('reject_'):
-        _, target_id, msg_id = call.data.split('_')
-        
-        # 1. ለአድሚኑ መልስ መስጠት
-        bot.answer_callback_query(call.id, "❌ ደረሰኙ ውድቅ ተደርጓል!", show_alert=True)
-        
-        # 2. የአድሚኑን መልዕክት ማደስ (Buttons እንዲጠፉ)
-        bot.edit_message_caption(
-            caption=f"❌ ይህ ደረሰኝ ውድቅ ተደርጓል!\n👤 የተጫዋች ID፦ <code>{target_id}</code>",
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            reply_markup=None,
-            parse_mode="HTML"
-        )
-        
-        # 3. ለተጫዋቹ ደረሰኙ ውድቅ መሆኑን ማሳወቅ
-        reject_text = (f"❌ <b>ደረሰኝዎ ውድቅ ተደርጓል!</b>\n\n"
-                       f"ምክንያቱ፦ ደረሰኙ ትክክል አይደለም ወይም ቀደም ብሎ ጥቅም ላይ ውሏል።\n"
-                       f"እባክዎ ትክክለኛውን ደረሰኝ ደግመው ይላኩ ወይም አድሚኑን ያነጋግሩ።")
-        
-        try:
-            bot.send_message(target_id, reject_text, parse_mode="HTML")
-        except:
-            # ተጫዋቹ ቦቱን ብሎክ ካደረገ እንዳይቆም
-            pass
-    elif call.data.startswith('u_select_'):
-        _, _, target_id, bid = call.data.split('_')
-        if str(call.from_user.id) != str(target_id):
-            bot.answer_callback_query(call.id, "⚠️ ይህ የእርስዎ ምርጫ አይደለም!", show_alert=True)
-            return
-        
-        # ሰሌዳውን ሲመርጥ ቁጥሮቹን ያሳየዋል
-        markup = generate_picker_markup(target_id, bid)
-        board_price = data["boards"][bid]["price"]
-        can_pick = data["users"][target_id]["wallet"] // board_price
-        
-        text = (f"🎰 <b>ሰሌዳ {bid} ተመርጧል!</b>\n"
-                f"🎫 መያዝ የሚችሉት፦ <b>{can_pick} ቁጥሮች</b>\n"
-                f"እባክዎ ቁጥር ይምረጡ፦")
-        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup)
-
     elif call.data.startswith('doreset_') and is_admin:
         bid = call.data.split('_')[1]
         data["boards"][bid]["slots"] = {}; data["pinned_msgs"][bid] = None
         save_data(); bot.answer_callback_query(call.id, "ሰሌዳው ጸድቷል!"); update_group_board(bid)
-
-def send_picker_to_group(message, target_id, receipt_mid):
-    try:
-        amt = int(message.text) # አድሚኑ ያስገባው የብር መጠን
-        uid = str(target_id)
-        user_info = bot.get_chat(uid)
-        
-        raw_name = user_info.first_name if user_info.first_name else "ተጫዋች"
-        clean_name = raw_name[:10] 
-
-        if uid not in data["users"]:
-            data["users"][uid] = {"name": clean_name, "wallet": 0}
-        else:
-            data["users"][uid]["name"] = clean_name
-            
-        data["users"][uid]["wallet"] += amt
-        save_data()
-
-        # 1. ክፍት የሆኑና ብሩ የሚበቃቸውን ሰሌዳዎች በሙሉ መለየት
-        available_boards = []
-        for b_id, b_info in data["boards"].items():
-            if b_info.get("active", True) and b_info["price"] <= data["users"][uid]["wallet"]:
-                available_boards.append(b_id)
-
-        # 2. የሰሌዳዎቹን ብዛት አይቶ ውሳኔ መስጠት
-        if not available_boards:
-            bot.send_message(message.chat.id, "⚠️ ለተጫዋቹ ሂሳብ የሚመጥን ክፍት ሰሌዳ አልተገኘም!")
-            return
-
-        if len(available_boards) == 1:
-            # ✅ አንዱ ብቻ ከሆነ ክፍት - አውቶማቲክ በተኑን ይልካል
-            bid = available_boards
-            board = data["boards"][bid]
-            can_pick = data["users"][uid]["wallet"] // board["price"] # የቁጥር ስሌት
-            
-            markup = generate_picker_markup(uid, bid)
-            text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
-                    f"👤 <b>ተጫዋች፦</b> <b><i><code>{clean_name}</code></i></b>\n"
-                    f"💰 <b>ጠቅላላ ሂሳብ፦</b> <b>{data['users'][uid]['wallet']} ብር</b>\n"
-                    f"🎫 <b>መያዝ የሚችሉት፦</b> <b>{can_pick} ቁጥሮች</b>\n"
-                    f"━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"🎰 <b>ሰሌዳ {bid} - እባክዎ ቁጥርዎን ይምረጡ፦</b>")
-            bot.send_message(GROUP_ID, text, reply_to_message_id=receipt_mid, reply_markup=markup)
-        
-        else:
-            # ✅ ሁለት ወይም ሦስት ከሆኑ - ሰሌዳ እንዲመርጥ ያደርጋል
-            markup = types.InlineKeyboardMarkup(row_width=1)
-            for b_id in available_boards:
-                price = data["boards"][b_id]["price"]
-                markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {b_id} (🎫 {price} ብር)", callback_data=f"u_select_{uid}_{b_id}"))
-            
-            text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
-                    f"👤 <b>ተጫዋች፦</b> <b><i><code>{clean_name}</code></i></b>\n"
-                    f"💰 <b>ጠቅላላ ሂሳብ፦</b> <b>{data['users'][uid]['wallet']} ብር</b>\n"
-                    f"❓ <b>እባክዎ መጫወት የሚፈልጉትን ሰሌዳ ይምረጡ፦</b>")
-            bot.send_message(GROUP_ID, text, reply_to_message_id=receipt_mid, reply_markup=markup)
-
-        bot.send_message(message.chat.id, f"✅ ለ {clean_name} የክፍያ ማረጋገጫ ተልኳል።")
-        
-    except Exception as e:
-        bot.send_message(message.chat.id, f"❌ ስህተት! {e}")
-
-
 
 def finalize_app(message, target):
     try:
@@ -837,17 +480,12 @@ def force_update(message):
     
     
 if __name__ == "__main__":
-    # 1. ዳታው መጀመሪያ መጫኑን አረጋግጥ
-    load_data() 
+    # ለጊዜው ይህንን ጨምር (አንድ ጊዜ Deploy ካደረግክ በኋላ መልሰህ ብታጠፋው ይሻላል)
+    save_data()
     
-    # 2. ሰርቨሩ በህይወት እንዲቆይ (Flask)
     keep_alive()
-    
-    # 3. የድሮ Webhook ካለ ማጽዳት
+    # ... ሌላው የ bot.polling ኮድ ይቀጥላል
     bot.remove_webhook()
-    
-    print("Fasil Bot is starting...")
-    
-    # 4. ዋናው ማስተካከያ (በ 'while True' ፋንታ ይህንን ተጠቀም)
-    # skip_pending=True -> ቦቱ ደርቦ እንዳይመልስ ያደርገዋል
-    bot.infinity_polling(skip_pending=True, timeout=60, long_polling_timeout=20)
+    while True:
+        try: bot.polling(none_stop=True, interval=1, timeout=20)
+        except: time.sleep(5)
