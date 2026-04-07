@@ -423,7 +423,7 @@ def handle_secure_pick(call):
         except:
             pass
 
-        # 3. የደስታ መግለጫ መልዕክቱን መላክ
+                # 3. የደስታ መግለጫ መልዕክቱን መላክ
         success_text = (
             f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n"
             f"🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n"
@@ -434,17 +434,11 @@ def handle_secure_pick(call):
         
         sent_msg = bot.send_message(GROUP_ID, success_text, parse_mode="HTML")
 
-        # 4. መልዕክቱን ከ10 ሰከንድ በኋላ የሚያጠፋው ክፍል
-        def delete_later(chat_id, message_id):
-            try:
-                bot.delete_message(chat_id, message_id)
-            except Exception as e:
-                print(f"Log: {e}")
-
-        # threading በመጠቀም ለ10 ሰከንድ ቀጠሮ መያዝ
+        # 4. ቀላሉ የማጥፊያ መንገድ (በአንድ መስመር)
         import threading
-        timer = threading.Timer(10, delete_later, args=[GROUP_ID, sent_msg.message_id])
-        timer.start()
+        threading.Timer(10, lambda: bot.delete_message(GROUP_ID, sent_msg.message_id)).start()
+
+                
 
 # 🛠 ሰሌዳውን ሳያጠፋ (Edit) እንዲያድስ የሚረዳ ረዳት ፈንክሽን
 def refresh_picker(call, uid, bid):
