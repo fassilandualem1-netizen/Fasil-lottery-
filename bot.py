@@ -501,6 +501,15 @@ def process_admin_delete(message):
             bot.send_message(message.chat.id, f"🗑 ሰሌዳ {bid} ቁጥር {num} ተሰርዟል!")
     except: bot.send_message(message.chat.id, "❌ ስህተት! (አጻጻፍ፦ 1-05)")
 
+# --- ይህን ከላይ አስቀምጥ ---
+def auto_delete(msg_id):
+    import threading
+    def delete():
+        try: bot.delete_message(GROUP_ID, msg_id)
+        except: pass
+    threading.Timer(10, delete).start()
+
+
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
