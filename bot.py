@@ -370,12 +370,12 @@ def handle_secure_pick(call):
     board = data["boards"].get(bid)
 
     if not user or user["wallet"] < int(board["price"]):
-        bot.delete_message(call.message.chat.id, call.message.message_id)
         return bot.answer_callback_query(call.id, "❌ ሂሳብዎ በቂ አይደለም!", show_alert=True)
 
     if num in board["slots"]:
         return refresh_picker(call, uid, bid)
 
+    # ብር መቀነስ እና መመዝገብ
     data["users"][uid]["wallet"] -= int(board["price"])
     board["slots"][num] = user["name"]
     save_data()
@@ -385,17 +385,18 @@ def handle_secure_pick(call):
     if data["users"][uid]["wallet"] >= int(board["price"]):
         refresh_picker(call, uid, bid)
     else:
-        # ምርጫ ሲያበቃ መልዕክት መላክና በ10 ሰከንድ ማጥፋት
+        # ምርጫ ሲያበቃ መልዕክት ብቻ ይላካል (አይጠፋም)
         my_nums = [n for n, o in board["slots"].items() if o == user['name']]
-        txt = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n📌 <b>ቁጥሮችዎ፦</b> <code>{', '.join(sorted(my_nums, key=int))}</code>"
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-        sent = bot.send_message(GROUP_ID, txt, parse_mode="HTML")
+        txt = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n📌 <b>የያዟቸው ቁጥሮች፦</b> <code>{', '.join(sorted(my_nums, key=int))}</code>"
         
-        import threading
-        def clean():
-            try: bot.delete_message(GROUP_ID, sent.message_id)
-            except: pass
-        threading.Timer(10, clean).start()
+        # የቆየውን የመምረጫ ቦርድ (Keyboard) ማጥፋት
+        try:
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+        except:
+            pass
+            
+        # አዲሱን የደስታ መግለጫ መልዕክት መላክ
+        bot.send_message(GROUP_ID, txt, parse_mode="HTML")
 
 # 🛠 ሰሌዳውን ሳያጠፋ (Edit) እንዲያድስ የሚረዳ ረዳት ፈንክሽን
 def refresh_picker(call, uid, bid):
