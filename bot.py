@@ -352,6 +352,39 @@ def process_admin_delete(message):
     except:
         bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05")
 
+# --- 🟢 የአጽድቅ (Approve) Logic ---
+@bot.callback_query_handler(func=lambda call: call.data.startswith('g_app_'))
+def approve_receipt_step(call):
+    if call.from_user.id not in ADMIN_IDS: return
+    try:
+        # Double Click መከላከያ (በተኑን ወዲያው ማጥፋት)
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        
+        # ዳታውን መለየት (UID እና Receipt Message ID)
+        _, _, target_id, receipt_mid = call.data.split('_')
+        
+        msg = bot.send_message(call.from_user.id, f"💰 ለ ID <code>{target_id}</code> የሚጨመረውን ብር ይጻፉ፦", parse_mode="HTML")
+        # ቀጣዩን ቁጥር ተቀብሎ ብር የሚጨምረው ፈንክሽን
+        bot.register_next_step_handler(msg, finalize_app, target_id)
+    except Exception as e:
+        print(f"Error in approve: {e}")
+
+# --- 🔴 የውድቅ (Reject) Logic ---
+@bot.callback_query_handler(func=lambda call: call.data.startswith('g_rej_'))
+def reject_receipt_step(call):
+    if call.from_user.id not in ADMIN_IDS: return
+    try:
+        # በተኑን ማጥፋት
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        
+        _, _, target_id, _ = call.data.split('_')
+        
+        msg = bot.send_message(call.from_user.id, f"❌ ለ ID <code>{target_id}</code> ውድቅ የተደረገበትን ምክንያት ይጻፉ፦", parse_mode="HTML")
+        # ምክንያቱን ተቀብሎ ለተጫዋቹ የሚልከው ፈንክሽን
+        bot.register_next_step_handler(msg, finalize_rejection, target_id)
+    except Exception as e:
+        print(f"Error in reject: {e}")
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_delete")
 def start_admin_delete(call):
