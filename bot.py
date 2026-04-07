@@ -425,7 +425,7 @@ def handle_secure_pick(call):
         except:
             pass
 
-        # 3. የደስታ መግለጫ መልዕክቱን ማዘጋጀት
+                # 3. የደስታ መግለጫ መልዕክቱን መላክ
         success_text = (
             f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n"
             f"🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n"
@@ -433,18 +433,15 @@ def handle_secure_pick(call):
             f"━━━━━━━━━━━━━━━━━━━━━\n"
             f"✨ <b>መልካም ዕድል ይሁንሎት! 🏆</b>"
         )
-
-        # ግሩፕ ላይ መላክ
+        
         sent_msg = bot.send_message(GROUP_ID, success_text, parse_mode="HTML")
 
-                # 4. 🛑 መልዕክቱን ከ10 ሰከንድ በኋላ የሚያጠፋው ክፍል
+        # 4. መልዕክቱን ከ10 ሰከንድ በኋላ የሚያጠፋው ክፍል
         def delete_later(chat_id, message_id):
             try:
-                # ከ try ስር ያለው ኮድ ቢያንስ አንድ መስመር ወደ ውስጥ መግባት አለበት
                 bot.delete_message(chat_id, message_id)
             except Exception as e:
-                # ስህተት ቢኖር እንኳ ፕሮግራሙ እንዳይቆም
-                print(f"ማጥፋት አልተቻለም፦ {e}")
+                print(f"Log: {e}")
 
         # threading በመጠቀም ለ10 ሰከንድ ቀጠሮ መያዝ
         import threading
