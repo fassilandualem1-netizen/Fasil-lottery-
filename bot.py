@@ -540,24 +540,30 @@ def callback_listener(call):
         save_data(); bot.answer_callback_query(call.id, "ሰሌዳው ጸድቷል!"); update_group_board(bid)
 
 def send_picker_to_group(message, target_id, receipt_mid):
+    # 🛑 መጀመሪያ የነበረውን ማንኛውንም ቀጣይ ስቴፕ እናጥፋ (Double call ለመከላከል)
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+
     try:
-        # 1. የገንዘብ መጠኑን ማረጋገጥ
         if not message.text.isdigit():
-            return bot.send_message(message.chat.id, "❌ እባክዎ ትክክለኛ የብር መጠን በቁጥር ብቻ ያስገቡ።")
+            return bot.send_message(message.chat.id, "❌ እባክዎ ቁጥር ብቻ ያስገቡ።")
             
         amt = int(message.text)
-        user_info = bot.get_chat(target_id)
         
-        raw_name = user_info.first_name if user_info.first_name else "ተጫዋች"
-        clean_name = raw_name[:10] # ስም ረጅም ከሆነ ለመቀነስ
-
-        # 2. የተጠቃሚ መረጃ ማዘመን
-        if str(target_id) not in data["users"]:
-            data["users"][str(target_id)] = {"name": clean_name, "wallet": 0}
+        # ዳታውን ከማደስህ በፊት 'target_id' ትክክል መሆኑን ቼክ አድርግ
+        uid = str(target_id)
         
-        data["users"][str(target_id)]["name"] = clean_name
-        data["users"][str(target_id)]["wallet"] += amt
+        # ተጫዋቹን መፈለግ/መፍጠር
+        if uid not in data["users"]:
+            user_info = bot.get_chat(target_id)
+            clean_name = (user_info.first_name if user_info.first_name else "ተጫዋች")[:10]
+            data["users"][uid] = {"name": clean_name, "wallet": 0}
+        
+        # ብር መደመር (እዚህ ጋር ነው ድርብ እንዳይሆን ጥንቃቄ የምናደርገው)
+        data["users"][uid]["wallet"] += amt
         save_data()
+        
+        # የቀረው ኮድ (ሰሌዳ መምረጥና መላክ)...
+        # [ቀደም ብዬ የሰጠሁህ የ clean ኮድ እዚህ ይቀጥላል]
 
         # 3. ተስማሚ ሰሌዳ መምረጥ (Logic Improvement)
         active_board = None
