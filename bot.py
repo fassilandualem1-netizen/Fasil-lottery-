@@ -383,8 +383,10 @@ def handle_secure_pick(call):
     # 2. ሂሳብ ቼክ (ብሩ ከሰሌዳው ዋጋ ያነሰ መሆኑን ማረጋገጥ)
     if user["wallet"] < board_price:
         bot.answer_callback_query(call.id, "❌ ሂሳብዎ በቂ አይደለም!", show_alert=True)
-        try: bot.delete_message(call.message.chat.id, call.message.message_id)
-        except: pass
+        try:
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+        except:
+            pass
         return
 
     # 3. ምዝገባ እና ብር መቀነስ
@@ -406,17 +408,13 @@ def handle_secure_pick(call):
     bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!", show_alert=False)
 
     # 4. ወሳኙ ክፍል፦ ተጫዋቹ አሁንም ሌላ ቁጥር ለመግዛት ብር ካለው "Edit" ያድርገው
-    # እዚህ ጋር የተቀነሰውን አዲሱን ሂሳብ እንፈትሻለን
     current_wallet = data["users"][uid]["wallet"]
-    
-        # ከዚህ በላይ ያለው Refresh_picker(call, uid, bid) ከሚለው መስመር ጋር 
-    # 'if' እና 'else' እኩል መስመር ላይ መሆን አለባቸው።
     
     if current_wallet >= board_price:
         refresh_picker(call, uid, bid)
     else:
         # 1. ተጫዋቹ የያዛቸውን ቁጥሮች ዝርዝር ማዘጋጀት
-        my_numbers = [num for num, owner in board["slots"].items() if owner == user['name']]
+        my_numbers = [n for n, owner in board["slots"].items() if owner == user['name']]
         numbers_str = ", ".join(sorted(my_numbers, key=int))
 
         # 2. የቆየውን የቁጥር መምረጫ ሰሌዳ ማጥፋት
@@ -425,7 +423,7 @@ def handle_secure_pick(call):
         except:
             pass
 
-                # 3. የደስታ መግለጫ መልዕክቱን መላክ
+        # 3. የደስታ መግለጫ መልዕክቱን መላክ
         success_text = (
             f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n"
             f"🎫 <b>ቁጥሮችዎን በተሳካ ሁኔታ መርጠው ጨርሰዋል።</b>\n\n"
