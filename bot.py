@@ -384,19 +384,20 @@ def handle_secure_pick(call):
 
     if data["users"][uid]["wallet"] >= int(board["price"]):
         refresh_picker(call, uid, bid)
-    else:
-        # ምርጫ ሲያበቃ መልዕክት ብቻ ይላካል (አይጠፋም)
+        else:
+        # 1. የያዛቸውን ቁጥሮች ዝርዝር ማዘጋጀት
         my_nums = [n for n, o in board["slots"].items() if o == user['name']]
-        txt = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n📌 <b>የያዟቸው ቁጥሮች፦</b> <code>{', '.join(sorted(my_nums, key=int))}</code>"
+        txt = f"🎉 <b>እንኳን ደስ አሎት {user['name']}!</b>\n📌 <b>ቁጥሮችዎ፦</b> <code>{', '.join(sorted(my_nums, key=int))}</code>"
         
-        # የቆየውን የመምረጫ ቦርድ (Keyboard) ማጥፋት
-        try:
-            bot.delete_message(call.message.chat.id, call.message.message_id)
-        except:
-            pass
-            
-        # አዲሱን የደስታ መግለጫ መልዕክት መላክ
-        bot.send_message(GROUP_ID, txt, parse_mode="HTML")
+        # 2. የድሮውን ሰሌዳ ማጥፋት
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        
+        # 3. አዲሱን መልዕክት መላክ
+        sent = bot.send_message(GROUP_ID, txt, parse_mode="HTML")
+        
+        # 4. መፍትሔው፦ በአንድ መስመር መልዕክቱን ማጥፋት (ክፍተት አይፈልግም)
+        import threading
+        threading.Timer(10, lambda: bot.delete_message(GROUP_ID, sent.message_id)).start()
 
 # 🛠 ሰሌዳውን ሳያጠፋ (Edit) እንዲያድስ የሚረዳ ረዳት ፈንክሽን
 def refresh_picker(call, uid, bid):
