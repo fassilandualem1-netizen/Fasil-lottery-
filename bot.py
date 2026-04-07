@@ -248,24 +248,43 @@ def admin_panel(message):
     bot.send_message(message.chat.id, f"🛠 <b>የአድሚን ዳሽቦርድ</b>\n\n{stats}", reply_markup=markup)
 
 # --- አዲሱ የግሩፕ ደረሰኝ መቀበያ (ከመስመር 175 በታች የሚገባ) ---
+# ይህን ከላይ ከኢምፖርቶች በታች አንድ ጊዜ ብቻ ይጻፉ
+processed_msgs = set()
+
 @bot.message_handler(content_types=['photo'], func=lambda m: m.chat.id == GROUP_ID)
 def handle_group_receipt(message):
-    if int(message.from_user.id) in ADMIN_IDS and message.content_type == 'text':
-        return # አድሚኑ ጽሁፍ ሲልክ ቦቱ ዝም ይላል (እንደ ደረሰኝ አይቆጥረውም)
+    global processed_msgs
+    
+    # 🛑 ቼክ፦ ይህ ደረሰኝ ቀድሞ ለአድሚኑ ተልኮ ከሆነ ዝለለው (ድርብ እንዳይሆን)
+    if message.message_id in processed_msgs:
+        return
+    
+    # የመልዕክቱን መለያ መመዝገብ
+    processed_msgs.add(message.message_id)
+    
+    # ሜሞሪ እንዳይሞላ የቆዩትን ዝርዝር አጽዳ
+    if len(processed_msgs) > 100:
+        processed_msgs.clear()
+
+    # አድሚን ከሆነ ዝለለው
+    if int(message.from_user.id) in ADMIN_IDS:
+        return
+
     uid = str(message.from_user.id)
     name = message.from_user.first_name
-    mid = message.message_id # የደረሰኙ መለያ
+    mid = message.message_id
 
-    # ለአድሚኑ ማሳወቂያ ይላካል
     markup = types.InlineKeyboardMarkup()
-    # የደረሰኙን መልዕክት ID (mid) ለይተን እንይዛለን
+    # የደረሰኙን mid በመጠቀም 'አጽድቅ' ሲባል የትኛው እንደሆነ እንዲለይ ያደርጋል
     markup.add(types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_{mid}"))
     
     cap = f"📩 <b>አዲስ ደረሰኝ ከግሩፕ</b>\n👤 <b>ከ፦</b> {name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
+    
     for adm in ADMIN_IDS:
         try:
-            bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup)
-        except: pass
+            bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup, parse_mode="HTML")
+        except: 
+            pass
 
 # ይህ ክፍል "ሰሌዳ አስተካክል" ሲነካ መልስ እንዲሰጥ ያደርጋል
 
