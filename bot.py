@@ -512,10 +512,19 @@ def callback_listener(call):
         bot.answer_callback_query(call.id, "✅ ሰሌዳው ጸድቷል!")
     
     # --- አዲሱ የማረጋገጫ ክፍል ---
-    if call.data.startswith('g_app_') and is_admin:
+        elif call.data.startswith('g_app_') and is_admin:
         _, _, target_id, receipt_mid = call.data.split('_')
+        
+        # 🛑 ድርብ እንዳይሆን የቀድሞውን በተን እናጠፋለን
+        try:
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+        except: pass
+        
+        # 🛑 ማንኛውንም ቀድሞ የተመዘገበ step እናጸዳለን
+        bot.clear_step_handler_by_chat_id(chat_id=call.from_user.id)
+        
         msg = bot.send_message(call.from_user.id, f"💰 ለ {target_id} የሚጨመረውን ብር ይጻፉ፦")
-        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid)
+        bot.register_next_step_handler(msg, send_picker_to_group, target_id, receipt_mid))
     
     elif call.data.startswith('u_pick_'):
         allowed_id = call.data.split('_')
