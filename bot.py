@@ -543,6 +543,62 @@ def callback_listener(call):
         _, bid, num = call.data.split('_')
         finalize_reg_inline(call, bid, num)
 
+# 📝 1. በካሽ መመዝገቢያ (Corrected)
+def process_cash_reg(message):
+    try:
+        load_data() # 🔄 መጀመሪያ ዳታውን ከፋይል/Redis እናድሳለን
+        text = message.text.strip()
+        
+        if ' ' not in text or '-' not in text:
+            return bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05 አበበ (ሰረዝ እና ክፍተት ተጠቀም)")
+            
+        board_info, name = text.split(' ', 1)
+        bid, num = board_info.split('-', 1)
+        
+        if bid in data["boards"]:
+            board = data["boards"][bid]
+            # ቁጥሩ በሰሌዳው ውስጥ መኖሩን ቼክ ማድረግ
+            if not num.isdigit() or int(num) > board["max"] or int(num) < 1:
+                return bot.send_message(message.chat.id, f"❌ ስህተት! በሰሌዳ {bid} ቁጥሮች ከ1-{board['max']} ብቻ ናቸው።")
+            
+            # መመዝገብ
+            data["boards"][bid]["slots"][num] = name[:15]
+            save_data()
+            update_group_board(bid) # ግሩፑ ላይ ያለውን ዲዛይን ያድሳል
+            bot.send_message(message.chat.id, f"✅ <b>ተመዝግቧል!</b>\n🎰 ሰሌዳ፦ {bid}\n🎫 ቁጥር፦ {num}\n👤 ስም፦ {name}", parse_mode="HTML")
+        else:
+            bot.send_message(message.chat.id, f"❌ ሰሌዳ {bid} አልተገኘም!")
+    except Exception as e:
+        bot.send_message(message.chat.id, "❌ ሲስተም ስህተት! (አጻጻፍ፦ 1-05 አበበ)")
+
+# 🗑 2. ቁጥር መሰረዣ (Corrected)
+def process_admin_delete(message):
+    try:
+        load_data() # 🔄 ዳታውን Force Refresh እናደርጋለን
+        text = message.text.strip()
+        
+        if '-' not in text:
+            return bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05")
+            
+        bid, num = text.split('-', 1)
+        
+        if bid in data["boards"]:
+            # 🛑 እዚህ ጋር ቁጥሩ መኖሩን በደንብ ቼክ እናደርጋለን
+            if num in data["boards"][bid]["slots"]:
+                removed_user = data["boards"][bid]["slots"][num]
+                del data["boards"][bid]["slots"][num] # መሰረዝ
+                save_data()
+                update_group_board(bid) # ግሩፑ ላይ እንዲጠፋ ማድረግ
+                bot.send_message(message.chat.id, f"🗑 <b>ተሰርዟል!</b>\n🎰 ሰሌዳ፦ {bid}\n🎫 ቁጥር፦ {num}\n👤 የነበረው ስም፦ {removed_user}", parse_mode="HTML")
+            else:
+                # ቁጥሩ ካልተገኘ ያለውን ዳታ በዝርዝር ያሳያል (ለማረጋገጥ)
+                bot.send_message(message.chat.id, f"⚠️ ቁጥር <b>{num}</b> በሰሌዳ <b>{bid}</b> ላይ አልተመዘገበም!\n(ያሉት ቁጥሮች፦ {', '.join(data['boards'][bid]['slots'].keys())})", parse_mode="HTML")
+        else:
+            bot.send_message(message.chat.id, f"❌ ሰሌዳ {bid} አልተገኘም!")
+    except Exception as e:
+        bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05")
+
+
 def send_picker_to_group(message, target_id, receipt_mid):
     bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
     try:
