@@ -362,24 +362,30 @@ def process_admin_delete(message):
         bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05")
 
 # --- 🟢 የአጽድቅ (Approve) Logic ---
+
 # --- 1. አጽድቅ ሲጫን ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('g_app_'))
 def approve_receipt_step(call):
     if call.from_user.id not in ADMIN_IDS: return
     try:
-        # ✅ የቆዩ ትዕዛዞች ካሉ ማጽጃ (Sync ችግርን ይፈታል)
+        # Sync ችግርን ለመከላከል የቆዩ ትዕዛዞችን ማጽጃ
         bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
-        
-        _, _, target_id, receipt_mid = call.data.split('_')
-        
-        # 📝 ማሳሰቢያ፦ bot.delete_message እዚህ ጋር የለም፣ ስለዚህ ደረሰኙ አይጠፋም
-        
+
+        # ዳታውን መበተን (g_app_uid_mid)
+        data_parts = call.data.split('_')
+        target_id = data_parts
+        # receipt_mid = data_parts # አስፈላጊ ከሆነ መጠቀም ይቻላል
+
         msg = bot.send_message(call.from_user.id, f"💰 ለ ID <code>{target_id}</code> የሚጨመረውን ብር ይጻፉ፦", parse_mode="HTML")
-        
+
         # ብሩን ተቀብሎ ስራውን የሚጨርሰው ፈንክሽን
         bot.register_next_step_handler(msg, finalize_app, target_id)
+        
+        # ለአድሚኑ ደረሰኙ ላይ ምልክት ማድረግ
+        bot.edit_message_caption(f"⏳ ለ {target_id} ብር እየተጨመረ ነው...", call.message.chat.id, call.message.message_id)
+        
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error in approve_receipt_step: {e}")
 
 # --- 2. ብሩን ተቀብሎ መጨረሻ ላይ የሚሰራው ---
 def finalize_app(message, target_id):
@@ -388,55 +394,60 @@ def finalize_app(message, target_id):
 
     val = message.text.strip() if message.text else ""
     if not val.isdigit():
-        msg = bot.send_message(message.chat.id, "❌ እባክዎ ቁጥር ብቻ ያስገቡ፦")
+        msg = bot.send_message(message.chat.id, "❌ ስህተት! እባክዎ ቁጥር ብቻ ያስገቡ፦")
         bot.register_next_step_handler(msg, finalize_app, target_id)
         return
 
     try:
         amt = int(val)
         uid = str(target_id)
-        
-        # የተጫዋች ዳታ ማረጋገጫ
+
+        # የተጫዋች ዳታ ማረጋገጫ (ከሌለ መፍጠር)
+        if "users" not in data: data["users"] = {}
         if uid not in data["users"]:
             data["users"][uid] = {"name": "ተጫዋች", "wallet": 0}
-        
+
         data["users"][uid]["wallet"] += amt
         save_data()
-        
+
         # 🟢 ንቁ ሰሌዳዎችን መፈለግ
-        active_boards = [str(bid) for bid, info in data["boards"].items() if info["active"]]
-        
+        active_boards = [str(bid) for bid, info in data["boards"].items() if info.get("active", False)]
+
         if not active_boards:
-            bot.send_message(message.chat.id, f"✅ {amt} ብር ተጨምሯል። ነገር ግን ምንም ክፍት ሰሌዳ የለም።")
+            bot.send_message(message.chat.id, f"✅ {amt} ብር ለ {uid} ተጨምሯል። ነገር ግን በአሁኑ ሰዓት ምንም ክፍት ሰሌዳ የለም።")
+            bot.send_message(uid, f"✅ {amt} ብር በwalletዎ ላይ ተጨምሯል። ክፍት ሰሌዳ ሲኖር ማሳወቂያ እንልካለን።")
             return
 
-        # ✅ መፍትሄ፦ አንድ ሰሌዳ ብቻ ካለ
+        # ✅ ማስተካከያ፦ አንድ ሰሌዳ ብቻ ካለ (active_boards በመጠቀም ከዝርዝር ማውጣት)
         if len(active_boards) == 1:
-            bid = active_boards # ዝርዝሩን ሰብሮ ጽሁፉን ብቻ ይወስዳል (ስህተቱን ይፈታል)
-            
+            bid = active_boards # ዝርዝሩን ሰብሮ የመጀመሪያውን ጽሁፍ ይወስዳል
+
+            # generate_picker_markup በሌላው የኮድህ ክፍል መኖሩን እርግጠኛ ሁን
             markup = generate_picker_markup(uid, bid)
             text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
-                    f"💰 <b>ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n"
-                    f"🎰 <b>ሰሌዳ {bid}</b> - ቁጥር ይምረጡ፦")
+                    f"👤 <b>ተጫዋች፦</b> <a href='tg://user?id={uid}'>ተጫዋች</a>\n"
+                    f"💰 <b>የአሁኑ ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n\n"
+                    f"🎰 <b>ሰሌዳ {bid}</b> - እባክዎ ቁጥር ይምረጡ፦")
             bot.send_message(GROUP_ID, text, reply_markup=markup, parse_mode="HTML")
-            
-        # ✅ ከአንድ በላይ ካሉ
+
+        # ✅ ከአንድ በላይ ክፍት ሰሌዳዎች ካሉ ምርጫ መስጠት
         else:
             markup = types.InlineKeyboardMarkup(row_width=1)
             for b in active_boards:
-                price = data["boards"][b]["price"]
+                price = data["boards"][b].get("price", 0)
                 markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {b} ({price} ብር)", callback_data=f"u_select_{uid}_{b}"))
-            
+
             text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
-                    f"💰 <b>ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n\n"
-                    f"❓ እባክዎ ሰሌዳ ይምረጡ፦")
+                    f"👤 <b>ተጫዋች፦</b> <a href='tg://user?id={uid}'>ተጫዋች</a>\n"
+                    f"💰 <b>የአሁኑ ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n\n"
+                    f"❓ ብዙ ክፍት ሰሌዳዎች ስላሉ እባክዎ አንዱን ይምረጡ፦")
             bot.send_message(GROUP_ID, text, reply_markup=markup, parse_mode="HTML")
-        
-        bot.send_message(message.chat.id, f"✅ {amt} ብር ተጨምሯል።")
-        
+
+        bot.send_message(message.chat.id, f"✅ ለ {uid} {amt} ብር ተጨምሮለታል።")
+
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ የሲስተም ስህተት፦ {str(e)}")
-
+        print(f"Finalize App Error: {e}")
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_delete")
 def start_admin_delete(call):
