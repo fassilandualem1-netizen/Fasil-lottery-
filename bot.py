@@ -841,20 +841,13 @@ def force_update(message):
         except Exception as e:
             bot.send_message(message.chat.id, f"❌ ማደስ አልተቻለም፦ {e}")
 
-# --- 🚀 ቦቱን ማስነሻ ---
 if __name__ == "__main__":
-    # ዳታውን መጀመሪያ ሴቭ ማድረጉ ፋይሉ መኖሩን ያረጋግጣል
+    # ለጊዜው ይህንን ጨምር (አንድ ጊዜ Deploy ካደረግክ በኋላ መልሰህ ብታጠፋው ይሻላል)
     save_data()
     
-    # keep_alive() # Flask/UptimeRobot የምትጠቀም ከሆነ ይሄ መቆየት አለበት
-    
-    print("🤖 ቦቱ ስራ ጀምሯል...")
-    
-    # ቦቱ ሳይቆራረጥ እንዲሰራ (Error Handling Loop)
+    keep_alive()
+    # ... ሌላው የ bot.polling ኮድ ይቀጥላል
     bot.remove_webhook()
     while True:
-        try:
-            bot.polling(none_stop=True, interval=1, timeout=20)
-        except Exception as e:
-            print(f"Bot Polling Error: {e}")
-            time.sleep(5) # ስህተት ሲፈጠር ለ5 ሰከንድ አርፎ እንዲነሳ
+        try: bot.polling(none_stop=True, interval=1, timeout=20)
+        except: time.sleep(5)
