@@ -446,30 +446,33 @@ def callback_listener(call):
         m = bot.send_message(call.from_user.id, "❌ ውድቅ የተደረገበትን ምክንያት ይጻፉ፦")
         bot.register_next_step_handler(m, finalize_dec, target)
 
-    # --- ሰሌዳ መምረጫ (ከብዙ አማራጭ ውስጥ) ---
+    # --- ተጫዋቹ ሰሌዳ ሲመርጥ ---
     elif call.data.startswith('u_select_'):
         parts = call.data.split('_')
-        target_id, bid = parts, parts # በትክክል ቦታቸውን መያዝ
+        target_id, bid = parts, parts
         
         if uid != target_id:
             bot.answer_callback_query(call.id, "⚠️ ይህ የእርስዎ ምርጫ አይደለም!", show_alert=True)
             return
             
         markup = generate_picker_markup(uid, bid)
-        text = f"🎰 <b>ሰሌዳ {bid} ተመርጧል!</b>\n💰 <b>ቀሪ ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\nቁጥር ይምረጡ፦"
+        text = (f"🎰 <b>ሰሌዳ {bid} ተመርጧል!</b>\n"
+                f"💰 <b>ቀሪ ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n"
+                f"እባክዎ ቁጥር ይምረጡ፦")
         bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup)
 
-    # --- ቁጥር መምረጫ (ዝርግፍ ቁጥሮች ላይ ሲጫኑ) ---
+    # --- ተጫዋቹ ቁጥር ሲመርጥ ---
     elif call.data.startswith('p_'):
         parts = call.data.split('_')
-        target_id, bid, num = parts, parts, parts # uid, bid, num
+        # p_uid_bid_num -> parts, parts, parts
+        target_id, bid, num = parts, parts, parts
         
         if uid != target_id:
             bot.answer_callback_query(call.id, "⚠️ ይህ የእርስዎ ምርጫ አይደለም!", show_alert=True)
             return
             
-        # እዚህ ጋር ቀጥታ ወደ ክፍያ/ምዝገባ ፈንክሽን ይሄዳል
         finalize_reg_inline(call, bid, num)
+
 
 
     # 5. የተቀሩት የአድሚን እና የቦት ተግባራት
