@@ -316,25 +316,57 @@ def manage_boards_list(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("editboard_"))
 def edit_specific_board(call):
+    try:
+        # 1. መጀመሪያ bid ን በትክክል መለየት (ሁለተኛውን ክፍል ብቻ መውሰድ)
+        bid = call.data.split('_')
+        
+        # 2. በ bid ተጠቅሞ የሰሌዳውን ዳታ መሳብ
+        b = data["boards"][bid]
+        
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        
+        # ሁኔታውን መቀየር (Open/Close)
+        # ማሳሰቢያ፦ ከስር ያለው toggle_active_logic መኖሩን አረጋግጥ
+        status_text = "🔴 ሰሌዳውን ዝጋ" if b["active"] else "🟢 ሰሌዳውን ክፈት"
+        markup.add(types.InlineKeyboardButton(status_text, callback_data=f"togact_{bid}"))
+        
+        # ሌሎች በተኖች
+        markup.add(types.InlineKeyboardButton("🎫 ዋጋ ቀይር", callback_data=f"set_price_{bid}"),
+                   types.InlineKeyboardButton("🎁 ሽልማት ቀይር", callback_data=f"set_prize_{bid}"))
+        
+        markup.add(types.InlineKeyboardButton("🧹 ሰሌዳ አጽዳ (Reset)", callback_data=f"cnfreset_{bid}"))
+        markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_manage_boards"))
+        
+        txt = (f"📊 <b>የሰሌዳ {bid} መቆጣጠሪያ</b>\n"
+               f"━━━━━━━━━━━━━\n"
+               f"💰 <b>ዋጋ፦</b> {b['price']} ብር\n"
+               f"🏆 <b>ሽልማት፦</b> {b['prize']}\n"
+               f"📝 <b>ሁኔታ፦</b> {'🟢 ክፍት' if b['active'] else '🔴 ዝግ'}")
+        
+        bot.edit_message_text(txt, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    except Exception as e:
+        print(f"Error in edit_board: {e}")
+        bot.answer_callback_query(call.id, "❌ ስህተት ተከስቷል!")
+
+# --- 🟢/🔴 ሰሌዳውን ክፍት/ዝግ ማድረጊያ Logic ---
+@bot.callback_query_handler(func=lambda call: call.data.startswith("togact_"))
+def toggle_active_logic(call):
     bid = call.data.split('_')
-    b = data["boards"][bid]
-    
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    status = "🔴 ዝጋ" if b["active"] else "🟢 ክፈት"
-    
-    markup.add(types.InlineKeyboardButton(status, callback_data=f"toggle_active_{bid}"))
-    markup.add(types.InlineKeyboardButton("🎫 ዋጋ ቀይር", callback_data=f"set_price_{bid}"),
-               types.InlineKeyboardButton("🎁 ሽልማት ቀይር", callback_data=f"set_prize_{bid}"))
-    markup.add(types.InlineKeyboardButton("🧹 ሰሌዳ አጽዳ (Reset)", callback_data=f"confirm_reset_{bid}"))
-    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_manage_boards"))
-    
-    txt = (f"📊 <b>ሰሌዳ {bid} መረጃ</b>\n"
-           f"━━━━━━━━━━━━━\n"
-           f"💰 ዋጋ፦ {b['price']} ብር\n"
-           f"🏆 ሽልማት፦ {b['prize']}\n"
-           f"📝 ሁኔታ፦ {'🟢 ክፍት' if b['active'] else '🔴 ዝግ'}")
-    
-    bot.edit_message_text(txt, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    data["boards"][bid]["active"] = not data["boards"][bid]["active"]
+    save_data()
+    bot.answer_callback_query(call.id, "✅ የሰሌዳ ሁኔታ ተቀይሯል!")
+    # ገጹን ወዲያውኑ እንዲያድሰው ደግመን የላይኛውን ፈንክሽን እንጠራለን
+    edit_specific_board(call)
+
+# --- 🧹 ሰሌዳውን ባዶ ማድረጊያ (Reset) Logic ---
+@bot.callback_query_handler(func=lambda call: call.data.startswith("cnfreset_"))
+def confirm_reset_logic(call):
+    bid = call.data.split('_')
+    data["boards"][bid]["slots"] = {} # ሁሉንም ቁጥሮች ማጥፋት
+    save_data()
+    update_group_board(bid) # ግሩፕ ላይ ያለውን ሰሌዳ ማደስ
+    bot.answer_callback_query(call.id, f"🧹 ሰሌዳ {bid} ጸድቷል!", show_alert=True)
+    edit_specific_board(call)
 
 import threading
 
