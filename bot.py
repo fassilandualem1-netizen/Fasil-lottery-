@@ -522,7 +522,7 @@ def callback_listener(call):
     elif call.data.startswith('select_'): handle_selection(call)
     elif call.data == "taken":
         bot.answer_callback_query(call.id, "❌ ይህ ቁጥር ተይዟል!")
-        elif call.data.startswith('toggle_'):
+    elif call.data.startswith('toggle_'):
         bid = call.data.split('_')
         data["boards"][bid]["active"] = not data["boards"][bid]["active"]
         save_data()
