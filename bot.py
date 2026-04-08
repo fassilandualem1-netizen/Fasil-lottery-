@@ -653,20 +653,12 @@ def finalize_reg_inline(call, bid, num):
     update_group_board(bid)
     bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!")
 
-    # --- አውቶማቲክ ማሳሰቢያ ---
+        # --- የነበረው አውቶማቲክ ማሳሰቢያ ተወግዷል ---
+    # የቀረው ቁጥር መቁጠሪያ ብቻ (አስፈላጊ ከሆነ)
     remaining = board["max"] - len(board["slots"])
-    milestones =
-    if remaining in milestones:
-        msg = (f"🎰 <b>ሰሌዳ {bid} ሊሞላ ነው!</b>\n"
-               f"━━━━━━━━━━━━━━━━━━━━━\n"
-               f"🔥 ዕጣ ለመውጣት <b>{remaining}</b> ሰዎች ብቻ ቀረን!\n"
-               f"🏃‍♂️ አሁኑኑ እድሎን ይሞክሩ!")
-        try: bot.send_message(GROUP_ID, msg, parse_mode="HTML")
-        except: pass
 
     # ተጫዋቹ አሁንም ብር ካለው በዚያው እንዲቀጥል Picker ማሳየት
     if data["users"][uid]["wallet"] >= board["price"]:
-        # እዚህ ጋር handle_selectionን በቀጥታ ከመጥራት ይልቅ ማስተካከሉ የተሻለ ነው
         markup = generate_picker_markup(uid, bid)
         bot.edit_message_text(f"✅ ቁጥር {num} ተመዝግቧል!\n💰 ቀሪ ሂሳብ፦ {data['users'][uid]['wallet']} ብር\n\nሌላ ቁጥር ይጨምሩ፦", 
                               call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
