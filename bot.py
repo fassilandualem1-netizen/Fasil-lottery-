@@ -381,23 +381,26 @@ def approve_receipt_step(call):
 
 # --- 2. ብሩን ተቀብሎ መጨረሻ ላይ የሚሰራው ---
 def finalize_app(message, target_id):
-    # 🕵️‍♂️ አድሚን መሆኑን ማረጋገጥ
-    if message.from_user.id not in ADMIN_IDS:
-        return
+    # አድሚን መሆኑን ማረጋገጥ
+    if message.from_user.id not in ADMIN_IDS: return
 
-    # 1. መጀመሪያ መልዕክቱ ቁጥር መሆኑን ማረጋገጥ
+    # የቆየውን ሂደት ማጽዳት (ይህ ሲጨመር ስህተት የሚለውን መልዕክት ያስቀረዋል)
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+
     if not message.text or not message.text.strip().isdigit():
-        msg = bot.send_message(message.chat.id, "❌ ስህተት! እባክዎ ቁጥር ብቻ ያስገቡ (ለምሳሌ፦ 100)፦")
+        msg = bot.send_message(message.chat.id, "❌ ስህተት! እባክዎ ቁጥር ብቻ ያስገቡ፦")
         bot.register_next_step_handler(msg, finalize_app, target_id)
         return
 
     try:
         amt = int(message.text.strip())
-        load_data()
         uid = str(target_id)
         user = get_user(uid)
         user["wallet"] += amt
         save_data()
+        
+        # ... የተቀረው የኮድዎ ክፍል ...
+        bot.send_message(message.chat.id, f"✅ {amt} ብር ለ {user['name']} ተጨምሯል።")
 
         # ንቁ ሰሌዳዎችን መፈለግ
         active_boards = [bid for bid, info in data["boards"].items() if info["active"]]
