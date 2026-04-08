@@ -226,32 +226,40 @@ def admin_panel(message):
                types.InlineKeyboardButton("🔄 ሰሌዳ አጽዳ (Reset)", callback_data="admin_reset"))
     bot.send_message(message.chat.id, f"🛠 <b>የአድሚን ዳሽቦርድ</b>\n\n{stats}", reply_markup=markup)
 
-# --- 1. ከግሩፕ የሚላኩ ደረሰኞችን መቀበያ ---
-@bot.message_handler(content_types=['photo'], func=lambda m: m.chat.id == GROUP_ID)
+# --- ከግሩፕ የሚላኩ ደረሰኞችን መቀበያ ---
+@bot.message_handler(content_types=['photo'])
 def handle_group_receipt(message):
-    # 🕵️‍♂️ አድሚኑ ራሱ ግሩፕ ላይ ፎቶ ቢልክ ምንም አያድርግ
+    # 1. መልዕክቱ የመጣው ከተወሰነው ግሩፕ መሆኑን ማረጋገጥ
+    if message.chat.id != GROUP_ID:
+        return
+
+    # 2. አድሚኑ ራሱ ግሩፕ ላይ ፎቶ ቢልክ ምንም አያድርግ
     if message.from_user.id in ADMIN_IDS:
         return 
 
     uid = str(message.from_user.id)
     name = message.from_user.first_name if message.from_user.first_name else "ተጫዋች"
-    mid = message.message_id
+    mid = message.message_id # የግሩፑ መልዕክት ID
 
+    # ✅ ለአድሚን የሚላኩ በተኖች
     markup = types.InlineKeyboardMarkup(row_width=2)
+    # ማሳሰቢያ፦ callback_data ውስጥ mid እና target_id በትክክል መያዛቸውን አረጋግጥ
     btn_approve = types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_{mid}")
     btn_reject = types.InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"g_rej_{uid}_{mid}")
     markup.add(btn_approve, btn_reject)
     
-    cap = (f"📩 <b>አዲስ ደረሰኝ ከግሩፕ</b>\n━━━━━━━━━━━━━\n"
+    cap = (f"📩 <b>አዲስ ደረሰኝ ከግሩፕ</b>\n"
+           f"━━━━━━━━━━━━━\n"
            f"👤 <b>ከ፦</b> {name}\n"
-           f"🆔 <b>ID፦</b> <code>{uid}</code>\n"
-           f"📝 <b>ዝርዝር፦</b> ግሩፕ ላይ የተላከ ደረሰኝ")
+           f"🆔 <b>User ID፦</b> <code>{uid}</code>\n"
+           f"📝 <b>ሁኔታ፦</b> ማረጋገጫ እየጠበቀ...")
 
+    # ለአድሚኖች በሙሉ መላክ
     for adm in ADMIN_IDS:
         try:
             bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup, parse_mode="HTML")
-        except:
-            pass
+        except Exception as e:
+            print(f"ለአድሚን {adm} መላክ አልተቻለም፦ {e}")
 
 # --- 2. በቦቱ (Private) የሚላኩ ፎቶዎችን መከልከል ---
 @bot.message_handler(content_types=['photo', 'text'], func=lambda m: m.chat.type == 'private')
