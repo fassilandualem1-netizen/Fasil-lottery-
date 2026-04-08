@@ -371,71 +371,42 @@ def approve_receipt_step(call):
 
 # --- 2. ብሩን ተቀብሎ መጨረሻ ላይ የሚሰራው ---
 def finalize_app(message, target_id):
- def finalize_app(message, target_id):
-    # 1. መጀመሪያ የቀድሞውን Step እናጽዳ (ስህተቱ እንዳይደጋገም)
     bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
-
-    # 2. የገባው ጽሁፍ ቁጥር መሆኑን ማረጋገጥ
     val = message.text.strip() if message.text else ""
+    
     if not val.isdigit():
-        msg = bot.send_message(message.chat.id, "❌ ስህተት! እባክዎ ቁጥር ብቻ ያስገቡ (ለምሳሌ 100)፦")
+        msg = bot.send_message(message.chat.id, "❌ እባክዎ ቁጥር ብቻ ያስገቡ፦")
         bot.register_next_step_handler(msg, finalize_app, target_id)
         return
 
     try:
-        amt = int(val)
-        uid = str(target_id)
-        
-        if uid not in data["users"]:
-            data["users"][uid] = {"name": "ተጫዋች", "wallet": 0}
-            
-        data["users"][uid]["wallet"] += amt
+        amt, uid = int(val), str(target_id)
+        user = get_user(uid)
+        user["wallet"] += amt
         save_data()
         
-        user_name = data["users"][uid]["name"]
-        # ንቁ የሆኑ ሰሌዳዎችን ዝርዝር መያዝ
         active_boards = [bid for bid, info in data["boards"].items() if info["active"]]
         
-        # --- ✅ መፍትሄው እዚህ ጋር ነው ---
+        # ✅ አንድ ሰሌዳ ብቻ ካለ
         if len(active_boards) == 1:
-            # ስህተቱ የሚመጣው እዚህ ጋር bid = active_boards ካልክ ነው
-            # ስለዚህ በመጨመር ዝርዝር ሳይሆን '1' የሚለውን ጽሁፍ ብቻ እንውሰድ
-            bid = str(active_boards) 
+            bid = str(active_boards)
+            markup = generate_picker_markup(uid, bid)
+            text = f"✅ <b>ክፍያ ጸድቋል!</b>\n💰 <b>ሂሳብ፦</b> {user['wallet']} ብር\n🎰 <b>ሰሌዳ {bid}</b> ቁጥር ይምረጡ፦"
+            bot.send_message(GROUP_ID, text, reply_markup=markup)
             
-            # ሰሌዳው ዳታ ውስጥ መኖሩን በድጋሚ እናረጋግጥ
-            if bid in data["boards"]:
-                # እዚህ ጋር bid ዝርዝር (list) ሳይሆን ጽሁፍ (string) መሆኑ ተረጋግጧል
-                markup = generate_picker_markup(uid, bid) 
-                text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
-                        f"👤 <b>ተጫዋች፦</b> {user_name}\n"
-                        f"💰 <b>ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n"
-                        f"🎰 <b>ሰሌዳ {bid}</b> - እባክዎ ቁጥር ይምረጡ፦")
-                bot.send_message(GROUP_ID, text, reply_markup=markup, parse_mode="HTML")
-            else:
-                bot.send_message(message.chat.id, "❌ ስህተት፦ ሰሌዳው በዳታቤዝ ውስጥ የለም።")
-
+        # ✅ ከአንድ በላይ ካሉ
         elif len(active_boards) > 1:
-            # ከአንድ በላይ ሰሌዳ ካለ አድሚኑ እንዲመርጥ Button መስራት
             markup = types.InlineKeyboardMarkup(row_width=1)
             for b in active_boards:
                 price = data["boards"][str(b)]["price"]
                 markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {b} ({price} ብር)", callback_data=f"u_select_{uid}_{b}"))
+            text = f"✅ <b>ክፍያ ጸድቋል!</b>\n💰 <b>ሂሳብ፦</b> {user['wallet']} ብር\n❓ ሰሌዳ ይምረጡ፦"
+            bot.send_message(GROUP_ID, text, reply_markup=markup)
             
-            text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
-                    f"👤 <b>ተጫዋች፦</b> {user_name}\n"
-                    f"💰 <b>ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n\n"
-                    f"❓ <b>እባክዎ መጫወት የሚፈልጉትን ሰሌዳ ይምረጡ፦</b>")
-            bot.send_message(GROUP_ID, text, reply_markup=markup, parse_mode="HTML")
-        
-        else:
-            bot.send_message(message.chat.id, "⚠️ ምንም ንቁ ሰሌዳ የለም። ብሩ በዎሌት ላይ ተቀምጧል።")
-
         bot.send_message(message.chat.id, f"✅ {amt} ብር ተጨምሯል።")
-
     except Exception as e:
-        # ስህተቱ ቢመጣ በትክክል ምን እንደሆነ ያሳየናል
-        print(f"Error in finalize_app: {e}")
-        bot.send_message(message.chat.id, f"❌ የሲስተም ስህተት፦ {str(e)}")
+        bot.send_message(message.chat.id, f"❌ ስህተት፦ {e}")
+
 
 # --- 🔴 የውድቅ (Reject) Logic ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('g_rej_'))
