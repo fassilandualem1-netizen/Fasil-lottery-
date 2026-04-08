@@ -785,41 +785,84 @@ def reset_menu(call):
     for bid in data["boards"]: markup.add(types.InlineKeyboardButton(f"Reset {bid}", callback_data=f"doreset_{bid}"))
     bot.send_message(call.from_user.id, "የትኛው ሰሌዳ ይጽዳ?", reply_markup=markup)
 
-def finalize_dec(message, target): bot.send_message(target, f"❌ ደረሰኝዎ ውድቅ ሆኗል። ምክንያት፦ {message.text}")
-
-def update_board_value(message, bid, action):
+# --- ❌ ለተጫዋቹ የውድቅ መልዕክት የሚልከው ---
+def finalize_rejection(message, target_id):
+    # መጀመሪያ የቆዩ step_handlerዎችን እናጽዳ
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+    
+    reason = message.text if message.text else "ምክንያት አልተጠቀሰም"
     try:
-        val = message.text.strip()
+        rej_text = (f"❌ <b>ደረሰኝዎ ውድቅ ተደርጓል!</b>\n"
+                    f"━━━━━━━━━━━━━\n"
+                    f"📝 <b>ምክንያት፦</b> {reason}\n\n"
+                    f"🙏 እባክዎ በትክክለኛ መረጃ በድጋሚ ግሩፕ ላይ ይላኩ።")
+        
+        # target_id string መሆኑን እናረጋግጥ
+        bot.send_message(str(target_id), rej_text, parse_mode="HTML")
+        bot.send_message(message.chat.id, "✅ የውድቅ መልዕክት ለተጫዋቹ ተልኳል።")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"⚠️ ለተጫዋቹ መልዕክት ማድረስ አልተቻለም (ቦቱን Start አላደረገም ወይም ብሎክ አድርጓል)።")
+
+# --- 🧹 ሰሌዳ መጥረጊያ ሜኑ ---
+def reset_menu(call):
+    if call.from_user.id not in ADMIN_IDS: return
+    
+    markup = types.InlineKeyboardMarkup()
+    for bid in data["boards"]:
+        markup.add(types.InlineKeyboardButton(f"🗑 ሰሌዳ {bid} አጽዳ (Reset)", callback_data=f"doreset_{bid}"))
+    
+    bot.send_message(call.from_user.id, "የትኛው ሰሌዳ እንዲጸዳ ይፈልጋሉ?", reply_markup=markup)
+
+# --- ⚙️ የሰሌዳ ዋጋ እና ሽልማት ማስተካከያ ---
+def update_board_value(message, bid, action):
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+    try:
+        val = message.text.strip() if message.text else ""
+        if not val:
+            bot.send_message(message.chat.id, "❌ ባዶ መረጃ ማስገባት አይቻልም!")
+            return
+
         if action == "price":
             if not val.isdigit():
                 bot.send_message(message.chat.id, "❌ ስህተት! እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ።")
                 return
             data["boards"][bid]["price"] = int(val)
+            msg = f"✅ የሰሌዳ {bid} ዋጋ ወደ {val} ብር ተቀይሯል!"
         else:
             data["boards"][bid]["prize"] = val
+            msg = f"✅ የሰሌዳ {bid} ሽልማት ተስተካክሏል!"
             
         save_data()
-        update_group_board(bid) # ግሩፑ ላይ ያለውን ሰሌዳ ያድሳል
-        bot.send_message(message.chat.id, f"✅ ሰሌዳ {bid} በትክክል ተስተካክሏል!")
-    except:
-        bot.send_message(message.chat.id, "⚠️ ስህተት ተከስቷል! በድጋሚ ይሞክሩ።")
+        update_group_board(bid) # ግሩፑ ላይ ያለውን ሰሌዳ ወዲያው ያድሳል
+        bot.send_message(message.chat.id, msg)
+    except Exception as e:
+        bot.send_message(message.chat.id, f"⚠️ ስህተት ተከስቷል፦ {e}")
 
-
+# --- 🔄 ሰሌዳዎችን በሃይል ማደሻ (Force Update) ---
 @bot.message_handler(commands=['update'])
 def force_update(message):
     if message.from_user.id in ADMIN_IDS:
-        for bid in data["boards"]:
-            update_group_board(bid)
-        bot.send_message(message.chat.id, "✅ ሁሉም ሰሌዳዎች ግሩፕ ላይ ታድሰዋል!")
-    
-    
+        try:
+            for bid in data["boards"]:
+                update_group_board(bid)
+            bot.send_message(message.chat.id, "✅ ሁሉም ሰሌዳዎች ግሩፕ ላይ ታድሰዋል!")
+        except Exception as e:
+            bot.send_message(message.chat.id, f"❌ ማደስ አልተቻለም፦ {e}")
+
+# --- 🚀 ቦቱን ማስነሻ ---
 if __name__ == "__main__":
-    # ለጊዜው ይህንን ጨምር (አንድ ጊዜ Deploy ካደረግክ በኋላ መልሰህ ብታጠፋው ይሻላል)
+    # ዳታውን መጀመሪያ ሴቭ ማድረጉ ፋይሉ መኖሩን ያረጋግጣል
     save_data()
     
-    keep_alive()
-    # ... ሌላው የ bot.polling ኮድ ይቀጥላል
+    # keep_alive() # Flask/UptimeRobot የምትጠቀም ከሆነ ይሄ መቆየት አለበት
+    
+    print("🤖 ቦቱ ስራ ጀምሯል...")
+    
+    # ቦቱ ሳይቆራረጥ እንዲሰራ (Error Handling Loop)
     bot.remove_webhook()
     while True:
-        try: bot.polling(none_stop=True, interval=1, timeout=20)
-        except: time.sleep(5)
+        try:
+            bot.polling(none_stop=True, interval=1, timeout=20)
+        except Exception as e:
+            print(f"Bot Polling Error: {e}")
+            time.sleep(5) # ስህተት ሲፈጠር ለ5 ሰከንድ አርፎ እንዲነሳ
