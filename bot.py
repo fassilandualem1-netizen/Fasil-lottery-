@@ -387,43 +387,30 @@ def finalize_app(message, target_id):
         
         active_boards = [bid for bid, info in data["boards"].items() if info["active"]]
         
-        # ✅ አንድ ሰሌዳ ብቻ ካለ
+        # ✅ አንድ ሰሌዳ ብቻ ክፍት ከሆነ
         if len(active_boards) == 1:
-            bid = str(active_boards)
+            bid = str(active_boards) # ከዝርዝር ወደ ጽሁፍ መቀየር
             markup = generate_picker_markup(uid, bid)
-            text = f"✅ <b>ክፍያ ጸድቋል!</b>\n💰 <b>ሂሳብ፦</b> {user['wallet']} ብር\n🎰 <b>ሰሌዳ {bid}</b> ቁጥር ይምረጡ፦"
+            text = (f"✅ <b>ክፍያ ጸድቋል!</b>\n"
+                    f"💰 <b>ሂሳብ፦</b> {user['wallet']} ብር\n"
+                    f"🎰 <b>ሰሌዳ {bid}</b> ቁጥር ይምረጡ፦")
             bot.send_message(GROUP_ID, text, reply_markup=markup)
             
-        # ✅ ከአንድ በላይ ካሉ
+        # ✅ ከአንድ በላይ ሰሌዳዎች ክፍት ከሆኑ
         elif len(active_boards) > 1:
             markup = types.InlineKeyboardMarkup(row_width=1)
             for b in active_boards:
                 price = data["boards"][str(b)]["price"]
                 markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {b} ({price} ብር)", callback_data=f"u_select_{uid}_{b}"))
-            text = f"✅ <b>ክፍያ ጸድቋል!</b>\n💰 <b>ሂሳብ፦</b> {user['wallet']} ብር\n❓ ሰሌዳ ይምረጡ፦"
+            
+            text = (f"✅ <b>ክፍያ ጸድቋል!</b>\n"
+                    f"💰 <b>ሂሳብ፦</b> {user['wallet']} ብር\n"
+                    f"❓ መጫወት የሚፈልጉትን ሰሌዳ ይምረጡ፦")
             bot.send_message(GROUP_ID, text, reply_markup=markup)
             
-        bot.send_message(message.chat.id, f"✅ {amt} ብር ተጨምሯል።")
+        bot.send_message(message.chat.id, f"✅ {amt} ብር ለተጫዋቹ ተጨምሯል።")
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ ስህተት፦ {e}")
-
-
-# --- 🔴 የውድቅ (Reject) Logic ---
-@bot.callback_query_handler(func=lambda call: call.data.startswith('g_rej_'))
-def reject_receipt_step(call):
-    if call.from_user.id not in ADMIN_IDS: return
-    try:
-        # በተኑን ማጥፋት
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-        
-        _, _, target_id, _ = call.data.split('_')
-        
-        msg = bot.send_message(call.from_user.id, f"❌ ለ ID <code>{target_id}</code> ውድቅ የተደረገበትን ምክንያት ይጻፉ፦", parse_mode="HTML")
-        # ምክንያቱን ተቀብሎ ለተጫዋቹ የሚልከው ፈንክሽን
-        bot.register_next_step_handler(msg, finalize_rejection, target_id)
-    except Exception as e:
-        print(f"Error in reject: {e}")
-
+        bot.send_message(message.chat.id, f"❌ ስህተት ተከስቷል፦ {e}")
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_delete")
 def start_admin_delete(call):
