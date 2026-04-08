@@ -99,9 +99,10 @@ def main_menu_markup(uid):
 # --- 4. የሰሌዳ ዲዛይን (Group View) ---
 def update_group_board(b_id):
     b_id = str(b_id)
+    if b_id not in data["boards"]: return
+    
     board = data["boards"][b_id]
     current_shift = data.get("current_shift", "me")
-    active_pay = PAYMENTS[current_shift]
     
     # --- 🎨 ራስጌ (Header) ---
     text = "🇪🇹 🏟️ <b>ፋሲል እና ዳመነ ዲጂታል ዕጣ!</b> 🏟️ 🇪🇹\n"
@@ -111,40 +112,41 @@ def update_group_board(b_id):
     prizes = board['prize'].split(',')
     labels = ["1ኛ🟢", "2ኛ🟡", "3ኛ🔴"]
     for i, p in enumerate(prizes):
-        if i < 3: 
-            # ሽልማቱን በትክክል ለማስቀመጥ (ምሳሌ፦ 1ኛ🟢 1ኛ 1200)
-            text += f"             {labels[i]} {p.strip()}\n"
+        if i < 3: text += f"             {labels[i]} {p.strip()}\n"
 
     text += "\n☎️⏰⏰ ለውድ 🏟️ ፋሲል እና ዳመነ ዲጂታል ዕጣ! 🏟️ ቤተሰብ\n"
     text += "<b>መልካም ቀን🏆 መልካም ጤና🏆 መልካም እድል።</b>\n"
     text += "<b>USE IT OR LOSE IT</b>\n"
-    text += "━━━━━━━━━━━━━━━━━━━━━\n"
+    text += "━━━━━━━━━━━━━━━━━━━━━\n\n"
 
-    # --- 🎫 የቁጥሮች ዝርዝር (ከላይ ወደ ታች) ---
-    board_slots = board["slots"]
+    # --- 🎫 የቁጥሮች ዝርዝር (በ 1 መስመር ክፍተት) ---
+    board_slots = board.get("slots", {})
     for i in range(1, board["max"] + 1):
         n = str(i)
-        if n in board_slots:
-            # ቁጥሩ ከተያዘ ስሙን ያሳያል
-            text += f"<b>{i}👉</b> {board_slots[n]} ✅🏆🙏\n\n"
-        else:
-            # ካልተያዘ @@@@ ያሳያል
-            text += f"<b>{i}👉</b> @@@@ ✅🏆🙏\n\n"
+        status = board_slots[n] if n in board_slots else "@@@@"
+        text += f"<b>{i}👉</b>{status} ✅🏆🙏\n\n"
             
     # --- 👣 ግርጌ (Footer) ---
     text += "━━━━━━━━━━━━━━━━━━━━━\n"
     text += "🏟️ <b>ፋሲል እና ዳመነ ዲጂታል ዕጣ!</b> 🏟️\n"
-    text += "<b>ስልክ ደውሎ ለማግኘት ከፈለጉ፦</b>\n"
-    text += "         👇👇👇\n"
-    text += "      👉 <code>0973416038</code>\n\n"
+    text += "<b>ስልክ ደውሎ ለማግኘት ከፈለጉ</b>\n"
+    text += "                 👇👇👇\n"
+    text += "          👉 <code>0973416038</code>\n\n"
     
-    text += "      <b>ገቢ ማስገቢያ አማራጮች</b>\n"
-    text += "         👇👇👇👇👇\n"
-    text += f"👉 <b>Telebirr:</b> <code>{active_pay['tele']}</code>\n"
-    text += f"👉 <b>CBE:</b> <code>{active_pay['cbe']}</code>\n"
+    text += "           <b>ገቢ ማስገቢያ አማራጮች</b>\n"
+    text += "              👇👇👇👇👇\n\n"
+    
+    # --- ተለዋዋጭ የአካውንት መረጃ ---
+    if current_shift == "me":
+        text += "👉 <b>Telebirr:</b> <code>0951381356</code>  <b>fassil</b>\n\n"
+        text += "👉 <b>CBE:</b> <code>1000584461757</code> <b>fassil</b>\n"
+    else:
+        text += "👉 <b>CBE:</b> <code>1000718691323</code> <b>ዳመነ</b>\n\n"
+        text += "👉 <b>Telebirr:</b> <code>0973416038</code>  <b>ፀጋ</b>\n"
+    
     text += f"\n🤖 <b>ለመጫወት እዚህ ይጫኑ፦</b> @{bot.get_me().username}"
 
-    # --- ግሩፕ ላይ መልዕክቱን ማስተካከል (Edit/Send) ---
+    # --- መልዕክቱን መላክ/ማስተካከል ---
     try:
         msg_id = data.get("pinned_msgs", {}).get(b_id)
         if msg_id:
@@ -154,12 +156,12 @@ def update_group_board(b_id):
             if "pinned_msgs" not in data: data["pinned_msgs"] = {}
             data["pinned_msgs"][b_id] = m.message_id
             save_data()
-    except Exception as e:
+            bot.pin_chat_message(GROUP_ID, m.message_id)
+    except:
         m = bot.send_message(GROUP_ID, text, parse_mode="HTML")
         if "pinned_msgs" not in data: data["pinned_msgs"] = {}
         data["pinned_msgs"][b_id] = m.message_id
         save_data()
-
          
 # --- 5. ዋና ዋና ትዕዛዞች ---
 @bot.message_handler(commands=['start'])
@@ -181,15 +183,25 @@ def welcome(message):
             reply_markup=types.ReplyKeyboardRemove(),
             parse_mode="HTML"
         )
-
 @bot.message_handler(commands=['shift'])
 def toggle_shift(message):
+    # ባለቤቱ (ፋሲል) ብቻ እንዲቀይር
     if message.from_user.id == MY_ID:
+        # ፈረቃውን መቀየር
         data["current_shift"] = "assistant" if data["current_shift"] == "me" else "me"
         save_data()
-        bot.reply_to(message, f"🔄 ፈረቃ ተቀይሯል! አሁን ተረኛው፦ {data['current_shift']}")
+        
+        target = "ረዳት (ዳመነ/ፀጋ)" if data["current_shift"] == "assistant" else "ባለቤት (ፋሲል)"
+        bot.reply_to(message, f"🔄 ፈረቃ ተቀይሯል!\n👤 ተረኛው፦ <b>{target}</b>", parse_mode="HTML")
+        
+        # ✅ አስፈላጊ፦ ሽግግሩ እንደተቀየረ ግሩፕ ላይ ያለውን ሰሌዳ በራስ-ሰር አፕዴት ያደርጋል
+        active_boards = [bid for bid, info in data["boards"].items() if info["active"]]
+        for b_id in active_boards:
+            update_group_board(b_id)
+            
     else:
-        bot.reply_to(message, "❌ የባለቤትነት መብት የለዎትም።")
+        bot.reply_to(message, "❌ ይህን ትዕዛዝ ለመጠቀም ባለቤት መሆን አለብዎት።")
+
 
 # --- አውቶማቲክ ብሮድካስት (Broadcast System) ---
 @bot.message_handler(commands=['post'])
