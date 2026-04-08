@@ -371,46 +371,48 @@ def approve_receipt_step(call):
 
 # --- 2. ብሩን ተቀብሎ መጨረሻ ላይ የሚሰራው ---
 def finalize_app(message, target_id):
+    # መጀመሪያ የቀድሞውን ሂደት እናጽዳ
     bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+
     val = message.text.strip() if message.text else ""
-    
     if not val.isdigit():
-        msg = bot.send_message(message.chat.id, "❌ እባክዎ ቁጥር ብቻ ያስገቡ፦")
+        msg = bot.send_message(message.chat.id, "❌ ስህተት! እባክዎ ቁጥር ብቻ ያስገቡ (ለምሳሌ 100)፦")
         bot.register_next_step_handler(msg, finalize_app, target_id)
         return
 
     try:
-        amt, uid = int(val), str(target_id)
+        amt = int(val)
+        uid = str(target_id)
+        
         user = get_user(uid)
         user["wallet"] += amt
         save_data()
         
+        # ንቁ ሰሌዳዎችን መፈለግ
         active_boards = [bid for bid, info in data["boards"].items() if info["active"]]
         
-        # ✅ አንድ ሰሌዳ ብቻ ክፍት ከሆነ
+        # ✅ መፍትሄ፦ አንድ ሰሌዳ ብቻ ካለ ዝርዝሩን ሰብሮ የመጀመሪያውን መውሰድ
         if len(active_boards) == 1:
-            bid = str(active_boards) # ከዝርዝር ወደ ጽሁፍ መቀየር
-            markup = generate_picker_markup(uid, bid)
-            text = (f"✅ <b>ክፍያ ጸድቋል!</b>\n"
-                    f"💰 <b>ሂሳብ፦</b> {user['wallet']} ብር\n"
-                    f"🎰 <b>ሰሌዳ {bid}</b> ቁጥር ይምረጡ፦")
-            bot.send_message(GROUP_ID, text, reply_markup=markup)
+            bid = str(active_boards) # ['1'] የነበረውን '1' ያደርገዋል
             
-        # ✅ ከአንድ በላይ ሰሌዳዎች ክፍት ከሆኑ
+            markup = generate_picker_markup(uid, bid)
+            text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
+                    f"💰 <b>ሂሳብ፦</b> {user['wallet']} ብር\n"
+                    f"🎰 <b>ሰሌዳ {bid}</b> - እባክዎ ቁጥር ይምረጡ፦")
+            bot.send_message(GROUP_ID, text, reply_markup=markup, parse_mode="HTML")
+            
         elif len(active_boards) > 1:
             markup = types.InlineKeyboardMarkup(row_width=1)
             for b in active_boards:
                 price = data["boards"][str(b)]["price"]
                 markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {b} ({price} ብር)", callback_data=f"u_select_{uid}_{b}"))
             
-            text = (f"✅ <b>ክፍያ ጸድቋል!</b>\n"
-                    f"💰 <b>ሂሳብ፦</b> {user['wallet']} ብር\n"
-                    f"❓ መጫወት የሚፈልጉትን ሰሌዳ ይምረጡ፦")
-            bot.send_message(GROUP_ID, text, reply_markup=markup)
-            
-        bot.send_message(message.chat.id, f"✅ {amt} ብር ለተጫዋቹ ተጨምሯል።")
+            text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n💰 <b>ሂሳብ፦</b> {user['wallet']} ብር\n\n❓ ሰሌዳ ይምረጡ፦")
+            bot.send_message(GROUP_ID, text, reply_markup=markup, parse_mode="HTML")
+        
+        bot.send_message(message.chat.id, f"✅ {amt} ብር ተጨምሯል።")
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ ስህተት ተከስቷል፦ {e}")
+        bot.send_message(message.chat.id, f"❌ ስህተት፦ {str(e)}")
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_delete")
 def start_admin_delete(call):
@@ -419,13 +421,28 @@ def start_admin_delete(call):
 
 def process_admin_delete(message):
     try:
-        bid, num = message.text.split('-')
-        if bid in data["boards"] and num in data["boards"][bid]["slots"]:
-            del data["boards"][bid]["slots"][num]
-            save_data()
-            update_group_board(bid) # 👈 እዚህ ጋር ነው ዲዛይኑን ግሩፕ ላይ የሚያድሰው
-            bot.send_message(message.chat.id, f"🗑 ሰሌዳ {bid} ቁጥር {num} ተሰርዟል!")
-    except: bot.send_message(message.chat.id, "❌ ስህተት! (አጻጻፍ፦ 1-05)")
+        text = message.text.strip()
+        if '-' not in text:
+            bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05")
+            return
+            
+        # መረጃውን በትክክል መከፋፈል
+        parts = text.split('-')
+        bid = parts.strip()
+        num = parts.strip()
+        
+        if bid in data["boards"]:
+            if num in data["boards"][bid]["slots"]:
+                del data["boards"][bid]["slots"][num]
+                save_data()
+                update_group_board(bid)
+                bot.send_message(message.chat.id, f"🗑 ሰሌዳ {bid} ቁጥር {num} ተሰርዟል!")
+            else:
+                bot.send_message(message.chat.id, f"❌ ቁጥር {num} በሰሌዳ {bid} ላይ አልተመዘገበም!")
+        else:
+            bot.send_message(message.chat.id, f"❌ ሰሌዳ {bid} አልተገኘም!")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ ስህተት፦ {str(e)}")
 
 
 @bot.callback_query_handler(func=lambda call: True)
