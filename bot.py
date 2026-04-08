@@ -519,6 +519,19 @@ def callback_listener(call):
         edit_board(call) 
         bot.answer_callback_query(call.id, f"ሰሌዳ {bid} {'ተከፍቷል' if data['boards'][bid]['active'] else 'ተዘግቷል'}")
 
+    # ዋጋ ለመቀየር
+    elif call.data.startswith('set_price_'):
+        bid = call.data.split('_')
+        msg = bot.send_message(call.from_user.id, f"🎫 ለሰሌዳ {bid} አዲስ ዋጋ ያስገቡ፦")
+        bot.register_next_step_handler(msg, update_board_value, bid, "price")
+
+    # ሽልማት ለመቀየር
+    elif call.data.startswith('set_prize_'):
+        bid = call.data.split('_')
+        msg = bot.send_message(call.from_user.id, f"🎁 ለሰሌዳ {bid} አዲስ የሽልማት ዝርዝር ያስገቡ፦")
+        bot.register_next_step_handler(msg, update_board_value, bid, "prize")
+
+
 
 def generate_picker_markup(uid, bid):
     board = data["boards"][bid]
