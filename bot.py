@@ -650,43 +650,59 @@ def edit_board(call):
 
 # ✅ ብር ጨምሮ ግሩፕ ላይ Picker የሚልከው
 def finalize_app(message, target_id):
+    # 🕵️‍♂️ ሂደቱን መጀመሪያ እዚህ እናጽዳ (ስህተቱ እንዳይደጋገም)
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+
+    # ቁጥር መሆኑን ማረጋገጥ
+    if not message.text or not message.text.strip().isdigit():
+        msg = bot.send_message(message.chat.id, "❌ ስህተት! እባክዎ ቁጥር ብቻ ያስገቡ፦")
+        bot.register_next_step_handler(msg, finalize_app, target_id)
+        return
+
     try:
-        amt = int(message.text)
-        load_data()
+        amt = int(message.text.strip())
         uid = str(target_id)
-        user = get_user(uid)
-        user["wallet"] += amt
-        save_data()
-
-        active_boards = [bid for bid, info in data["boards"].items() if info["active"]]
-        markup = types.InlineKeyboardMarkup(row_width=5) # ቁጥሮቹን ጎን ለጎን ለመደርደር
-
-        # ሀ. ሰሌዳ ከአንድ በላይ ከሆነ መጀመሪያ ሰሌዳ ያስመርጥ
-        if len(active_boards) > 1:
-            for bid in active_boards:
-                markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {bid} ({data['boards'][bid]['price']} ብር)", callback_data=f"u_select_{uid}_{bid}"))
-            text = f"✅ <b>ክፍያ ጸድቋል!</b>\n👤 ተጫዋች፦ {user['name']}\n💰 ሂሳብ፦ {user['wallet']} ብር\n\n👇 እባክዎ መጀመሪያ ሰሌዳ ይምረጡ፦"
         
-        # ለ. ሰሌዳ አንድ ብቻ ከሆነ ቀጥታ ቁጥሮቹን ይዘርገፍ
+        if uid not in data["users"]:
+            data["users"][uid] = {"name": "ተጫዋች", "wallet": 0}
+            
+        data["users"][uid]["wallet"] += amt
+        save_data()
+        
+        user_name = data["users"][uid]["name"]
+        active_boards = [bid for bid, info in data["boards"].items() if info["active"]]
+        
+        # ✅ አንድ ሰሌዳ ብቻ ክፍት ከሆነ
+        if len(active_boards) == 1:
+            bid = active_boards # ዝርዝሩ ውስጥ ያለውን የመጀመሪያውን ሰሌዳ መውሰድ
+            markup = generate_picker_markup(uid, bid) # እዚህ ጋር bid አሁን ቁጥር ነው
+            text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
+                    f"👤 <b>ተጫዋች፦</b> {user_name}\n"
+                    f"💰 <b>ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n"
+                    f"🎰 <b>ሰሌዳ {bid}</b> - እባክዎ ቁጥር ይምረጡ፦")
+            bot.send_message(GROUP_ID, text, reply_markup=markup)
+            
+        # ✅ ከአንድ በላይ ከሆኑ ምርጫ እንዲመጣ ይደረጋል
+        elif len(active_boards) > 1:
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            for b in active_boards:
+                price = data["boards"][b]["price"]
+                markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {b} ({price} ብር)", callback_data=f"u_select_{uid}_{b}"))
+            
+            text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
+                    f"👤 <b>ተጫዋች፦</b> {user_name}\n"
+                    f"💰 <b>ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n\n"
+                    f"❓ <b>እባክዎ መጫወት የሚፈልጉትን ሰሌዳ ይምረጡ፦</b>")
+            bot.send_message(GROUP_ID, text, reply_markup=markup)
+        
         else:
-            bid = active_boards
-            price = data["boards"][bid]["price"]
-            slots = data["boards"][bid].get("slots", {})
-            max_slots = data["boards"][bid]["max"]
-            
-            # ክፍት የሆኑ ቁጥሮችን ብቻ በ Button መዘርገፍ
-            btns = []
-            for i in range(1, max_slots + 1):
-                if str(i) not in slots:
-                    btns.append(types.InlineKeyboardButton(str(i), callback_data=f"pick_{bid}_{i}_{uid}"))
-            
-            markup.add(*btns)
-            text = f"✅ <b>ክፍያ ጸድቋል!</b>\n👤 ተጫዋች፦ {user['name']}\n💰 ሂሳብ፦ {user['wallet']} ብር\n\n👇 እባክዎ ቁጥር ይምረጡ (ሰሌዳ {bid})፦"
+            bot.send_message(message.chat.id, "⚠️ ምንም ንቁ ሰሌዳ የለም።")
+            return
 
-        bot.send_message(GROUP_ID, text, reply_markup=markup, parse_mode="HTML")
-        bot.send_message(message.chat.id, "✅ በተሳካ ሁኔታ ተልኳል።")
-    except:
-        bot.send_message(message.chat.id, "❌ ስህተት ተከስቷል። ቁጥር ብቻ ማስገባትዎን ያረጋግጡ።")
+        bot.send_message(message.chat.id, f"✅ {amt} ብር ተጨምሮ ማረጋገጫ ግሩፕ ላይ ተልኳል።")
+
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ ስህተት ተከስቷል፦ {e}")
 
 # ❌ ለተጫዋቹ የውድቅ መልዕክት የሚልከው
 def finalize_rejection(message, target_id):
