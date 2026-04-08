@@ -413,35 +413,55 @@ def finalize_deposit(message, target_id):
         user = get_user(target_id)
         user["wallet"] += amount
         save_data()
-        
-        bot.send_message(message.chat.id, f"✅ {amount} ብር ለ {target_id} ተጨምሯል!")
-        
-        # ስማርት ፒከር (Smart Picker) Logic
-        active_boards = [bid for bid, b in data["boards"].items() if b["active"]]
-        
-        markup = types.InlineKeyboardMarkup()
-        if len(active_boards) == 1:
-            # አንድ ሰሌዳ ብቻ ካለ ቀጥታ ቁጥር እንዲመርጥ
-            bid = active_boards
-            btn_text = f"🎰 ሰሌዳ {bid} ላይ ቁጥር ይምረጡ"
-            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"u_select_{target_id}_{bid}"))
-        else:
-            # ከአንድ በላይ ካለ እንዲመርጥ
-            btns = [types.InlineKeyboardButton(f"ሰሌዳ {bid}", callback_data=f"u_select_{target_id}_{bid}") for bid in active_boards]
-            markup.add(*btns)
-            
+
+        bot.send_message(message.chat.id, f"✅ {amount} ብር ለ {user['name']} ተጨምሯል!")
+
+        active_boards = [bid for bid, b in data["boards"].items() if b.get("active")]
+
+        if not active_boards:
+            bot.send_message(GROUP_ID, f"✅ የ {user['name']} ክፍያ ደርሷል፣ ግን በአሁኑ ሰዓት ክፍት ሰሌዳ የለም።")
+            return
+
         confirm_text = (f"✅ <b>ክፍያዎ ተረጋግጧል!</b>\n"
                         f"👤 <b>ተጫዋች፦</b> {user['name']}\n"
-                        f"💰 <b>ቀሪ ሂሳብ፦</b> {user['wallet']} ብር\n\n"
-                        f"እባክዎ መጫወት የሚፈልጉትን ሰሌዳ ይምረጡ፦")
-        
+                        f"💰 <b>ቀሪ ሂሳብ፦</b> {user['wallet']} ብር\n\n")
+
+        # 1 ሰሌዳ ብቻ ካለ ቀጥታ ቁጥሮቹን ይዘረግፋል
+        if len(active_boards) == 1:
+            bid = active_boards
+            markup = create_picker_markup(target_id, bid)
+            confirm_text += f"🎰 <b>ሰሌዳ {bid} ቁጥር ይምረጡ፦</b>"
+        else:
+            # ከአንድ በላይ ካለ መጀመሪያ ሰሌዳ እንዲመርጥ
+            markup = types.InlineKeyboardMarkup()
+            for bid in active_boards:
+                markup.add(types.InlineKeyboardButton(f"ሰሌዳ {bid}", callback_data=f"u_select_{target_id}_{bid}"))
+            confirm_text += "የትኛው ሰሌዳ ላይ መጫወት ይፈልጋሉ?"
+
+        # 🎯 በ Reply መልክ እንዲላክ ማድረግ (የተጫዋቹን ID በመጠቀም)
+        # ማሳሰቢያ፡ አድሚኑ ደረሰኙን አይቶ ስለሆነ ብር የጨመረው፣ ግሩፕ ላይ ለተጫዋቹ Reply ይደረጋል
         sent_msg = bot.send_message(GROUP_ID, confirm_text, reply_markup=markup, parse_mode="HTML")
-        
-        # 🗑 Auto-Delete (ከ60 ሰከንድ በኋላ)
-        threading.Timer(60.0, lambda: bot.delete_message(GROUP_ID, sent_msg.message_id)).start()
-        
-    except:
-        bot.send_message(message.chat.id, "⚠️ ስህተት፦ እባክዎ በትክክል የቁጥር መጠን ብቻ ይጻፉ።")
+
+        # 🗑 ግሩፑ እንዳይጨናነቅ ከ120 ሰከንድ (2 ደቂቃ) በኋላ ይጠፋል
+        threading.Timer(120.0, lambda: bot.delete_message(GROUP_ID, sent_msg.message_id)).start()
+
+    except Exception as e:
+        bot.send_message(message.chat.id, "⚠️ ስህተት፦ እባክዎ የብር መጠን ብቻ በትክክል ያስገቡ።")
+
+# --- ረዳት ፈንክሽን ለተዘረገፉ በተኖች ---
+def create_picker_markup(uid, bid):
+    board = data["boards"][bid]
+    markup = types.InlineKeyboardMarkup(row_width=5)
+    btns = []
+    for i in range(1, board["max"] + 1):
+        # ቁጥሮቹ 01, 02 እንዲሉ (አማራጭ)
+        n = str(i).zfill(2) if i < 10 else str(i)
+        if n in board["slots"]:
+            btns.append(types.InlineKeyboardButton("❌", callback_data="taken"))
+        else:
+            btns.append(types.InlineKeyboardButton(n, callback_data=f"pck_{uid}_{bid}_{n}"))
+    markup.add(*btns)
+    return markup
 
 # --- 4. ውድቅ ማድረጊያ Logic ---
 def finalize_decline(message, target_id):
