@@ -263,25 +263,48 @@ def process_lookup(message):
         bot.send_message(message.chat.id, "⚠️ ስህተት፦ አጻጻፉ ተሳስቷል። ምሳሌ፦ <code>2-15</code>")
 
 # --- 💵 4. በካሽ መመዝገቢያ ---
-@bot.callback_query_handler(func=lambda call: call.data == "admin_cash_reg")
+@bot.callback_query_handler(func=lambda call: call.data == "admin_cash_reg") # ስሙን አስተካክለነዋል
 def start_cash_reg(call):
-    m = bot.send_message(call.from_user.id, "📝 <b>በካሽ ለመመዝገብ፦</b>\n\nሰሌዳ-ቁጥር ስም ይጻፉ\nምሳሌ፦ <code>1-07 አበበ</code>", parse_mode="HTML")
+    m = bot.send_message(call.from_user.id, "📝 <b>በካሽ ለመመዝገብ፦</b>\nሰሌዳ-ቁጥር ስም ይጻፉ\n\nምሳሌ፦ <code>1-05 አበበ</code>", parse_mode="HTML")
     bot.register_next_step_handler(m, process_cash_reg)
 
 def process_cash_reg(message):
     try:
-        parts = message.text.split(' ', 1)
-        board_info = parts.split('-')
-        bid, num = board_info, board_info
-        name = parts[:15] # ስሙን እስከ 15 ፊደል መቁረጥ
+        text = message.text.strip()
+        
+        if ' ' not in text or '-' not in text:
+            bot.send_message(message.chat.id, "❌ ስህተት! ትክክለኛ አጻጻፍ፦ <code>1-05 አበበ</code>", parse_mode="HTML")
+            return
+            
+        board_info, name = text.split(' ', 1)
+        bid, num_raw = board_info.split('-', 1)
+        
+        # ቁጥሩን ወደ ትክክለኛ ፎርማት መቀየር (ለምሳሌ 5 ከሆነ 05 እንዲሆን)
+        if not num_raw.isdigit():
+            bot.send_message(message.chat.id, "❌ ስህተት! ቁጥር ብቻ ያስገቡ።")
+            return
+            
+        num = num_raw.zfill(2) if int(num_raw) < 10 else num_raw # 5 ከሆነ 05 ያደርገዋል
         
         if bid in data["boards"]:
-            data["boards"][bid]["slots"][num] = name
+            board = data["boards"][bid]
+            if int(num) > board["max"] or int(num) < 1:
+                bot.send_message(message.chat.id, f"❌ ስህተት! በሰሌዳ {bid} ውስጥ ያሉት ቁጥሮች ከ1-{board['max']} ብቻ ናቸው።")
+                return
+
+            # ቁጥሩ ቀድሞ የተያዘ መሆኑን ማረጋገጥ
+            if num in board["slots"]:
+                bot.send_message(message.chat.id, f"❌ ስህተት! ቁጥር {num} ቀድሞ በ {board['slots'][num]} ተይዟል።")
+                return
+
+            board["slots"][num] = name[:15]
             save_data()
             update_group_board(bid)
-            bot.send_message(message.chat.id, f"✅ ሰሌዳ {bid} ቁጥር {num} ለ <b>{name}</b> ተመዝግቧል!", parse_mode="HTML")
-    except:
-        bot.send_message(message.chat.id, "⚠️ ስህተት፦ አጻጻፉ ተሳስቷል። ምሳሌ፦ <code>1-07 አበበ</code>")
+            bot.send_message(message.chat.id, f"✅ ሰሌዳ {bid} ቁጥር {num} ለ <b>{name[:15]}</b> ተመዝግቧል!", parse_mode="HTML")
+        else:
+            bot.send_message(message.chat.id, f"❌ ሰሌዳ {bid} አልተገኘም!")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ ስህተት ተከስቷል! አጻጻፍ፦ 1-05 አበበ")
 
 # --- ⚙️ 5. የሰሌዳዎች አስተዳደር (Manage Boards) ---
 @bot.callback_query_handler(func=lambda call: call.data == "admin_manage_boards")
