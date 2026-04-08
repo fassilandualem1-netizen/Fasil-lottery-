@@ -510,6 +510,15 @@ def callback_listener(call):
     elif call.data.startswith('select_'): handle_selection(call)
     elif call.data == "taken":
         bot.answer_callback_query(call.id, "❌ ይህ ቁጥር ተይዟል!")
+        elif call.data.startswith('toggle_'):
+        bid = call.data.split('_')
+        data["boards"][bid]["active"] = not data["boards"][bid]["active"]
+        save_data()
+        
+        # በተኑን ወዲያው እንዲቀይረው መልሰን እናሳየው
+        edit_board(call) 
+        bot.answer_callback_query(call.id, f"ሰሌዳ {bid} {'ተከፍቷል' if data['boards'][bid]['active'] else 'ተዘግቷል'}")
+
 
 def generate_picker_markup(uid, bid):
     board = data["boards"][bid]
