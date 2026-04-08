@@ -169,20 +169,23 @@ def welcome(message):
     uid = message.chat.id
     
     if uid in ADMIN_IDS:
-        user = get_user(uid, message.from_user.first_name)
+        # አድሚን ከሆነ የአድሚን ሴቲንግ ያሳያል
         bot.send_message(
             uid, 
-            f"👋 ሰላም አድሚን {user['name']}!\nወደ ቁጥጥር ፓነል እንኳን መጡ።", 
+            "👋 ሰላም አድሚን!\nወደ ቁጥጥር ፓነል እንኳን መጡ።", 
             reply_markup=main_menu_markup(uid)
         )
     else:
-        # ተራ ተጠቃሚ ከሆነ ኪቦርዱን አጥፍቶ ማስጠንቀቂያ ይሰጣል
+        # ተራ ተጫዋች ከሆነ የድሮ በተኖችን በሙሉ ያጠፋል
         bot.send_message(
             uid, 
-            "⚠️ <b>ይህ ቦት ለአድሚን ብቻ ነው።</b>\nእባክዎ ለመጫወት ወደ ዋናው ግሩፕ ይሂዱ።", 
-            reply_markup=types.ReplyKeyboardRemove(),
+            "🇪🇹 🏟️ <b>ፋሲል እና ዳመነ ዲጂታል ዕጣ!</b> 🏟️ 🇪🇹\n\n"
+            "⚠️ ይህ ቦት ለክፍያ ማረጋገጫ ብቻ የሚያገለግል ነው።\n"
+            "እባክዎ ለመጫወት እና ደረሰኝ ለመላክ ወደ ግሩፑ ይሂዱ።", 
+            reply_markup=types.ReplyKeyboardRemove(), # የድሮ በተኖችን ያጠፋል
             parse_mode="HTML"
         )
+
 @bot.message_handler(commands=['shift'])
 def toggle_shift(message):
     # ባለቤቱ (ፋሲል) ብቻ እንዲቀይር
