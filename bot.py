@@ -242,13 +242,14 @@ def admin_panel(message):
     bot.send_message(message.chat.id, f"🛠 <b>የአድሚን ዳሽቦርድ</b>\n\n{stats}", reply_markup=markup)
 
 # --- ከግሩፕ የሚላኩ ደረሰኞችን መቀበያ ---
+# --- 📸 ደረሰኝ መቀበያ (ከግሩፕ ብቻ) ---
 @bot.message_handler(content_types=['photo'])
 def handle_group_receipt(message):
-    # 1. መልዕክቱ የመጣው ከተወሰነው ግሩፕ መሆኑን ማረጋገጥ
+    # 1. መልዕክቱ የመጣው ከ betting ግሩፑ መሆኑን ማረጋገጥ
     if message.chat.id != GROUP_ID:
         return
 
-    # 2. አድሚኑ ራሱ ግሩፕ ላይ ፎቶ ቢልክ ምንም አያድርግ
+    # 2. አድሚኖች ፎቶ ቢልኩ ችላ ይበለው
     if message.from_user.id in ADMIN_IDS:
         return 
 
@@ -256,9 +257,8 @@ def handle_group_receipt(message):
     name = message.from_user.first_name if message.from_user.first_name else "ተጫዋች"
     mid = message.message_id # የግሩፑ መልዕክት ID
 
-    # ✅ ለአድሚን የሚላኩ በተኖች
+    # ✅ ለአድሚን የሚላኩ አዳዲስ በተኖች
     markup = types.InlineKeyboardMarkup(row_width=2)
-    # ማሳሰቢያ፦ callback_data ውስጥ mid እና target_id በትክክል መያዛቸውን አረጋግጥ
     btn_approve = types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"g_app_{uid}_{mid}")
     btn_reject = types.InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"g_rej_{uid}_{mid}")
     markup.add(btn_approve, btn_reject)
@@ -275,19 +275,6 @@ def handle_group_receipt(message):
             bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup, parse_mode="HTML")
         except Exception as e:
             print(f"ለአድሚን {adm} መላክ አልተቻለም፦ {e}")
-
-# --- 2. በቦቱ (Private) የሚላኩ ፎቶዎችን መከልከል ---
-@bot.message_handler(content_types=['photo', 'text'], func=lambda m: m.chat.type == 'private')
-def block_private_receipts(message):
-    # ✅ በጣም አስፈላጊ፦ አድሚን ከሆነ በቦቱ ውስጥ የሚጽፈው ነገር (ለምሳሌ 2-01 ወይም 50) 
-    # እንደ ደረሰኝ እንዳይቆጠር ወዲያውኑ ስራውን ያቁም (Return)
-    if message.from_user.id in ADMIN_IDS:
-        return 
-
-    # ተራ ተጫዋች ፎቶ ከላከ ብቻ "ግሩፕ ላይ ላክ" ይበለው
-    if message.content_type == 'photo':
-        bot.reply_to(message, "⚠️ <b>ደረሰኝ እዚህ አይቀበልም!</b>\nእባክዎ ግሩፕ ላይ ይላኩ።", parse_mode="HTML")
-
 
 # ይህ ክፍል "ሰሌዳ አስተካክል" ሲነካ መልስ እንዲሰጥ ያደርጋል
 @bot.callback_query_handler(func=lambda call: call.data in ["admin_manage", "manage_boards"] and call.from_user.id in ADMIN_IDS)
