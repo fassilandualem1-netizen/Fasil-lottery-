@@ -480,3 +480,15 @@ def handle_pick(call):
 def handle_taken(call):
     bot.answer_callback_query(call.id, "❌ ይህ ቁጥር ቀድሞ ተይዟል!", show_alert=False)
 
+if __name__ == "__main__":
+    # ለጊዜው ይህንን ጨምር (አንድ ጊዜ Deploy ካደረግክ በኋላ መልሰህ ብታጠፋው ይሻላል)
+    save_data()
+    
+    keep_alive()
+    # ... ሌላው የ bot.polling ኮድ ይቀጥላል
+    bot.remove_webhook()
+    while True:
+        try: bot.polling(none_stop=True, interval=1, timeout=20)
+        except: time.sleep(5)
+
+
