@@ -597,8 +597,8 @@ def finalize_reg_inline(call, bid, num):
     
     # 4. አውቶማቲክ ማሳሰቢያ (ግሩፑን ለማነቃቃት)
     remaining = board["max"] - len(board["slots"])
-    milestones =
-    if remaining in milestones:
+    alert_points =
+    if remaining in alert_points:
         msg = (f"🎰 <b>ሰሌዳ {bid} ሊሞላ ነው!</b>\n"
                f"━━━━━━━━━━━━━━━━━━━━━\n"
                f"🔥 ዕጣ ለመውጣት <b>{remaining}</b> ሰዎች ብቻ ቀረን!\n"
