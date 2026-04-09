@@ -440,46 +440,63 @@ def generate_picker_markup(uid, bid):
 
 
 
-def finalize_app(message, target_id):
+def finalize_app(message, target_uid, mid):
     try:
+        # 1. አድሚኑ የጻፈውን የብር መጠን ወደ ቁጥር መቀየር
         amt = int(message.text)
-        uid = str(target_id)
+        uid = str(target_uid)
         
+        # 2. የተጫዋቹን መረጃ ከዳታቤዝ ማግኘት (በ handle_receipts ተመዝግቧል)
         if uid not in data["users"]:
             data["users"][uid] = {"name": "ተጫዋች", "wallet": 0}
             
         data["users"][uid]["wallet"] += amt
         save_data()
         
-        user_name = data["users"][uid]["name"]
+        user_name = data["users"][uid].get("name", "ተጫዋች")
+        # ክፍት የሆኑ ሰሌዳዎችን መለየት
         active_boards = [bid for bid, info in data["boards"].items() if info["active"]]
         
-        # ✅ አንድ ሰሌዳ ብቻ ክፍት ከሆነ ቀጥታ የቁጥር ዝርግፍ ይላካል
+        if not active_boards:
+            bot.send_message(message.chat.id, "⚠️ ማስጠንቀቂያ፦ በአሁኑ ሰዓት ምንም ክፍት ሰሌዳ የለም!")
+            return
+
+        # ✅ ሁኔታ 1፦ አንድ ሰሌዳ ብቻ ክፍት ከሆነ (ቀጥታ የቁጥር በተኖችን መላክ)
         if len(active_boards) == 1:
             bid = active_boards
             markup = generate_picker_markup(uid, bid)
-            text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
-                    f"👤 <b>ተጫዋች፦</b> {user_name}\n"
-                    f"💰 <b>ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n"
-                    f"🎰 <b>ሰሌዳ {bid}</b> - እባክዎ ቁጥር ይምረጡ፦")
-            bot.send_message(GROUP_ID, text, reply_markup=markup)
             
-        # ✅ ከአንድ በላይ ከሆኑ ምርጫ እንዲመጣ ይደረጋል
+            text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
+                    f"━━━━━━━━━━━━━\n"
+                    f"👤 <b>ተጫዋች፦</b> {user_name}\n"
+                    f"💰 <b>የገባ ብር፦</b> {amt} ብር\n"
+                    f"🎰 <b>ሰሌዳ {bid}</b> - እባክዎ ቁጥር ይምረጡ፦")
+            
+            # ግሩፕ ላይ ለደረሰኙ Reply በማድረግ ይልካል
+            bot.send_message(GROUP_ID, text, reply_markup=markup, reply_to_message_id=mid, parse_mode="HTML")
+            
+        # ✅ ሁኔታ 2፦ ከአንድ በላይ ክፍት ሰሌዳዎች ካሉ (መጀመሪያ ሰሌዳ እንዲመርጥ መጠየቅ)
         else:
             markup = types.InlineKeyboardMarkup(row_width=1)
-            for bid in active_boards:
-                price = data["boards"][bid]["price"]
-                markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {bid} ({price} ብር)", callback_data=f"u_select_{uid}_{bid}"))
+            for b_id in active_boards:
+                price = data["boards"][b_id]["price"]
+                markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {b_id} ({price} ብር)", callback_data=f"u_select_{uid}_{b_id}"))
             
             text = (f"✅ <b>ክፍያ ተረጋግጧል!</b>\n"
+                    f"━━━━━━━━━━━━━\n"
                     f"👤 <b>ተጫዋች፦</b> {user_name}\n"
-                    f"💰 <b>ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n\n"
+                    f"💰 <b>የገባ ብር፦</b> {amt} ብር\n\n"
                     f"❓ <b>እባክዎ መጫወት የሚፈልጉትን ሰሌዳ ይምረጡ፦</b>")
-            bot.send_message(GROUP_ID, text, reply_markup=markup)
+            
+            bot.send_message(GROUP_ID, text, reply_markup=markup, reply_to_message_id=mid, parse_mode="HTML")
 
-        bot.send_message(message.chat.id, "✅ ማረጋገጫ ግሩፕ ላይ ተልኳል።")
+        # ለአድሚኑ ማረጋገጫ መስጠት
+        bot.send_message(message.chat.id, f"✅ ለ {user_name} የማረጋገጫ መልዕክት ግሩፕ ላይ ተልኳል።")
+        
+    except ValueError:
+        bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ የገንዘቡን መጠን በቁጥር ብቻ ይጻፉ (ለምሳሌ፦ 100)።")
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ ስህተት፦ {e}")
+        bot.send_message(message.chat.id, f"❌ ሲስተም ስህተት፦ {e}")
 
 def save_name(message, uid):
     data["users"][str(uid)]["name"] = message.text[:5]
