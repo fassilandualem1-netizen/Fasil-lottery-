@@ -569,10 +569,9 @@ def handle_selection(call):
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
 
 def finalize_reg_inline(call, bid, num):
-    # 1. ተጫዋቹን በትክክል መለየት (ከ pck_ callback የመጣውን target_id በመጠቀም)
-    # ማሳሰቢያ፦ ይህ ፈንክሽን ሲጠራ bid እና num ብቻ ሳይሆን call-ም መስተካከል አለበት
+    # 1. ተጫዋቹን መለየት (ኢንዴክስ 1 ላይ ነው ያለው)
     parts = call.data.split('_')
-    target_uid = parts # pck_{uid}_{bid}_{num}
+    target_uid = parts # pck_{uid}_{bid}_{num} ከሆነ 1 ቁጥር ላይ ያለውን ይወስዳል
     
     user = data["users"].get(target_uid)
     board = data["boards"].get(bid)
@@ -591,13 +590,14 @@ def finalize_reg_inline(call, bid, num):
     board["slots"][num] = user["name"]
     save_data()
     
-    # ግሩፕ ላይ ያለውን Pin የተደረገ ሰሌዳ ማደስ
+    # ሰሌዳውን ማደስ
     update_group_board(bid)
-    bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ለሰሌዳ {bid} ተመርጧል!")
+    bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!")
     
-    # 4. አውቶማቲክ ማሳሰቢያ (ግሩፑን ለማነቃቃት)
+    # 4. አውቶማቲክ ማሳሰቢያ (Alert Points ተሞልቷል)
     remaining = board["max"] - len(board["slots"])
-    alert_points =
+    alert_points = # እዚህ ጋር ቁጥሮቹን ሞልተናቸዋል
+    
     if remaining in alert_points:
         msg = (f"🎰 <b>ሰሌዳ {bid} ሊሞላ ነው!</b>\n"
                f"━━━━━━━━━━━━━━━━━━━━━\n"
@@ -605,9 +605,8 @@ def finalize_reg_inline(call, bid, num):
                f"🏃‍♂️ አሁኑኑ እድሎን ይሞክሩ!")
         bot.send_message(GROUP_ID, msg, parse_mode="HTML")
 
-    # 5. ተከታታይ ጨዋታ (ብር ካለው Picker-ን አያጥፋው፣ ከሌለው ግን ይዘጋዋል)
+    # 5. ተከታታይ ጨዋታ ወይም መዝጊያ
     if user["wallet"] >= board["price"]:
-        # ተጫዋቹ ሌላ ቁጥር እንዲመርጥ ፒከሩን እናድሰዋለን
         new_markup = generate_picker_markup(target_uid, bid)
         text = (f"🎰 <b>ሰሌዳ {bid}</b>\n"
                 f"👤 <b>ተጫዋች፦</b> {user['name']}\n"
@@ -615,7 +614,6 @@ def finalize_reg_inline(call, bid, num):
                 f"ቁጥር {num} ተይዟል! ሌላ ቁጥር ይምረጡ፦")
         bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=new_markup, parse_mode="HTML")
     else:
-        # ብር ሲያልቅ ፒከሩን አጥፍቶ በጽሁፍ መተካት (ሌላ ሰው እንዳይነካው)
         final_text = (f"✅ <b>ምዝገባ ተጠናቋል።</b>\n"
                       f"👤 <b>ተጫዋች፦</b> {user['name']}\n"
                       f"🎰 <b>ሰሌዳ {bid}</b>\n"
