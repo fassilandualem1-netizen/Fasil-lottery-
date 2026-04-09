@@ -157,32 +157,41 @@ def update_group_board(b_id):
         data["pinned_msgs"][b_id] = m.message_id
         save_data()
          
-# --- 5. ዋና ዋና ትዕዛዞች ---
+# --- 5. ዋና ዋና ትዕዛዞች (Admin Only Version) ---
+
 @bot.message_handler(commands=['start'])
 def welcome(message):
     uid = str(message.chat.id)
-    user = get_user(uid, message.from_user.first_name)
-    active_pay = PAYMENTS[data.get("current_shift", "me")]
     
+    # ተጠቃሚው አድሚን ካልሆነ ቦቱ ምንም ምላሽ አይሰጥም (ዝም ይላል)
+    if int(uid) not in ADMIN_IDS:
+        return 
+
+    # አድሚን ከሆነ ግን ቀጥታ የቁጥጥር ፓነሉን ያገኘዋል
+    user = get_user(uid, message.from_user.first_name)
     welcome_text = (
-        f"👋 <b>እንኳን ወደ ፋሲል መዝናኛና ዕድለኛ ዕጣ መጡ!</b>\n\n"
-        f"👤 <b>ስም፦</b> {user['name']}\n"
-        f"💰 <b>ቀሪ ሂሳብ፦</b> {user['wallet']} ብር\n"
-        f"━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"🏦 <b>Telebirr:</b> <code>{active_pay['tele']}</code>\n"
-        f"🔸 <b>CBE:</b> <code>{active_pay['cbe']}</code>\n\n"
-        f"⚠️ <b>ብር ሲያስገቡ የደረሰኙን ፎቶ ወይም መልዕክት እዚህ ይላኩ።</b>"
+        f"👋 <b>ሰላም አድሚን {user['name']}!</b>\n\n"
+        f"የቦቱ የቁጥጥር ማዕከል ውስጥ ገብተዋል። ከስር ያሉትን በተኖች በመጠቀም "
+        f"ሰሌዳዎችን ማስተካከያ፣ ሂሳብ መመዝገብ እና ፈረቃ መቀየር ይችላሉ።"
     )
-    bot.send_message(uid, welcome_text, reply_markup=main_menu_markup(uid))
+    bot.send_message(uid, welcome_text, reply_markup=main_menu_markup(uid), parse_mode="HTML")
 
 @bot.message_handler(commands=['shift'])
 def toggle_shift(message):
-    if message.from_user.id == MY_ID:
-        data["current_shift"] = "assistant" if data["current_shift"] == "me" else "me"
+    # ይህ ትዕዛዝ የሚሰራው ለአድሚኖች ብቻ ነው
+    if message.from_user.id in ADMIN_IDS:
+        # አሁን ያለውን ፈረቃ መቀየር
+        old_shift = data.get("current_shift", "me")
+        new_shift = "assistant" if old_shift == "me" else "me"
+        data["current_shift"] = new_shift
         save_data()
-        bot.reply_to(message, f"🔄 ፈረቃ ተቀይሯል! አሁን ተረኛው፦ {data['current_shift']}")
+        
+        # ተረኛው ማን እንደሆነ በግልጽ ማሳየት
+        current_name = "ፋሲል (Me)" if new_shift == "me" else "ረዳት (Assistant)"
+        bot.reply_to(message, f"🔄 <b>ፈረቃ ተቀይሯል!</b>\nአሁን ተረኛው፦ <code>{current_name}</code>", parse_mode="HTML")
     else:
-        bot.reply_to(message, "❌ የባለቤትነት መብት የለዎትም።")
+        # ተራ ተጠቃሚ ከሆነ ዝም ይላል (ምንም ምላሽ አይሰጥም)
+        return
 
 # --- አውቶማቲክ ብሮድካስት (Broadcast System) ---
 @bot.message_handler(commands=['post'])
