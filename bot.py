@@ -523,6 +523,47 @@ def find_specific_winner(message):
     except Exception as e:
         bot.send_message(message.chat.id, "❌ ስህተት፦ አጻጻፍዎ ተሳስቷል። ምሳሌ፦ 2-13")
 
+# 1. "Reset" በተን ሲጫን የትኛው ሰሌዳ እንደሆነ እንዲመርጥ መጠየቂያ
+@bot.callback_query_handler(func=lambda call: call.data == "admin_reset")
+def choose_board_to_reset(call):
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for b_id in data["boards"]:
+        markup.add(types.InlineKeyboardButton(f"ሰሌዳ {b_id}ን አጽዳ (Reset)", callback_data=f"confirm_reset_{b_id}"))
+    
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="back_to_dash"))
+    bot.edit_message_text("⚠️ <b>የትኛው ሰሌዳ ሙሉ በሙሉ ይጽዳ?</b>\n"
+                          "ይህ ተግባር የተያዙ ቁጥሮችን በሙሉ ያጠፋል!", 
+                          call.message.chat.id, 
+                          call.message.message_id, 
+                          reply_markup=markup)
+
+# 2. ሰሌዳውን የማጽዳት Logic (Confirm ሲደረግ)
+@bot.callback_query_handler(func=lambda call: call.data.startswith('confirm_reset_'))
+def execute_reset(call):
+    bid = call.data.split('_')
+    
+    if bid in data["boards"]:
+        # የዚህን ሰሌዳ slots ባዶ ያደርገዋል
+        data["boards"][bid]["slots"] = {}
+        
+        # ሬዲስ (Redis) ላይ ሴቭ ያደርገዋል
+        redis.set("fasil_lotto_db", json.dumps(data))
+        
+        bot.answer_callback_query(call.id, f"✅ ሰሌዳ {bid} በትክክል ጸድቷል!", show_alert=True)
+        
+        # ካጸዳ በኋላ ግሩፑ ላይ ያለውን ሰሌዳ እንዲያድሰው (Update እንዲያደርግ)
+        # ማስታወሻ፦ update_group_board የሚለው ፈንክሽን አስቀድሞ መኖሩን እርግጠኛ ሁን
+        try:
+            update_group_board(bid)
+        except:
+            pass
+            
+        # ወደ ዳሽቦርዱ ይመልሰዋል
+        admin_dashboard(call.message)
+    else:
+        bot.answer_callback_query(call.id, "❌ ስህተት፦ ሰሌዳው አልተገኘም!")
+
+
 
 def handle_selection(call):
     # 1. መረጃውን መከፋፈል (u_select_{uid}_{bid})
