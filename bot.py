@@ -538,14 +538,35 @@ def process_lookup(message):
 
 
 def handle_selection(call):
-    bid = call.data.split('_')[1]; user = get_user(call.message.chat.id)
-    board = data["boards"][bid]
+    # 1. መረጃውን መከፋፈል (u_select_{uid}_{bid})
+    parts = call.data.split('_')
+    target_uid = parts
+    bid = parts
+    
+    # 2. ተጫዋቹን መለየት (በ ID)
+    user = data["users"].get(target_uid)
+    board = data["boards"].get(bid)
+    
+    if not user or not board:
+        bot.answer_callback_query(call.id, "❌ ስህተት ተፈጥሯል!")
+        return
+
+    # 3. የገንዘብ መጠን ማረጋገጥ
     if user["wallet"] < board["price"]:
-        bot.answer_callback_query(call.id, "⚠️ በቂ ሂሳብ የሎትም!", show_alert=True); return
-    markup = types.InlineKeyboardMarkup(row_width=5)
-    btns = [types.InlineKeyboardButton(str(i), callback_data=f"pick_{bid}_{i}") for i in range(1, board["max"] + 1) if str(i) not in board["slots"]]
-    markup.add(*btns)
-    bot.edit_message_text(f"🎰 <b>ሰሌዳ {bid}</b>\n💰 ቀሪ ሂሳብ፦ {user['wallet']} ብር\n\nቁጥር ይምረጡ፦", call.message.chat.id, call.message.message_id, reply_markup=markup)
+        bot.answer_callback_query(call.id, "⚠️ ለዚህ ሰሌዳ በቂ ሂሳብ የሎትም!", show_alert=True)
+        return
+
+    # 4. የቁጥር መምረጫ በተኖችን (Picker) ማዘጋጀት
+    # እዚህ ጋር generate_picker_markup መጠቀም ይሻላል (ኮድ ላለመደጋገም)
+    markup = generate_picker_markup(target_uid, bid)
+    
+    text = (f"🎰 <b>ሰሌዳ {bid} ተመርጧል!</b>\n"
+            f"👤 <b>ተጫዋች፦</b> {user['name']}\n"
+            f"💰 <b>ቀሪ ሂሳብ፦</b> {user['wallet']} ብር\n\n"
+            f"እባክዎ ቁጥር ይምረጡ፦")
+            
+    # ግሩፕ ላይ መልዕክቱን ማደስ
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
 
 def finalize_reg_inline(call, bid, num):
     uid = str(call.message.chat.id); user = get_user(uid); board = data["boards"][bid]
