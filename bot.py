@@ -498,34 +498,44 @@ def finalize_app(message, target_uid, mid):
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ ሲስተም ስህተት፦ {e}")
 
-def save_name(message, uid):
-    data["users"][str(uid)]["name"] = message.text[:5]
-    save_data()
-    bot.send_message(uid, f"✅ ስምዎ '{message.text[:5]}' ተብሎ ተመዝግቧል!", reply_markup=main_menu_markup(uid))
-    show_boards(message)
-
 def process_lookup(message):
     try:
-        bid, num = message.text.split('-')
-        winner_name = data["boards"][bid]["slots"].get(num)
-        if winner_name:
-            # በዳታቤዝ ውስጥ ID ፍለጋ
-            winner_id = next((u for u, i in data["users"].items() if i["name"] == winner_name), None)
+        # አጻጻፍ፦ ሰሌዳ-ቁጥር (ለምሳሌ 1-05)
+        text = message.text.strip()
+        if '-' not in text:
+            bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ <code>ሰሌዳ-ቁጥር</code> (ምሳሌ፦ 1-05)", parse_mode="HTML")
+            return
+            
+        bid, num = text.split('-', 1)
+        
+        # በዳታቤዙ ውስጥ መኖሩን ማረጋገጥ
+        if bid in data["boards"] and num in data["boards"][bid]["slots"]:
+            winner_name = data["boards"][bid]["slots"][num]
+            
+            # አሸናፊውን በስሙ ሳይሆን በ ID ለመፈለግ (ይበልጥ ትክክለኛ ነው)
+            # ማሳሰቢያ፦ ይህ የሚሰራው ተጫዋቹ በደረሰኝ ጊዜ በ ID ተመዝግቦ ከሆነ ነው
+            winner_id = None
+            for u_id, info in data["users"].items():
+                if info["name"] == winner_name:
+                    winner_id = u_id
+                    break
             
             if winner_id:
+                # በሊንክ እንዲጠራ (Mention)
                 mention = f'<a href="tg://user?id={winner_id}">{winner_name}</a>'
                 res = (f"🏆 <b>አሸናፊ ተገኝቷል!</b>\n\n"
                        f"👤 <b>ስም፦</b> {mention}\n"
                        f"🎰 <b>ሰሌዳ፦</b> {bid} | <b>ቁጥር፦</b> {num}\n"
                        f"🆔 <b>User ID፦</b> <code>{winner_id}</code>")
             else:
-                res = f"🏆 <b>አሸናፊ፦</b> {winner_name}\n⚠️ IDው በዳታቤዝ ውስጥ አልተገኘም።"
+                res = f"🏆 <b>አሸናፊ፦</b> {winner_name}\n⚠️ የዚህ ሰው ID በዳታቤዝ ውስጥ አልተገኘም።"
                 
             bot.send_message(message.chat.id, res, parse_mode="HTML")
         else: 
-            bot.send_message(message.chat.id, "⚠️ ይህ ቁጥር አልተያዘም!")
-    except: 
-        bot.send_message(message.chat.id, "⚠️ ስህተት! (አጻጻፍ፦ 1-5)")
+            bot.send_message(message.chat.id, "⚠️ ይህ ቁጥር ገና አልተያዘም ወይም ሰሌዳው የለም!")
+    except Exception as e: 
+        bot.send_message(message.chat.id, f"❌ ስህተት ተከስቷል፦ {e}")
+
 
 def handle_selection(call):
     bid = call.data.split('_')[1]; user = get_user(call.message.chat.id)
