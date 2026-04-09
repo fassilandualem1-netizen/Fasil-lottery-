@@ -569,25 +569,59 @@ def handle_selection(call):
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
 
 def finalize_reg_inline(call, bid, num):
-    uid = str(call.message.chat.id); user = get_user(uid); board = data["boards"][bid]
-    if user["wallet"] < board["price"]: bot.answer_callback_query(call.id, "⚠️ በቂ ሂሳብ የሎትም!"); return
-    data["users"][uid]["wallet"] -= board["price"]
-    board["slots"][num] = user["name"]
-    save_data(); update_group_board(bid); bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!")
+    # 1. ተጫዋቹን በትክክል መለየት (ከ pck_ callback የመጣውን target_id በመጠቀም)
+    # ማሳሰቢያ፦ ይህ ፈንክሽን ሲጠራ bid እና num ብቻ ሳይሆን call-ም መስተካከል አለበት
+    parts = call.data.split('_')
+    target_uid = parts # pck_{uid}_{bid}_{num}
     
-    # --- አውቶማቲክ ማሳሰቢያ ---
+    user = data["users"].get(target_uid)
+    board = data["boards"].get(bid)
+    
+    if not user or not board:
+        bot.answer_callback_query(call.id, "❌ ስህተት! ዳታው አልተገኘም።")
+        return
+
+    # 2. የገንዘብ መጠን ማረጋገጥ
+    if user["wallet"] < board["price"]:
+        bot.answer_callback_query(call.id, "⚠️ በቂ ሂሳብ የሎትም!", show_alert=True)
+        return
+
+    # 3. ክፍያ እና ምዝገባ
+    data["users"][target_uid]["wallet"] -= board["price"]
+    board["slots"][num] = user["name"]
+    save_data()
+    
+    # ግሩፕ ላይ ያለውን Pin የተደረገ ሰሌዳ ማደስ
+    update_group_board(bid)
+    bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ለሰሌዳ {bid} ተመርጧል!")
+    
+    # 4. አውቶማቲክ ማሳሰቢያ (ግሩፑን ለማነቃቃት)
     remaining = board["max"] - len(board["slots"])
-    milestones = [35, 20, 10, 5, 2]
+    milestones =
     if remaining in milestones:
         msg = (f"🎰 <b>ሰሌዳ {bid} ሊሞላ ነው!</b>\n"
                f"━━━━━━━━━━━━━━━━━━━━━\n"
                f"🔥 ዕጣ ለመውጣት <b>{remaining}</b> ሰዎች ብቻ ቀረን!\n"
                f"🏃‍♂️ አሁኑኑ እድሎን ይሞክሩ!")
-        try: bot.send_message(GROUP_ID, msg)
-        except: pass
+        bot.send_message(GROUP_ID, msg, parse_mode="HTML")
 
-    if user["wallet"] >= board["price"]: handle_selection(call)
-    else: bot.edit_message_text(f"✅ ምዝገባ ተጠናቋል።\n💰 ቀሪ ሂሳብ፦ {user['wallet']} ብር", uid, call.message.message_id, reply_markup=main_menu_markup(uid))
+    # 5. ተከታታይ ጨዋታ (ብር ካለው Picker-ን አያጥፋው፣ ከሌለው ግን ይዘጋዋል)
+    if user["wallet"] >= board["price"]:
+        # ተጫዋቹ ሌላ ቁጥር እንዲመርጥ ፒከሩን እናድሰዋለን
+        new_markup = generate_picker_markup(target_uid, bid)
+        text = (f"🎰 <b>ሰሌዳ {bid}</b>\n"
+                f"👤 <b>ተጫዋች፦</b> {user['name']}\n"
+                f"💰 <b>ቀሪ ሂሳብ፦</b> {user['wallet']} ብር\n\n"
+                f"ቁጥር {num} ተይዟል! ሌላ ቁጥር ይምረጡ፦")
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=new_markup, parse_mode="HTML")
+    else:
+        # ብር ሲያልቅ ፒከሩን አጥፍቶ በጽሁፍ መተካት (ሌላ ሰው እንዳይነካው)
+        final_text = (f"✅ <b>ምዝገባ ተጠናቋል።</b>\n"
+                      f"👤 <b>ተጫዋች፦</b> {user['name']}\n"
+                      f"🎰 <b>ሰሌዳ {bid}</b>\n"
+                      f"💰 <b>ቀሪ ሂሳብ፦</b> {user['wallet']} ብር\n\n"
+                      f"መልካም ዕድል! 🙏")
+        bot.edit_message_text(final_text, call.message.chat.id, call.message.message_id, reply_markup=None, parse_mode="HTML")
 
 def manage_menu(call):
     markup = types.InlineKeyboardMarkup()
