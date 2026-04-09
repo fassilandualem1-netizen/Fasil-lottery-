@@ -569,9 +569,9 @@ def handle_selection(call):
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
 
 def finalize_reg_inline(call, bid, num):
-    # 1. ተጫዋቹን መለየት (ኢንዴክስ 1 ላይ ነው ያለው)
+    # 1. ተጫዋቹን መለየት
     parts = call.data.split('_')
-    target_uid = parts # pck_{uid}_{bid}_{num} ከሆነ 1 ቁጥር ላይ ያለውን ይወስዳል
+    target_uid = parts
     
     user = data["users"].get(target_uid)
     board = data["boards"].get(bid)
@@ -590,22 +590,11 @@ def finalize_reg_inline(call, bid, num):
     board["slots"][num] = user["name"]
     save_data()
     
-    # ሰሌዳውን ማደስ
+    # ሰሌዳውን ማደስ (ግሩፕ ላይ)
     update_group_board(bid)
     bot.answer_callback_query(call.id, f"✅ ቁጥር {num} ተመርጧል!")
-    
-    # 4. አውቶማቲክ ማሳሰቢያ (Alert Points ተሞልቷል)
-    remaining = board["max"] - len(board["slots"])
-    alert_points = # እዚህ ጋር ቁጥሮቹን ሞልተናቸዋል
-    
-    if remaining in alert_points:
-        msg = (f"🎰 <b>ሰሌዳ {bid} ሊሞላ ነው!</b>\n"
-               f"━━━━━━━━━━━━━━━━━━━━━\n"
-               f"🔥 ዕጣ ለመውጣት <b>{remaining}</b> ሰዎች ብቻ ቀረን!\n"
-               f"🏃‍♂️ አሁኑኑ እድሎን ይሞክሩ!")
-        bot.send_message(GROUP_ID, msg, parse_mode="HTML")
 
-    # 5. ተከታታይ ጨዋታ ወይም መዝጊያ
+    # 4. ተከታታይ ጨዋታ ወይም መዝጊያ (ማሳሰቢያው ተወግዷል)
     if user["wallet"] >= board["price"]:
         new_markup = generate_picker_markup(target_uid, bid)
         text = (f"🎰 <b>ሰሌዳ {bid}</b>\n"
