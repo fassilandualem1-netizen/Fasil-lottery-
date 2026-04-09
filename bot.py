@@ -601,33 +601,58 @@ def manage_menu(call):
     markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_panel_back"))
     bot.edit_message_text("🛠 <b>ሰሌዳ ይምረጡ፦</b>", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
 
-def edit_board(call, bid=None):
-    # bid ከሌለ ከ callback_data ውስጥ ይወስዳል
-    if bid is None:
-        bid = call.data.split('_')
-        
-    b = data["boards"][bid]
-    markup = types.InlineKeyboardMarkup(row_width=2)
+# 1. "ሰሌዳ X ማስተካከያ" ሲጫን የሚመጣው የውስጥ ሜኑ
+@bot.callback_query_handler(func=lambda call: call.data.startswith('edit_board_'))
+def edit_board_detail(call):
+    bid = call.data.split('_') # ሰሌዳ ቁጥሩን ይለያል (1, 2 ወይም 3)
+    board = data["boards"][bid]
     
-    # የሰሌዳ ሁኔታ (ክፍት/ዝግ)
-    status_text = "🟢 ክፍት" if b['active'] else "🔴 ዝግ"
-    markup.add(types.InlineKeyboardButton(status_text, callback_data=f"toggle_{bid}"))
+    status = "🟢 ክፍት (Active)" if board.get("active", True) else "🔴 ዝግ (Closed)"
     
-    # ዋጋ እና ሽልማት ማስተካከያ
+    markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
-        types.InlineKeyboardButton("💵 ዋጋ ቀይር", callback_data=f"set_price_{bid}"), 
-        types.InlineKeyboardButton("🎁 ሽልማት ቀይር", callback_data=f"set_prize_{bid}")
+        types.InlineKeyboardButton(f"ሁኔታ፦ {status}", callback_data=f"toggle_active_{bid}"),
+        types.InlineKeyboardButton(f"💰 ዋጋ ቀይር ({board['price']} ብር)", callback_data=f"change_price_{bid}"),
+        types.InlineKeyboardButton(f"🔄 ሰሌዳውን ብቻ አጽዳ", callback_data=f"reset_single_{bid}"),
+        types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_manage")
     )
     
-    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_manage"))
+    bot.edit_message_text(f"⚙️ <b>የሰሌዳ {bid} ማስተካከያ</b>\n\nእዚህ ጋር የሰሌዳውን ሁኔታ መቆጣጠር ይችላሉ።", 
+                          call.message.chat.id, 
+                          call.message.message_id, 
+                          reply_markup=markup)
+
+# 2. ሰሌዳውን "ክፍት" ወይም "ዝግ" ማድረጊያ Logic
+@bot.callback_query_handler(func=lambda call: call.data.startswith('toggle_active_'))
+def toggle_board_status(call):
+    bid = call.data.split('_')
     
-    text = (f"📊 <b>የሰሌዳ {bid} አስተዳደር</b>\n"
-            f"━━━━━━━━━━━━━\n"
-            f"💰 <b>መደብ (Price)፦</b> {b['price']} ብር\n"
-            f"🏆 <b>ሽልማት (Prize)፦</b> {b['prize']} ብር\n"
-            f"🚦 <b>ሁኔታ፦</b> {status_text}")
-            
-    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    # ሁኔታውን ይገለብጠዋል (True ከሆነ False...)
+    current_status = data["boards"][bid].get("active", True)
+    data["boards"][bid]["active"] = not current_status
+    
+    redis.set("fasil_lotto_db", json.dumps(data))
+    bot.answer_callback_query(call.id, "ሁኔታው ተቀይሯል!")
+    
+    # ሜኑውን Refresh ያደርገዋል
+    edit_board_detail(call)
+
+# 3. የአንድን ሰሌዳ ዋጋ መቀየር
+@bot.callback_query_handler(func=lambda call: call.data.startswith('change_price_'))
+def ask_new_price(call):
+    bid = call.data.split('_')
+    msg = bot.send_message(call.from_user.id, f"💵 ለሰሌዳ {bid} አዲስ ዋጋ ይጻፉ፦")
+    bot.register_next_step_handler(msg, save_new_price, bid)
+
+def save_new_price(message, bid):
+    try:
+        new_price = int(message.text)
+        data["boards"][bid]["price"] = new_price
+        redis.set("fasil_lotto_db", json.dumps(data))
+        bot.send_message(message.chat.id, f"✅ የሰሌዳ {bid} ዋጋ ወደ {new_price} ብር ተቀይሯል!")
+    except:
+        bot.send_message(message.chat.id, "❌ ስህተት፦ ቁጥር ብቻ ይጻፉ!")
+
 
 # --- 1. ሰሌዳን የማጽጃ ሜኑ (Reset Menu) ---
 def reset_menu(call):
