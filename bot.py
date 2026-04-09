@@ -219,33 +219,6 @@ def send_to_all(message):
             fail += 1
     bot.send_message(message.chat.id, f"✅ ተጠናቋል!\n📤 የተላከላቸው፦ {count}\n🚫 ያልደረሳቸው፦ {fail}")
 
-@bot.message_handler(func=lambda m: m.text == "🎮 ሰሌዳ ምረጥ")
-def show_boards(message):
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    for b_id, b_info in data["boards"].items():
-        if b_info["active"]:
-            markup.add(types.InlineKeyboardButton(f"🎰 ሰሌዳ {b_id} | 🎫 {b_info['price']} ብር", callback_data=f"select_{b_id}"))
-    bot.send_message(message.chat.id, "<b>ለመጫወት የሚፈልጉትን ሰሌዳ ይምረጡ፦</b>", reply_markup=markup)
-
-@bot.message_handler(func=lambda m: m.text == "🎫 የያዝኳቸው ቁጥሮች")
-def my_numbers(message):
-    uid = str(message.chat.id)
-    name = data["users"][uid]["name"]
-    found = False
-    text = "🎫 <b>የያዟቸው ቁጥሮች፦</b>\n\n"
-    for bid, binfo in data["boards"].items():
-        user_nums = [n for n, u in binfo["slots"].items() if u == name]
-        if user_nums:
-            found = True
-            text += f"🎰 <b>ሰሌዳ {bid}:</b> {', '.join(user_nums)}\n"
-    if not found: text = "⚠️ እስካሁን ምንም ቁጥር አልያዙም!"
-    bot.send_message(uid, text)
-
-@bot.message_handler(func=lambda m: m.text == "👤 ፕሮፋይል")
-def show_profile(message):
-    user = get_user(message.chat.id)
-    bot.send_message(message.chat.id, f"👤 <b>ፕሮፋይል</b>\n📛 ስም፦ {user['name']}\n💰 ቀሪ፦ {user['wallet']} ብር")
-
 @bot.message_handler(func=lambda m: m.text == "⚙️ Admin Settings" and m.from_user.id in ADMIN_IDS)
 def admin_panel(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
