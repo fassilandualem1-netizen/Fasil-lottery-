@@ -714,11 +714,24 @@ def update_board_value(message, bid, action):
 
 @bot.message_handler(commands=['update'])
 def force_update(message):
+    # አድሚን መሆንህን ማረጋገጥ
     if message.from_user.id in ADMIN_IDS:
-        for bid in data["boards"]:
-            update_group_board(bid)
-        bot.send_message(message.chat.id, "✅ ሁሉም ሰሌዳዎች ግሩፕ ላይ ታድሰዋል!")
-    
+        # አድሚኑ መጠበቅ እንዳለበት እንዲያውቅ አጭር መልዕክት መላክ
+        status_msg = bot.send_message(message.chat.id, "🔄 ሰሌዳዎች እየታደሱ ነው...")
+        
+        try:
+            for bid in data["boards"]:
+                # እያንዳንዱን ሰሌዳ ግሩፕ ላይ ማደስ
+                update_group_board(bid)
+            
+            # ስራው ሲያልቅ የቆየውን መልዕክት ማስተካከያ (Edit)
+            bot.edit_message_text("✅ ሁሉም ሰሌዳዎች ግሩፕ ላይ ታድሰዋል!", message.chat.id, status_msg.message_id)
+        except Exception as e:
+            bot.edit_message_text(f"❌ ስህተት ተፈጥሯል፦ {e}", message.chat.id, status_msg.message_id)
+    else:
+        # አድሚን ካልሆነ ዝም ይላል ወይም ማስጠንቀቂያ ይሰጣል
+        bot.reply_to(message, "⚠️ ይህ ትዕዛዝ ለአድሚን ብቻ ነው!")
+
     
 if __name__ == "__main__":
     # ለጊዜው ይህንን ጨምር (አንድ ጊዜ Deploy ካደረግክ በኋላ መልሰህ ብታጠፋው ይሻላል)
