@@ -624,31 +624,93 @@ def finalize_reg_inline(call, bid, num):
         bot.edit_message_text(final_text, call.message.chat.id, call.message.message_id, reply_markup=None, parse_mode="HTML")
 
 def manage_menu(call):
-    markup = types.InlineKeyboardMarkup()
-    for bid in data["boards"]: markup.add(types.InlineKeyboardButton(f"ሰሌዳ {bid}", callback_data=f"edit_{bid}"))
-    bot.edit_message_text("ሰሌዳ ይምረጡ፦", call.from_user.id, call.message.message_id, reply_markup=markup)
-
-def edit_board(call):
-    bid = call.data.split('_')[1]; b = data["boards"][bid]
+    # አድሚን ፓነል የግድ በ DM (Private) መሆን አለበት
+    if call.message.chat.type != 'private': return
+    
     markup = types.InlineKeyboardMarkup(row_width=2)
-    markup.add(types.InlineKeyboardButton(f"{'🟢 ክፍት' if b['active'] else '🔴 ዝግ'}", callback_data=f"toggle_{bid}"))
-    markup.add(types.InlineKeyboardButton("🎫 ዋጋ", callback_data=f"set_price_{bid}"), types.InlineKeyboardButton("🎁 ሽልማት", callback_data=f"set_prize_{bid}"))
+    for bid in data["boards"]: 
+        markup.add(types.InlineKeyboardButton(f"⚙️ ሰሌዳ {bid}", callback_data=f"edit_{bid}"))
+    
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_panel_back"))
+    bot.edit_message_text("🛠 <b>ሰሌዳ ይምረጡ፦</b>", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+
+def edit_board(call, bid=None):
+    # bid ከሌለ ከ callback_data ውስጥ ይወስዳል
+    if bid is None:
+        bid = call.data.split('_')
+        
+    b = data["boards"][bid]
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    
+    # የሰሌዳ ሁኔታ (ክፍት/ዝግ)
+    status_text = "🟢 ክፍት" if b['active'] else "🔴 ዝግ"
+    markup.add(types.InlineKeyboardButton(status_text, callback_data=f"toggle_{bid}"))
+    
+    # ዋጋ እና ሽልማት ማስተካከያ
+    markup.add(
+        types.InlineKeyboardButton("💵 ዋጋ ቀይር", callback_data=f"set_price_{bid}"), 
+        types.InlineKeyboardButton("🎁 ሽልማት ቀይር", callback_data=f"set_prize_{bid}")
+    )
+    
     markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_manage"))
-    bot.edit_message_text(f"📊 <b>ሰሌዳ {bid}</b>\n💰 መደብ፦ {b['price']}\n🏆 ሽልማት፦ {b['prize']}", call.from_user.id, call.message.message_id, reply_markup=markup)
+    
+    text = (f"📊 <b>የሰሌዳ {bid} አስተዳደር</b>\n"
+            f"━━━━━━━━━━━━━\n"
+            f"💰 <b>መደብ (Price)፦</b> {b['price']} ብር\n"
+            f"🏆 <b>ሽልማት (Prize)፦</b> {b['prize']} ብር\n"
+            f"🚦 <b>ሁኔታ፦</b> {status_text}")
+            
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
 
+# --- 1. ሰሌዳን የማጽጃ ሜኑ (Reset Menu) ---
 def reset_menu(call):
-    markup = types.InlineKeyboardMarkup()
-    for bid in data["boards"]: markup.add(types.InlineKeyboardButton(f"Reset {bid}", callback_data=f"doreset_{bid}"))
-    bot.send_message(call.from_user.id, "የትኛው ሰሌዳ ይጽዳ?", reply_markup=markup)
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    for bid in data["boards"]: 
+        markup.add(types.InlineKeyboardButton(f"🧹 Reset ሰሌዳ {bid}", callback_data=f"doreset_{bid}"))
+    
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_manage"))
+    bot.edit_message_text("⚠️ <b>የትኛው ሰሌዳ ይጽዳ?</b>\n(Reset ሲያደርጉ የነበሩት ስሞች በሙሉ ይጠፋሉ!)", 
+                          call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
 
-def finalize_dec(message, target): bot.send_message(target, f"❌ ደረሰኝዎ ውድቅ ሆኗል። ምክንያት፦ {message.text}")
+# --- 2. ደረሰኝ ውድቅ ሲደረግ (Decline) ---
+def finalize_dec(message, target_uid, mid):
+    # target_uid = የተጫዋቹ ID
+    # mid = የተጫዋቹ ደረሰኝ መልዕክት ID (ግሩፕ ላይ Reply ለማድረግ)
+    
+    reason = message.text
+    text = (f"❌ <b>ደረሰኝዎ ውድቅ ሆኗል!</b>\n"
+            f"━━━━━━━━━━━━━\n"
+            f"👤 <b>ተጫዋች፦</b> <a href='tg://user?id={target_uid}'>ተጫዋች</a>\n"
+            f"📝 <b>ምክንያት፦</b> {reason}\n\n"
+            f"እባክዎ እንደገና በትክክል ይላኩ። 🙏")
+            
+    # ግሩፕ ላይ ለደረሰኙ Reply በማድረግ ለተጫዋቹ ማሳወቅ
+    bot.send_message(GROUP_ID, text, reply_to_message_id=mid, parse_mode="HTML")
+    bot.send_message(message.chat.id, "✅ ለተጫዋቹ ውድቅ መደረጉ ተገልጾለታል።")
 
+# --- 3. የሰሌዳ ዋጋ ወይም ሽልማት መቀየሪያ ---
 def update_board_value(message, bid, action):
     try:
-        if action == "price": data["boards"][bid]["price"] = int(message.text)
-        else: data["boards"][bid]["prize"] = message.text
-        save_data(); bot.send_message(message.chat.id, "✅ ተቀይሯል!"); update_group_board(bid)
-    except: bot.send_message(message.chat.id, "⚠️ ስህተት!")
+        val = message.text.strip()
+        if action == "price":
+            # ዋጋ የግድ ቁጥር መሆን አለበት
+            data["boards"][bid]["price"] = int(val)
+            msg = f"✅ የሰሌዳ {bid} መደብ (Price) ወደ <b>{val} ብር</b> ተቀይሯል!"
+        else:
+            # ሽልማት ጽሁፍም ሊሆን ይችላል (ለምሳሌ "ባጃጅ")
+            data["boards"][bid]["prize"] = val
+            msg = f"✅ የሰሌዳ {bid} ሽልማት (Prize) ወደ <b>{val}</b> ተቀይሯል!"
+            
+        save_data()
+        bot.send_message(message.chat.id, msg, parse_mode="HTML")
+        
+        # ግሩፕ ላይ ያለውን Pin የተደረገ ሰሌዳ እንዲታደስ ማድረግ
+        update_group_board(bid)
+        
+    except ValueError:
+        bot.send_message(message.chat.id, "⚠️ ስህተት! እባክዎ ለዋጋ (Price) ቁጥር ብቻ ይጻፉ።")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"⚠️ ስህተት፦ {e}")
 
 @bot.message_handler(commands=['update'])
 def force_update(message):
