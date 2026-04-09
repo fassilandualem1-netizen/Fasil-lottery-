@@ -287,78 +287,58 @@ def admin_manage_menu(call):
     
     bot.edit_message_text("🛠 <b>የአድሚን ስራዎችን ይምረጡ፦</b>", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
+# 1. "በካሽ መመዝገብ" - አድሚኑ መረጃ እንዲያስገባ መጠየቂያ
 @bot.callback_query_handler(func=lambda call: call.data == "admin_cash")
 def start_cash_reg(call):
-    m = bot.send_message(call.from_user.id, "📝 <b>በካሽ ለመመዝገብ፦</b>\nሰሌዳ-ቁጥር ስም ይጻፉ\n\nምሳሌ፦ <code>1-05 አበበ</code>")
-    bot.register_next_step_handler(m, process_cash_reg)
+    msg = bot.send_message(call.from_user.id, 
+        "📝 <b>በካሽ ለመመዝገብ መረጃውን እንዲህ ይጻፉ፦</b>\n\n"
+        "<code>ሰሌዳ-ቁጥር ስም</code>\n\n"
+        "ምሳሌ፦ <code>1-05 ፋሲል</code> (ሰሌዳ 1፣ ቁጥር 05 ለፋሲል)")
+    bot.register_next_step_handler(msg, save_cash_registration)
 
-def process_cash_reg(message):
+# 2. በካሽ የተጻፈውን ዳታቤዝ ላይ ሴቭ ማድረጊያ
+def save_cash_registration(message):
     try:
-        text = message.text.strip()
-        # መጀመሪያ በክፍተት ስሙን እና የሰሌዳውን ክፍል ይለያል
-        if ' ' not in text:
-            bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05 አበበ")
-            return
-            
-        board_info, name = text.split(' ', 1)
+        # ለምሳሌ "1-05 ፋሲል" የሚለውን ይከፋፍላል
+        board_part, name = message.text.split(' ', 1)
+        bid, num = board_part.split('-')
         
-        if '-' not in board_info:
-            bot.send_message(message.chat.id, "❌ ስህተት! በሰሌዳ እና ቁጥር መሀል ሰረዝ (-) ያድርጉ።")
-            return
-            
-        bid, num = board_info.split('-', 1)
+        bid = str(bid) # ለደህንነት
+        num = str(int(num)) # "05" ከሆነ "5" ያደርገዋል
         
         if bid in data["boards"]:
-            max_val = data["boards"][bid]["max"]
-            if not num.isdigit() or int(num) > max_val or int(num) < 1:
-                bot.send_message(message.chat.id, f"❌ ስህተት! በሰሌዳ {bid} ላይ ያሉት ቁጥሮች ከ1-{max_val} ብቻ ናቸው።")
-                return
-
-            data["boards"][bid]["slots"][num] = name[:15]
-            save_data()
-            update_group_board(bid)
-            bot.send_message(message.chat.id, f"✅ ሰሌዳ {bid} ቁጥር {num} ለ {name} ተመዝግቧል!")
+            data["boards"][bid]["slots"][num] = name
+            # ሬዲስ ላይ ሴቭ እናደርጋለን
+            redis.set("fasil_lotto_db", json.dumps(data))
+            bot.send_message(message.chat.id, f"✅ ተመዝግቧል!\nሰሌዳ {bid} | ቁጥር {num} | ስም {name}")
         else:
-            bot.send_message(message.chat.id, f"❌ ሰሌዳ {bid} አልተገኘም!")
-    except:
-        bot.send_message(message.chat.id, "❌ ሲስተም ስህተት! አጻጻፍ፦ 1-05 አበበ")
+            bot.send_message(message.chat.id, "❌ ስህተት፦ እንዲህ አይነት ሰሌዳ የለም።")
+    except Exception as e:
+        bot.send_message(message.chat.id, "❌ ስህተት፦ አጻጻፍዎ ተሳስቷል። ምሳሌ፦ 1-05 ፋሲል")
 
-def process_admin_delete(message):
-    try:
-        text = message.text.strip()
-        if '-' not in text:
-            bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05")
-            return
-            
-        bid, num = text.split('-', 1)
-        if bid in data["boards"]:
-            if num in data["boards"][bid]["slots"]:
-                del data["boards"][bid]["slots"][num]
-                save_data()
-                update_group_board(bid)
-                bot.send_message(message.chat.id, f"🗑 ሰሌዳ {bid} ቁጥር {num} ተሰርዟል!")
-            else:
-                bot.send_message(message.chat.id, "❌ ይህ ቁጥር ገና አልተመዘገበም!")
-        else:
-            bot.send_message(message.chat.id, "❌ ሰሌዳው አልተገኘም!")
-    except:
-        bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05")
-
-
+# 3. "ቁጥር መሰረዝ" - የተሳሳተ ቁጥር ለማንሳት
 @bot.callback_query_handler(func=lambda call: call.data == "admin_delete")
-def start_admin_delete(call):
-    m = bot.send_message(call.from_user.id, "🗑 <b>ቁጥር ለመሰረዝ፦</b>\nሰሌዳ-ቁጥር ይጻፉ\n\nምሳሌ፦ <code>1-05</code>")
-    bot.register_next_step_handler(m, process_admin_delete)
+def start_delete_num(call):
+    msg = bot.send_message(call.from_user.id, 
+        "🗑 <b>ቁጥር ለመሰረዝ እንዲህ ይጻፉ፦</b>\n\n"
+        "<code>ሰሌዳ-ቁጥር</code>\n\n"
+        "ምሳሌ፦ <code>1-05</code> (ከሰሌዳ 1 ላይ ቁጥር 05ን ይሰርዛል)")
+    bot.register_next_step_handler(msg, delete_num_logic)
 
-def process_admin_delete(message):
+def delete_num_logic(message):
     try:
         bid, num = message.text.split('-')
+        bid, num = str(bid), str(int(num))
+        
         if bid in data["boards"] and num in data["boards"][bid]["slots"]:
             del data["boards"][bid]["slots"][num]
-            save_data()
-            update_group_board(bid) # 👈 እዚህ ጋር ነው ዲዛይኑን ግሩፕ ላይ የሚያድሰው
-            bot.send_message(message.chat.id, f"🗑 ሰሌዳ {bid} ቁጥር {num} ተሰርዟል!")
-    except: bot.send_message(message.chat.id, "❌ ስህተት! (አጻጻፍ፦ 1-05)")
+            redis.set("fasil_lotto_db", json.dumps(data))
+            bot.send_message(message.chat.id, f"🗑 ሰሌዳ {bid} ቁጥር {num} ተሰርዟል።")
+        else:
+            bot.send_message(message.chat.id, "❌ ቁጥሩ አልተገኘም ወይም ሰሌዳው የለም።")
+    except:
+        bot.send_message(message.chat.id, "❌ ስህተት፦ አጻጻፍዎ ተሳስቷል። ምሳሌ፦ 1-05")
+
 
 
 # --- ⚙️ የአድሚን እና የተጫዋች ድርጊቶች መቀበያ (Callback Handler) ---
