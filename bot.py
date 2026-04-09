@@ -753,24 +753,28 @@ def update_board_value(message, bid, action):
         bot.send_message(message.chat.id, f"⚠️ ስህተት፦ {e}")
 
 @bot.message_handler(commands=['update'])
-def force_update(message):
-    # አድሚን መሆንህን ማረጋገጥ
-    if message.from_user.id in ADMIN_IDS:
-        # አድሚኑ መጠበቅ እንዳለበት እንዲያውቅ አጭር መልዕክት መላክ
-        status_msg = bot.send_message(message.chat.id, "🔄 ሰሌዳዎች እየታደሱ ነው...")
-        
-        try:
-            for bid in data["boards"]:
-                # እያንዳንዱን ሰሌዳ ግሩፕ ላይ ማደስ
+def force_update_by_number(message):
+    # አድሚን መሆንህን ያረጋግጣል
+    if message.from_user.id not in ADMIN_IDS:
+        return
+
+    # ከኮማንዱ ቀጥሎ ያለውን ጽሁፍ ይለያል (ለምሳሌ "1" ወይም "2")
+    args = message.text.split()
+    
+    if len(args) > 1:
+        bid = args # ተጠቃሚው የጻፈው ቁጥር
+        if bid in data["boards"]:
+            try:
                 update_group_board(bid)
-            
-            # ስራው ሲያልቅ የቆየውን መልዕክት ማስተካከያ (Edit)
-            bot.edit_message_text("✅ ሁሉም ሰሌዳዎች ግሩፕ ላይ ታድሰዋል!", message.chat.id, status_msg.message_id)
-        except Exception as e:
-            bot.edit_message_text(f"❌ ስህተት ተፈጥሯል፦ {e}", message.chat.id, status_msg.message_id)
+                bot.reply_to(message, f"✅ ሰሌዳ {bid} በትክክል ታድሷል።")
+            except Exception as e:
+                bot.reply_to(message, f"❌ ስህተት ተፈጥሯል፦ {e}")
+        else:
+            bot.reply_to(message, f"❌ ስህተት፦ ሰሌዳ {bid} አልተገኘም! (1፣ 2 ወይም 3 ይበሉ)")
     else:
-        # አድሚን ካልሆነ ዝም ይላል ወይም ማስጠንቀቂያ ይሰጣል
-        bot.reply_to(message, "⚠️ ይህ ትዕዛዝ ለአድሚን ብቻ ነው!")
+        # ቁጥር ካልተጻፈ ሁሉንም እንዲያድስ ማድረግ ትችላለህ ወይም መመሪያ መስጠት
+        bot.reply_to(message, "📝 እባክዎን የሰሌዳ ቁጥር ይጨምሩ።\nምሳሌ፦ <code>/update 1</code>")
+
 
     
 if __name__ == "__main__":
