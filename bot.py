@@ -361,72 +361,67 @@ def process_admin_delete(message):
     except: bot.send_message(message.chat.id, "❌ ስህተት! (አጻጻፍ፦ 1-05)")
 
 
+# --- ⚙️ የአድሚን እና የተጫዋች ድርጊቶች መቀበያ (Callback Handler) ---
+
 @bot.callback_query_handler(func=lambda call: True)
 def callback_listener(call):
     is_admin = call.from_user.id in ADMIN_IDS
     uid = str(call.from_user.id)
     
-    # 1. አድሚኑ ማፅደቂያ ሲነካ (የመጣው ከ handle_receipts ነው)
-    if call.data.startswith('app_') and is_admin:
-        # data format: app_{target_uid}_{message_id}
-        _, target_uid, mid = call.data.split('_')
+    # 1. ተጫዋቹ ቁጥር ሲመርጥ (ከ generate_picker_markup የሚመጣ)
+    if call.data.startswith('p_'):
+        # ፎርማት፦ p_{uid}_{bid}_{num}
+        parts = call.data.split('_')
+        target_id = parts
+        bid = parts
+        num = parts
         
-        # ለአድሚኑ በ DM ብር እንዲጽፍ መጠየቅ
-        m = bot.send_message(call.from_user.id, f"💵 ለተጫዋች (ID: {target_uid}) የሚጨመር ብር ይጻፉ፦")
-        # በቀጣይ ደረጃ ብሩን፣ የተጫዋቹን ID እና የደረሰኙን ID ይዞ ይሄዳል
-        bot.register_next_step_handler(m, finalize_app, target_uid, mid)
-
-    # 2. ውድቅ ማድረጊያ (Decline)
-    elif call.data.startswith('rej_') and is_admin:
-        _, target_uid, mid = call.data.split('_')
-        
-        bot.edit_message_caption("❌ ደረሰኙ ውድቅ ተደርጓል", call.message.chat.id, call.message.message_id, reply_markup=None)
-        m = bot.send_message(call.from_user.id, "❌ ውድቅ የተደረገበትን ምክንያት ይጻፉ፦")
-        bot.register_next_step_handler(m, finalize_dec, target_uid, mid)
-
-    # 3. ተጫዋቹ ግሩፕ ላይ ሰሌዳ ሲመርጥ (u_select_)
-    elif call.data.startswith('u_select_'):
-        # format: u_select_{target_uid}_{bid}
-        _, _, target_id, bid = call.data.split('_')
-        
+        # የሌላ ሰው ምርጫ እንዳይሆን መከልከል
         if uid != target_id:
-            return bot.answer_callback_query(call.id, "⚠️ ይህ የእርስዎ ምርጫ አይደለም!", show_alert=True)
-            
-        # የተዘረገፉ በተኖችን (Picker) ማምጣት
-        show_picker_in_group(call.message, target_id, bid)
+            bot.answer_callback_query(call.id, "⚠️ ይህ የእርስዎ ምርጫ አይደለም!", show_alert=True)
+            return
 
-    # 4. ተጫዋቹ ቁጥር ሲመርጥ (pck_)
-    elif call.data.startswith('pck_'):
-        # format: pck_{target_uid}_{bid}_{num}
-        _, target_id, bid, num = call.data.split('_')
-        
-        if uid != target_id:
-            return bot.answer_callback_query(call.id, "⚠️ የሌላ ሰው ምርጫ ነው!", show_alert=True)
-            
-        handle_number_pick(call, target_id, bid, num)
-
-        # ወደ ዋናው የክፍያ ፈንክሽን መላክ (finalize_reg_inline ጋር ተመሳሳይ ስራ ይሰራል)
-        call.data = f"pick_{bid}_{num}"
+        # ወደ ምዝገባ ፈንክሽን መላክ
         finalize_reg_inline(call, bid, num)
 
-    # 5. የተቀሩት የአድሚን እና የቦት ተግባራት
+    # 2. አሸናፊ ለመፈለግ
     elif call.data == "lookup_winner" and is_admin:
-        m = bot.send_message(call.from_user.id, "አሸናፊ ለመፈለግ ሰሌዳ እና ቁጥር ይጻፉ (ለምሳሌ: 2-13)፦")
+        m = bot.send_message(call.from_user.id, "🔍 አሸናፊ ለመፈለግ ሰሌዳ እና ቁጥር ይጻፉ (ለምሳሌ: 2-13)፦")
         bot.register_next_step_handler(m, process_lookup)
-    elif call.data == "admin_manage" and is_admin: admin_manage_menu(call)
-    elif call.data.startswith('edit_') and is_admin: edit_board(call)
+
+    # 3. የሰሌዳ አስተዳደር ሜኑ
+    elif call.data == "admin_manage" and is_admin:
+        admin_manage_menu(call)
+
+    # 4. ሰሌዳ ለመቀየር/ለማስተካከል
+    elif call.data.startswith('edit_') and is_admin:
+        bid = call.data.split('_')
+        edit_board(call, bid)
+
+    # 5. ሰሌዳ ክፍት/ዝግ ለማድረግ (Active/Inactive)
     elif call.data.startswith('toggle_') and is_admin:
         bid = call.data.split('_')
         data["boards"][bid]["active"] = not data["boards"][bid]["active"]
-        save_data(); edit_board(call)
-    elif call.data == "admin_reset" and is_admin: reset_menu(call)
+        save_data()
+        edit_board(call, bid)
+
+    # 6. ሰሌዳ ለማጽዳት (Reset)
+    elif call.data == "admin_reset" and is_admin:
+        reset_menu(call)
+
     elif call.data.startswith('doreset_') and is_admin:
         bid = call.data.split('_')
-        data["boards"][bid]["slots"] = {}; data["pinned_msgs"][bid] = None
-        save_data(); bot.answer_callback_query(call.id, "ሰሌዳው ጸድቷል!"); update_group_board(bid)
-    elif call.data.startswith('select_'): handle_selection(call)
+        data["boards"][bid]["slots"] = {}
+        data["pinned_msgs"][bid] = None
+        save_data()
+        bot.answer_callback_query(call.id, f"✅ ሰሌዳ {bid} ጸድቷል!")
+        update_group_board(bid) # ግሩፕ ላይ ያለውን ሰሌዳ ያድሳል
+
+    # 7. ተይዞ ያለ ቁጥር ሲነካ
     elif call.data == "taken":
-        bot.answer_callback_query(call.id, "❌ ይህ ቁጥር ተይዟል!")
+        bot.answer_callback_query(call.id, "❌ ይህ ቁጥር ቀድሞ ተይዟል!")
+
+# --- 🎰 የቁጥር መምረጫ በተኖች ማመንጫ (Picker Generator) ---
 
 def generate_picker_markup(uid, bid):
     board = data["boards"][bid]
@@ -436,11 +431,13 @@ def generate_picker_markup(uid, bid):
         n_str = str(i)
         # ቁጥሩ ከተያዘ ❌ ያሳያል፣ ካልተያዘ ቁጥሩን ያሳያል
         if n_str not in board["slots"]:
+            # callback_data ላይ የተጫዋቹን ID እና ሰሌዳውን እናያይዛለን
             btns.append(types.InlineKeyboardButton(n_str, callback_data=f"p_{uid}_{bid}_{n_str}"))
         else:
             btns.append(types.InlineKeyboardButton("❌", callback_data="taken"))
     markup.add(*btns)
     return markup
+
 
 
 def finalize_app(message, target_id):
