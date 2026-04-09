@@ -221,35 +221,55 @@ def send_to_all(message):
 
 @bot.message_handler(func=lambda m: m.text == "⚙️ Admin Settings" and m.from_user.id in ADMIN_IDS)
 def admin_panel(message):
+    # አድሚን ፓነል በግል (Private) ብቻ እንዲከፈት
+    if message.chat.type != 'private': return 
+    
     markup = types.InlineKeyboardMarkup(row_width=1)
     stats = "".join([f"📍 ሰሌዳ {bid}: ({len(binfo['slots'])}/{binfo['max']})\n" for bid, binfo in data["boards"].items()])
     markup.add(types.InlineKeyboardButton("⚙️ ሰሌዳዎችን አስተካክል", callback_data="admin_manage"),
                types.InlineKeyboardButton("🔍 አሸናፊ ፈልግ", callback_data="lookup_winner"),
                types.InlineKeyboardButton("🔄 ሰሌዳ አጽዳ (Reset)", callback_data="admin_reset"))
-    bot.send_message(message.chat.id, f"🛠 <b>የአድሚን ዳሽቦርድ</b>\n\n{stats}", reply_markup=markup)
+    bot.send_message(message.chat.id, f"🛠 <b>የአድሚን ዳሽቦርድ</b>\n\n{stats}", reply_markup=markup, parse_mode="HTML")
 
-@bot.message_handler(content_types=['photo', 'text'])
-def handle_receipts(message):
-    if message.chat.type != 'private': return 
-    uid = str(message.chat.id)
-    if message.text in ["🎮 ሰሌዳ ምረጥ", "👤 ፕሮፋይል", "⚙️ Admin Settings", "🎫 የያዝኳቸው ቁጥሮች"]: return
+@bot.message_handler(content_types=['photo'])
+def handle_group_receipts(message):
+    # 1. ከግሩፕ ውጭ ወይም Private ከሆነ ዝም ይላል
+    if message.chat.id != GROUP_ID: 
+        return
+
+    # 2. የተጫዋቹን መረጃ መመዝገብ (በኋላ ስም እንዳይጠየቅ)
+    uid = str(message.from_user.id)
+    user_name = message.from_user.first_name
     
-    bot.send_message(uid, "⏳ <b>ደረሰኝዎ ደርሶኛል...</b>\nእባክዎ እስኪረጋገጥ ይጠብቁ። 🙏")
+    # ተጠቃሚው አዲስ ከሆነ ወይም ስሙ ከተቀየረ ዳታቤዙን ማደስ
+    if uid not in data["users"]:
+        data["users"][uid] = {"name": user_name, "wallet": 0}
+    else:
+        # ስሙን ሁልጊዜ ማዘመን (ለጥንቃቄ)
+        data["users"][uid]["name"] = user_name
     
-    # በተኖቹን ማስተካከያ
+    save_data()
+    
+    mid = message.message_id # ለወደፊት Reply ለማድረግ
+
+    # 3. ለአድሚኑ ደረሰኙን በተን ጨምሮ መላክ
     markup = types.InlineKeyboardMarkup()
-    btn_approve = types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"approve_{uid}_{message.message_id}")
-    btn_reject = types.InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"decline_{uid}_{message.message_id}")
+    # callback_data ላይ የተጠቃሚውን ID እና የመልዕክቱን ID እንልካለን
+    btn_approve = types.InlineKeyboardButton("✅ አፅድቅ", callback_data=f"app_{uid}_{mid}")
+    btn_reject = types.InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"rej_{uid}_{mid}")
     markup.add(btn_approve, btn_reject)
     
-    cap = f"📩 <b>አዲስ ደረሰኝ</b>\n👤 <b>ከ፦</b> {message.from_user.first_name}\n🆔 <b>ID፦</b> <code>{uid}</code>"
+    cap = (f"📩 <b>አዲስ ደረሰኝ (ከግሩፕ)</b>\n"
+           f"━━━━━━━━━━━━━\n"
+           f"👤 <b>ተጫዋች፦</b> {user_name}\n"
+           f"🆔 <b>ID፦</b> <code>{uid}</code>")
+
+    # ለአድሚኖች በግል (Private) መላክ
     for adm in ADMIN_IDS:
         try:
-            if message.photo: 
-                bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup)
-            else: 
-                bot.send_message(adm, f"{cap}\n📝 <b>ዝርዝር፦</b>\n<code>{message.text}</code>", reply_markup=markup)
-        except: pass
+            bot.send_photo(adm, message.photo[-1].file_id, caption=cap, reply_markup=markup, parse_mode="HTML")
+        except: 
+            pass
 
 # ይህ ክፍል "ሰሌዳ አስተካክል" ሲነካ መልስ እንዲሰጥ ያደርጋል
 @bot.callback_query_handler(func=lambda call: call.data in ["admin_manage", "manage_boards"] and call.from_user.id in ADMIN_IDS)
@@ -346,46 +366,45 @@ def callback_listener(call):
     is_admin = call.from_user.id in ADMIN_IDS
     uid = str(call.from_user.id)
     
-    # 1. አድሚኑ ማፅደቂያ ሲነካ
-    if call.data.startswith('approve_') and is_admin:
-        target = call.data.split('_')
-        m = bot.send_message(call.from_user.id, f"💵 ለ ID {target} የሚጨመረውን ብር ይጻፉ፦")
-        bot.register_next_step_handler(m, finalize_app, target)
+    # 1. አድሚኑ ማፅደቂያ ሲነካ (የመጣው ከ handle_receipts ነው)
+    if call.data.startswith('app_') and is_admin:
+        # data format: app_{target_uid}_{message_id}
+        _, target_uid, mid = call.data.split('_')
+        
+        # ለአድሚኑ በ DM ብር እንዲጽፍ መጠየቅ
+        m = bot.send_message(call.from_user.id, f"💵 ለተጫዋች (ID: {target_uid}) የሚጨመር ብር ይጻፉ፦")
+        # በቀጣይ ደረጃ ብሩን፣ የተጫዋቹን ID እና የደረሰኙን ID ይዞ ይሄዳል
+        bot.register_next_step_handler(m, finalize_app, target_uid, mid)
 
     # 2. ውድቅ ማድረጊያ (Decline)
-    elif call.data.startswith('decline_') and is_admin:
-        target = call.data.split('_')
+    elif call.data.startswith('rej_') and is_admin:
+        _, target_uid, mid = call.data.split('_')
+        
         bot.edit_message_caption("❌ ደረሰኙ ውድቅ ተደርጓል", call.message.chat.id, call.message.message_id, reply_markup=None)
         m = bot.send_message(call.from_user.id, "❌ ውድቅ የተደረገበትን ምክንያት ይጻፉ፦")
-        bot.register_next_step_handler(m, finalize_dec, target)
+        bot.register_next_step_handler(m, finalize_dec, target_uid, mid)
 
-    # 3. ከብዙ ሰሌዳዎች አንዱን ሲመርጡ (u_select_)
+    # 3. ተጫዋቹ ግሩፕ ላይ ሰሌዳ ሲመርጥ (u_select_)
     elif call.data.startswith('u_select_'):
-        parts = call.data.split('_')
-        target_id = parts
-        bid = parts
+        # format: u_select_{target_uid}_{bid}
+        _, _, target_id, bid = call.data.split('_')
         
         if uid != target_id:
-            bot.answer_callback_query(call.id, "⚠️ ይህ የእርስዎ ምርጫ አይደለም!", show_alert=True)
-            return
+            return bot.answer_callback_query(call.id, "⚠️ ይህ የእርስዎ ምርጫ አይደለም!", show_alert=True)
             
-        markup = generate_picker_markup(uid, bid)
-        text = (f"🎰 <b>ሰሌዳ {bid} ተመርጧል!</b>\n"
-                f"💰 <b>ቀሪ ሂሳብ፦</b> {data['users'][uid]['wallet']} ብር\n"
-                f"እባክዎ ቁጥር ይምረጡ፦")
-        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup)
+        # የተዘረገፉ በተኖችን (Picker) ማምጣት
+        show_picker_in_group(call.message, target_id, bid)
 
-    # 4. ዝርግፍ ቁጥሮች ላይ ምርጫ ሲያደርጉ (p_)
-    elif call.data.startswith('p_'):
-        parts = call.data.split('_')
-        target_id = parts
-        bid = parts
-        num = parts
+    # 4. ተጫዋቹ ቁጥር ሲመርጥ (pck_)
+    elif call.data.startswith('pck_'):
+        # format: pck_{target_uid}_{bid}_{num}
+        _, target_id, bid, num = call.data.split('_')
         
         if uid != target_id:
-            bot.answer_callback_query(call.id, "⚠️ ይህ የእርስዎ ምርጫ አይደለም!", show_alert=True)
-            return
+            return bot.answer_callback_query(call.id, "⚠️ የሌላ ሰው ምርጫ ነው!", show_alert=True)
             
+        handle_number_pick(call, target_id, bid, num)
+
         # ወደ ዋናው የክፍያ ፈንክሽን መላክ (finalize_reg_inline ጋር ተመሳሳይ ስራ ይሰራል)
         call.data = f"pick_{bid}_{num}"
         finalize_reg_inline(call, bid, num)
