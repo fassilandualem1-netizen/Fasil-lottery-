@@ -153,12 +153,6 @@ def execute_reset(message):
     except: bot.send_message(message.chat.id, "❌ ስህተት! (ሰው-ዋጋ-ሽልማት)")
 
 if __name__ == "__main__":
-    # ለጊዜው ይህንን ጨምር (አንድ ጊዜ Deploy ካደረግክ በኋላ መልሰህ ብታጠፋው ይሻላል)
-    save_data()
-    
-    keep_alive()
-    # ... ሌላው የ bot.polling ኮድ ይቀጥላል
-    bot.remove_webhook()
-    while True:
-        try: bot.polling(none_stop=True, interval=1, timeout=20)
-        except: time.sleep(5)
+    # keep_alive()  <-- ይህቺን መስመር አጥፋት ወይም ከፊት ለፊቷ # አድርግባት
+    update_group_board()
+    bot.infinity_polling()
