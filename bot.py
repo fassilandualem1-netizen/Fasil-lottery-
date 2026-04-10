@@ -19,7 +19,7 @@ def keep_alive():
     t.start()
 
 # --- 2. ቦት እና ዳታቤዝ መረጃዎች ---
-TOKEN = "8721334129:AAFF0Irx3Pa7add9rnMcm855Xsg2G3zMzFM"
+TOKEN = "8757888085:AAG2Gpgdyu_R_TOEtt3f_JU0F-xjmCnSPgc"
 MY_ID = 8488592165          
 GROUP_ID = -1003749311489
 ADMIN_IDS = [MY_ID, 7072611117]
