@@ -173,7 +173,8 @@ def execute_reset(message):
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ ስህተት! እባክዎ እንዲህ ይጻፉ፦\n`25-30-ሽልማት` (መሃል ላይ ሰረዝ ብቻ ይጠቀሙ)")
 
-if __name__ == "__main__":
-    # keep_alive()  <-- ይህቺን መስመር አጥፋት ወይም ከፊት ለፊቷ # አድርግባት
-    update_group_board()
-    bot.infinity_polling()
+import telebot
+TOKEN = "8721334129:AAFF0Irx3Pa7add9rnMcm855Xsg2G3zMzFM"
+bot = telebot.TeleBot(TOKEN)
+bot.remove_webhook() # የቆየውን ያጸዳል
+print("Webhook removed and sessions cleared!")
