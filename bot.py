@@ -146,10 +146,21 @@ def send_picker(u_id, b_id, edit=False, m_id=None):
     if edit: bot.edit_message_text(text, u_id, m_id, reply_markup=markup)
     else: bot.send_message(u_id, text, reply_markup=markup)
 
-# --- 5. ቦቱን ማስነሻ ---
 if __name__ == "__main__":
-    load_data()
+    # ዌብሳይቱን እንዲሰራ ማድረግ
     keep_alive()
-    bot.delete_webhook(drop_pending_updates=True)
-    print("🚀 Fasil Lotto Flow is Running...")
-    bot.infinity_polling(skip_pending_updates=True)
+    
+    # ቦቱ ሲነሳ የቆዩ ሜሴጆችን በሙሉ እንዲዘል (Drop pending updates)
+    try:
+        bot.delete_webhook(drop_pending_updates=True)
+        print("✅ የቆዩ ሜሴጆች ተሰርዘዋል!")
+    except:
+        pass
+
+    # ቦቱን ማስጀመር
+    while True:
+        try:
+            bot.polling(none_stop=True, interval=1, timeout=20)
+        except Exception as e:
+            print(f"❌ ስህተት ተፈጥሯል፦ {e}")
+            time.sleep(5)
