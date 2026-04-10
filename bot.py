@@ -102,59 +102,42 @@ def update_group_board(b_id):
     current_shift = data.get("current_shift", "me")
     active_pay = PAYMENTS[current_shift]
     
-    # 🎨 ራስጌ (Header)
+    # 🎨 ዲዛይን (Design)
     text = "🇪🇹 🏟️ <b>ፋሲል እና ዳመነ ዲጂታል ዕጣ!</b> 🏟️ 🇪🇹\n"
     text += f"              <b>በ {board['price']} ብር</b>\n"
-    text += "             👇👇👇👇👇\n"
-    
-    prizes = board['prize'].split(',')
-    labels = ["1ኛ🟢", "2ኛ🟡", "3ኛ🔴"]
-    for i, p in enumerate(prizes):
-        if i < 3: text += f"             {labels[i]} {p.strip()}\n"
-
-    text += "\n☎️⏰⏰ ለውድ 🏟️ ፋሲል እና ዳመነ ዲጂታል ዕጣ! 🏟️ ቤተሰብ\n"
-    text += "<b>መልካም ቀን🏆 መልካም ጤና🏆 መልካም እድል።</b>\n"
-    text += "<b>USE IT OR LOSE IT</b>\n"
     text += "━━━━━━━━━━━━━━━━━━━━━\n"
 
-                # 🎫 የቁጥሮች ዝርዝር (ስሙ Bold, Italic እና Code ሆኖ እንዲታይ)
     board_slots = board["slots"]
     for i in range(1, board["max"] + 1):
         n = str(i)
         if n in board_slots:
-            # <b><i><code> ስሙን ይበልጥ ያጎላዋል
-            text += f"<b>{i}👉</b> <b><i><code>{board_slots[n]}</code></i></b> ✅🏆🙏\n\n"
+            text += f"<b>{i}👉</b> <b><i><code>{board_slots[n]}</code></i></b> ✅🏆🙏\n"
         else:
-            text += f"<b>{i}👉</b> @@@@ ✅🏆🙏\n\n"
+            text += f"<b>{i}👉</b> @@@@ ✅🏆🙏\n"
             
     text += "━━━━━━━━━━━━━━━━━━━━━\n"
-    text += "🏟️ <b>ፋሲል እና ዳመነ ዲጂታል ዕጣ!</b> 🏟️\n"
-    text += "<b>ስልክ ደውሎ ለማግኘት ከፈለጉ፦</b>\n"
-    text += "         👇👇👇\n"
-    text += "      👉 <code>0973416038</code>\n\n"
-    
-    text += "      <b>ገቢ ማስገቢያ አማራጮች</b>\n"
-    text += "         👇👇👇👇👇\n"
     text += f"👉 <b>Telebirr:</b> <code>{active_pay['tele']}</code>\n"
     text += f"👉 <b>CBE:</b> <code>{active_pay['cbe']}</code>\n"
-    text += f"\n🤖 <b>ለመጫወት እዚህ ይጫኑ፦</b> @{bot.get_me().username}"
 
-        # --- ግሩፕ ላይ መልዕክቱን ማስተካከል (Edit) ---
+    # --- ወሳኙ ክፍል፦ Edit ወይስ New Send? ---
     try:
         msg_id = data.get("pinned_msgs", {}).get(b_id)
         if msg_id:
+            # የድሮውን መልዕክት ለማደስ (Edit) ይሞክራል
             bot.edit_message_text(text, GROUP_ID, msg_id, parse_mode="HTML")
         else:
+            # መልዕክቱ ከሌለ አዲስ ይልካል
             m = bot.send_message(GROUP_ID, text, parse_mode="HTML")
-            if "pinned_msgs" not in data: data["pinned_msgs"] = {}
             data["pinned_msgs"][b_id] = m.message_id
+            bot.pin_chat_message(GROUP_ID, m.message_id) # ፒን ያደርገዋል
             save_data()
     except Exception as e:
-        print(f"Error: {e}")
+        # ስህተት ከመጣ (ለምሳሌ መልዕክቱ ከተሰረዘ) አዲስ ይልካል
         m = bot.send_message(GROUP_ID, text, parse_mode="HTML")
-        if "pinned_msgs" not in data: data["pinned_msgs"] = {}
         data["pinned_msgs"][b_id] = m.message_id
+        bot.pin_chat_message(GROUP_ID, m.message_id)
         save_data()
+
          
 # --- 5. ዋና ዋና ትዕዛዞች ---
 @bot.message_handler(commands=['start'])
@@ -403,54 +386,37 @@ def start_cash_reg(call):
 def process_cash_reg(message):
     try:
         text = message.text.strip()
-        # መጀመሪያ በክፍተት ስሙን እና የሰሌዳውን ክፍል ይለያል
-        if ' ' not in text:
-            bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05 አበበ")
-            return
-            
-        board_info, name = text.split(' ', 1)
-        
-        if '-' not in board_info:
-            bot.send_message(message.chat.id, "❌ ስህተት! በሰሌዳ እና ቁጥር መሀል ሰረዝ (-) ያድርጉ።")
-            return
-            
+        parts = text.split(' ', 1)
+        board_info, name = parts, parts
         bid, num = board_info.split('-', 1)
         
+        bid, num = str(bid), str(int(num)) # ቁጥሩን ወደ 1, 2, 3.. ይቀይረዋል
+        
         if bid in data["boards"]:
-            max_val = data["boards"][bid]["max"]
-            if not num.isdigit() or int(num) > max_val or int(num) < 1:
-                bot.send_message(message.chat.id, f"❌ ስህተት! በሰሌዳ {bid} ላይ ያሉት ቁጥሮች ከ1-{max_val} ብቻ ናቸው።")
-                return
-
-            data["boards"][bid]["slots"][num] = name[:15]
-            save_data()
-            update_group_board(bid)
+            data["boards"][bid]["slots"][num] = name[:15] # ስሙን ይመዘግባል
+            save_data() # ሬዲስ ላይ ሴቭ ያደርጋል
+            update_group_board(bid) # 👈 ግሩፕ ላይ ያለውን ሰሌዳ ወዲያው ያስተካክላል
             bot.send_message(message.chat.id, f"✅ ሰሌዳ {bid} ቁጥር {num} ለ {name} ተመዝግቧል!")
-        else:
-            bot.send_message(message.chat.id, f"❌ ሰሌዳ {bid} አልተገኘም!")
-    except:
-        bot.send_message(message.chat.id, "❌ ሲስተም ስህተት! አጻጻፍ፦ 1-05 አበበ")
-
-def process_admin_delete(message):
-    try:
-        text = message.text.strip()
-        if '-' not in text:
-            bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05")
-            return
-            
-        bid, num = text.split('-', 1)
-        if bid in data["boards"]:
-            if num in data["boards"][bid]["slots"]:
-                del data["boards"][bid]["slots"][num]
-                save_data()
-                update_group_board(bid)
-                bot.send_message(message.chat.id, f"🗑 ሰሌዳ {bid} ቁጥር {num} ተሰርዟል!")
-            else:
-                bot.send_message(message.chat.id, "❌ ይህ ቁጥር ገና አልተመዘገበም!")
         else:
             bot.send_message(message.chat.id, "❌ ሰሌዳው አልተገኘም!")
     except:
+        bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05 አበበ")
+
+def process_admin_delete(message):
+    try:
+        bid, num = message.text.split('-', 1)
+        bid, num = str(bid), str(int(num))
+        
+        if bid in data["boards"] and num in data["boards"][bid]["slots"]:
+            del data["boards"][bid]["slots"][num] # ቁጥሩን ይሰርዛል
+            save_data()
+            update_group_board(bid) # 👈 ግሩፕ ላይ ያለውን ሰሌዳ ወዲያው ያስተካክላል
+            bot.send_message(message.chat.id, f"🗑 ሰሌዳ {bid} ቁጥር {num} ተሰርዟል!")
+        else:
+            bot.send_message(message.chat.id, "❌ ቁጥሩ አልተገኘም!")
+    except:
         bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05")
+
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_delete")
