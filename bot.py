@@ -129,55 +129,75 @@ def callback_listener(call):
         markup.add(types.InlineKeyboardButton("💵 በካሽ መዝግብ", callback_data="admin_cash"),
                    types.InlineKeyboardButton("🗑 ቁጥር ሰርዝ", callback_data="admin_delete"))
         for bid in data["boards"]:
-            markup.add(types.InlineKeyboardButton(f"⚙️ ሰሌዳ {bid} አስተካክል", callback_data=f"edit_{bid}"))
-        bot.edit_message_text("🛠 <b>ማስተካከያ ይምረጡ፦</b>", call.message.chat.id, call.message.message_id, reply_markup=markup)
+            # --- ሰሌዳዎችን ለማስተካከል የሚያገለግል ኮድ ብቻ ---
 
-    elif d.startswith('edit_') and is_admin:
-        bid = d.split('_')
-        b = data["boards"][bid]
-        markup = types.InlineKeyboardMarkup(row_width=2)
-        status = "🟢 ክፍት" if b['active'] else "🔴 ዝግ"
-        markup.add(types.InlineKeyboardButton(status, callback_data=f"toggle_{bid}"))
-        markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_manage"))
-        bot.edit_message_text(f"📊 <b>ሰሌዳ {bid}</b>\nዋጋ፦ {b['price']} ብር\nሽልማት፦ {b['prize']}", call.message.chat.id, call.message.message_id, reply_markup=markup)
+@bot.callback_query_handler(func=lambda call: call.data == "admin_manage" and call.from_user.id in ADMIN_IDS)
+def manage_boards_menu(call):
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for bid in data["boards"]:
+        status = "🟢" if data["boards"][bid]["active"] else "🔴"
+        btn_text = f"⚙️ ሰሌዳ {bid} {status} (ብር {data['boards'][bid]['price']})"
+        markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"setup_{bid}"))
+    
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_panel_back"))
+    bot.edit_message_text("🛠 <b>ለማስተካከል ሰሌዳ ይምረጡ፦</b>", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
-    elif d == "admin_reset" and is_admin:
-        markup = types.InlineKeyboardMarkup()
-        for bid in data["boards"]:
-            markup.add(types.InlineKeyboardButton(f"Reset ሰሌዳ {bid}", callback_data=f"doreset_{bid}"))
-        bot.edit_message_text("🗑 <b>የትኛው ሰሌዳ ይጽዳ?</b>", call.message.chat.id, call.message.message_id, reply_markup=markup)
+@bot.callback_query_handler(func=lambda call: call.data.startswith('setup_') and call.from_user.id in ADMIN_IDS)
+def setup_specific_board(call):
+    bid = call.data.split('_')
+    b = data["boards"][bid]
+    
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    # On/Off Button
+    status_text = "🔴 ዝጋ (OFF)" if b['active'] else "🟢 ክፈት (ON)"
+    markup.add(types.InlineKeyboardButton(status_text, callback_data=f"switch_{bid}"))
+    
+    # Price and Prize Buttons
+    markup.add(
+        types.InlineKeyboardButton("💰 ዋጋ ቀይር", callback_data=f"change_price_{bid}"),
+        types.InlineKeyboardButton("🎁 ሽልማት ቀይር", callback_data=f"change_prize_{bid}")
+    )
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_manage"))
+    
+    msg = (f"📊 <b>የሰሌዳ {bid} ማስተካከያ</b>\n\n"
+           f"🔘 <b>ሁኔታ፦</b> {'ክፍት' if b['active'] else 'ዝግ'}\n"
+           f"💵 <b>ዋጋ፦</b> {b['price']} ብር\n"
+           f"🏆 <b>ሽልማት፦</b> {b['prize']}")
+    
+    bot.edit_message_text(msg, call.message.chat.id, call.message.message_id, reply_markup=markup)
 
-    elif d.startswith('doreset_') and is_admin:
-        bid = d.split('_')
-        data["boards"][bid]["slots"] = {}
-        data["pinned_msgs"][bid] = None
-        save_data()
-        update_group_board(bid)
-        bot.answer_callback_query(call.id, "ሰሌዳው ጸድቷል!", show_alert=True)
+@bot.callback_query_handler(func=lambda call: call.data.startswith('switch_') and call.from_user.id in ADMIN_IDS)
+def toggle_board_status(call):
+    bid = call.data.split('_')
+    data["boards"][bid]["active"] = not data["boards"][bid]["active"]
+    save_data()
+    bot.answer_callback_query(call.id, f"ሰሌዳ {bid} ተቀይሯል!")
+    setup_specific_board(call) # ገጹን እንዲያድሰው
 
-    elif d == "admin_cash" and is_admin:
-        m = bot.send_message(call.from_user.id, "📝 <b>በካሽ ለመመዝገብ፦</b>\nሰሌዳ-ቁጥር ስም ይጻፉ\nምሳሌ፦ 1-05 አበበ")
-        bot.register_next_step_handler(m, process_cash)
+@bot.callback_query_handler(func=lambda call: (call.data.startswith('change_price_') or call.data.startswith('change_prize_')) and call.from_user.id in ADMIN_IDS)
+def request_new_value(call):
+    parts = call.data.split('_')
+    action = parts # price ወይም prize
+    bid = parts
+    
+    label = "አዲስ ዋጋ (በቁጥር)" if action == "price" else "አዲስ የሽልማት ዝርዝር"
+    m = bot.send_message(call.from_user.id, f"📝 ለሰሌዳ {bid} {label} ይጻፉ፦")
+    bot.register_next_step_handler(m, update_board_setting, bid, action)
 
-    elif d == "admin_delete" and is_admin:
-        m = bot.send_message(call.from_user.id, "🗑 <b>ቁጥር ለመሰረዝ፦</b>\nሰሌዳ-ቁጥር ይጻፉ\nምሳሌ፦ 1-05")
-        bot.register_next_step_handler(m, process_delete)
-
-    elif d == "lookup_winner" and is_admin:
-        m = bot.send_message(call.from_user.id, "🔍 አሸናፊ ፈልግ (ምሳሌ፦ 2-13)")
-        bot.register_next_step_handler(m, process_lookup)
-
-# --- 7. አጋዥ ፈንክሽኖች ---
-def process_cash(message):
+def update_board_setting(message, bid, action):
     try:
-        info, name = message.text.split(' ', 1)
-        bid, num = info.split('-')
-        bid, num = str(bid), str(int(num))
-        data["boards"][bid]["slots"][num] = name[:15]
+        new_val = message.text.strip()
+        if action == "price":
+            data["boards"][bid]["price"] = int(new_val)
+        else:
+            data["boards"][bid]["prize"] = new_val
+            
         save_data()
-        update_group_board(bid) # ግሩፕ ላይ ያለውን ወዲያው ያድሳል
-        bot.send_message(message.chat.id, f"✅ ሰሌዳ {bid} ቁጥር {num} ለ {name} ተመዝግቧል!")
-    except: bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 1-05 አበበ")
+        update_group_board(bid) # ግሩፑ ላይ ያለውን ዲዛይን ወዲያው እንዲቀይር
+        bot.send_message(message.chat.id, f"✅ ሰሌዳ {bid} በትክክል ተስተካክሏል!")
+    except:
+        bot.send_message(message.chat.id, "❌ ስህተት! እባክዎ በትክክል መጻፍዎን ያረጋግጡ።")
+
 
 def process_delete(message):
     try:
