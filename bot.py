@@ -587,12 +587,20 @@ def force_update(message):
     
     
 if __name__ == "__main__":
-    # ለጊዜው ይህንን ጨምር (አንድ ጊዜ Deploy ካደረግክ በኋላ መልሰህ ብታጠፋው ይሻላል)
-    save_data()
-    
+    # ዌብሳይቱን እንዲሰራ ማድረግ
     keep_alive()
-    # ... ሌላው የ bot.polling ኮድ ይቀጥላል
-    bot.remove_webhook()
+    
+    # ቦቱ ሲነሳ የቆዩ ሜሴጆችን በሙሉ እንዲዘል (Drop pending updates)
+    try:
+        bot.delete_webhook(drop_pending_updates=True)
+        print("✅ የቆዩ ሜሴጆች ተሰርዘዋል!")
+    except:
+        pass
+
+    # ቦቱን ማስጀመር
     while True:
-        try: bot.polling(none_stop=True, interval=1, timeout=20)
-        except: time.sleep(5)
+        try:
+            bot.polling(none_stop=True, interval=1, timeout=20)
+        except Exception as e:
+            print(f"❌ ስህተት ተፈጥሯል፦ {e}")
+            time.sleep(5)
