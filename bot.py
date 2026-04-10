@@ -119,14 +119,23 @@ def callback_listener(call):
 # --- 6. ADMIN & LOGIC FUNCTIONS ---
 def process_wallet_add(message, target_id):
     try:
-        amount = int(message.text)
+        # መልዕክቱን ወደ ቁጥር መቀየር
+        amount = int(message.text.strip()) 
         target_id = str(target_id)
-        if target_id not in data["users"]: data["users"][target_id] = {"name": "ተጫዋች", "wallet": 0}
+        
+        if target_id not in data["users"]:
+            data["users"][target_id] = {"name": "ተጫዋች", "wallet": 0}
+            
         data["users"][target_id]["wallet"] += amount
         save_data()
-        bot.send_message(target_id, f"✅ {amount} ብር ተሞልቶልዎታል። ቁጥር ይምረጡ፦", reply_markup=gen_pick_buttons(target_id))
-        bot.send_message(message.chat.id, "✅ ተሞልቷል!")
-    except: bot.send_message(message.chat.id, "❌ ቁጥር ብቻ ይጻፉ!")
+        
+        bot.send_message(message.chat.id, f"✅ ለተጫዋች {amount} ብር ተሞልቷል!")
+        bot.send_message(target_id, f"✅ ሂሳብዎ ጸድቋል! {amount} ብር ተሞልቶልዎታል።\nአሁን ቁጥር ይምረጡ፦", 
+                         reply_markup=gen_pick_buttons(target_id))
+    except ValueError:
+        bot.send_message(message.chat.id, "⚠️ ስህተት! እባክዎ ቁጥር ብቻ ይጻፉ (ምሳሌ: 200)።")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"⚠️ ያልታወቀ ስህተት፦ {e}")
 
 def gen_pick_buttons(uid):
     markup = types.InlineKeyboardMarkup(row_width=5)
@@ -146,11 +155,23 @@ def admin_panel(message):
 
 def execute_reset(message):
     try:
-        parts = message.text.split('-')
-        data["board"].update({"max": int(parts), "price": int(parts), "prize": parts, "slots": {}})
-        save_data(); update_group_board()
-        bot.send_message(message.chat.id, "✅ ሰሌዳው በትክክል ጸድቷል!")
-    except: bot.send_message(message.chat.id, "❌ ስህተት! (ሰው-ዋጋ-ሽልማት)")
+        # ባዶ ቦታዎችን አጽድቶ በሰረዝ መከፋፈል
+        text = message.text.replace(' ', '') # ሁሉንም ባዶ ቦታ ያጠፋል
+        parts = text.split('-')
+        
+        if len(parts) < 3:
+            # ምናልባት ተጫዋቹ ሌላ አይነት ሰረዝ ተጠቅሞ ከሆነ
+            parts = text.split('–') 
+
+        data["board"]["max"] = int(parts)
+        data["board"]["price"] = int(parts)
+        data["board"]["prize"] = parts
+        data["board"]["slots"] = {} # ቁጥሮችን ማጽዳት
+        save_data()
+        update_group_board()
+        bot.send_message(message.chat.id, "✅ ሰሌዳው በትክክል ጸድቶ አዲስ ዙር ተጀምሯል!")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ ስህተት! እባክዎ እንዲህ ይጻፉ፦\n`25-30-ሽልማት` (መሃል ላይ ሰረዝ ብቻ ይጠቀሙ)")
 
 if __name__ == "__main__":
     # keep_alive()  <-- ይህቺን መስመር አጥፋት ወይም ከፊት ለፊቷ # አድርግባት
