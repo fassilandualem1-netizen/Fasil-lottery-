@@ -87,13 +87,17 @@ def welcome(message):
     else:
         bot.send_message(uid, welcome_text, reply_markup=types.ReplyKeyboardRemove())
 
-# --- ቦቱን የማስነሻ ክፍል ---
 if __name__ == "__main__":
     keep_alive()
+    
+    # የቆዩ ሜሴጆችን እንዲዘል (Drop pending updates)
     try:
         bot.delete_webhook(drop_pending_updates=True)
+        print("✅ የቆዩ ሜሴጆች ተሰርዘዋል!")
     except:
         pass
+
+    print("🚀 ቦቱ አሁን ስራ ጀምሯል...")
     
-    print("✅ ቦቱ ስራ ጀምሯል...")
-    bot.infinity_polling(skip_pending_updates=True)
+    # ስህተት የነበረበትን መስመር በዚህ ይተካል
+    bot.infinity_polling() 
