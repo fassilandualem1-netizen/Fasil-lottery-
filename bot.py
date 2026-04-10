@@ -63,19 +63,22 @@ def save_data():
     redis.set("fasil_lotto_db", json.dumps(data))
 
 # --- 4. ግሩፕ ላይ ሰሌዳ የማደሻ ኮድ ---
-def update_group_board(bid):
-    bid = str(bid)
-    board = data["boards"][bid]
-    active_pay = PAYMENTS[data.get("current_shift", "me")]
+def update_group_board(b_id):
+    b_id = str(b_id)
+    board = data["boards"][b_id]
+    current_shift = data.get("current_shift", "me")
+    active_pay = PAYMENTS[current_shift]
     
-    text = f"🇪🇹 🏟️ <b>ፋሲል ዕጣ - ሰሌዳ {bid}</b> 🏟️ 🇪🇹\n"
+    # የሰሌዳው ዲዛይን (የቀድሞው ዲዛይንህ)
+    text = "🇪🇹 🏟️ <b>ፋሲል እና ዳመነ ዲጂታል ዕጣ!</b> 🏟️ 🇪🇹\n"
     text += f"              <b>በ {board['price']} ብር</b>\n"
     text += "━━━━━━━━━━━━━━━━━━━━━\n"
 
+    board_slots = board["slots"]
     for i in range(1, board["max"] + 1):
         n = str(i)
-        if n in board["slots"]:
-            text += f"<b>{i}👉</b> <code>{board['slots'][n]}</code> ✅🏆🙏\n"
+        if n in board_slots:
+            text += f"<b>{i}👉</b> {board_slots[n]} ✅🏆🙏\n"
         else:
             text += f"<b>{i}👉</b> @@@@ ✅🏆🙏\n"
             
@@ -83,18 +86,24 @@ def update_group_board(bid):
     text += f"👉 <b>Telebirr:</b> <code>{active_pay['tele']}</code>\n"
     text += f"👉 <b>CBE:</b> <code>{active_pay['cbe']}</code>\n"
 
+    # --- ዋናው ማስተካከያ እዚህ ጋር ነው ---
+    msg_id = data.get("pinned_msgs", {}).get(b_id)
+    
     try:
-        msg_id = data.get("pinned_msgs", {}).get(bid)
         if msg_id:
+            # የድሮው መልዕክት ካለ በላዩ ላይ አርመው (Edit)
             bot.edit_message_text(text, GROUP_ID, msg_id, parse_mode="HTML")
         else:
+            # የድሮው መልዕክት ከሌለ (ከተሰረዘ) አዲስ ልከህ ፒን አድርግ
             m = bot.send_message(GROUP_ID, text, parse_mode="HTML")
-            data["pinned_msgs"][bid] = m.message_id
+            data["pinned_msgs"][b_id] = m.message_id
             bot.pin_chat_message(GROUP_ID, m.message_id)
             save_data()
-    except:
+    except Exception as e:
+        # መልዕክቱ ካልተገኘ (ለምሳሌ ግሩፑ ላይ ከተሰረዘ) አዲስ ልከህ ፒን አድርግ
         m = bot.send_message(GROUP_ID, text, parse_mode="HTML")
-        data["pinned_msgs"][bid] = m.message_id
+        data["pinned_msgs"][b_id] = m.message_id
+        bot.pin_chat_message(GROUP_ID, m.message_id)
         save_data()
 
 # --- 5. ዋና ዋና ትዕዛዞች ---
@@ -250,6 +259,23 @@ def execute_reset(call):
 
     # 5. ወደ አድሚን ፓናል መመለስ
     admin_panel(call.message)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('do_final_reset_') and call.from_user.id in ADMIN_IDS)
+def execute_reset(call):
+    bid = call.data.split('_')
+    
+    # 1. ዳታውን ብቻ አጽዳ (pinned_msgs IDውን አትንካው!)
+    data["boards"][bid]["slots"] = {}
+    
+    # 2. ሴቭ አድርግ
+    save_data()
+    
+    # 3. ግሩፕ ላይ ያለውን መልዕክት እንዲያርመው ጥራ
+    update_group_board(bid)
+    
+    bot.answer_callback_query(call.id, f"✅ ሰሌዳ {bid} በትክክል ጸድቷል!", show_alert=True)
+    admin_panel(call.message)
+
 
 def process_lookup(message):
     try:
