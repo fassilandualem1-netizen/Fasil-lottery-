@@ -146,21 +146,25 @@ def send_picker(u_id, b_id, edit=False, m_id=None):
     if edit: bot.edit_message_text(text, u_id, m_id, reply_markup=markup)
     else: bot.send_message(u_id, text, reply_markup=markup)
 
-if __name__ == "__main__":
-    # ዌብሳይቱን እንዲሰራ ማድረግ
-    keep_alive()
-    
-    # ቦቱ ሲነሳ የቆዩ ሜሴጆችን በሙሉ እንዲዘል (Drop pending updates)
-    try:
-        bot.delete_webhook(drop_pending_updates=True)
-        print("✅ የቆዩ ሜሴጆች ተሰርዘዋል!")
-    except:
-        pass
+import telebot
+import os
+import time
 
-    # ቦቱን ማስጀመር
-    while True:
-        try:
-            bot.polling(none_stop=True, interval=1, timeout=20)
-        except Exception as e:
-            print(f"❌ ስህተት ተፈጥሯል፦ {e}")
-            time.sleep(5)
+TOKEN = os.environ.get('BOT_TOKEN')
+bot = telebot.TeleBot(TOKEN)
+
+# ዌብሁክን በሃይል ለማጥፋት
+try:
+    bot.remove_webhook()
+    bot.delete_webhook(drop_pending_updates=True)
+    time.sleep(1)
+except:
+    pass
+
+@bot.message_handler(commands=['start'])
+def welcome(message):
+    bot.reply_to(message, "✅ ቦቱ አሁን በሰላም እየሰራ ነው!")
+
+if __name__ == "__main__":
+    print("🚀 ቦቱ እየተነሳ ነው...")
+    bot.polling(none_stop=True)
