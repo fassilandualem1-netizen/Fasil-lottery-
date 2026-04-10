@@ -129,6 +129,7 @@ def callback_listener(call):
         markup.add(types.InlineKeyboardButton("💵 በካሽ መዝግብ", callback_data="admin_cash"),
                    types.InlineKeyboardButton("🗑 ቁጥር ሰርዝ", callback_data="admin_delete"))
         for bid in data["boards"]:
+
             # --- ሰሌዳዎችን ለማስተካከል የሚያገለግል ኮድ ብቻ ---
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_manage" and call.from_user.id in ADMIN_IDS)
@@ -197,6 +198,96 @@ def update_board_setting(message, bid, action):
         bot.send_message(message.chat.id, f"✅ ሰሌዳ {bid} በትክክል ተስተካክሏል!")
     except:
         bot.send_message(message.chat.id, "❌ ስህተት! እባክዎ በትክክል መጻፍዎን ያረጋግጡ።")
+
+
+# --- ጠንካራ የሰሌዳ ማጽጃ (Reset) ኮድ ---
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_reset" and call.from_user.id in ADMIN_IDS)
+def reset_selection_menu(call):
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for bid in data["boards"]:
+        slots_count = len(data["boards"][bid]["slots"])
+        markup.add(types.InlineKeyboardButton(
+            f"🧹 ሰሌዳ {bid} አጽዳ ({slots_count} ቁጥሮች ተይዘዋል)", 
+            callback_data=f"confirm_reset_{bid}"
+        ))
+    
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_manage"))
+    bot.edit_message_text("⚠️ <b>የትኛው ሰሌዳ እንዲጸዳ ይፈልጋሉ?</b>\nያስታውሱ፦ አንዴ ከጸዳ መመለስ አይቻልም!", 
+                          call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('confirm_reset_') and call.from_user.id in ADMIN_IDS)
+def confirm_reset(call):
+    bid = call.data.split('_')
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("✅ አዎ አጽዳ", callback_data=f"do_final_reset_{bid}"),
+        types.InlineKeyboardButton("❌ ይቅር", callback_data="admin_reset")
+    )
+    bot.edit_message_text(f"❓ <b>ሰሌዳ {bid} በእርግጥ ይጥፋ?</b>", 
+                          call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('do_final_reset_') and call.from_user.id in ADMIN_IDS)
+def execute_reset(call):
+    bid = call.data.split('_')
+    
+    # 1. ዳታውን ማጽዳት
+    data["boards"][bid]["slots"] = {}
+    
+    # 2. የድሮውን ፒን ሜሴጅ ማጥፋት (አዲስ እንዲላክ)
+    if "pinned_msgs" in data and bid in data["pinned_msgs"]:
+        data["pinned_msgs"][bid] = None
+    
+    # 3. መረጃውን ሴቭ ማድረግ
+    save_data()
+    
+    # 4. ግሩፕ ላይ አዲስ ባዶ ሰሌዳ መላክ
+    try:
+        update_group_board(bid)
+        bot.answer_callback_query(call.id, f"✅ ሰሌዳ {bid} በትክክል ጸድቷል!", show_alert=True)
+    except Exception as e:
+        bot.answer_callback_query(call.id, "⚠️ ዳታው ጸድቷል ግን ግሩፕ ላይ ማደስ አልተቻለም።")
+
+    # 5. ወደ አድሚን ፓናል መመለስ
+    admin_panel(call.message)
+
+def process_lookup(message):
+    try:
+        # አጻጻፍ፦ 1-05
+        bid, num = message.text.split('-')
+        bid, num = str(bid), str(int(num))
+        
+        # በሰሌዳው ላይ የተመዘገበውን ስም መፈለግ
+        winner_name = data["boards"][bid]["slots"].get(num)
+        
+        if winner_name:
+            # በዳታቤዝ ውስጥ የዚህን ስም ባለቤት User ID መፈለግ
+            winner_id = None
+            for uid, info in data["users"].items():
+                if info["name"] == winner_name:
+                    winner_id = uid
+                    break
+            
+            if winner_id:
+                # የቴሌግራም ሊንክ (Mention) ያለው ውጤት
+                mention = f'<a href="tg://user?id={winner_id}">{winner_name}</a>'
+                res = (f"🏆 <b>አሸናፊ ተገኝቷል!</b>\n\n"
+                       f"👤 <b>ስም፦</b> {mention}\n"
+                       f"🎰 <b>ሰሌዳ፦</b> {bid} | <b>ቁጥር፦</b> {num}\n"
+                       f"🆔 <b>User ID፦</b> <code>{winner_id}</code>\n\n"
+                       f"👆 ስሙን ሲነኩት ወደ አካውንቱ ይወስድዎታል።")
+            else:
+                # በካሽ የተመዘገበ ከሆነ ወይም IDው ካልተገኘ
+                res = (f"🏆 <b>አሸናፊ፦</b> {winner_name}\n"
+                       f"🎰 <b>ሰሌዳ፦</b> {bid} | <b>ቁጥር፦</b> {num}\n"
+                       f"⚠️ <i>ማሳሰቢያ፦ ይህ ተጫዋች በቦቱ በኩል ስላልተመዘገበ ሊንክ የለውም።</i>")
+                
+            bot.send_message(message.chat.id, res, parse_mode="HTML")
+        else: 
+            bot.send_message(message.chat.id, "⚠️ ይህ ቁጥር ገና አልተያዘም!")
+    except Exception as e: 
+        bot.send_message(message.chat.id, "⚠️ ስህተት! (አጻጻፍ፦ 1-05)")
+
 
 
 def process_delete(message):
