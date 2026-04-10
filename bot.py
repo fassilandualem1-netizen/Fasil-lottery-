@@ -4,7 +4,7 @@ import json, time
 from upstash_redis import Redis
 
 # --- 1. CONFIGURATION ---
-TOKEN = "8721334129:AAFF0Irx3Pa7add9rnMcm855Xsg2G3zMzFM"
+TOKEN = "8721334129:AAFpNmNq1PpTQ_SWsj4dye8T3-TXNAZA7Kg"
 MY_ID = 8488592165          
 ASSISTANT_ID = 7072611117   
 GROUP_ID = -1003749311489
