@@ -333,13 +333,30 @@ def process_lookup(message):
         else: bot.send_message(message.chat.id, "⚠️ ቁጥሩ ገና አልተያዘም!")
     except: bot.send_message(message.chat.id, "❌ ስህተት! አጻጻፍ፦ 2-13")
 
+# --- ይህን ክፍል በኮድህ መጨረሻ ላይ ብቻ አስቀምጠው ---
+
 if __name__ == "__main__":
-    # ለጊዜው ይህንን ጨምር (አንድ ጊዜ Deploy ካደረግክ በኋላ መልሰህ ብታጠፋው ይሻላል)
-    save_data()
-    
-    keep_alive()
-    # ... ሌላው የ bot.polling ኮድ ይቀጥላል
-    bot.remove_webhook()
+    # 1. መጀመሪያ ዳታቤዝ መጫኑን እናረጋግጥ
+    try:
+        load_data()
+        print("📁 ዳታቤዝ በተሳካ ሁኔታ ተጭኗል...")
+    except Exception as e:
+        print(f"❌ ዳታቤዝ መጫን አልተቻለም: {e}")
+
+    # 2. ዌብ ሰርቨሩን (Flask) ማስነሳት (ለ 24/7 ስራ)
+    try:
+        keep_alive()
+        print("🌐 ዌብ ሰርቨር ስራ ጀምሯል...")
+    except Exception as e:
+        print(f"⚠️ ዌብ ሰርቨር አልተነሳም: {e}")
+
+    # 3. ቦቱን ማስነሳት (ንፁህ ፖሊንግ)
+    print("🚀 ፋሲል ቦት አሁን በንፁህ ሁኔታ ስራ ጀምሯል!")
     while True:
-        try: bot.polling(none_stop=True, interval=1, timeout=20)
-        except: time.sleep(5)
+        try:
+            # የድሮ "Pending updates" እንዳያጨናንቁት ማጽጃ
+            bot.delete_webhook(drop_pending_updates=True) 
+            bot.polling(none_stop=True, interval=0, timeout=20)
+        except Exception as e:
+            print(f"⚠️ ቦቱ ተቋርጦ ነበር፣ በ5 ሰከንድ ውስጥ ተመልሶ ይነሳል: {e}")
+            time.sleep(5)
