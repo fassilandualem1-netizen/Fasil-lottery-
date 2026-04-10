@@ -1,6 +1,4 @@
 import telebot
-import time
-import telebot
 from telebot import types
 import json
 import os
@@ -24,7 +22,7 @@ def keep_alive():
     t.start()
 
 # --- 2. ቦት መረጃዎች ---
-TOKEN = "8757888085:AAHHv6ne3gDNeO-d8TjX2ag26bQrT53Z28Q"
+TOKEN = "8721334129:AAFF0Irx3Pa7add9rnMcm855Xsg2G3zMzFM"
 MY_ID = 8488592165          
 ASSISTANT_ID = 7072611117   
 GROUP_ID = -1003749311489
@@ -606,15 +604,3 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"❌ ስህተት ተፈጥሯል፦ {e}")
             time.sleep(5)
-
-TOKEN = "8757888085:AAHHv6ne3gDNeO-d8TjX2ag26bQrT53Z28Q"
-bot = telebot.TeleBot(TOKEN)
-
-@bot.message_handler(commands=['test'])
-def test_connection(message):
-    bot.reply_to(message, "🚀 Render እና ቦቱ በትክክል ተገናኝተዋል!")
-
-if __name__ == "__main__":
-    bot.remove_webhook()
-    print("ግንኙነት እየተፈተነ ነው...")
-    bot.polling(none_stop=True)
