@@ -1,7 +1,15 @@
-FROM python:3.9
+# የ Python መሠረት
+FROM python:3.11-slim
+
+# የሥራ ማውጫ መፍጠር
 WORKDIR /app
+
+# አስፈላጊ ፋይሎችን መቅዳት
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# ሙሉውን ኮድ መቅዳት
 COPY . .
-RUN pip install -r requirements.txt
-# Railway ላይ ሰርቨሩ እንዳይዘጋ ይህ መስመር ወሳኝ ነው
-EXPOSE 8080
-CMD ["python", "app.py"]
+
+# ቦቱን ማስጀመር
+CMD ["python", "bot.py"]
