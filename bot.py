@@ -1,6 +1,5 @@
 import os
-TOKEN = os.environ.get
-8721334129:AAFukMOE8qoJPOZAleW7tLxHN8qpxr92IAc
+TOKEN = os.environ.get('BOT_TOKEN')
 import telebot
 from telebot import types
 import json, time, os
