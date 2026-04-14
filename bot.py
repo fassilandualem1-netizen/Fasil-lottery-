@@ -99,35 +99,31 @@ def show_vendors(message):
 def start_command(message):
     try:
         user_id = message.from_user.id
-        uid_str = str(user_id) # ለዳታቤዝ ፍለጋ እንዲመች
+        uid_str = str(user_id) 
         db = load_data() 
 
-        # 1. አድሚን መሆኑን መለየት (ADMIN_IDS ዝርዝር ውስጥ ካለ)
+        # 1. አድሚን መሆኑን መለየት
         if user_id in ADMIN_IDS:
-            return bot.send_message(user_id, "👑 እንኳን ደህና መጡ ጌታዬ (አድሚን)!", 
-                                    reply_markup=kb_admin_main())
+            bot.send_message(user_id, "👑 እንኳን ደህና መጡ ጌታዬ (አድሚን)!", 
+                             reply_markup=kb_admin_main())
+            return
 
-        # 2. ባለሱቅ (Vendor) መሆኑን መለየት (በመዘገብከው ID መሠረት)
-        # እዚህ ጋር 'vendors_list' መሆኑን እርግጠኛ ሁን (ከላይ ምዝገባው ላይ የተጠቀምነው ስም ነው)
+        # 2. ባለሱቅ (Vendor) መሆኑን መለየት
         vendors = db.get("vendors_list", {})
         if uid_str in vendors:
-            v_name = vendors[uid_str]["name"]
-            return bot.send_message(user_id, f"🏬 ሰላም {v_name} (ባለሱቅ)!\nዛሬ ምን ማስተካከል ይፈልጋሉ?", 
-                                    reply_markup=kb_vendor_main())
+            v_name = vendors[uid_str].get("name", "ባለሱቅ")
+            bot.send_message(user_id, f"🏬 ሰላም {v_name} (ባለሱቅ)!\nዛሬ ምን ማስተካከል ይፈልጋሉ?", 
+                             reply_markup=kb_vendor_main())
+            return
 
-        # 3. ደንበኛ (Customer) - ከላይ ያሉት ካልሆኑ እንደ ደንበኛ ይታያል
+        # 3. ደንበኛ (Customer)
         bot.send_message(user_id, "👋 እንኳን ወደ BDF በደህና መጡ! የሚፈልጉትን ሱቅ መርጠው ማዘዝ ይችላሉ።", 
                          reply_markup=kb_customer_main())
-        
-        # አዲስ ደንበኛ ከሆነ መመዝገብ
-        if "users" not in db: db["users"] = {}
-        if uid_str not in db["users"]:
-            db["users"][uid_str] = {"name": message.from_user.first_name, "joined_at": time.time()}
-            save_data(db)
 
     except Exception as e:
-        print(f"❌ Start Error: {e}")
-        bot.send_message(message.chat.id, "⚠️ በሲስተሙ ላይ ትንሽ ችግር አጋጥሟል፣ እባክዎ ጥቂት ቆይተው ይሞክሩ።")
+        print(f"❌ Error in start_command: {e}")
+        bot.send_message(message.chat.id, "⚠️ ችግር አጋጥሟል፣ እባክዎ ደግመው ይሞክሩ።")
+
 
 @bot.message_handler(func=lambda m: m.text == "⚙️ ሲስተም")
 def system_settings(message):
