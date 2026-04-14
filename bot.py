@@ -87,7 +87,7 @@ def process_item_name(message, photo_id):
     msg = bot.send_message(message.chat.id, f"📂 የ '{item_name}' ምድብ (Category) ይምረጡ፦", reply_markup=markup)
     # ማሳሰቢያ፦ እዚህ ጋር callback_handler ስለሚቀበለው register_next_step አያስፈልግም
 
-
+def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
         bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
         return False
@@ -319,12 +319,21 @@ def save_promo(message, promo_code):
     except:
         bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ።")
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_pay_history")
+def view_payments(call):
+    db = load_data()
+    payments = db.get("payment_logs", [])
+    if not payments:
+        return bot.answer_callback_query(call.id, "📅 እስካሁን የተመዘገበ የክፍያ ታሪክ የለም።", show_alert=True)
+    
+    text = "💳 **የክፍያ ታሪክ፦**\n\n"
+    for p in payments[-10:]: # የመጨረሻዎቹን 10 ብቻ ለማሳየት
+        text += f"👤 ሱቅ፦ {p['v_name']}\n💰 መጠን፦ {p['amount']} ETB\n📅 ቀን፦ {p['date']}\n----------\n"
+    
+    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
 
 
 
-
-
-def check_admin(message):
 
 
 if __name__ == "__main__":
