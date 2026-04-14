@@ -25,12 +25,35 @@ def run_flask():
 
 # --- 2. ዳታቤዝ ተግባራት ---
 def load_data():
-    raw = r.get("beu_delivery_db")
-    if raw: return json.loads(raw)
-    return {"vendors": {}, "orders": {}, "items": {}, "pending": {}, "users": {}, "total_profit": 0, "settings": {"base_delivery": 50}}
+    try:
+        # 'r' ሳይሆን 'redis' መሆን አለበት
+        raw = redis.get("beu_delivery_db")
+        if raw: 
+            return json.loads(raw)
+        
+        # ዳታቤዙ ባዶ ከሆነ መጀመሪያ የሚፈጠሩ ነገሮች
+        initial_data = {
+            "vendors": {}, 
+            "vendors_list": {}, # ይህ ለባለሱቆች መለያ ያስፈልጋል
+            "orders": {}, 
+            "items": {}, 
+            "pending": {}, 
+            "users": {}, 
+            "total_profit": 0, 
+            "settings": {"base_delivery": 50}
+        }
+        return initial_data
+    except Exception as e:
+        print(f"❌ Database Load Error: {e}")
+        return {"vendors": {}, "vendors_list": {}, "orders": {}, "items": {}, "pending": {}, "users": {}, "total_profit": 0, "settings": {"base_delivery": 50}}
 
 def save_data(data):
-    r.set("beu_delivery_db", json.dumps(data))
+    try:
+        # 'r' ሳይሆን 'redis' መሆን አለበት
+        redis.set("beu_delivery_db", json.dumps(data))
+    except Exception as e:
+        print(f"❌ Database Save Error: {e}")
+
 
 def calculate_distance(lat1, lon1, lat2, lon2):
     R = 6371000 
