@@ -354,28 +354,47 @@ def vendor_sales_report(message):
     bot.send_message(message.chat.id, report_text, reply_markup=markup, parse_mode="Markdown")
 
 
-@bot.callback_query_handler(func=lambda call: call.data == "admin_assign_v")
-def start_assign_vendor(call):
-    msg = bot.send_message(call.message.chat.id, "👤 የባለሱቁን የቴሌግራም ID ያስገቡ፦\n(ከ @userinfobot ማግኘት ይቻላል)")
-    bot.register_next_step_handler(msg, save_vendor_id)
+# --- አዲሱ የሱቅ መመዝገቢያ (መስመር 522 አካባቢ መተካት ያለበት) ---
 
-def save_vendor_id(message):
-    v_id = message.text
-    msg = bot.send_message(message.chat.id, f"🏬 የሱቁን ስም ያስገቡ፦")
-    bot.register_next_step_handler(msg, finalize_v_assignment, v_id)
+@bot.callback_query_handler(func=lambda call: call.data == "admin_add_v")
+def start_add_v(call):
+    msg = bot.send_message(call.message.chat.id, "📝 ለመመዝገብ የፈለጉትን የሱቅ ስም ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_vendor_name_new)
 
-def finalize_v_assignment(message, v_id):
+def process_vendor_name_new(message):
     v_name = message.text
+    msg = bot.send_message(message.chat.id, f"🔢 የ '{v_name}' ባለቤት የቴሌግራም ID ቁጥር ያስገቡ፦\n(IDውን ለማግኘት @userinfobot መጠቀም ይቻላል)")
+    bot.register_next_step_handler(msg, process_vendor_id_new, v_name)
+
+def process_vendor_id_new(message, v_name):
+    v_id = message.text.strip()
+    if not v_id.isdigit():
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ ID ቁጥር ብቻ መሆን አለበት። እባክዎ እንደገና ያስገቡ፦")
+        bot.register_next_step_handler(msg, process_vendor_id_new, v_name)
+        return
+
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1, one_time_keyboard=True)
+    markup.add(types.KeyboardButton("📍 የሱቁን ሎኬሽን ላክ", request_location=True))
+    msg = bot.send_message(message.chat.id, f"📍 ለ '{v_name}' ሎኬሽን ይላኩ (ወይም ዝለል/skip ይበሉ)፦", reply_markup=markup)
+    bot.register_next_step_handler(msg, finalize_vendor_reg_new, v_name, v_id)
+
+def finalize_vendor_reg_new(message, v_name, v_id):
     db = load_data()
-    
+    lat, lon = 0, 0
+    if message.location:
+        lat, lon = message.location.latitude, message.location.longitude
+
     if "vendors_list" not in db: db["vendors_list"] = {}
     
-    # የሰውየውን ID ከሱቁ ስም ጋር ማያያዝ
-    db["vendors_list"][str(v_id)] = {"name": v_name}
+    db["vendors_list"][str(v_id)] = {
+        "name": v_name,
+        "lat": lat,
+        "lon": lon,
+        "shop_status": "Open 🟢",
+        "balance": 0
+    }
     save_data(db)
-    
-    bot.send_message(message.chat.id, f"✅ ተጠናቋል! ID `{v_id}` አሁን የ '{v_name}' ባለሱቅ ሆኗል።")
-
+    bot.send_message(message.chat.id, f"✅ ሱቅ '{v_name}' በ ID {v_id} ተመዝግቧል!", reply_markup=kb_admin_main())
 
 
 def notify_vendor_new_order(order_id, order_data):
