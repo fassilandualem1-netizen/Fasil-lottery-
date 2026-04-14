@@ -24,9 +24,9 @@ def run_flask():
     app.run(host='0.0.0.0', port=PORT)
 
 # --- 2. ዳታቤዝ ተግባራት ---
+
 def load_data():
     try:
-        # 'r' ሳይሆን 'redis' መሆን አለበት
         raw = redis.get("beu_delivery_db")
         if raw: 
             return json.loads(raw)
@@ -34,25 +34,45 @@ def load_data():
         # ዳታቤዙ ባዶ ከሆነ መጀመሪያ የሚፈጠሩ ነገሮች
         initial_data = {
             "vendors": {}, 
-            "vendors_list": {}, # ይህ ለባለሱቆች መለያ ያስፈልጋል
+            "vendors_list": {}, 
             "orders": {}, 
             "items": {}, 
             "pending": {}, 
             "users": {}, 
+            "categories": [], # <--- እዚህ ጋር ተጨምሯል
             "total_profit": 0, 
             "settings": {"base_delivery": 50}
         }
         return initial_data
     except Exception as e:
         print(f"❌ Database Load Error: {e}")
-        return {"vendors": {}, "vendors_list": {}, "orders": {}, "items": {}, "pending": {}, "users": {}, "total_profit": 0, "settings": {"base_delivery": 50}}
+        # Error ቢፈጠር እንኳን ባዶ categories እንዲኖር ያደርጋል
+        return {
+            "vendors": {}, "vendors_list": {}, "orders": {}, 
+            "items": {}, "pending": {}, "users": {}, 
+            "categories": [], # <--- እዚህም መጨመር አለበት
+            "total_profit": 0, "settings": {"base_delivery": 50}
+        }
 
-def save_data(data):
-    try:
-        # 'r' ሳይሆን 'redis' መሆን አለበት
-        redis.set("beu_delivery_db", json.dumps(data))
-    except Exception as e:
-        print(f"❌ Database Save Error: {e}")
+def save_category(message):
+    db = load_data()
+    new_cat = message.text.strip()
+    
+    # categories የሚል ቁልፍ መኖሩን በድጋሚ ቼክ ማድረግ (ለጥንቃቄ)
+    if "categories" not in db:
+        db["categories"] = []
+    
+    if new_cat not in db["categories"]:
+        db["categories"].append(new_cat)
+        save_data(db)
+        
+        # ምድቡ ከተመዘገበ በኋላ ወደ አድሚን ዳሽቦርድ መመለሻ በተን
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🔙 ወደ ዳሽቦርድ ተመለስ", callback_data="admin_main"))
+        
+        bot.send_message(message.chat.id, f"✅ ምድብ '{new_cat}' በሚገባ ተጨምሯል!", reply_markup=markup)
+    else:
+        bot.send_message(message.chat.id, "⚠️ ይህ ምድብ ቀድሞውኑ ተመዝግቧል።")
 
 
 def calculate_distance(lat1, lon1, lat2, lon2):
