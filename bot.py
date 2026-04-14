@@ -169,7 +169,19 @@ def get_admin_dashboard():
     markup.add(report_label)
     markup.add(btn_stats)
     
-    return markup
+    return ማርቁፕ
+
+@bot.message_handler(commands=['start'])
+def start_command(message):
+    # ማንኛውንም የቆየ "ቁጥር አስገባ" ጥያቄ ያጠፋል
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+    
+    welcome_text = (
+        f"ሰላም {message.from_user.first_name} 👋\n"
+        "እንኳን ወደ BDF የዴሊቨሪ ቦት በደህና መጡ።\n\n"
+        "እባክዎ ከታች ካሉት አማራጮች አንዱን ይምረጡ፦"
+    )
+    bot.send_message(message.chat.id, welcome_text, reply_markup=get_main_menu())
 
 # # አድሚኑ /admin ሲል የሚመጣ መልዕክት
 @bot.message_handler(commands=['admin'])
