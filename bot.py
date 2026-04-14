@@ -62,26 +62,51 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
-# 1. የአድሚን ዋና ሜኑ (Reply Keyboard - ከታች የሚቀመጥ)
+# 1. የአድሚን ኢንላይን (Inline) ዳሽቦርድ - ለዴሊቨሪ ስራ ብቻ
+def admin_delivery_dashboard():
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    btns = [
+        types.InlineKeyboardButton("📊 ጠቅላላ ሪፖርት", callback_data="admin_stats"),
+        types.InlineKeyboardButton("🏢 አዳዲስ ሱቆች", callback_data="admin_list_v"),
+        types.InlineKeyboardButton("🛵 የደላላዎች ሁኔታ", callback_data="admin_riders"),
+        types.InlineKeyboardButton("💰 የኮሚሽን ተመን", callback_data="admin_change_com"),
+        types.InlineKeyboardButton("🎁 የማስተዋወቂያ ኮድ", callback_data="admin_promo"),
+        types.InlineKeyboardButton("📦 በመጠባበቅ ላይ ያሉ", callback_data="admin_pending_items"),
+        types.InlineKeyboardButton("🏆 ምርጥ ሻጮች", callback_data="admin_top_vendors"),
+        types.InlineKeyboardButton("🧹 ዳታቤዝ አጽዳ", callback_data="admin_clear_db"),
+        types.InlineKeyboardButton("💵 የክፍያ ታሪክ", callback_data="admin_pay_history"),
+        types.InlineKeyboardButton("🗑 ትዕዛዝ ሰርዝ", callback_data="admin_cancel_order")
+    ]
+    markup.add(*btns)
+    return markup
+
+# 2. ቋሚ የሪፕላይ (Reply) ኪቦርዶች (ከታች የሚቀመጡ)
 def kb_admin_main():
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     kb.add("🏬 አጋር ድርጅቶች", "📦 ትዕዛዞች", "📊 ሪፖርት", "👤 የኔ ፕሮፋይል", "⚙️ ሲስተም")
     return kb
 
-# 2. የባለሱቅ ዋና ሜኑ
 def kb_vendor_main():
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     kb.add("➕ እቃ ጨምር", "📦 የመጡ ትዕዛዞች", "📉 የኔ ሽያጭ", "⚙️ የሱቅ ሁኔታ")
     return kb
 
-# 3. የደንበኛ ዋና ሜኑ
 def kb_customer_main():
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    kb.add("🏪 ሱቆችን ተመልከት", "🛍 የኔ ትዕዛዞች")
-    kb.add("👤 ፕሮፋይል", "📞 እርዳታ")
+    kb.add("🏪 ሱቆችን ተመልከት", "🛍 የኔ ትዕዛዞች", "👤 ፕሮፋይል", "📞 እርዳታ")
     return kb
 
-# --- ዋናው የ /start ፈንክሽን ---
+# 3. የ "🏬 አጋር ድርጅቶች" በተን ሲነካ የሚሰራው
+@bot.message_handler(func=lambda m: m.text == "🏬 አጋር ድርጅቶች")
+def handle_admin_partners(message):
+    if message.from_user.id in ADMIN_IDS:
+        bot.send_message(
+            message.chat.id, 
+            "የዴሊቨሪ ሲስተም መቆጣጠሪያ ዳሽቦርድ፦", 
+            reply_markup=admin_delivery_dashboard()
+        )
+
+# 4. ዋናው የ /start ፈንክሽን
 @bot.message_handler(commands=['start'])
 def start_command(message):
     try:
@@ -89,34 +114,18 @@ def start_command(message):
         uid_str = str(user_id)
         db = load_data() 
 
-        # ሀ. አድሚን መሆኑን መለየት
         if user_id in ADMIN_IDS:
-            return bot.send_message(
-                user_id, 
-                "👑 እንኳን ደህና መጡ ጌታዬ (አድሚን)!\nከታች ያሉትን በተኖች በመጠቀም ሲስተሙን መቆጣጠር ይችላሉ።", 
-                reply_markup=kb_admin_main()
-            )
+            return bot.send_message(user_id, "👑 እንኳን ደህና መጡ (የBDF አድሚን)!", reply_markup=kb_admin_main())
 
-        # ለ. ባለሱቅ (Vendor) መሆኑን መለየት
         vendors = db.get("vendors_list", {})
         if uid_str in vendors:
             v_name = vendors[uid_str].get("name", "ባለሱቅ")
-            return bot.send_message(
-                user_id, 
-                f"🏬 ሰላም {v_name} (ባለሱቅ)!\nዛሬ ምን ማስተካከል ይፈልጋሉ?", 
-                reply_markup=kb_vendor_main()
-            )
+            return bot.send_message(user_id, f"🏬 ሰላም {v_name} (ባለሱቅ)!", reply_markup=kb_vendor_main())
 
-        # ሐ. ደንበኛ (Customer)
-        bot.send_message(
-            user_id, 
-            "👋 እንኳን ወደ BDF በደህና መጡ! የሚፈልጉትን ሱቅ መርጠው ማዘዝ ይችላሉ።", 
-            reply_markup=kb_customer_main()
-        )
+        bot.send_message(user_id, "👋 እንኳን ወደ BDF በደህና መጡ!", reply_markup=kb_customer_main())
 
     except Exception as e:
-        print(f"❌ Error in start_command: {e}")
-        bot.send_message(message.chat.id, "⚠️ ችግር አጋጥሟል፣ እባክዎ ደግመው ይሞክሩ።")
+        print(f"❌ Error in start: {e}")
 
 
 @bot.message_handler(func=lambda m: m.text == "⚙️ ሲስተም")
