@@ -144,6 +144,23 @@ def finalize_v_reg(message, v_name, v_id):
     bot.send_message(message.chat.id, f"✅ ሱቅ '{v_name}' በሚገባ ተመዝግቧል!", reply_markup=kb_admin_main())
 
 
+@bot.callback_query_handler(func=lambda call: call.data == "set_del_fee")
+def change_delivery_fee(call):
+    msg = bot.send_message(call.message.chat.id, "💰 አዲሱን የማድረሻ መነሻ ዋጋ በቁጥር ብቻ ያስገቡ (ለምሳሌ፦ 50)፦")
+    bot.register_next_step_handler(msg, save_new_fee)
+
+def save_new_fee(message):
+    try:
+        new_fee = int(message.text)
+        db = load_data()
+        if "settings" not in db: db["settings"] = {}
+        db["settings"]["base_delivery"] = new_fee
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ የማድረሻ መነሻ ዋጋ ወደ {new_fee} ETB ተቀይሯል።")
+    except:
+        bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ!")
+
+
 
 
 def check_admin(message):
