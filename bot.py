@@ -25,76 +25,6 @@ def run_flask():
 
 # --- 2. ዳታቤዝ ተግባራት ---
 
-def load_data():
-    try:
-        raw = redis.get("beu_delivery_db")
-        if raw: 
-            return json.loads(raw)
-        
-        # ዳታቤዙ ባዶ ከሆነ መጀመሪያ የሚፈጠሩ ነገሮች
-        initial_data = {
-            "vendors": {}, 
-            "vendors_list": {}, 
-            "orders": {}, 
-            "items": {}, 
-            "pending": {}, 
-            "users": {}, 
-            "categories": [], # <--- እዚህ ጋር ተጨምሯል
-            "total_profit": 0, 
-            "settings": {"base_delivery": 50}
-        }
-        return initial_data
-    except Exception as e:
-        print(f"❌ Database Load Error: {e}")
-        # Error ቢፈጠር እንኳን ባዶ categories እንዲኖር ያደርጋል
-        return {
-            "vendors": {}, "vendors_list": {}, "orders": {}, 
-            "items": {}, "pending": {}, "users": {}, 
-            "categories": [], # <--- እዚህም መጨመር አለበት
-            "total_profit": 0, "settings": {"base_delivery": 50}
-        }
-
-def save_category(message):
-    db = load_data()
-    new_cat = message.text.strip()
-    
-    # categories የሚል ቁልፍ መኖሩን በድጋሚ ቼክ ማድረግ (ለጥንቃቄ)
-    if "categories" not in db:
-        db["categories"] = []
-    
-    if new_cat not in db["categories"]:
-        db["categories"].append(new_cat)
-        save_data(db)
-        
-        # ምድቡ ከተመዘገበ በኋላ ወደ አድሚን ዳሽቦርድ መመለሻ በተን
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("🔙 ወደ ዳሽቦርድ ተመለስ", callback_data="admin_main"))
-        
-        bot.send_message(message.chat.id, f"✅ ምድብ '{new_cat}' በሚገባ ተጨምሯል!", reply_markup=markup)
-    else:
-        bot.send_message(message.chat.id, "⚠️ ይህ ምድብ ቀድሞውኑ ተመዝግቧል።")
-
-def process_item_name(message, photo_id):
-    item_name = message.text
-    db = load_data()
-    categories = db.get("categories", ["ሌሎች"]) # አድሚኑ የጨመራቸውን ያመጣል
-    
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    for cat in categories:
-        # እያንዳንዱን ምድብ በተን እናደርገዋለን
-        markup.add(types.InlineKeyboardButton(cat, callback_data=f"selcat_{cat}"))
-    
-    msg = bot.send_message(message.chat.id, f"📂 የ '{item_name}' ምድብ (Category) ይምረጡ፦", reply_markup=markup)
-    # ማሳሰቢያ፦ እዚህ ጋር callback_handler ስለሚቀበለው register_next_step አያስፈልግም
-
-def check_admin(message):
-    if message.from_user.id not in ADMIN_IDS:
-        bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
-        return False
-    return True
-
-
-
 
 def calculate_distance(lat1, lon1, lat2, lon2):
     R = 6371000 
@@ -107,14 +37,19 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 def admin_delivery_dashboard():
     markup = types.InlineKeyboardMarkup(row_width=2)
     btns = [
-        types.InlineKeyboardButton("📁 ምድቦችን አደራጅ", callback_data="admin_manage_cats"),
         types.InlineKeyboardButton("📊 ጠቅላላ ሪፖርት", callback_data="admin_stats"),
-        types.InlineKeyboardButton("🏢 አጋር ሱቆች", callback_data="admin_list_v"),
+        types.InlineKeyboardButton("🏢 አዳዲስ ሱቆች", callback_data="admin_list_v"),
         types.InlineKeyboardButton("🛵 የደላላዎች ሁኔታ", callback_data="admin_riders"),
         types.InlineKeyboardButton("💰 የኮሚሽን ተመን", callback_data="admin_change_com"),
+        types.InlineKeyboardButton("🎁 የማስተዋወቂያ ኮድ", callback_data="admin_promo"),
         types.InlineKeyboardButton("📦 በመጠባበቅ ላይ ያሉ", callback_data="admin_pending_items"),
-        types.InlineKeyboardButton("🧹 ዳታቤዝ አጽዳ", callback_data="admin_clear_db")
+        types.InlineKeyboardButton("🏆 ምርጥ ሻጮች", callback_data="admin_top_v"),
+        types.InlineKeyboardButton("🧹 ዳታቤዝ አጽዳ", callback_data="admin_clear_db"),
+        types.InlineKeyboardButton("💵 የክፍያ ታሪክ", callback_data="admin_pay_history"),
+        types.InlineKeyboardButton("🗑 ትዕዛዝ ሰርዝ", callback_data="admin_cancel_order")
     ]
+    # ምድብ ማደራጃውን ከፈለግከው እዚህ መሃል መጨመር ትችላለህ
+    markup.add(types.InlineKeyboardButton("📁 ምድቦችን አደራጅ", callback_data="admin_manage_cats"))
     markup.add(*btns)
     return markup
 
