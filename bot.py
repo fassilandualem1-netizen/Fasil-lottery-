@@ -47,3 +47,64 @@ def start(message):
         bot.send_message(message.chat.id, "👑 <b>የአድሚን ፓነል</b>\nሰላም ሾፌር!", reply_markup=get_admin_keyboard())
     else:
         bot.send_message(message.chat.id, "👋 እንኳን ወደ BDF በደህና መጡ!")
+
+# --- 1. የአጋር ድርጅቶች ኢንላይን ሜኑ ---
+def vendor_inline_menu():
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("➕ አዲስ መዝግብ", callback_data="add_vendor"),
+        types.InlineKeyboardButton("🗑 ሱቅ ሰርዝ", callback_data="del_vendor"),
+        types.InlineKeyboardButton("💳 ካዝና (Wallet)", callback_data="topup_wallet")
+    )
+    return markup
+
+@bot.message_handler(func=lambda m: m.text == "🏬 አጋር ድርጅቶች")
+def vendor_section(message):
+    if message.from_user.id in ADMIN_IDS:
+        bot.send_message(message.chat.id, "የአጋር ድርጅቶች መቆጣጠሪያ፦", reply_markup=vendor_inline_menu())
+
+# --- 2. ሱቅ መመዝገብ ---
+@bot.callback_query_handler(func=lambda call: call.data == "add_vendor")
+def start_add_vendor(call):
+    msg = bot.send_message(call.message.chat.id, "📝 የሱቁን ስም ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_v_name)
+
+def process_v_name(message):
+    v_name = message.text
+    msg = bot.send_message(message.chat.id, f"📍 ለ '{v_name}' ሎኬሽን (Location) ይላኩ፦")
+    bot.register_next_step_handler(msg, process_v_loc, v_name)
+
+def process_v_loc(message, v_name):
+    if not message.location:
+        bot.send_message(message.chat.id, "❌ ስህተት፡ እባክዎ ሎኬሽን ይላኩ።")
+        return
+    db = load_data()
+    v_id = str(len(db["vendors"]) + 1)
+    db["vendors"][v_id] = {"name": v_name, "lat": message.location.latitude, "lon": message.location.longitude, "wallet": 0, "commission": 10}
+    save_data(db)
+    bot.send_message(message.chat.id, f"✅ {v_name} ተመዝግቧል!")
+
+# --- 3. ካዝና መሙያ ---
+@bot.callback_query_handler(func=lambda call: call.data == "topup_wallet")
+def list_vendors_wallet(call):
+    db = load_data()
+    markup = types.InlineKeyboardMarkup()
+    for vid, vinfo in db["vendors"].items():
+        markup.add(types.InlineKeyboardButton(f"{vinfo['name']} ({vinfo['wallet']} ETB)", callback_data=f"deposit_{vid}"))
+    bot.edit_message_text("ባላንስ ለመሙላት ሱቅ ይምረጡ፦", call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("deposit_"))
+def ask_amount(call):
+    vid = call.data.split("_")
+    msg = bot.send_message(call.message.chat.id, "💰 የሚሞላውን የብር መጠን ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_deposit, vid)
+
+def process_deposit(message, vid):
+    if not message.text.isdigit(): return
+    amount = int(message.text)
+    db = load_data()
+    if vid in db["vendors"]:
+        db["vendors"][vid]["wallet"] += amount
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ ባላንስ ተሞልቷል!")
+
