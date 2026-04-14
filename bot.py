@@ -334,6 +334,37 @@ def view_payments(call):
 
 
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_cancel_order")
+def ask_order_id_to_cancel(call):
+    msg = bot.send_message(call.message.chat.id, "🚫 ለመሰረዝ የትዕዛዝ መለያ ቁጥሩን (Order ID) ያስገቡ፦")
+    bot.register_next_step_handler(msg, execute_order_cancel)
+
+def execute_order_cancel(message):
+    oid = message.text.strip()
+    db = load_data()
+    if oid in db.get("orders", {}):
+        db["orders"][oid]["status"] = "Cancelled"
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ ትዕዛዝ #{oid} ተሰርዟል።")
+    else:
+        bot.send_message(message.chat.id, "❌ ትዕዛዙ አልተገኘም።")
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_top_v")
+def show_top_vendors(call):
+    db = load_data()
+    vendors = db.get("vendors_list", {})
+    # በሽያጭ መጠን (balance) መሰረት ሱቆችን ቶፕ 5 መለየት
+    sorted_v = sorted(vendors.items(), key=lambda x: x.get('balance', 0), reverse=True)[:5]
+    
+    text = "🏆 **ምርጥ አቅራቢዎች (Top 5)፦**\n\n"
+    for i, (vid, vdata) in enumerate(sorted_v, 1):
+        text += f"{i}. {vdata['name']} - {vdata.get('balance', 0)} ETB\n"
+    
+    bot.send_message(call.message.chat.id, text)
+
+
+
 
 
 if __name__ == "__main__":
