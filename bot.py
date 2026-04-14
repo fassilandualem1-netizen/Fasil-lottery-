@@ -377,6 +377,77 @@ def toggle_system_lock(call):
 #     bot.send_message(user_id, "❌ ይቅርታ፣ ሲስተሙ ለጥገና ለጊዜው ተዘግቷል።")
 
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_broadcast")
+def start_broadcast(call):
+    msg = bot.send_message(call.message.chat.id, "📢 ለሁሉም ተጠቃሚዎች የሚተላለፈውን መልዕክት ይጻፉ፦")
+    bot.register_next_step_handler(msg, send_broadcast_logic)
+
+def send_broadcast_logic(message):
+    db = load_data()
+    all_users = db.get("user_list", []) # በቦቱ /start ያሉትን ሁሉ ID መያዝ አለበት
+    
+    count = 0
+    for user_id in all_users:
+        try:
+            bot.send_message(user_id, f"🔔 **ከአድሚን የተላከ መልዕክት፦**\n\n{message.text}", parse_mode="Markdown")
+            count += 1
+        except:
+            continue # ቦቱን Block ያደረጉ ካሉ ዝለላቸው
+            
+    bot.send_message(message.chat.id, f"✅ ማስታወቂያው ለ {count} ተጠቃሚዎች ተልኳል።")
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_disputes")
+def view_disputes(call):
+    db = load_data()
+    disputes = db.get("disputes", {})
+    
+    if not disputes:
+        return bot.send_message(call.message.chat.id, "✅ ምንም አይነት የደንበኛ ቅሬታ የለም።")
+    
+    for d_id, d_data in disputes.items():
+        text = (f"❗ **አዲስ ቅሬታ**\n"
+                f"👤 ደንበኛ: {d_data['user_name']}\n"
+                f"🆔 ትዕዛዝ: #{d_data['order_id']}\n"
+                f"📝 ቅሬታ: {d_data['issue']}")
+        
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("✅ ተፈቷል", callback_data=f"resolve_{d_id}"))
+        bot.send_message(call.message.chat.id, text, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_reviews")
+def view_reviews(call):
+    db = load_data()
+    reviews = db.get("reviews", [])
+    
+    if not reviews:
+        return bot.send_message(call.message.chat.id, "⭐ እስካሁን የተሰጠ አስተያየት የለም።")
+    
+    text = "⭐ **የቅርብ ጊዜ አስተያየቶች**\n\n"
+    for r in reviews[-5:]: # የመጨረሻዎቹን 5 ብቻ ለማሳየት
+        text += f"🏢 {r['vendor_name']} ➡️ {r['stars']}⭐\n💬 {r['comment']}\n---\n"
+        
+    bot.send_message(call.message.chat.id, text)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_full_stats")
+def show_full_stats(call):
+    db = load_data()
+    orders = db.get("orders", {})
+    
+    total_sales = sum(o['total'] for o in orders.values() if o['status'] == "Completed")
+    total_orders = len(orders)
+    profit = db.get("total_profit", 0)
+    
+    text = (f"📊 **አጠቃላይ የቦቱ እንቅስቃሴ**\n\n"
+            f"💰 ጠቅላላ ሽያጭ: {total_sales} ETB\n"
+            f"📈 የተጣራ ትርፍ (Commission): {profit} ETB\n"
+            f"📦 ጠቅላላ የታዘዙ እቃዎች: {total_orders}\n"
+            f"🏢 የተመዘገቡ ድርጅቶች: {len(db.get('vendors_list', {}))}\n"
+            f"🛵 ንቁ ዴሊቨሪዎች: {len(db.get('riders_list', {}))}")
+    
+    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+
 
 if __name__ == "__main__":
     # 1. የ Flask ሰርቨርን በ Background ያስነሳል
