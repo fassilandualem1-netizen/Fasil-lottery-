@@ -501,6 +501,50 @@ def send_to_admin_for_approval(item_id, item):
         bot.send_photo(admin_id, item['photo'], caption=caption, reply_markup=markup, parse_mode="Markdown")
 
 
+# 1. መግለጫ (Description) ተቀባይ ፈንክሽን መጨመር
+def process_item_name(message, photo_id):
+    item_name = message.text
+    msg = bot.send_message(message.chat.id, f"📝 ስለ '{item_name}' አጭር መግለጫ (Description) ይጻፉ፦")
+    bot.register_next_step_handler(msg, process_item_description, photo_id, item_name)
+
+def process_item_description(message, photo_id, item_name):
+    description = message.text
+    msg = bot.send_message(message.chat.id, f"💰 የ '{item_name}' ዋጋ ስንት ነው? (በቁጥር ብቻ)፦")
+    bot.register_next_step_handler(msg, process_item_price, photo_id, item_name, description)
+
+# 2. ዋጋውን ተቀብሎ ሴቭ ማድረጊያ (የተስተካከለ)
+def process_item_price(message, photo_id, item_name, description):
+    try:
+        price = float(message.text)
+        db = load_data()
+        
+        item_id = str(len(db.get("items", {})) + len(db.get("pending", {})) + 1)
+        
+        pending_item = {
+            "id": item_id,
+            "vid": str(message.from_user.id),
+            "v_name": db["vendors_list"][str(message.from_user.id)]["name"],
+            "name": item_name,
+            "description": description,
+            "price": price,
+            "photo": photo_id,
+            "status": "Pending"
+        }
+        
+        if "pending" not in db: db["pending"] = {}
+        db["pending"][item_id] = pending_item
+        save_data(db)
+        
+        bot.send_message(message.chat.id, "✅ እቃው ተመዝግቧል! አድሚን ሲያጸድቀው ለደንበኞች ይታያል።")
+        
+        # ለአድሚን ማሳወቂያ መላክ
+        send_to_admin_for_approval(item_id, pending_item)
+        
+    except ValueError:
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ!")
+        bot.register_next_step_handler(msg, process_item_price, photo_id, item_name, description)
+
+
 
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
