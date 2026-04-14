@@ -143,6 +143,15 @@ def save_category(message):
     else:
         bot.send_message(message.chat.id, "⚠️ ይህ ምድብ ቀድሞውኑ አለ።")
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith('selcat_'))
+def handle_vendor_category_selection(call):
+    selected_cat = call.data.replace('selcat_', '')
+    # እዚህ ጋር ለጊዜው ዳታውን ለመያዝ (ለምሳሌ በ user state)
+    msg = bot.send_message(call.message.chat.id, f"✅ ምድብ '{selected_cat}' ተመርጧል።\n\n📝 አሁን ስለ እቃው አጭር መግለጫ ይጻፉ፦")
+    # ማሳሰቢያ፡ እዚህ ጋር selected_cat ለቀጣዩ ፈንክሽን ማስተላለፍ አለብህ
+    bot.register_next_step_handler(msg, process_item_description, selected_cat)
+
+
 
 # ሱቅ መመዝገቢያ ሎጂክ
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_v")
