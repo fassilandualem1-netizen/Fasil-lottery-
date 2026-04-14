@@ -41,6 +41,29 @@ def kb_vendor_main():
     kb.add("➕ እቃ ጨምር", "📦 የመጡ ትዕዛዞች", "📉 የኔ ሽያጭ", "⚙️ የሱቅ ሁኔታ")
     return kb
 
+def kb_customer_main():
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    kb.add("🏪 ሱቆችን ተመልከት", "🛍 የኔ ትዕዛዞች")
+    kb.add("👤 ፕሮፋይል", "📞 እርዳታ")
+    return kb
+
+@bot.message_handler(func=lambda m: m.text == "🏪 ሱቆችን ተመልከት")
+def show_vendors(message):
+    db = load_data()
+    vendors = db.get("vendors_list", {})
+    
+    if not vendors:
+        return bot.send_message(message.chat.id, "ለጊዜው ምንም የተመዘገቡ ሱቆች የሉም።")
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    for vid, vdata in vendors.items():
+        # ሱቁ ክፍት መሆኑን ቼክ ማድረግ (አማራጭ)
+        status = vdata.get("shop_status", "Open 🟢")
+        if "Open" in status:
+            markup.add(types.InlineKeyboardButton(f"🏬 {vdata['name']}", callback_data=f"v_show_{vid}"))
+    
+    bot.send_message(message.chat.id, "🛒 **የመረጡትን ሱቅ ይክፈቱ፦**", reply_markup=markup, parse_mode="Markdown")
+
 @bot.message_handler(commands=['start'])
 def start_command(message):
     user_id = message.from_user.id
@@ -310,6 +333,46 @@ def vendor_order_history(call):
         history_text += f"🔹 {o['item_name']} - {o['item_price']} ETB (ID: #{o.get('id', '?')})\n"
         
     bot.send_message(call.message.chat.id, history_text)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("v_show_"))
+def show_vendor_categories(call):
+    vid = call.data.split("_")
+    db = load_data()
+    v_name = db["vendors_list"][vid]["name"]
+    
+    # በዚ ሱቅ ውስጥ ያሉ እቃዎችን ምድብ መለየት
+    items = [i for i in db.get("items", {}).values() if str(i['vid']) == vid]
+    categories = list(set([i.get('category', 'ሌሎች') for i in items]))
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    for cat in categories:
+        markup.add(types.InlineKeyboardButton(f"📁 {cat}", callback_data=f"cat_{vid}_{cat}"))
+    
+    markup.add(types.InlineKeyboardButton("⬅️ ወደ ሱቆች ተመለስ", callback_data="back_to_vendors"))
+    
+    bot.edit_message_text(f"🏬 **የ {v_name} ማውጫ**\nእባክዎ የምድብ ምርጫዎን ያስገቡ፦", 
+                          call.message.chat.id, call.message.message_id, 
+                          reply_markup=markup, parse_mode="Markdown")
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("cat_"))
+def show_category_items(call):
+    _, vid, cat = call.data.split("_")
+    db = load_data()
+    
+    # የዚን ምድብ እቃዎች ብቻ መለየት
+    cat_items = [i for i in db["items"].values() if str(i['vid']) == vid and i.get('category') == cat]
+
+    for item in cat_items:
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton(f"🛒 {item['price']} ETB - እዘዝ", callback_data=f"buy_{item['id']}"))
+        
+        caption = (
+            f"🛍 **{item['name']}**\n\n"
+            f"📝 {item.get('description', 'መግለጫ አልተሰጠም')}\n"
+            f"💰 ዋጋ፦ {item['price']} ETB"
+        )
+        bot.send_photo(call.message.chat.id, item['photo'], caption=caption, reply_markup=markup, parse_mode="Markdown")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
 def approve_item(call):
