@@ -397,6 +397,74 @@ def save_commission(message):
     except:
         bot.send_message(message.chat.id, "❌ እባክዎ ቁጥር ብቻ ያስገቡ!")
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_pending_items")
+def view_pending_items(call):
+    db = load_data()
+    pending_dict = db.get("pending", {})
+    
+    if not pending_dict:
+        return bot.answer_callback_query(call.id, "✅ ምንም በመጠባበቅ ላይ ያለ እቃ የለም።", show_alert=True)
+    
+    bot.answer_callback_query(call.id, "እቃዎቹን በማምጣት ላይ...")
+    
+    for item_id, item in pending_dict.items():
+        # ለእያንዳንዱ እቃ ማጽደቂያ እና መሰረዣ በተን ማዘጋጀት
+        markup = types.InlineKeyboardMarkup()
+        markup.row(
+            types.InlineKeyboardButton("✅ ፍቀድ (Approve)", callback_data=f"approve_it_{item_id}"),
+            types.InlineKeyboardButton("❌ ሰርዝ (Reject)", callback_data=f"reject_it_{item_id}")
+        )
+        
+        caption = (
+            f"📦 **አዲስ እቃ ማረጋገጫ**\n\n"
+            f"🆔 መለያ ቁጥር፦ `{item_id}`\n"
+            f"📂 ምድብ፦ {item.get('category', 'ያልተጠቀሰ')}\n"
+            f"🏬 ሱቅ፦ {item.get('v_name', 'ያልታወቀ')}\n"
+            f"📝 ስም፦ {item.get('name')}\n"
+            f"💰 ዋጋ፦ {item.get('price')} ETB\n"
+            f"📖 መግለጫ፦ {item.get('description', '-')}"
+        )
+        
+        # እቃው ፎቶ ካለው ከነፎቶው ይልካል
+        if item.get('photo'):
+            bot.send_photo(call.message.chat.id, item['photo'], caption=caption, reply_markup=markup, parse_mode="Markdown")
+        else:
+            bot.send_message(call.message.chat.id, caption, reply_markup=markup, parse_mode="Markdown")
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith(("approve_it_", "reject_it_")))
+def handle_pending_action(call):
+    data_parts = call.data.split("_")
+    action = data_parts # approve ወይም reject
+    item_id = data_parts
+    
+    db = load_data()
+    # እቃውን ከ pending ውስጥ መፈለግ
+    item = db.get("pending", {}).pop(item_id, None)
+    
+    if not item:
+        return bot.edit_message_caption("⚠️ ይህ እቃ ቀድሞውኑ ተስተካክሏል ወይም አልተገኘም።", call.message.chat.id, call.message.message_id)
+
+    if action == "approve":
+        # ወደ ዋናው የዕቃዎች ዝርዝር መጨመር
+        if "items" not in db: db["items"] = {}
+        item["status"] = "Active"
+        db["items"][item_id] = item
+        save_data(db)
+        
+        bot.edit_message_caption(f"✅ እቃው '{item['name']}' ጸድቋል! አሁን ለደንበኞች ይታያል።", 
+                                 call.message.chat.id, call.message.message_id)
+        
+        # ለባለሱቁ ማሳወቂያ መላክ (ካስፈለገ)
+        # vendor_id = item.get('vendor_id')
+        # bot.send_message(vendor_id, f"🎉 እንኳን ደስ አለዎት! '{item['name']}' የተባለው እቃዎ በአድሚን ጸድቋል።")
+
+    elif action == "reject":
+        save_data(db) # እቃው ከ pending ተወግዷል
+        bot.edit_message_caption(f"🔴 እቃው '{item['name']}' ውድቅ ተደርጓል (ተሰርዟል)።", 
+                                 call.message.chat.id, call.message.message_id)
+
+
 
 def finalize_order_payment(order_id):
     db = load_data()
