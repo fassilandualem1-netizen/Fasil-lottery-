@@ -145,6 +145,31 @@ def start_command(message):
     except Exception as e:
         print(f"❌ Error in start: {e}")
 
+# --- አድሚኑ ከታች ያሉትን የሪፕላይ በተኖች ሲነካ የሚሰራ ---
+@bot.message_handler(func=lambda message: message.text in ["🏬 አጋር ድርጅቶች", "📦 ትዕዛዞች", "📊 ሪፖርት", "⚙️ ሲስተም"])
+def handle_admin_main_menu(message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+
+    if message.text == "🏬 አጋር ድርጅቶች":
+        # የአድሚን ዳሽቦርዱን (Inline Buttons) እዚህ ጋር ነው የምንጠራው
+        bot.send_message(
+            message.chat.id, 
+            "የዴሊቨሪ ሲስተም መቆጣጠሪያ ዳሽቦርድ፦", 
+            reply_markup=admin_delivery_dashboard() # ያዘጋጀኸውን ዳሽቦርድ ይጠራል
+        )
+    
+    elif message.text == "📦 ትዕዛዞች":
+        bot.send_message(message.chat.id, "የቅርብ ጊዜ ትዕዛዞች ዝርዝር...")
+        # እዚህ ጋር የትዕዛዞችን ሎጂክ መጥራት ትችላለህ
+        
+    elif message.text == "📊 ሪፖርት":
+        bot.send_message(message.chat.id, "ጠቅላላ የሽያጭ ሪፖርት...")
+        
+    elif message.text == "⚙️ ሲስተም":
+        bot.send_message(message.chat.id, "የሲስተም ማስተካከያ ዝርዝር...")
+
+
 @bot.callback_query_handler(func=lambda call: call.data == "admin_manage_cats")
 def admin_manage_categories(call):
     db = load_data()
