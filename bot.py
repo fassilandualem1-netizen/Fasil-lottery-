@@ -24,10 +24,6 @@ def run_flask():
     app.run(host='0.0.0.0', port=PORT)
 
 # --- 2. ዳታቤዝ ተግባራት ---
-import json
-import math
-from telebot import types
-
 # 1. ዳታቤዝ ማውረጃ (Redis ተጠቅሞ)
 def load_data():
     try:
@@ -112,9 +108,6 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return R * c
-
-
-from telebot import types
 
 def get_admin_dashboard():
     markup = types.InlineKeyboardMarkup(row_width=2)
