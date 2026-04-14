@@ -66,6 +66,7 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 def admin_delivery_dashboard():
     markup = types.InlineKeyboardMarkup(row_width=2)
     btns = [
+        types.InlineKeyboardButton("📁 ምድቦችን አደራጅ", callback_data="admin_manage_cats"),
         types.InlineKeyboardButton("📊 ጠቅላላ ሪፖርት", callback_data="admin_stats"),
         types.InlineKeyboardButton("🏢 አጋር ሱቆች", callback_data="admin_list_v"),
         types.InlineKeyboardButton("🛵 የደላላዎች ሁኔታ", callback_data="admin_riders"),
