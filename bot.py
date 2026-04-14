@@ -252,6 +252,22 @@ def notify_vendor_new_order(order_id, order_data):
         )
         bot.send_message(vendor_id, text, reply_markup=markup, parse_mode="Markdown")
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("v_history_"))
+def vendor_order_history(call):
+    vid = call.data.split("_")
+    db = load_data()
+    
+    my_history = [o for o in db["orders"].values() if str(o.get('vid')) == vid and o['status'] == "Delivered"]
+    
+    if not my_history:
+        return bot.answer_callback_query(call.id, "እስካሁን የተጠናቀቀ ትዕዛዝ የለም።", show_alert=True)
+    
+    history_text = "📜 **የመጨረሻዎቹ ሽያጮች፦**\n\n"
+    # የመጨረሻዎቹን 10 ሽያጮች ብቻ ማሳየት
+    for o in my_history[-10:]:
+        history_text += f"🔹 {o['item_name']} - {o['item_price']} ETB (ID: #{o.get('id', '?')})\n"
+        
+    bot.send_message(call.message.chat.id, history_text)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
 def approve_item(call):
