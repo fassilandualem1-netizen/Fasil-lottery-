@@ -165,6 +165,30 @@ def process_item_price(message, photo_id, item_name):
         msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ!")
         bot.register_next_step_handler(msg, process_item_price, photo_id, item_name)
 
+@bot.message_handler(func=lambda m: m.text == "⚙️ የሱቅ ሁኔታ")
+def vendor_status_toggle(message):
+    db = load_data()
+    vid = str(message.from_user.id)
+    
+    # የሱቁን አሁናዊ ሁኔታ ማግኘት (ካለ ካልሆነ Open ነው)
+    current_status = db["vendors_list"][vid].get("shop_status", "Open 🟢")
+    
+    markup = types.InlineKeyboardMarkup()
+    new_status = "Closed 🔴" if current_status == "Open 🟢" else "Open 🟢"
+    markup.add(types.InlineKeyboardButton(f"ወደ {new_status} ቀይር", callback_data=f"toggle_v_{vid}"))
+    
+    bot.send_message(message.chat.id, f"🏬 ሱቅዎ በአሁኑ ሰዓት፦ **{current_status}** ነው", reply_markup=markup, parse_mode="Markdown")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("toggle_v_"))
+def process_status_toggle(call):
+    vid = call.data.split("_")
+    db = load_data()
+    
+    current = db["vendors_list"][vid].get("shop_status", "Open 🟢")
+    db["vendors_list"][vid]["shop_status"] = "Closed 🔴" if current == "Open 🟢" else "Open 🟢"
+    save_data(db)
+    
+    bot.edit_message_text(f"✅ የሱቅዎ ሁኔታ ወደ {db['vendors_list'][vid]['shop_status']} ተቀይሯል።", call.message.chat.id, call.message.message_id)
 
 
 
