@@ -490,6 +490,78 @@ def handle_pending_action(call):
                                  call.message.chat.id, call.message.message_id)
 
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith('admin_'))
+def admin_dashboard_callbacks(call):
+    db = load_data()
+    
+    # 1. ጠቅላላ ሪፖርት
+    if call.data == "admin_stats":
+        orders = db.get("orders", {})
+        delivered = [o for o in orders.values() if o.get('status') == 'Delivered']
+        total_sales = sum([o.get('total', 0) for o in delivered])
+        profit = db.get("total_profit", 0)
+        report = (f"📊 **አጠቃላይ ሪፖርት**\n\n✅ የተጠናቀቁ ትዕዛዞች: {len(delivered)}\n"
+                  f"💰 ጠቅላላ ሽያጭ: {total_sales} ETB\n📈 የተጣራ ትርፍ: {profit} ETB")
+        bot.send_message(call.message.chat.id, report, parse_mode="Markdown")
+
+    # 2. አዳዲስ ሱቆች (የሱቆች ዝርዝር)
+    elif call.data == "admin_list_v":
+        vendors = db.get("vendors_list", {})
+        if not vendors:
+            return bot.answer_callback_query(call.id, "❌ ምንም የተመዘገበ ሱቅ የለም", show_alert=True)
+        text = "🏪 **የአጋር ሱቆች ዝርዝር፦**\n\n"
+        for vid, v in vendors.items():
+            text += f"🔸 {v['name']} | ID: `{vid}`\n"
+        bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+    # 3. የደላላዎች (Riders) ሁኔታ
+    elif call.data == "admin_riders":
+        riders = db.get("riders", {})
+        text = "🛵 **የዴሊቨሪዎች ሁኔታ፦**\n\n"
+        if not riders: text += "ምንም ዴሊቨሪ አልተመዘገበም"
+        for rid, r in riders.items():
+            status = "🟢 Online" if r.get("is_online") else "🔴 Offline"
+            text += f"👤 {r['name']} - {status}\n"
+        bot.send_message(call.message.chat.id, text)
+
+    # 4. የኮሚሽን ተመን
+    elif call.data == "admin_change_com":
+        msg = bot.send_message(call.message.chat.id, "📈 አዲሱን የኮሚሽን ተመን በፐርሰንት (%) ያስገቡ፦")
+        bot.register_next_step_handler(msg, save_commission) # ይሄን ፈንክሽን ከላይ ሰርተነዋል
+
+    # 5. የማስተዋወቂያ ኮድ (Promo)
+    elif call.data == "admin_promo":
+        msg = bot.send_message(call.message.chat.id, "🎟 አዲስ የማስተዋወቂያ ኮድ ይጻፉ፦")
+        bot.register_next_step_handler(msg, set_promo_amount)
+
+    # 6. በመጠባበቅ ላይ ያሉ (Pending Items)
+    elif call.data == "admin_pending_items":
+        # ይህንን ከላይ በሰራነው 'view_pending_items' ፈንክሽን መጥራት ትችላለህ
+        view_pending_items(call)
+
+    # 7. ምርጥ ሻጮች
+    elif call.data == "admin_top_v":
+        vendors = db.get("vendors_list", {})
+        top = sorted(vendors.items(), key=lambda x: x.get('balance', 0), reverse=True)[:5]
+        text = "🏆 **ምርጥ 5 ሻጮች፦**\n\n"
+        for i, (vid, v) in enumerate(top, 1):
+            text += f"{i}. {v['name']} ({v.get('balance', 0)} ETB)\n"
+        bot.send_message(call.message.chat.id, text)
+
+    # 8. ዳታቤዝ አጽዳ
+    elif call.data == "admin_clear_db":
+        confirm_clear_db(call) # ማረጋገጫ የሚጠይቀው ኮድ
+
+    # 9. የክፍያ ታሪክ
+    elif call.data == "admin_pay_history":
+        view_payments(call)
+
+    # 10. ትዕዛዝ ሰርዝ
+    elif call.data == "admin_cancel_order":
+        msg = bot.send_message(call.message.chat.id, "🚫 ለመሰረዝ የትዕዛዝ ID ያስገቡ፦")
+        bot.register_next_step_handler(msg, execute_order_cancel)
+
+
 
 def finalize_order_payment(order_id):
     db = load_data()
