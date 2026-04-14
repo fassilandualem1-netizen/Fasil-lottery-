@@ -140,8 +140,8 @@ def system_settings(message):
     bot.send_message(message.chat.id, "የሲስተም ማስተካከያ፦", reply_markup=markup)
 
 
-# ሻጭ እቃ ሲጨምር ለAdmin የሚመጣ ማሳወቂያ
-def notify_admin_new_item(item_id, item_data):
+# ስሙን send_to_admin_for_approval አድርገነዋል ምክንያቱም በዛ ነው የጠራኸው
+def send_to_admin_for_approval(item_id, item_data):
     markup = types.InlineKeyboardMarkup()
     markup.add(
         types.InlineKeyboardButton("✅ ፍቀድ", callback_data=f"approve_{item_id}"),
@@ -161,6 +161,7 @@ def notify_admin_new_item(item_id, item_data):
             bot.send_photo(admin, item_data['photo'], caption=caption, reply_markup=markup, parse_mode="HTML")
             print(f"✅ ለአድሚን {admin} ማሳወቂያ ተልኳል።")
         except Exception as e:
+            # Render logs ላይ ስህተቱን ለማየት ይረዳል
             print(f"❌ ለአድሚን {admin} መላክ አልተቻለም፦ {e}")
 
 @bot.message_handler(func=lambda m: m.text == "📦 የመጡ ትዕዛዞች")
