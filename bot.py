@@ -364,6 +364,63 @@ def show_top_vendors(call):
     bot.send_message(call.message.chat.id, text)
 
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_rider_status")
+def view_riders(call):
+    db = load_data()
+    riders = db.get("riders", {})
+    if not riders:
+        return bot.answer_callback_query(call.id, "🚫 ምንም የተመዘገበ ዴሊቨሪ የለም።", show_alert=True)
+    
+    text = "🛵 **የዴሊቨሪዎች ሁኔታ፦**\n\n"
+    for rid, rdata in riders.items():
+        status = "🟢 Online" if rdata.get("is_online") else "🔴 Offline"
+        # ዴሊቨሪው ትዕዛዝ ላይ ከሆነ ደግሞ እንዲህ ይታያል
+        on_duty = "⚠️ በትዕዛዝ ላይ" if rdata.get("on_order") else "✅ ስራ አልያዘም"
+        
+        text += f"👤 ስም፦ {rdata['name']}\n📱 ስልክ፦ {rdata['phone']}\n🚦 ሁኔታ፦ {status}\n💼 ስራ፦ {on_duty}\n----------\n"
+    
+    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_commission")
+def set_comm_rate(call):
+    msg = bot.send_message(call.message.chat.id, "📈 የኮሚሽን ተመን በፐርሰንት (%) ያስገቡ (ለምሳሌ 10 ካሉ ከሽያጭ 10% ይቆረጣል)፦")
+    bot.register_next_step_handler(msg, save_commission)
+
+def save_commission(message):
+    try:
+        rate = float(message.text)
+        db = load_data()
+        db["settings"]["commission_rate"] = rate
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ የኮሚሽን ተመን ወደ {rate}% ተቀይሯል።")
+    except:
+        bot.send_message(message.chat.id, "❌ እባክዎ ቁጥር ብቻ ያስገቡ!")
+
+
+def finalize_order_payment(order_id):
+    db = load_data()
+    order = db["orders"][order_id]
+    item_price = order["item_price"]
+    
+    # ኮሚሽን ማስላት
+    comm_rate = db["settings"].get("commission_rate", 10) # ካልተገኘ በ 10% አስላ
+    commission_amount = (item_price * comm_rate) / 100
+    
+    # ለሱቁ የሚሰጠው (ከኮሚሽን የተረፈው)
+    vendor_share = item_price - commission_amount
+    
+    # በዳታቤዝ ውስጥ ገቢዎችን መመዝገብ
+    db["total_profit"] += commission_amount # የአድሚኑ ትርፍ
+    
+    # የሱቁን ሂሳብ መጨመር
+    vid = order["vendor_id"]
+    if vid in db["vendors_list"]:
+        db["vendors_list"][vid]["balance"] += vendor_share
+        
+    save_data(db)
+
+
 
 
 
