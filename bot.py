@@ -171,12 +171,9 @@ def get_admin_dashboard():
     
     return markup
 
-# አድሚኑ /admin ሲል የሚመጣ መልዕክት
+# # አድሚኑ /admin ሲል የሚመጣ መልዕክት
 @bot.message_handler(commands=['admin'])
 def show_admin_panel(message):
-    # 1. መጀመሪያ ማንኛውንም ተከታታይ ጥያቄ (Step Handler) ያጠፋል
-    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
-    
     if message.from_user.id in ADMIN_IDS:
         bot.send_message(
             message.chat.id, 
@@ -186,7 +183,6 @@ def show_admin_panel(message):
         )
     else:
         bot.reply_to(message, "❌ ይቅርታ፣ ይህንን ትዕዛዝ ለመጠቀም ፈቃድ የለዎትም።")
-
 
 # ሀ. በተኑ ሲጫን መጀመሪያ የድርጅቱን መለያ ይጠይቃል
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_funds")
