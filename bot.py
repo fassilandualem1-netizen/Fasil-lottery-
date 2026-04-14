@@ -149,6 +149,37 @@ def approve_item(call):
         bot.edit_message_caption("✅ ዕቃው ጸድቆ ለሽያጭ ቀርቧል!", call.message.chat.id, call.message.message_id)
 
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("vready_"))
+def vendor_order_ready(call):
+    oid = call.data.split("_")
+    db = load_data()
+    order = db["orders"].get(oid)
+    
+    if not order: return
+
+    # የትዕዛዙን ሁኔታ መቀየር
+    db["orders"][oid]["status"] = "Ready for Pickup 📦"
+    save_data(db)
+    
+    # ለባለሱቁ ማረጋገጫ
+    bot.edit_message_text(f"✅ ለሾፌሩ መልዕክት ተልኳል! በቅርቡ መጥቶ ይረከብዎታል።", call.message.chat.id, call.message.message_id)
+    
+    # ለሁሉም አድሚኖች (ሾፌሮች) እቃው ዝግጁ መሆኑን ማሳወቅ
+    for admin_id in ADMIN_IDS:
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🛵 እቃውን ለመውሰድ ሂድ (Claim)", callback_data=f"claim_{oid}"))
+        
+        alert_text = (
+            f"📦 **እቃ ተዘጋጅቷል! (Ready for Pickup)**\n"
+            f"--------------------------\n"
+            f"🏬 ሱቅ፦ {order.get('v_name', 'የተመዘገበ ሱቅ')}\n"
+            f"🆔 ትዕዛዝ፦ #{oid}\n"
+            f"🛍 እቃ፦ {order['item_name']}\n"
+            f"📍 ሾፌር ተፈላጊ ነው!"
+        )
+        bot.send_message(admin_id, alert_text, reply_markup=markup, parse_mode="Markdown")
+
+
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "set_del_fee")
@@ -182,6 +213,26 @@ def general_report(message):
         f"👥 ጠቅላላ ተጠቃሚዎች፦ {len(db['users'])}\n"
     )
     bot.send_message(message.chat.id, text, parse_mode="Markdown")
+
+@bot.message_handler(func=lambda m: m.text == "📦 የመጡ ትዕዛዞች")
+def vendor_active_orders(message):
+    db = load_data()
+    vid = str(message.from_user.id)
+    
+    # የዚህን ሱቅ ያልተጠናቀቁ ትዕዛዞች መፈለግ
+    my_orders = [o for o in db["orders"].values() if str(o['vid']) == vid and o['status'] == "Pending"]
+    
+    if not my_orders:
+        return bot.send_message(message.chat.id, "🙌 በአሁኑ ሰዓት አዲስ የመጣ ትዕዛዝ የለም።")
+    
+    for order in my_orders:
+        oid = order.get('id', 'N/A')
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("👨‍🍳 Ready", callback_data=f"vready_{oid}"))
+        
+        bot.send_message(message.chat.id, f"📦 ትዕዛዝ #{oid}\n🛍 እቃ፦ {order['item_name']}\n💰 ዋጋ፦ {order['item_price']} ETB", reply_markup=markup)
+
+
 
 # 1. ባለሱቁ እቃ መጨመር ሲጀምር
 @bot.message_handler(func=lambda m: m.text == "➕ እቃ ጨምር")
