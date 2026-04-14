@@ -88,6 +88,8 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
+
+
 # 1. የአድሚን ኢንላይን (Inline) ዳሽቦርድ - ለዴሊቨሪ ስራ ብቻ
 def admin_delivery_dashboard():
     markup = types.InlineKeyboardMarkup(row_width=2)
@@ -98,21 +100,39 @@ def admin_delivery_dashboard():
         types.InlineKeyboardButton("💰 የኮሚሽን ተመን", callback_data="admin_change_com"),
         types.InlineKeyboardButton("🎁 የማስተዋወቂያ ኮድ", callback_data="admin_promo"),
         types.InlineKeyboardButton("📦 በመጠባበቅ ላይ ያሉ", callback_data="admin_pending_items"),
-        types.InlineKeyboardButton("🏆 ምርጥ ሻጮች", callback_data="admin_top_v"),
+        types.InlineKeyboardButton("🏆 ምርጥ ሻጮች", callback_data="admin_top_vendors"),
         types.InlineKeyboardButton("🧹 ዳታቤዝ አጽዳ", callback_data="admin_clear_db"),
         types.InlineKeyboardButton("💵 የክፍያ ታሪክ", callback_data="admin_pay_history"),
         types.InlineKeyboardButton("🗑 ትዕዛዝ ሰርዝ", callback_data="admin_cancel_order")
     ]
-    # ምድብ ማደራጃውን ከፈለግከው እዚህ መሃል መጨመር ትችላለህ
-    markup.add(types.InlineKeyboardButton("📁 ምድቦችን አደራጅ", callback_data="admin_manage_cats"))
     markup.add(*btns)
     return markup
 
-# 2. የአድሚን ቋሚ የሪፕላይ (Reply) ኪቦርድ
+# 2. ቋሚ የሪፕላይ (Reply) ኪቦርዶች (ከታች የሚቀመጡ)
 def kb_admin_main():
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    kb.add("🏬 አጋር ድርጅቶች", "📦 ትዕዛዞች", "📊 ሪፖርት", "⚙️ ሲስተም")
+    kb.add("🏬 አጋር ድርጅቶች", "📦 ትዕዛዞች", "📊 ሪፖርት", "👤 የኔ ፕሮፋይል", "⚙️ ሲስተም")
     return kb
+
+def kb_vendor_main():
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    kb.add("➕ እቃ ጨምር", "📦 የመጡ ትዕዛዞች", "📉 የኔ ሽያጭ", "⚙️ የሱቅ ሁኔታ")
+    return kb
+
+def kb_customer_main():
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    kb.add("🏪 ሱቆችን ተመልከት", "🛍 የኔ ትዕዛዞች", "👤 ፕሮፋይል", "📞 እርዳታ")
+    return kb
+
+# 3. የ "🏬 አጋር ድርጅቶች" በተን ሲነካ የሚሰራው
+@bot.message_handler(func=lambda m: m.text == "🏬 አጋር ድርጅቶች")
+def handle_admin_partners(message):
+    if message.from_user.id in ADMIN_IDS:
+        bot.send_message(
+            message.chat.id, 
+            "የዴሊቨሪ ሲስተም መቆጣጠሪያ ዳሽቦርድ፦", 
+            reply_markup=admin_delivery_dashboard()
+        )
 
 # 4. ዋናው የ /start ፈንክሽን
 @bot.message_handler(commands=['start'])
@@ -135,540 +155,1124 @@ def start_command(message):
     except Exception as e:
         print(f"❌ Error in start: {e}")
 
-# --- አድሚኑ ከታች ያሉትን የሪፕላይ በተኖች ሲነካ የሚሰራ ---
-@bot.message_handler(func=lambda message: message.text in ["🏬 አጋር ድርጅቶች", "📦 ትዕዛዞች", "📊 ሪፖርት", "⚙️ ሲስተም"])
-def handle_admin_main_menu(message):
-    if message.from_user.id not in ADMIN_IDS:
+
+@bot.message_handler(func=lambda m: m.text == "⚙️ ሲስተም")
+def system_settings(message):
+    if message.from_user.id not in ADMIN_IDS: return
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("🛵 የማድረሻ ዋጋ ቀይር", callback_data="set_del_fee"),
+        types.InlineKeyboardButton("📈 የኮሚሽን % ቀይር", callback_data="set_comm_rate")
+    )
+    bot.send_message(message.chat.id, "የሲስተም ማስተካከያ፦", reply_markup=markup)
+
+
+# ስሙን send_to_admin_for_approval አድርገነዋል ምክንያቱም በዛ ነው የጠራኸው
+def send_to_admin_for_approval(item_id, item_data):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("✅ ፍቀድ", callback_data=f"approve_{item_id}"),
+        types.InlineKeyboardButton("❌ አትፍቀድ", callback_data=f"reject_{item_id}")
+    )
+    
+    caption = (
+        f"🔔 <b>አዲስ ዕቃ ቀርቧል</b>\n\n"
+        f"🏬 ሱቅ፦ {item_data.get('v_name', 'ያልታወቀ')}\n"
+        f"📦 ስም፦ {item_data.get('name', 'N/A')}\n"
+        f"💰 ዋጋ፦ {item_data.get('price', 0)} ETB\n"
+        f"📝 መግለጫ፦ {item_data.get('description', 'የለም')}"
+    )
+
+    for admin in ADMIN_IDS:
+        try:
+            bot.send_photo(admin, item_data['photo'], caption=caption, reply_markup=markup, parse_mode="HTML")
+            print(f"✅ ለአድሚን {admin} ማሳወቂያ ተልኳል።")
+        except Exception as e:
+            # Render logs ላይ ስህተቱን ለማየት ይረዳል
+            print(f"❌ ለአድሚን {admin} መላክ አልተቻለም፦ {e}")
+
+@bot.message_handler(func=lambda m: m.text == "📦 የመጡ ትዕዛዞች")
+def vendor_active_orders(message):
+    db = load_data()
+    vid = str(message.from_user.id)
+    
+    # የዚህን ሱቅ ያልተጠናቀቁ ትዕዛዞች መፈለግ
+    my_orders = [o for o in db["orders"].values() if str(o['vid']) == vid and o['status'] == "Pending"]
+    
+    if not my_orders:
+        return bot.send_message(message.chat.id, "🙌 በአሁኑ ሰዓት አዲስ የመጣ ትዕዛዝ የለም።")
+    
+    for order in my_orders:
+        oid = order.get('id', 'N/A')
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("👨‍🍳 Ready", callback_data=f"vready_{oid}"))
+        
+        bot.send_message(message.chat.id, f"📦 ትዕዛዝ #{oid}\n🛍 እቃ፦ {order['item_name']}\n💰 ዋጋ፦ {order['item_price']} ETB", reply_markup=markup)
+
+# --- የዕቃ መጨመሪያ ሂደት ---
+
+@bot.message_handler(func=lambda m: m.text == "➕ እቃ ጨምር")
+def vendor_add_item(message):
+    db = load_data()
+    uid = str(message.from_user.id)
+    if uid not in db.get("vendors_list", {}):
+        bot.reply_to(message, "❌ ይቅርታ፣ እቃ ለመጨመር የባለሱቅ ፍቃድ ያስፈልገዎታል።")
         return
-
-    if message.text == "🏬 አጋር ድርጅቶች":
-        # የአድሚን ዳሽቦርዱን (Inline Buttons) እዚህ ጋር ነው የምንጠራው
-        bot.send_message(
-            message.chat.id, 
-            "የዴሊቨሪ ሲስተም መቆጣጠሪያ ዳሽቦርድ፦", 
-            reply_markup=admin_delivery_dashboard() # ያዘጋጀኸውን ዳሽቦርድ ይጠራል
-        )
     
-    elif message.text == "📦 ትዕዛዞች":
-        bot.send_message(message.chat.id, "የቅርብ ጊዜ ትዕዛዞች ዝርዝር...")
-        # እዚህ ጋር የትዕዛዞችን ሎጂክ መጥራት ትችላለህ
+    msg = bot.send_message(message.chat.id, "📸 በመጀመሪያ የእቃውን ፎቶ ይላኩ፦")
+    bot.register_next_step_handler(msg, process_item_photo)
+
+def process_item_photo(message):
+    if not message.photo:
+        msg = bot.send_message(message.chat.id, "❌ እባክዎ የእቃውን ፎቶ ይላኩ!")
+        bot.register_next_step_handler(msg, process_item_photo)
+        return
+    
+    photo_id = message.photo[-1].file_id
+    msg = bot.send_message(message.chat.id, "📝 የእቃውን ስም ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_item_name, photo_id)
+
+def process_item_name(message, photo_id):
+    item_name = message.text
+    msg = bot.send_message(message.chat.id, f"📝 ስለ '{item_name}' አጭር መግለጫ (Description) ይጻፉ፦")
+    bot.register_next_step_handler(msg, process_item_description, photo_id, item_name)
+
+def process_item_description(message, photo_id, item_name):
+    description = message.text
+    msg = bot.send_message(message.chat.id, f"💰 የ '{item_name}' ዋጋ ስንት ነው? (ቁጥር ብቻ ያስገቡ)፦")
+    bot.register_next_step_handler(msg, process_item_price, photo_id, item_name, description)
+
+def process_item_price(message, photo_id, item_name, description):
+    try:
+        price = float(message.text)
+        db = load_data()
+        uid = str(message.from_user.id)
         
-    elif message.text == "📊 ሪፖርት":
-        bot.send_message(message.chat.id, "ጠቅላላ የሽያጭ ሪፖርት...")
+        # የባለሱቁን መረጃ ከ vendors_list ማግኘት
+        vendor_info = db.get("vendors_list", {}).get(uid, {"name": "ባለሱቅ"})
         
-    elif message.text == "⚙️ ሲስተም":
-        bot.send_message(message.chat.id, "የሲስተም ማስተካከያ ዝርዝር...")
-
-
-@bot.callback_query_handler(func=lambda call: call.data == "admin_manage_cats")
-def admin_manage_categories(call):
-    db = load_data()
-    # በዳታቤዝ ውስጥ "categories" የሚል ዝርዝር መኖሩን ማረጋገጥ
-    categories = db.get("categories", ["ምግብ", "ኤሌክትሮኒክስ", "ልብስ"]) # መነሻ ምድቦች
-    
-    text = "📁 **ያሉ የምርት ምድቦች፦**\n\n"
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    
-    for cat in categories:
-        text += f"🔹 {cat}\n"
-        # እያንዳንዱን ምድብ ለመሰረዝ በተን ማዘጋጀት
-        markup.add(types.InlineKeyboardButton(f"❌ {cat} ሰርዝ", callback_data=f"del_cat_{cat}"))
-    
-    markup.add(types.InlineKeyboardButton("➕ አዲስ ምድብ ጨምር", callback_data="add_new_cat"))
-    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_main"))
-    
-    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-
-# --- አዲስ ምድብ ለመጨመር ---
-@bot.callback_query_handler(func=lambda call: call.data == "add_new_cat")
-def ask_category_name(call):
-    msg = bot.send_message(call.message.chat.id, "📝 አዲሱን የምድብ ስም ይጻፉ (ለምሳሌ፦ ኮስሞቲክስ)፦")
-    bot.register_next_step_handler(msg, save_category)
-
-def save_category(message):
-    db = load_data()
-    new_cat = message.text.strip()
-    
-    if "categories" not in db: db["categories"] = []
-    
-    if new_cat not in db["categories"]:
-        db["categories"].append(new_cat)
+        # ልዩ ID መፍጠር (በሰከንድ መቁጠሪያ ቢሆን ይሻላል)
+        item_id = str(int(time.time()))
+        
+        pending_item = {
+            "id": item_id,
+            "vid": uid,
+            "v_name": vendor_info["name"],
+            "name": item_name,
+            "description": description,
+            "price": price,
+            "photo": photo_id,
+            "status": "Pending"
+        }
+        
+        if "pending" not in db: db["pending"] = {}
+        db["pending"][item_id] = pending_item
         save_data(db)
-        bot.send_message(message.chat.id, f"✅ ምድብ '{new_cat}' በሚገባ ተጨምሯል።", reply_markup=kb_admin_main())
-    else:
-        bot.send_message(message.chat.id, "⚠️ ይህ ምድብ ቀድሞውኑ አለ።")
+        
+        bot.send_message(message.chat.id, "✅ እቃው ተመዝግቧል! አድሚን ሲያጸድቀው ለደንበኞች ይታያል።")
+        
+        # ለአድሚን ማሳወቂያ መላክ (የፈንክሽኑን ስም እዚህ ጋር አስተውል)
+        notify_admin_new_item(item_id, pending_item)
+        
+    except ValueError:
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ!")
+        bot.register_next_step_handler(msg, process_item_price, photo_id, item_name, description)
+    except Exception as e:
+        print(f"❌ Error in process_item_price: {e}")
+        bot.send_message(message.chat.id, "⚠️ ችግር አጋጥሟል፣ እባክዎ ደግመው ይሞክሩ።")
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('selcat_'))
-def handle_vendor_category_selection(call):
-    selected_cat = call.data.replace('selcat_', '')
-    # እዚህ ጋር ለጊዜው ዳታውን ለመያዝ (ለምሳሌ በ user state)
-    msg = bot.send_message(call.message.chat.id, f"✅ ምድብ '{selected_cat}' ተመርጧል።\n\n📝 አሁን ስለ እቃው አጭር መግለጫ ይጻፉ፦")
-    # ማሳሰቢያ፡ እዚህ ጋር selected_cat ለቀጣዩ ፈንክሽን ማስተላለፍ አለብህ
-    bot.register_next_step_handler(msg, process_item_description, selected_cat)
+# --- ለአድሚን የሚላክ ማሳወቂያ ፈንክሽን ---
+
+def notify_admin_new_item(item_id, item_data):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("✅ ፍቀድ", callback_data=f"approve_{item_id}"),
+        types.InlineKeyboardButton("❌ አትፍቀድ", callback_data=f"reject_{item_id}")
+    )
+    
+    caption = (
+        f"🔔 <b>አዲስ ዕቃ ቀርቧል</b>\n\n"
+        f"🏬 ሱቅ፦ {item_data.get('v_name', 'ያልታወቀ')}\n"
+        f"📦 ስም፦ {item_data.get('name', 'N/A')}\n"
+        f"💰 ዋጋ፦ {item_data.get('price', 0)} ETB\n"
+        f"📝 መግለጫ፦ {item_data.get('description', 'የለም')}"
+    )
+
+    for admin in ADMIN_IDS:
+        try:
+            bot.send_photo(admin, item_data['photo'], caption=caption, reply_markup=markup, parse_mode="HTML")
+            print(f"✅ ለአድሚን {admin} ማሳወቂያ ተልኳል።")
+        except Exception as e:
+            print(f"❌ ለአድሚን {admin} መላክ አልተቻለም፦ {e}")
 
 
 
-# ሱቅ መመዝገቢያ ሎጂክ
+# ሻጭ እቃ ሲጨምር ለAdmin የሚመጣ ማሳወቂያ
+def notify_admin_new_item(item_id, item_data):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("✅ ፍቀድ", callback_data=f"approve_{item_id}"),
+        types.InlineKeyboardButton("❌ አትፍቀድ", callback_data=f"reject_{item_id}")
+    )
+    for admin in ADMIN_IDS:
+        try:
+            bot.send_photo(admin, item_data['photo'], 
+                           caption=f"🔔 **አዲስ ዕቃ ቀርቧል**\n\n"
+                                   f"📦 ስም፦ {item_data['name']}\n"
+                                   f"💰 ዋጋ፦ {item_data['price']} ETB\n"
+                                   f"📝 መግለጫ፦ {item_data.get('description', 'የለም')}\n"
+                                   f"🏬 ሱቅ፦ {item_data['v_name']}", 
+                           reply_markup=markup, parse_mode="HTML")
+        except Exception as e:
+            print(f"❌ ለአድሚን {admin} መላክ አልተቻለም: {e}")
+
+
+@bot.message_handler(func=lambda m: m.text == "⚙️ የሱቅ ሁኔታ")
+def vendor_status_toggle(message):
+    try:
+        db = load_data()
+        vid = str(message.from_user.id)
+        
+        # ተጠቃሚው በባለሱቅ ዝርዝር ውስጥ መኖሩን ማረጋገጥ
+        if "vendors_list" not in db or vid not in db["vendors_list"]:
+            return bot.send_message(message.chat.id, "❌ ይቅርታ፣ ይህን ተግባር ለመጠቀም የባለሱቅ አካውንት ያስፈልገዎታል።")
+        
+        # የሱቁን አሁናዊ ሁኔታ ማግኘት (ካለ፣ ካልሆነ Open ነው)
+        current_status = db["vendors_list"][vid].get("shop_status", "Open 🟢")
+        
+        # አዲሱን ሁኔታ መወሰን
+        new_status_text = "Closed 🔴" if "Open" in current_status else "Open 🟢"
+        
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton(f"ወደ {new_status_text} ቀይር", callback_data=f"toggle_v_{vid}"))
+        
+        text = (
+            f"🏬 **የሱቅ መቆጣጠሪያ**\n\n"
+            f"የሱቅዎ አሁናዊ ሁኔታ፦ **{current_status}**\n\n"
+            f"💡 *ማሳሰቢያ፦ ሱቅዎ ዝግ ከሆነ ደንበኞች ማዘዝ አይችሉም።*"
+        )
+        
+        bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+        
+    except Exception as e:
+        print(f"❌ Error in vendor_status_toggle: {e}")
+        bot.send_message(message.chat.id, "⚠️ ችግር አጋጥሟል፣ እባክዎ ጥቂት ቆይተው ይሞክሩ።")
+
+# ማሳሰቢያ፦ ይህ ኮድ እንዲሰራ 'toggle_v_' የሚለውን callback_query_handler በትክክል መጻፍህን አረጋግጥ።
+
+@bot.message_handler(func=lambda m: m.text == "🛍 የኔ ትዕዛዞች")
+def customer_orders(message):
+    db = load_data()
+    uid = message.from_user.id
+    
+    # የዚን ደንበኛ ትዕዛዞች መፈለግ
+    my_orders = [o for o in db["orders"].values() if o['customer_id'] == uid]
+    
+    if not my_orders:
+        return bot.send_message(message.chat.id, "እስካሁን ያዘዙት እቃ የለም።")
+
+    text = "📦 **የእርስዎ ትዕዛዞች፦**\n\n"
+    for o in my_orders[-5:]: # የመጨረሻዎቹን 5 ብቻ
+        status_icon = "⏳" if o['status'] == "Pending" else "🛵" if "way" in o['status'] else "✅"
+        text += f"{status_icon} #{o['id']} - {o['item_name']} ({o['status']})\n"
+    
+    bot.send_message(message.chat.id, text)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("conf_order_"))
+def confirm_order_final(call):
+    oid = call.data.split("_")
+    db = load_data()
+    order = db["orders"].get(oid)
+    
+    if not order:
+        return bot.answer_callback_query(call.id, "❌ ስህተት፦ ትዕዛዙ አልተገኘም!")
+
+    # የትዕዛዙን ሁኔታ መቀየር
+    db["orders"][oid]["status"] = "Pending"
+    save_data(db)
+
+    # 1. ለደንበኛው ማሳወቅ
+    bot.edit_message_text("✅ ትዕዛዝዎ ተቀባይነት አግኝቷል! ባለሱቁ እቃውን ሲያዘጋጅ እና ሾፌር ሲረከበው እናሳውቅዎታለን።", 
+                          call.message.chat.id, call.message.message_id)
+
+    # 2. ለባለሱቁ (Vendor) ማሳወቅ (እቃ እንዲያዘጋጅ)
+    notify_vendor_new_order(oid, order)
+
+    # 3. ለአድሚኖች (Admins) ማሳወቅ (ዝግጁ እንዲሆኑ)
+    # ማሳሰቢያ፦ ባለሱቁ "Ready" ሲል ነው ሾፌሩ እንዲሄድ የምናደርገው፣ ግን አሁኑኑ እንዲያውቁት ማድረግ ጥሩ ነው።
+    for admin_id in ADMIN_IDS:
+        bot.send_message(admin_id, f"🔔 **አዲስ ትዕዛዝ ተመዝግቧል!**\n🆔 ID: #{oid}\n🛍 እቃ: {order['item_name']}\n🏬 ሱቅ: {order.get('v_name', 'የተመዘገበ ሱቅ')}\n\nባለሱቁ 'Ready' እስኪል ይጠብቁ።")
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "v_manage_items")
+def manage_items(call):
+    db = load_data()
+    vid = str(call.from_user.id)
+    # የዚህ ባለሱቅ እቃዎችን መፈለግ
+    my_items = [i for i in db["items"].values() if str(i['vid']) == vid]
+    
+    if not my_items:
+        return bot.answer_callback_query(call.id, "እስካሁን የጨመሩት እቃ የለም።")
+    
+    markup = types.InlineKeyboardMarkup()
+    for item in my_items:
+        status = "✅" if item.get('available', True) else "❌"
+        markup.add(types.InlineKeyboardButton(f"{status} {item['name']} - {item['price']} ETB", callback_data=f"toggle_item_{item['id']}"))
+    
+    bot.send_message(call.message.chat.id, "የእቃዎ ዝርዝር (ለመቀየር ይጫኑ)፦", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("toggle_v_"))
+def process_status_toggle(call):
+    vid = call.data.split("_")
+    db = load_data()
+    
+    current = db["vendors_list"][vid].get("shop_status", "Open 🟢")
+    db["vendors_list"][vid]["shop_status"] = "Closed 🔴" if current == "Open 🟢" else "Open 🟢"
+    save_data(db)
+    
+    bot.edit_message_text(f"✅ የሱቅዎ ሁኔታ ወደ {db['vendors_list'][vid]['shop_status']} ተቀይሯል።", call.message.chat.id, call.message.message_id)
+
+
+
+
+
+@bot.message_handler(func=lambda m: m.text == "📉 የኔ ሽያጭ")
+def vendor_sales_report(message):
+    db = load_data()
+    vid = str(message.from_user.id)
+    
+    # ተጠቃሚው በባለሱቅ ዝርዝር ውስጥ መኖሩን ማረጋገጥ
+    if vid not in db.get("vendors_list", {}):
+        return bot.send_message(message.chat.id, "❌ ይህ መረጃ ለእርስዎ አልተፈቀደም።")
+    
+    # የዚህን ሱቅ የተጠናቀቁ ትዕዛዞች ብቻ መለየት
+    delivered_orders = [o for o in db["orders"].values() if str(o.get('vid')) == vid and o['status'] == "Delivered"]
+    
+    total_sales = sum([o['item_price'] for o in delivered_orders])
+    total_commission = sum([o.get('commission', 0) for o in delivered_orders])
+    net_earnings = total_sales - total_commission
+    
+    report_text = (
+        f"📉 **የሽያጭ ሪፖርት፦ {db['vendors_list'][vid]['name']}**\n"
+        f"--------------------------\n"
+        f"✅ የተጠናቀቁ ትዕዛዞች፦ {len(delivered_orders)}\n"
+        f"💰 ጠቅላላ ሽያጭ፦ {total_sales} ETB\n"
+        f"📈 የተከፈለ ኮሚሽን፦ {total_commission} ETB\n"
+        f"--------------------------\n"
+        f"💵 **የእርስዎ የተጣራ ገቢ፦ {net_earnings} ETB**\n\n"
+        f"💡 *ማሳሰቢያ፦ ይህ ሂሳብ በአድሚኑ በኩል ሂሳብ እስኪወራረድ ድረስ ቦቱ ውስጥ የሚቆይ ነው።*"
+    )
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("📜 ያለፉ ትዕዛዞች ዝርዝር", callback_data=f"v_history_{vid}"))
+    
+    bot.send_message(message.chat.id, report_text, reply_markup=markup, parse_mode="Markdown")
+
+
+# --- አዲሱ የሱቅ መመዝገቢያ (መስመር 522 አካባቢ መተካት ያለበት) ---
+
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_v")
 def start_add_v(call):
-    msg = bot.send_message(call.message.chat.id, "📝 የሱቁን ስም ያስገቡ፦")
-    bot.register_next_step_handler(msg, process_v_name)
+    msg = bot.send_message(call.message.chat.id, "📝 ለመመዝገብ የፈለጉትን የሱቅ ስም ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_vendor_name_new)
 
-def process_v_name(message):
+def process_vendor_name_new(message):
     v_name = message.text
-    msg = bot.send_message(message.chat.id, f"🔢 የ '{v_name}' ባለቤት የቴሌግራም ID ቁጥር ያስገቡ፦")
-    bot.register_next_step_handler(msg, process_v_id, v_name)
+    msg = bot.send_message(message.chat.id, f"🔢 የ '{v_name}' ባለቤት የቴሌግራም ID ቁጥር ያስገቡ፦\n(IDውን ለማግኘት @userinfobot መጠቀም ይቻላል)")
+    bot.register_next_step_handler(msg, process_vendor_id_new, v_name)
 
-def process_v_id(message, v_name):
+def process_vendor_id_new(message, v_name):
     v_id = message.text.strip()
     if not v_id.isdigit():
-        bot.send_message(message.chat.id, "❌ ስህተት፦ ID ቁጥር ብቻ መሆን አለበት። እንደገና ይሞክሩ።")
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ ID ቁጥር ብቻ መሆን አለበት። እባክዎ እንደገና ያስገቡ፦")
+        bot.register_next_step_handler(msg, process_vendor_id_new, v_name)
         return
-    
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    markup.add(types.KeyboardButton("📍 የሱቁን ሎኬሽን ላክ", request_location=True))
-    msg = bot.send_message(message.chat.id, f"📍 ለ '{v_name}' ሎኬሽን ይላኩ፦", reply_markup=markup)
-    bot.register_next_step_handler(msg, finalize_v_reg, v_name, v_id)
 
-def finalize_v_reg(message, v_name, v_id):
-    if not message.location:
-        bot.send_message(message.chat.id, "❌ ሎኬሽን አልተላከም፣ ምዝገባው ተቋርጧል።", reply_markup=kb_admin_main())
-        return
-    
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1, one_time_keyboard=True)
+    markup.add(types.KeyboardButton("📍 የሱቁን ሎኬሽን ላክ", request_location=True))
+    msg = bot.send_message(message.chat.id, f"📍 ለ '{v_name}' ሎኬሽን ይላኩ (ወይም ዝለል/skip ይበሉ)፦", reply_markup=markup)
+    bot.register_next_step_handler(msg, finalize_vendor_reg_new, v_name, v_id)
+
+def finalize_vendor_reg_new(message, v_name, v_id):
+    try:
+        db = load_data()
+        lat, lon = 0, 0
+        if message.location:
+            lat, lon = message.location.latitude, message.location.longitude
+
+        if "vendors_list" not in db: db["vendors_list"] = {}
+        
+        db["vendors_list"][str(v_id)] = {
+            "name": v_name,
+            "lat": lat,
+            "lon": lon,
+            "shop_status": "Open 🟢",
+            "balance": 0
+        }
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ ሱቅ '{v_name}' በ ID {v_id} ተመዝግቧል!", reply_markup=kb_admin_main())
+    except Exception as e:
+        print(f"❌ Error in finalize_vendor_reg: {e}")
+        bot.send_message(message.chat.id, "⚠️ ምዝገባው አልተሳካም፣ እባክዎ ደግመው ይሞክሩ።")
+
+# --- ለባለሱቅ አዲስ ትዕዛዝ ማሳወቂያ (በአንድ ቦታ ብቻ ይኑር) ---
+
+def notify_vendor_new_order(order_id, order_data):
+    try:
+        db = load_data()
+        vendor_id = str(order_data.get('vid'))
+        
+        # ባለሱቁ በዳታቤዝ ውስጥ መኖሩን ቼክ ማድረግ
+        if vendor_id in db.get("vendors_list", {}):
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("👨‍🍳 እቃው ተዘጋጅቷል (Ready)", callback_data=f"vready_{order_id}"))
+            
+            text = (
+                f"🔔 **አዲስ ትዕዛዝ መጥቷል!**\n"
+                f"--------------------------\n"
+                f"🆔 ትዕዛዝ ቁጥር፦ #{order_id}\n"
+                f"🛍 እቃ፦ {order_data.get('item_name', 'N/A')}\n"
+                f"🔢 ብዛት፦ {order_data.get('quantity', 1)}\n"
+                f"💰 ዋጋ፦ {order_data.get('item_price', 0)} ETB\n"
+                f"--------------------------\n"
+                f"እባክዎ እቃውን አዘጋጅተው ሲጨርሱ 'Ready' የሚለውን ይጫኑ።"
+            )
+            bot.send_message(vendor_id, text, reply_markup=markup, parse_mode="Markdown")
+            print(f"✅ ትዕዛዝ #{order_id} ለባለሱቅ {vendor_id} ተልኳል።")
+    except Exception as e:
+        print(f"❌ Error notifying vendor: {e}")
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_pending_items")
+def list_pending_items(call):
+    try:
+        db = load_data()
+        pending = db.get("pending", {})
+
+        if not pending:
+            return bot.answer_callback_query(call.id, "✅ በአሁኑ ሰዓት በመጠባበቅ ላይ ያለ እቃ የለም።", show_alert=True)
+
+        bot.answer_callback_query(call.id, "እቃዎቹን በማምጣት ላይ...")
+
+        for item_id, item in pending.items():
+            markup = types.InlineKeyboardMarkup()
+            markup.add(
+                types.InlineKeyboardButton("✅ ፍቀድ (Approve)", callback_data=f"approve_{item_id}"),
+                types.InlineKeyboardButton("❌ ሰርዝ (Reject)", callback_data=f"reject_{item_id}")
+            )
+            
+            caption = (
+                f"📝 **አዲስ እቃ ማረጋገጫ**\n\n"
+                f"🏬 ሱቅ፦ {item.get('v_name', 'ያልታወቀ')}\n"
+                f"📦 እቃ፦ {item.get('name', 'N/A')}\n"
+                f"💰 ዋጋ፦ {item.get('price', 0)} ETB\n"
+                f"📜 መግለጫ፦ {item.get('description', 'የለም')}"
+            )
+            
+            bot.send_photo(call.message.chat.id, item['photo'], caption=caption, reply_markup=markup, parse_mode="Markdown")
+            
+    except Exception as e:
+        print(f"❌ Error in list_pending_items: {e}")
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("v_history_"))
+def vendor_order_history(call):
+    vid = call.data.split("_")
     db = load_data()
-    if "vendors_list" not in db: db["vendors_list"] = {}
     
-    db["vendors_list"][str(v_id)] = {
-        "name": v_name,
-        "lat": message.location.latitude,
-        "lon": message.location.longitude,
-        "balance": 0,
-        "shop_status": "Open 🟢"
-    }
+    my_history = [o for o in db["orders"].values() if str(o.get('vid')) == vid and o['status'] == "Delivered"]
+    
+    if not my_history:
+        return bot.answer_callback_query(call.id, "እስካሁን የተጠናቀቀ ትዕዛዝ የለም።", show_alert=True)
+    
+    history_text = "📜 **የመጨረሻዎቹ ሽያጮች፦**\n\n"
+    # የመጨረሻዎቹን 10 ሽያጮች ብቻ ማሳየት
+    for o in my_history[-10:]:
+        history_text += f"🔹 {o['item_name']} - {o['item_price']} ETB (ID: #{o.get('id', '?')})\n"
+        
+    bot.send_message(call.message.chat.id, history_text)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("v_show_"))
+def show_vendor_categories(call):
+    vid = call.data.split("_")
+    db = load_data()
+    v_name = db["vendors_list"][vid]["name"]
+    
+    # በዚ ሱቅ ውስጥ ያሉ እቃዎችን ምድብ መለየት
+    items = [i for i in db.get("items", {}).values() if str(i['vid']) == vid]
+    categories = list(set([i.get('category', 'ሌሎች') for i in items]))
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    for cat in categories:
+        markup.add(types.InlineKeyboardButton(f"📁 {cat}", callback_data=f"cat_{vid}_{cat}"))
+    
+    markup.add(types.InlineKeyboardButton("⬅️ ወደ ሱቆች ተመለስ", callback_data="back_to_vendors"))
+    
+    bot.edit_message_text(f"🏬 **የ {v_name} ማውጫ**\nእባክዎ የምድብ ምርጫዎን ያስገቡ፦", 
+                          call.message.chat.id, call.message.message_id, 
+                          reply_markup=markup, parse_mode="Markdown")
+@bot.callback_query_handler(func=lambda call: call.data.startswith("buy_"))
+def start_order_process(call):
+    item_id = call.data.split("_")
+    
+    # ሎኬሽን ለመጠየቅ ቁልፍ ማዘጋጀት
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add(types.KeyboardButton("📍 ያለሁበትን ቦታ ላክ (Share Location)", request_location=True))
+    
+    msg = bot.send_message(call.message.chat.id, 
+                           "ትዕዛዝዎን ለማድረስ እንዲረዳን እባክዎ ያለሁበትን ቦታ ላክ የሚለውን ቁልፍ ይጫኑ፦", 
+                           reply_markup=markup)
+    # የሚቀጥለው እርምጃ ሎኬሽን መቀበል ነው
+    bot.register_next_step_handler(msg, process_location, item_id)
+
+def process_location(message, item_id):
+    if not message.location:
+        msg = bot.send_message(message.chat.id, "❌ እባክዎ የሎኬሽን ቁልፉን ተጠቅመው ሎኬሽን ይላኩ!")
+        bot.register_next_step_handler(msg, process_location, item_id)
+        return
+
+    user_loc = {"lat": message.location.latitude, "lon": message.location.longitude}
+    
+    # የኮንዶሚኒየም ስም መጠየቅ
+    msg = bot.send_message(message.chat.id, "🏢 የኮንዶሚኒየሙን ስም ያስገቡ (ለምሳሌ፦ ጎተራ ኮንዶ)፦", 
+                           reply_markup=types.ReplyKeyboardRemove())
+    bot.register_next_step_handler(msg, process_condo_name, item_id, user_loc)
+
+def process_condo_name(message, item_id, user_loc):
+    condo_name = message.text
+    msg = bot.send_message(message.chat.id, f"🧱 የ {condo_name} ብሎክ (Block) ቁጥር ስንት ነው?")
+    bot.register_next_step_handler(msg, process_block_no, item_id, user_loc, condo_name)
+
+def process_block_no(message, item_id, user_loc, condo_name):
+    block_no = message.text
+    msg = bot.send_message(message.chat.id, "🚪 የቤት ቁጥር (House No) ስንት ነው?")
+    bot.register_next_step_handler(msg, process_house_no, item_id, user_loc, condo_name, block_no)
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("cat_"))
+def show_category_items(call):
+    _, vid, cat = call.data.split("_")
+    db = load_data()
+    
+    # የዚን ምድብ እቃዎች ብቻ መለየት
+    cat_items = [i for i in db["items"].values() if str(i['vid']) == vid and i.get('category') == cat]
+
+    for item in cat_items:
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton(f"🛒 {item['price']} ETB - እዘዝ", callback_data=f"buy_{item['id']}"))
+        
+        caption = (
+            f"🛍 **{item['name']}**\n\n"
+            f"📝 {item.get('description', 'መግለጫ አልተሰጠም')}\n"
+            f"💰 ዋጋ፦ {item['price']} ETB"
+        )
+        bot.send_photo(call.message.chat.id, item['photo'], caption=caption, reply_markup=markup, parse_mode="Markdown")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
+def approve_item_callback(call):
+    try:
+        # 'item_id'ን ከ callback_data በትክክል መለየት
+        item_id = call.data.replace("approve_", "")
+        db = load_data()
+        
+        if "pending" in db and item_id in db["pending"]:
+            # ከጥበቃ (pending) አውጥቶ ወደ ዋናው ዝርዝር ማስገባት
+            item = db["pending"].pop(item_id)
+            item["status"] = "Approved"
+            
+            if "items" not in db: db["items"] = {}
+            db["items"][item_id] = item
+            save_data(db)
+            
+            # የአድሚኑን ሜሴጅ ማስተካከያ
+            bot.edit_message_caption(
+                chat_id=call.message.chat.id, 
+                message_id=call.message.message_id, 
+                caption=call.message.caption + "\n\n✅ **ጸድቋል!**",
+                parse_mode="Markdown"
+            )
+            
+            # ለባለሱቁ ማሳወቂያ መላክ
+            vendor_id = item.get("vid")
+            if vendor_id:
+                bot.send_message(vendor_id, f"🎉 ደስ የሚል ዜና! '{item['name']}' የተባለው እቃዎ በአድሚን ጸድቆ ለደንበኞች መታየት ጀምሯል።")
+            
+            bot.answer_callback_query(call.id, "እቃው ጸድቋል!")
+        else:
+            bot.answer_callback_query(call.id, "❌ ስህተት፡ እቃው አልተገኘም!", show_alert=True)
+            
+    except Exception as e:
+        print(f"❌ Error in approve_item_callback: {e}")
+        bot.answer_callback_query(call.id, "⚠️ ችግር አጋጥሟል!")
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("vready_"))
+def vendor_order_ready(call):
+    oid = call.data.split("_")
+    db = load_data()
+    order = db["orders"].get(oid)
+    
+    if not order: return
+
+    # የትዕዛዙን ሁኔታ መቀየር
+    db["orders"][oid]["status"] = "Ready for Pickup 📦"
     save_data(db)
-    bot.send_message(message.chat.id, f"✅ ሱቅ '{v_name}' በሚገባ ተመዝግቧል!", reply_markup=kb_admin_main())
+    
+    # ለባለሱቁ ማረጋገጫ
+    bot.edit_message_text(f"✅ ለሾፌሩ መልዕክት ተልኳል! በቅርቡ መጥቶ ይረከብዎታል።", call.message.chat.id, call.message.message_id)
+    
+    # ለሁሉም አድሚኖች (ሾፌሮች) እቃው ዝግጁ መሆኑን ማሳወቅ
+    for admin_id in ADMIN_IDS:
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🛵 እቃውን ለመውሰድ ሂድ (Claim)", callback_data=f"claim_{oid}"))
+        
+        alert_text = (
+            f"📦 **እቃ ተዘጋጅቷል! (Ready for Pickup)**\n"
+            f"--------------------------\n"
+            f"🏬 ሱቅ፦ {order.get('v_name', 'የተመዘገበ ሱቅ')}\n"
+            f"🆔 ትዕዛዝ፦ #{oid}\n"
+            f"🛍 እቃ፦ {order['item_name']}\n"
+            f"📍 ሾፌር ተፈላጊ ነው!"
+        )
+        bot.send_message(admin_id, alert_text, reply_markup=markup, parse_mode="Markdown")
+
+
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "set_del_fee")
 def change_delivery_fee(call):
-    msg = bot.send_message(call.message.chat.id, "💰 አዲሱን የማድረሻ መነሻ ዋጋ በቁጥር ብቻ ያስገቡ (ለምሳሌ፦ 50)፦")
-    bot.register_next_step_handler(msg, save_new_fee)
+    msg = bot.send_message(call.message.chat.id, "አዲሱን የማድረሻ መነሻ ዋጋ ያስገቡ (ለምሳሌ፦ 60)፦")
+    bot.register_next_step_handler(msg, save_delivery_fee)
 
-def save_new_fee(message):
+def save_delivery_fee(message):
     try:
         new_fee = int(message.text)
         db = load_data()
-        if "settings" not in db: db["settings"] = {}
         db["settings"]["base_delivery"] = new_fee
         save_data(db)
-        bot.send_message(message.chat.id, f"✅ የማድረሻ መነሻ ዋጋ ወደ {new_fee} ETB ተቀይሯል።")
-    except:
-        bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ!")
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("del_cat_"))
-def delete_category(call):
-    db = load_data()
-    cat_to_del = call.data.replace("del_cat_", "")
-    
-    if "categories" in db and cat_to_del in db["categories"]:
-        db["categories"].remove(cat_to_del)
-        save_data(db)
-        bot.answer_callback_query(call.id, f"✅ {cat_to_del} ተሰርዟል", show_alert=True)
-        # ገጹን ሪፍሬሽ ለማድረግ የድሮውን ፈንክሽን መልሰህ ጥራው
-        admin_manage_categories(call) 
-    else:
-        bot.answer_callback_query(call.id, "❌ ምድቡ አልተገኘም")
-
-
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith(("approve_", "reject_")))
-def handle_item_approval(call):
-    db = load_data()
-    action, item_id = call.data.split("_")
-    
-    # እቃውን ከ pending ውስጥ ፈልጎ ማውጣት
-    item = db.get("pending", {}).pop(item_id, None)
-    
-    if not item:
-        return bot.edit_message_caption("❌ ይህ እቃ ቀድሞውኑ ተሰርዟል ወይም የለም።", call.message.chat.id, call.message.message_id)
-
-    if action == "approve":
-        # ወደ ዋናው የዕቃዎች ዝርዝር (items) መጨመር
-        if "items" not in db: db["items"] = {}
-        item["status"] = "Active"
-        db["items"][item_id] = item
-        save_data(db)
-        
-        bot.edit_message_caption(f"✅ እቃው '{item['name']}' ጸድቋል! ለደንበኞች ይታያል።", call.message.chat.id, call.message.message_id)
-        # ለባለሱቁ ሜሴጅ መላክ (ካስፈለገ)
-    
-    else: # Reject ከሆነ
-        save_data(db)
-        bot.edit_message_caption(f"🔴 እቃው '{item['name']}' ውድቅ ተደርጓል።", call.message.chat.id, call.message.message_id)
-
-
-@bot.callback_query_handler(func=lambda call: call.data == "admin_settings")
-def change_delivery_fee(call):
-    msg = bot.send_message(call.message.chat.id, "💰 እባክዎ መነሻ የዴሊቨሪ ዋጋ በቁጥር ብቻ ይጻፉ (ለምሳሌ፦ 60)፦")
-    bot.register_next_step_handler(msg, save_delivery_settings)
-
-def save_delivery_settings(message):
-    try:
-        new_fee = float(message.text)
-        db = load_data()
-        db["settings"]["base_delivery"] = new_fee
-        save_data(db)
-        bot.send_message(message.chat.id, f"✅ የዴሊቨሪ ዋጋ ወደ {new_fee} ETB ተቀይሯል።")
-    except:
-        bot.send_message(message.chat.id, "⚠️ እባክዎ ትክክለኛ ቁጥር ብቻ ያስገቡ።")
-
-@bot.callback_query_handler(func=lambda call: call.data == "admin_promo")
-def create_promo(call):
-    msg = bot.send_message(call.message.chat.id, "🎟 አዲስ የማስተዋወቂያ ኮድ ይጻፉ (ለምሳሌ: SAVE10)፦")
-    bot.register_next_step_handler(msg, set_promo_amount)
-
-def set_promo_amount(message):
-    promo_code = message.text.upper().strip()
-    msg = bot.send_message(message.chat.id, f"💰 ለ '{promo_code}' ስንት ብር ቅናሽ ይደረግ? (በቁጥር ብቻ)፦")
-    bot.register_next_step_handler(msg, save_promo, promo_code)
-
-def save_promo(message, promo_code):
-    try:
-        amount = float(message.text)
-        db = load_data()
-        if "promos" not in db: db["promos"] = {}
-        db["promos"][promo_code] = amount
-        save_data(db)
-        bot.send_message(message.chat.id, f"✅ ኮድ '{promo_code}' ለ {amount} ብር ቅናሽ ተመዝግቧል።")
-    except:
-        bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ።")
-
-@bot.callback_query_handler(func=lambda call: call.data == "admin_pay_history")
-def view_payments(call):
-    db = load_data()
-    payments = db.get("payment_logs", [])
-    if not payments:
-        return bot.answer_callback_query(call.id, "📅 እስካሁን የተመዘገበ የክፍያ ታሪክ የለም።", show_alert=True)
-    
-    text = "💳 **የክፍያ ታሪክ፦**\n\n"
-    for p in payments[-10:]: # የመጨረሻዎቹን 10 ብቻ ለማሳየት
-        text += f"👤 ሱቅ፦ {p['v_name']}\n💰 መጠን፦ {p['amount']} ETB\n📅 ቀን፦ {p['date']}\n----------\n"
-    
-    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
-
-
-
-@bot.callback_query_handler(func=lambda call: call.data == "admin_cancel_order")
-def ask_order_id_to_cancel(call):
-    msg = bot.send_message(call.message.chat.id, "🚫 ለመሰረዝ የትዕዛዝ መለያ ቁጥሩን (Order ID) ያስገቡ፦")
-    bot.register_next_step_handler(msg, execute_order_cancel)
-
-def execute_order_cancel(message):
-    oid = message.text.strip()
-    db = load_data()
-    if oid in db.get("orders", {}):
-        db["orders"][oid]["status"] = "Cancelled"
-        save_data(db)
-        bot.send_message(message.chat.id, f"✅ ትዕዛዝ #{oid} ተሰርዟል።")
-    else:
-        bot.send_message(message.chat.id, "❌ ትዕዛዙ አልተገኘም።")
-
-
-@bot.callback_query_handler(func=lambda call: call.data == "admin_top_v")
-def show_top_vendors(call):
-    db = load_data()
-    vendors = db.get("vendors_list", {})
-    # በሽያጭ መጠን (balance) መሰረት ሱቆችን ቶፕ 5 መለየት
-    sorted_v = sorted(vendors.items(), key=lambda x: x.get('balance', 0), reverse=True)[:5]
-    
-    text = "🏆 **ምርጥ አቅራቢዎች (Top 5)፦**\n\n"
-    for i, (vid, vdata) in enumerate(sorted_v, 1):
-        text += f"{i}. {vdata['name']} - {vdata.get('balance', 0)} ETB\n"
-    
-    bot.send_message(call.message.chat.id, text)
-
-
-@bot.callback_query_handler(func=lambda call: call.data == "admin_rider_status")
-def view_riders(call):
-    db = load_data()
-    riders = db.get("riders", {})
-    if not riders:
-        return bot.answer_callback_query(call.id, "🚫 ምንም የተመዘገበ ዴሊቨሪ የለም።", show_alert=True)
-    
-    text = "🛵 **የዴሊቨሪዎች ሁኔታ፦**\n\n"
-    for rid, rdata in riders.items():
-        status = "🟢 Online" if rdata.get("is_online") else "🔴 Offline"
-        # ዴሊቨሪው ትዕዛዝ ላይ ከሆነ ደግሞ እንዲህ ይታያል
-        on_duty = "⚠️ በትዕዛዝ ላይ" if rdata.get("on_order") else "✅ ስራ አልያዘም"
-        
-        text += f"👤 ስም፦ {rdata['name']}\n📱 ስልክ፦ {rdata['phone']}\n🚦 ሁኔታ፦ {status}\n💼 ስራ፦ {on_duty}\n----------\n"
-    
-    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
-
-
-@bot.callback_query_handler(func=lambda call: call.data == "admin_commission")
-def set_comm_rate(call):
-    msg = bot.send_message(call.message.chat.id, "📈 የኮሚሽን ተመን በፐርሰንት (%) ያስገቡ (ለምሳሌ 10 ካሉ ከሽያጭ 10% ይቆረጣል)፦")
-    bot.register_next_step_handler(msg, save_commission)
-
-def save_commission(message):
-    try:
-        rate = float(message.text)
-        db = load_data()
-        db["settings"]["commission_rate"] = rate
-        save_data(db)
-        bot.send_message(message.chat.id, f"✅ የኮሚሽን ተመን ወደ {rate}% ተቀይሯል።")
+        bot.send_message(message.chat.id, f"✅ የማድረሻ ዋጋ ወደ {new_fee} ተቀይሯል።")
     except:
         bot.send_message(message.chat.id, "❌ እባክዎ ቁጥር ብቻ ያስገቡ!")
-
-@bot.callback_query_handler(func=lambda call: call.data == "admin_pending_items")
-def view_pending_items(call):
+@bot.message_handler(func=lambda m: m.text == "📊 ሪፖርት")
+def general_report(message):
+    if message.from_user.id not in ADMIN_IDS: return
     db = load_data()
-    pending_dict = db.get("pending", {})
     
-    if not pending_dict:
-        return bot.answer_callback_query(call.id, "✅ ምንም በመጠባበቅ ላይ ያለ እቃ የለም።", show_alert=True)
+    total_sales = sum([o['total'] for o in db['orders'].values() if o['status'] == 'Delivered'])
+    total_profit = db.get("total_profit", 0)
+    total_v = len(db['vendors'])
     
-    bot.answer_callback_query(call.id, "እቃዎቹን በማምጣት ላይ...")
+    text = (
+        f"📊 **አጠቃላይ የንግድ ሪፖርት**\n\n"
+        f"🏬 አጋር ሱቆች፦ {total_v}\n"
+        f"📦 ጠቅላላ ሽያጭ፦ {total_sales} ETB\n"
+        f"💰 የሲስተሙ ትርፍ፦ {total_profit} ETB\n"
+        f"👥 ጠቅላላ ተጠቃሚዎች፦ {len(db['users'])}\n"
+    )
+    bot.send_message(message.chat.id, text, parse_mode="Markdown")
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("ban_"))
+def ban_user(call):
+    uid = call.data.split("_")
+    db = load_data()
     
-    for item_id, item in pending_dict.items():
-        # ለእያንዳንዱ እቃ ማጽደቂያ እና መሰረዣ በተን ማዘጋጀት
+    if "banned_users" not in db:
+        db["banned_users"] = []
+    
+    if uid not in db["banned_users"]:
+        db["banned_users"].append(uid)
+        save_data(db)
+        bot.send_message(call.message.chat.id, f"🚫 ደንበኛ (ID: {uid}) ታግዷል!")
+        bot.send_message(uid, "❌ ከዚህ ቦት ታግደዋል። እባክዎ አድሚን ያነጋግሩ።")
+    else:
+        bot.answer_callback_query(call.id, "ይህ ተጠቃሚ ቀድሞውኑ ታግዷል።")
+
+# ይህን ቼክ በ start_command ላይ መጨመር አለብን
+# if str(message.from_user.id) in db.get("banned_users", []): return
+
+@bot.message_handler(func=lambda m: m.text == "📢 ማስታወቂያ")
+def broadcast_start(message):
+    if message.from_user.id not in ADMIN_IDS: return
+    msg = bot.send_message(message.chat.id, "ለተከታዮች የሚተላለፈውን መልዕክት ይጻፉ (ፎቶም መጨመር ይቻላል)፦")
+    bot.register_next_step_handler(msg, send_broadcast_to_all)
+
+def send_broadcast_to_all(message):
+    db = load_data()
+    users = db.get("users", {}).keys() # ሁሉንም ተጠቃሚዎች ለማግኘት
+    count = 0
+    
+    for user_id in users:
+        try:
+            bot.copy_message(user_id, message.chat.id, message.message_id)
+            count += 1
+        except:
+            continue # ቦቱን Block ላደረጉ ሰዎች እንዳይቋረጥ
+            
+    bot.send_message(message.chat.id, f"✅ ማስታወቂያው ለ {count} ደንበኞች ደርሷል።")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("edit_items_"))
+def list_v_items_to_edit(call):
+    vid = call.data.split("_")
+    db = load_data()
+    markup = types.InlineKeyboardMarkup()
+    
+    for iid, item in db["items"].items():
+        if item["vid"] == vid:
+            markup.add(types.InlineKeyboardButton(f"❌ ሰርዝ፦ {item['name']}", callback_data=f"del_item_{iid}"))
+            
+    bot.edit_message_text(f"የ {db['vendors'][vid]['name']} ዕቃዎች፦", call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("del_item_"))
+def delete_item(call):
+    iid = call.data.split("_")
+    db = load_data()
+    if iid in db["items"]:
+        del db["items"][iid]
+        save_data(db)
+        bot.answer_callback_query(call.id, "ዕቃው ተሰርዟል!")
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+
+@bot.message_handler(func=lambda m: m.text == "📜 የታሪክ መዝገብ")
+def view_order_history(message):
+    if message.from_user.id not in ADMIN_IDS: return
+    db = load_data()
+    delivered_orders = [o for o in db["orders"].values() if o["status"] == "Delivered"]
+    
+    if not delivered_orders:
+        return bot.send_message(message.chat.id, "እስካሁን የተጠናቀቁ ትዕዛዞች የሉም።")
+    
+    text = "📜 **የመጨረሻዎቹ 5 ትዕዛዞች፦**\n\n"
+    for o in delivered_orders[-5:]: # የመጨረሻዎቹን አምስት ብቻ
+        text += f"🔹 #{o.get('id', 'N/A')} - {o['item_name']} - {o['total']} ETB\n"
+        
+    bot.send_message(message.chat.id, text)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("force_cancel_"))
+def force_cancel(call):
+    oid = call.data.split("_")
+    db = load_data()
+    if oid in db["orders"]:
+        db["orders"][oid]["status"] = "Cancelled by Admin ⚠️"
+        save_data(db)
+        bot.send_message(db["orders"][oid]["customer_id"], "⚠️ ይቅርታ! ትዕዛዝዎ በአድሚን ተሰርዟል።")
+        bot.edit_message_text(f"❌ ትዕዛዝ #{oid} ተሰርዟል።", call.message.chat.id, call.message.message_id)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("claim_"))
+def claim_order_logic(call):
+    oid = call.data.split("_")
+    db = load_data()
+    order = db["orders"].get(oid)
+    
+    if not order: return
+    
+    # ቼክ፦ ሌላ ሰው ቀድሞ ወስዶት ከሆነ
+    if "driver_id" in order:
+        bot.answer_callback_query(call.id, "❌ ይቅርታ፣ ይህ ትዕዛዝ በሌላ አድሚን ተይዟል።", show_alert=True)
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        return
+
+    # ትዕዛዙን በስምህ መመዝገብ
+    db["orders"][oid]["driver_id"] = call.from_user.id
+    db["orders"][oid]["status"] = "On the way 🛵"
+    save_data(db)
+    
+    bot.answer_callback_query(call.id, "✅ ትዕዛዙን ተረክበዋል!")
+    
+    # ለደንበኛው ሾፌር እንደመጣ ማሳወቅ
+    bot.send_message(order["customer_id"], f"🛵 ሾፌር {call.from_user.first_name} ትዕዛዝዎን ተረክቧል፤ በቅርቡ ይደርሳል!")
+
+@bot.message_handler(func=lambda m: m.text == "📓 የቀን ማጠቃለያ")
+def daily_summary(message):
+    if message.from_user.id not in ADMIN_IDS: return
+    db = load_data()
+    
+    # የዛሬ የተጠናቀቁ ትዕዛዞችን ብቻ መለየት
+    today_orders = [o for o in db["orders"].values() if o.get("driver_id") == message.from_user.id and o["status"] == "Delivered"]
+    
+    total_cash = sum([o["total"] for o in today_orders])
+    total_commission = sum([o["commission"] for o in today_orders])
+    
+    report = (
+        f"📅 **የዛሬ ስራ ማጠቃለያ**\n"
+        f"--------------------------\n"
+        f"✅ የደረሱ ትዕዛዞች፦ {len(today_orders)}\n"
+        f"💵 ጠቅላላ የተሰበሰበ ገንዘብ፦ {total_cash} ETB\n"
+        f"📈 ለሲስተም የሚገባ ኮሚሽን፦ {total_commission} ETB\n"
+        f"🛵 የእርስዎ ትርፍ (Delivery)፦ {total_cash - sum([o['item_price'] for o in today_orders])} ETB\n"
+    )
+    bot.send_message(message.chat.id, report, parse_mode="Markdown")
+
+
+@bot.message_handler(func=lambda m: m.text == "👤 የኔ ፕሮፋይል")
+def admin_personal_profile(message):
+    if message.from_user.id not in ADMIN_IDS: return
+    db = load_data()
+    my_orders = [o for o in db["orders"].values() if o.get("driver_id") == message.from_user.id]
+    completed = [o for o in my_orders if o["status"] == "Delivered"]
+    
+    total_cash = sum([o.get("total", 0) for o in completed])
+    delivery_earnings = sum([o.get("delivery_fee", 0) for o in completed])
+    
+    text = (
+        f"💳 **የአድሚን ፕሮፋይል**\n"
+        f"👤 ስም፦ {message.from_user.first_name}\n"
+        f"✅ ያደረሷቸው፦ {len(completed)}\n"
+        f"💵 በእጅ ያለ ገንዘብ፦ {total_cash} ETB\n"
+        f"🎁 የዴሊቨሪ ትርፍ፦ {delivery_earnings} ETB"
+    )
+    bot.send_message(message.chat.id, text, parse_mode="Markdown")
+
+# --- የአድሚን ሱቆች ዝርዝር መቆጣጠሪያ ---
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_list_v")
+def admin_list_vendors(call):
+    try:
+        db = load_data()
+        vendors = db.get("vendors_list", {})
+        
+        if not vendors:
+            bot.answer_callback_query(call.id, "❌ ምንም የተመዘገበ ሱቅ የለም!")
+            return
+
+        text = "📋 **የአጋር ሱቆች ዝርዝር እና የሂሳብ ሁኔታ**\n\n"
+        
+        for vid, vdata in vendors.items():
+            name = vdata.get("name", "ያልታወቀ")
+            balance = vdata.get("balance", 0)
+            status = vdata.get("shop_status", "Open 🟢")
+            
+            text += (
+                f"🏪 **ሱቅ፦** {name}\n"
+                f"🆔 **ID፦** `{vid}`\n"
+                f"💰 **ሂሳብ፦** {balance} ETB\n"
+                f"🚦 **ሁኔታ፦** {status}\n"
+                f"--------------------------\n"
+            )
+
+        # ከአዝራሩ ስር የሚመጡ ተጨማሪ መቆጣጠሪያዎች (ለምሳሌ ሂሳብ ለመክፈል)
         markup = types.InlineKeyboardMarkup()
-        markup.row(
-            types.InlineKeyboardButton("✅ ፍቀድ (Approve)", callback_data=f"approve_it_{item_id}"),
-            types.InlineKeyboardButton("❌ ሰርዝ (Reject)", callback_data=f"reject_it_{item_id}")
+        markup.add(types.InlineKeyboardButton("➕ ሱቅ መዝግብ", callback_data="admin_add_v"))
+        markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_main"))
+
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=text,
+            reply_markup=markup,
+            parse_mode="Markdown"
         )
         
-        caption = (
-            f"📦 **አዲስ እቃ ማረጋገጫ**\n\n"
-            f"🆔 መለያ ቁጥር፦ `{item_id}`\n"
-            f"📂 ምድብ፦ {item.get('category', 'ያልተጠቀሰ')}\n"
-            f"🏬 ሱቅ፦ {item.get('v_name', 'ያልታወቀ')}\n"
-            f"📝 ስም፦ {item.get('name')}\n"
-            f"💰 ዋጋ፦ {item.get('price')} ETB\n"
-            f"📖 መግለጫ፦ {item.get('description', '-')}"
-        )
-        
-        # እቃው ፎቶ ካለው ከነፎቶው ይልካል
-        if item.get('photo'):
-            bot.send_photo(call.message.chat.id, item['photo'], caption=caption, reply_markup=markup, parse_mode="Markdown")
-        else:
-            bot.send_message(call.message.chat.id, caption, reply_markup=markup, parse_mode="Markdown")
+    except Exception as e:
+        print(f"❌ Error in admin_list_vendors: {e}")
+        bot.answer_callback_query(call.id, "⚠️ ዝርዝሩን ማውጣት አልተቻለም!")
 
+# --- ለአድሚን ሜኑ የሚሆን ማርካፕ (Main Menu) ---
+def kb_admin_main():
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        types.InlineKeyboardButton("📜 የሱቆች ዝርዝር/ሂሳብ", callback_data="admin_list_v"),
+        types.InlineKeyboardButton("➕ አዲስ ሱቅ መዝግብ", callback_data="admin_add_v"),
+        types.InlineKeyboardButton("📦 በመጠባበቅ ላይ ያሉ እቃዎች", callback_data="admin_pending_items")
+    )
+    return markup
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith(("approve_it_", "reject_it_")))
-def handle_pending_action(call):
-    data_parts = call.data.split("_")
-    action = data_parts # approve ወይም reject
-    item_id = data_parts
     
+@bot.callback_query_handler(func=lambda call: call.data == "settle_my_cash")
+def settle_cash(call):
+    # ይህ አድሚኑ በእጁ ያለውን ገንዘብ አስረክቦ ሂሳቡን ዜሮ የሚያደርግበት ነው
     db = load_data()
-    # እቃውን ከ pending ውስጥ መፈለግ
-    item = db.get("pending", {}).pop(item_id, None)
+    admin_id = str(call.from_user.id)
     
-    if not item:
-        return bot.edit_message_caption("⚠️ ይህ እቃ ቀድሞውኑ ተስተካክሏል ወይም አልተገኘም።", call.message.chat.id, call.message.message_id)
+    # ሪኮርድ እንዲቀመጥ (Log)
+    bot.send_message(call.message.chat.id, "✅ በእጅዎ የነበረው ገንዘብ ለዋናው ካዝና ገቢ ተደርጓል። ሂሳብዎ ተወራርዷል።")
+    # እዚህ ጋር እንደ ፍላጎትህ የተወራረደበትን ሎጂክ መጻፍ ይቻላል
 
-    if action == "approve":
-        # ወደ ዋናው የዕቃዎች ዝርዝር መጨመር
-        if "items" not in db: db["items"] = {}
-        item["status"] = "Active"
-        db["items"][item_id] = item
+@bot.message_handler(func=lambda m: m.text == "📝 ማስታወሻ")
+def admin_note(message):
+    if message.from_user.id not in ADMIN_IDS: return
+    db = load_data()
+    current_note = db.get("admin_note", "ምንም ማስታወሻ የለም።")
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🖊 አዲስ ጻፍ", callback_data="edit_note"))
+    bot.send_message(message.chat.id, f"📌 **የአድሚኖች ማስታወሻ፦**\n\n{current_note}", reply_markup=markup, parse_mode="Markdown")
+
+@bot.callback_query_handler(func=lambda call: call.data == "edit_note")
+def start_edit_note(call):
+    msg = bot.send_message(call.message.chat.id, "የሚለጠፈውን አጭር ማስታወሻ ይጻፉ፦")
+    bot.register_next_step_handler(msg, save_note)
+
+def save_note(message):
+    db = load_data()
+    db["admin_note"] = message.text
+    save_data(db)
+    bot.send_message(message.chat.id, "✅ ማስታወሻው ተለጥፏል፤ ለሁሉም አድሚኖች ይታያል።")
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_add_v")
+def start_add_v(call):
+    msg = bot.send_message(call.message.chat.id, "📝 የሱቁን ስም ያስገቡ፦")
+    bot.register_next_step_handler(msg, save_v_name)
+
+def save_v_name(message):
+    v_name = message.text
+    msg = bot.send_message(message.chat.id, f"📍 ለ '{v_name}' ሎኬሽን ይላኩ፦")
+    bot.register_next_step_handler(msg, save_v_loc, v_name)
+
+def save_v_loc(message, v_name):
+    if not message.location: return
+    db = load_data()
+    v_id = str(len(db["vendors"]) + 1)
+    db["vendors"][v_id] = {"name": v_name, "lat": message.location.latitude, "lon": message.location.longitude, "wallet": 0, "commission": 10}
+    save_data(db)
+    bot.send_message(message.chat.id, f"✅ {v_name} ተመዝግቧል!")
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("claim_"))
+def claim_order(call):
+    oid = call.data.split("_")
+    db = load_data()
+    order = db["orders"][oid]
+    
+    if "driver_id" in order:
+        return bot.answer_callback_query(call.id, "❌ ትዕዛዙ ተይዟል!")
+    
+    db["orders"][oid]["driver_id"] = call.from_user.id
+    db["orders"][oid]["status"] = "On the way 🛵"
+    save_data(db)
+    
+    addr = order["address_details"]
+    details = f"📍 ኮንዶ፦ {addr['condo']}\n🧱 ብሎክ፦ {addr['block']} | 🚪 ቤት ቁጥር፦ {addr['house_no']}"
+    
+    bot.send_message(call.message.chat.id, f"✅ ትዕዛዝ #{oid} ተረክበዋል።\n{details}")
+    bot.send_location(call.message.chat.id, order["location"]["lat"], order["location"]["lon"])
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("done_"))
+def finalize_order(call):
+    oid = call.data.split("_")
+    db = load_data()
+    order = db["orders"][oid]
+    
+    if order["status"] == "Delivered": return
+
+    # የኮሚሽን ስሌት
+    db["total_profit"] += order["commission"]
+    db["vendors"][order["vid"]]["wallet"] += (order["item_price"] - order["commission"])
+    db["orders"][oid]["status"] = "Delivered"
+    
+    save_data(db)
+    bot.edit_message_text(f"✅ ትዕዛዝ #{oid} ተጠናቋል። ሂሳብ ተሰልቷል።", call.message.chat.id, call.message.message_id)
+    bot.send_message(order["customer_id"], "🎉 ትዕዛዝዎ ደርሷል! እናመሰግናለን።")
+
+def finalize_item_registration(message, photo_id, item_name, description):
+    try:
+        price = float(message.text)
+        db = load_data() # እዚህ ጋር Redis የምትጠቀም ከሆነ redis.get() ተጠቀም
+        uid = str(message.from_user.id)
+        
+        # የባለሱቁን ስም ማግኘት
+        vendor_info = db.get("vendors_list", {}).get(uid, {"name": "ባለሱቅ"})
+        
+        # አዲስ ID መፍጠር
+        item_id = str(int(time.time())) # ልዩ ID እንዲኖረው በሰዓት መቁጠር ይሻላል
+        
+        pending_item = {
+            "id": item_id,
+            "vid": uid,
+            "v_name": vendor_info["name"],
+            "name": item_name,
+            "description": description,
+            "price": price,
+            "photo": photo_id,
+            "status": "Pending"
+        }
+        
+        # መረጃውን ማስቀመጥ
+        if "pending" not in db: db["pending"] = {}
+        db["pending"][item_id] = pending_item
         save_data(db)
         
-        bot.edit_message_caption(f"✅ እቃው '{item['name']}' ጸድቋል! አሁን ለደንበኞች ይታያል።", 
-                                 call.message.chat.id, call.message.message_id)
+        bot.send_message(message.chat.id, "✅ እቃው ተመዝግቧል! አድሚን ሲያጸድቀው ለደንበኞች ይታያል።")
         
-        # ለባለሱቁ ማሳወቂያ መላክ (ካስፈለገ)
-        # vendor_id = item.get('vendor_id')
-        # bot.send_message(vendor_id, f"🎉 እንኳን ደስ አለዎት! '{item['name']}' የተባለው እቃዎ በአድሚን ጸድቋል።")
+        # 🔥 ዋናው ነጥብ፦ ለአድሚን ማሳወቂያ መላክ
+        notify_admin_new_item(item_id, pending_item)
+        
+    except ValueError:
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ!")
+        bot.register_next_step_handler(msg, finalize_item_registration, photo_id, item_name, description)
 
-    elif action == "reject":
-        save_data(db) # እቃው ከ pending ተወግዷል
-        bot.edit_message_caption(f"🔴 እቃው '{item['name']}' ውድቅ ተደርጓል (ተሰርዟል)።", 
-                                 call.message.chat.id, call.message.message_id)
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("broadcast_order_"))
-def broadcast_to_riders(call):
-    order_id = call.data.replace("broadcast_order_", "")
-    db = load_data()
-    order = db['orders'][order_id]
-    
-    riders = db.get("riders", {})
-    online_riders = [rid for rid, rdata in riders.items() if rdata.get("is_online") and not rdata.get("on_duty")]
-    
-    if not online_riders:
-        return bot.answer_callback_query(call.id, "⚠️ በአሁኑ ሰዓት ክፍት የሆነ ዴሊቨሪ የለም።", show_alert=True)
+def notify_admins_new_order(order_id, order_data):
+    # ለሁሉም አድሚኖች መላክ
+    for admin_id in ADMIN_IDS:
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🛵 ትዕዛዙን ተረከብ (Claim)", callback_data=f"claim_{order_id}"))
+        
+        alert_text = (
+            f"🚨 **አዲስ ትዕዛዝ መጥቷል!**\n"
+            f"--------------------------\n"
+            f"🆔 ቁጥር፦ #{order_id}\n"
+            f"🛍 እቃ፦ {order_data['item_name']}\n"
+            f"💰 ዋጋ፦ {order_data['total']} ETB\n"
+            f"📍 አድራሻ፦ {order_data['address_details']['condo']}"
+        )
+        bot.send_message(admin_id, alert_text, reply_markup=markup, parse_mode="Markdown")
 
-    rider_text = (f"📦 **አዲስ የዴሊቨሪ ስራ!**\n\n"
-                  f"📍 መነሻ (ሱቅ)፦ {order['vendor_address']}\n"
-                  f"🏁 መድረሻ፦ {order['address']}\n"
-                  f"💵 የዴሊቨሪ ክፍያ፦ {order['delivery_fee']} ETB\n")
-    
+
+def send_to_admin_for_approval(item_id, item):
+    """
+    አዲስ እቃ ሲመዘገብ ለአድሚን ማሳወቂያ እና ማጽደቂያ ቁልፎችን የሚልክ ፈንክሽን።
+    """
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("✅ ስራውን ተቀበል", callback_data=f"accept_order_{order_id}"))
-
-    for rider_id in online_riders:
-        bot.send_message(rider_id, rider_text, reply_markup=markup)
+    # callback_dataው ከ approve_item_callback ጋር እንዲገጥም ተደርጓል
+    markup.add(
+        types.InlineKeyboardButton("✅ ፍቀድ (Approve)", callback_data=f"approve_{item_id}"),
+        types.InlineKeyboardButton("❌ አትፍቀድ (Reject)", callback_data=f"reject_{item_id}")
+    )
     
-    bot.edit_message_text(f"✅ ትዕዛዝ #{order_id} ለ {len(online_riders)} ዴሊቨሪዎች ተልኳል", call.message.chat.id, call.message.message_id)
+    # መረጃው ባይኖር እንኳን ስህተት እንዳይፈጠር .get() መጠቀም ይመረጣል
+    v_name = item.get('v_name', 'ያልታወቀ ሱቅ')
+    i_name = item.get('name', 'ስም የሌለው እቃ')
+    desc = item.get('description', 'መግለጫ አልተሰጠም')
+    price = item.get('price', 0)
+    photo = item.get('photo')
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("accept_order_"))
-def rider_accept_order(call):
-    order_id = call.data.replace("accept_order_", "")
-    rider_id = str(call.from_user.id)
-    db = load_data()
-    
-    order = db['orders'].get(order_id)
-    
-    if order.get('status') != "Pending Assignment":
-        return bot.answer_callback_query(call.id, "❌ ይቅርታ፣ ይህ ትዕዛዝ በሌላ ሰው ተወስዷል።", show_alert=True)
-
-    # ትዕዛዙን ለዴሊቨሪው መመደብ
-    order['status'] = "On the way"
-    order['rider_id'] = rider_id
-    db['riders'][rider_id]['on_duty'] = True
-    save_data(db)
-
-    bot.edit_message_text(f"✅ ትዕዛዝ #{order_id} ተረክበዋል። መልካም ጉዞ!", call.message.chat.id, call.message.message_id)
-    
-    # ለደንበኛው ማሳወቅ
-    bot.send_message(order['customer_id'], f"🚀 ትዕዛዝዎ ተረክቧል! ዴሊቨሪ {call.from_user.first_name} በቅርቡ ይደርሰዎታል።")
-
-
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('admin_'))
-def admin_dashboard_handler(call):
-    db = load_data()
-    
-    # 1. ጠቅላላ ሪፖርት
-    if call.data == "admin_stats":
-        orders = db.get("orders", {})
-        delivered = [o for o in orders.values() if o.get('status') == 'Delivered']
-        total_sales = sum([o.get('total', 0) for o in delivered])
-        text = f"📊 **አጠቃላይ ሪፖርት**\n\n✅ የተጠናቀቁ ትዕዛዞች: {len(delivered)}\n💰 ጠቅላላ ሽያጭ: {total_sales} ETB"
-        bot.answer_callback_query(call.id)
-        bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
-
-    # 2. አዳዲስ ሱቆች (የሱቆች ዝርዝር)
-    elif call.data == "admin_list_v":
-        vendors = db.get("vendors_list", {})
-        if not vendors:
-            return bot.answer_callback_query(call.id, "❌ ምንም የተመዘገበ ሱቅ የለም", show_alert=True)
-        text = "🏪 **የአጋር ሱቆች ዝርዝር፦**\n\n"
-        for vid, v in vendors.items():
-            text += f"🔹 {v['name']} (ID: `{vid}`)\n"
-        bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
-
-    # 3. የደላላዎች (Riders) ሁኔታ
-    elif call.data == "admin_riders":
-        riders = db.get("riders", {})
-        text = "🛵 **የዴሊቨሪዎች ሁኔታ፦**\n\n"
-        if not riders:
-            text += "ምንም ዴሊቨሪ የለም"
-        for r in riders.values():
-            status = "🟢 Online" if r.get("is_online") else "🔴 Offline"
-            text += f"👤 {r['name']} - {status}\n"
-        bot.send_message(call.message.chat.id, text)
-
-    # 4. የኮሚሽን ተመን
-    elif call.data == "admin_change_com":
-        msg = bot.send_message(call.message.chat.id, "📈 አዲሱን የኮሚሽን ተመን (%) ያስገቡ፦")
-        bot.register_next_step_handler(msg, save_commission)
-
-    # 5. የማስተዋወቂያ ኮድ (Promo)
-    elif call.data == "admin_promo":
-        msg = bot.send_message(call.message.chat.id, "🎟 አዲስ የፕሮሞ ኮድ ይጻፉ፦")
-        bot.register_next_step_handler(msg, set_promo_amount)
-
-    # 6. በመጠባበቅ ላይ ያሉ (Pending)
-    elif call.data == "admin_pending_items":
-        # ይህ ከላይ የሰራነውን የፎቶ መላኪያ ሎጂክ ይጠራል
-        view_pending_items(call) 
-
-    # 7. ምርጥ ሻጮች
-    elif call.data == "admin_top_v":
-        vendors = db.get("vendors_list", {})
-        top = sorted(vendors.items(), key=lambda x: x.get('balance', 0), reverse=True)[:5]
-        text = "🏆 **ምርጥ 5 ሻጮች፦**\n\n"
-        for i, (vid, v) in enumerate(top, 1):
-            text += f"{i}. {v['name']} ({v.get('balance', 0)} ETB)\n"
-        bot.send_message(call.message.chat.id, text)
-
-    # 8. ዳታቤዝ አጽዳ
-    elif call.data == "admin_clear_db":
-        # ማረጋገጫ የሚጠይቀውን ፈንክሽን ይጠራል
-        confirm_clear_db(call)
-
-    # 9. የክፍያ ታሪክ
-    elif call.data == "admin_pay_history":
-        payments = db.get("payment_logs", [])
-        text = "💳 **የክፍያ ታሪክ፦**\n\n"
-        if not payments: text += "ምንም ታሪክ የለም"
-        for p in payments[-10:]:
-            text += f"📅 {p['date']} | {p['v_name']} | {p['amount']} ETB\n"
-        bot.send_message(call.message.chat.id, text)
-
-    # 10. ትዕዛዝ ሰርዝ
-    elif call.data == "admin_cancel_order":
-        msg = bot.send_message(call.message.chat.id, "🚫 ለመሰረዝ የትዕዛዝ ቁጥር (ID) ያስገቡ፦")
-        bot.register_next_step_handler(msg, execute_order_cancel)
-
-    # ወደ ኋላ መመለሻ
-    elif call.data == "admin_main":
-        bot.edit_message_text("የዴሊቨሪ ሲስተም መቆጣጠሪያ ዳሽቦርድ፦", 
-                              call.message.chat.id, call.message.message_id, 
-                              reply_markup=admin_delivery_dashboard())
-
-
-
-def notify_admin_new_order(order_id):
-    db = load_data()
-    order = db['orders'][order_id]
-    
-    text = (f"🔔 **አዲስ ትዕዛዝ መጥቷል!**\n\n"
-            f"🆔 ትዕዛዝ ቁጥር፦ #{order_id}\n"
-            f"👤 ደንበኛ፦ {order['customer_name']}\n"
-            f"📞 ስልክ፦ {order['customer_phone']}\n"
-            f"📍 አድራሻ፦ {order['address']}\n"
-            f"🛍 እቃ፦ {order['item_name']}\n"
-            f"💰 ጠቅላላ ዋጋ፦ {order['total']} ETB\n\n"
-            f"እባክዎ ትዕዛዙን ለዴሊቨሪ ይምድቡ ወይም ለሁሉም ክፍት ያድርጉት።")
-    
-    markup = types.InlineKeyboardMarkup()
-    # ትዕዛዙን ለዴሊቨሪዎች ክፍት የሚያደርግ በተን
-    markup.add(types.InlineKeyboardButton("🛵 ለዴሊቨሪዎች ላክ", callback_data=f"broadcast_order_{order_id}"))
+    caption = (
+        f"🆕 **አዲስ እቃ ከባለሱቅ ቀርቧል**\n\n"
+        f"🏬 **ሱቅ፦** {v_name}\n"
+        f"🛍 **እቃ፦** {i_name}\n"
+        f"📝 **መግለጫ፦** {desc}\n"
+        f"💰 **ዋጋ፦** {price} ETB"
+    )
     
     for admin_id in ADMIN_IDS:
-        bot.send_message(admin_id, text, reply_markup=markup, parse_mode="Markdown")
+        try:
+            # ፎቶው ካለ በፎቶ፣ ከሌለ በቴክስት ብቻ ይልካል
+            if photo:
+                bot.send_photo(admin_id, photo, caption=caption, reply_markup=markup, parse_mode="Markdown")
+            else:
+                bot.send_message(admin_id, caption, reply_markup=markup, parse_mode="Markdown")
+        except Exception as e:
+            print(f"❌ ለአድሚን {admin_id} መላክ አልተቻለም፦ {e}")
 
+# 1. መግለጫ (Description) ተቀባይ ፈንክሽን መጨመር
+def process_item_name(message, photo_id):
+    item_name = message.text
+    msg = bot.send_message(message.chat.id, f"📝 ስለ '{item_name}' አጭር መግለጫ (Description) ይጻፉ፦")
+    bot.register_next_step_handler(msg, process_item_description, photo_id, item_name)
 
+def process_item_description(message, photo_id, item_name):
+    description = message.text
+    msg = bot.send_message(message.chat.id, f"💰 የ '{item_name}' ዋጋ ስንት ነው? (በቁጥር ብቻ)፦")
+    bot.register_next_step_handler(msg, process_item_price, photo_id, item_name, description)
 
-
-def finalize_order_payment(order_id):
-    db = load_data()
-    order = db["orders"][order_id]
-    item_price = order["item_price"]
-    
-    # ኮሚሽን ማስላት
-    comm_rate = db["settings"].get("commission_rate", 10) # ካልተገኘ በ 10% አስላ
-    commission_amount = (item_price * comm_rate) / 100
-    
-    # ለሱቁ የሚሰጠው (ከኮሚሽን የተረፈው)
-    vendor_share = item_price - commission_amount
-    
-    # በዳታቤዝ ውስጥ ገቢዎችን መመዝገብ
-    db["total_profit"] += commission_amount # የአድሚኑ ትርፍ
-    
-    # የሱቁን ሂሳብ መጨመር
-    vid = order["vendor_id"]
-    if vid in db["vendors_list"]:
-        db["vendors_list"][vid]["balance"] += vendor_share
+# 2. ዋጋውን ተቀብሎ ሴቭ ማድረጊያ (የተስተካከለ)
+def process_item_price(message, photo_id, item_name, description):
+    try:
+        price = float(message.text)
+        db = load_data()
         
+        item_id = str(len(db.get("items", {})) + len(db.get("pending", {})) + 1)
+        
+        pending_item = {
+            "id": item_id,
+            "vid": str(message.from_user.id),
+            "v_name": db["vendors_list"][str(message.from_user.id)]["name"],
+            "name": item_name,
+            "description": description,
+            "price": price,
+            "photo": photo_id,
+            "status": "Pending"
+        }
+        
+        if "pending" not in db: db["pending"] = {}
+        db["pending"][item_id] = pending_item
+        save_data(db)
+        
+        bot.send_message(message.chat.id, "✅ እቃው ተመዝግቧል! አድሚን ሲያጸድቀው ለደንበኞች ይታያል።")
+        
+        # ለአድሚን ማሳወቂያ መላክ
+        send_to_admin_for_approval(item_id, pending_item)
+        
+    except ValueError:
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ!")
+        bot.register_next_step_handler(msg, process_item_price, photo_id, item_name, description)
+
+def process_house_no(message, item_id, user_loc, condo_name, block_no):
+    house_no = message.text
+    
+    # ስልክ ቁጥር መጠየቅ
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add(types.KeyboardButton("📲 ስልክ ቁጥሬን ላክ (Share Contact)", request_contact=True))
+    
+    msg = bot.send_message(message.chat.id, "በመጨረሻም ሾፌሩ እንዲደውልልዎ ስልክ ቁጥርዎን ያጋሩ፦", reply_markup=markup)
+    bot.register_next_step_handler(msg, finalize_customer_order, item_id, user_loc, condo_name, block_no, house_no)
+
+def finalize_customer_order(message, item_id, user_loc, condo_name, block_no, house_no):
+    if not message.contact:
+        msg = bot.send_message(message.chat.id, "❌ እባክዎ ስልክ ቁጥርዎን ያጋሩ!")
+        bot.register_next_step_handler(msg, finalize_customer_order, item_id, user_loc, condo_name, block_no, house_no)
+        return
+
+    phone = message.contact.phone_number
+    db = load_data()
+    item = db["items"][item_id]
+    vendor = db["vendors_list"][str(item['vid'])]
+    
+    # ርቀት እና ዋጋ ስሌት (ቀደም ሲል የሰራነው Logic)
+    dist = calculate_distance(user_loc["lat"], user_loc["lon"], vendor.get('lat', 0), vendor.get('lon', 0))
+    base_fee = db["settings"].get("base_delivery", 50)
+    delivery_fee = base_fee if dist <= 1000 else base_fee + 20 # ቀለል ያለ ስሌት
+    total_price = item['price'] + delivery_fee
+
+    order_id = str(len(db["orders"]) + 1)
+    
+    summary = (
+        f"📝 **የትዕዛዝ ማጠቃለያ**\n\n"
+        f"🛍 እቃ፦ {item['name']}\n"
+        f"🏢 አድራሻ፦ {condo_name}, Blk {block_no}, H.No {house_no}\n"
+        f"📲 ስልክ፦ {phone}\n"
+        f"--------------------------\n"
+        f"💰 የእቃ ዋጋ፦ {item['price']} ETB\n"
+        f"🛵 ማድረሻ፦ {delivery_fee} ETB\n"
+        f"💵 **ጠቅላላ ክፍያ፦ {total_price} ETB**\n\n"
+        f"ትዕዛዙን ማረጋገጥ ይፈልጋሉ?"
+    )
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("✅ ትዕዛዙን አረጋግጥ", callback_data=f"conf_order_{order_id}"))
+    markup.add(types.InlineKeyboardButton("❌ ሰርዝ", callback_data="cancel_order"))
+    
+    bot.send_message(message.chat.id, summary, reply_markup=markup, parse_mode="Markdown")
+
+    # ትዕዛዙን በ 'Pending' ሁኔታ ለጊዜው መመዝገብ
+    db["orders"][order_id] = {
+        "id": order_id,
+        "customer_id": message.from_user.id,
+        "item_name": item['name'],
+        "item_price": item['price'],
+        "delivery_fee": delivery_fee,
+        "total": total_price,
+        "address_details": {"condo": condo_name, "block": block_no, "house_no": house_no},
+        "location": user_loc,
+        "phone": phone,
+        "vid": item['vid'],
+        "status": "Awaiting Confirmation"
+    }
     save_data(db)
 
-
-
+def finalize_vendor_reg_new(message, v_name, v_id):
+    # ... (የድሮው ዳታ ሴቭ የማድረጊያ ኮድ) ...
+    save_data(db)
+    # ምዝገባው ሲያልቅ የአድሚን በተኖች መልሰው እንዲመጡ
+    bot.send_message(message.chat.id, f"✅ ሱቅ '{v_name}' ተመዝግቧል!", reply_markup=kb_admin_main())
 
 
 if __name__ == "__main__":
