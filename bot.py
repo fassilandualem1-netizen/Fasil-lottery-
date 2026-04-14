@@ -1209,6 +1209,13 @@ def finalize_customer_order(message, item_id, user_loc, condo_name, block_no, ho
     }
     save_data(db)
 
+def finalize_vendor_reg_new(message, v_name, v_id):
+    # ... (የድሮው ዳታ ሴቭ የማድረጊያ ኮድ) ...
+    save_data(db)
+    # ምዝገባው ሲያልቅ የአድሚን በተኖች መልሰው እንዲመጡ
+    bot.send_message(message.chat.id, f"✅ ሱቅ '{v_name}' ተመዝግቧል!", reply_markup=kb_admin_main())
+
+
 
 
 def check_admin(message):
