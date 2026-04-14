@@ -74,28 +74,36 @@ def show_vendors(message):
 
 @bot.message_handler(commands=['start'])
 def start_command(message):
-    user_id = message.from_user.id
-    db = load_data()
-    
-    # 1. አድሚን መሆኑን መለየት (ከዝርዝሩ ውስጥ)
-    if user_id in ADMIN_IDS:
-        bot.send_message(user_id, "👑 እንኳን ደህና መጡ ጌታዬ (አድሚን)!", reply_markup=kb_admin_main())
-        return
+    try:
+        user_id = message.from_user.id
+        db = load_data() # ዳታቤዙ ካልተነሳ እዚህ ጋር ይቆማል
 
-    # 2. ባለሱቅ (Vendor) መሆኑን መለየት
-    # 'vendors_list' በዳታቤዝ ውስጥ የባለሱቆችን ID የያዘ ዝርዝር ነው
-    if str(user_id) in db.get("vendors_list", {}):
-        v_name = db["vendors_list"][str(user_id)]["name"]
-        bot.send_message(user_id, f"🏬 ሰላም {v_name} (ባለሱቅ)!\nሽያጭዎን እዚህ ያስተዳድሩ።", reply_markup=kb_vendor_main())
-        return
+        # 1. አድሚን መሆኑን መለየት
+        if user_id in ADMIN_IDS:
+            return bot.send_message(user_id, "👑 እንኳን ደህና መጡ ጌታዬ (አድሚን)!", 
+                                    reply_markup=kb_admin_main())
 
-    # 3. ካልሆነ እንደ ደንበኛ መቁጠር
-    bot.send_message(user_id, "👋 እንኳን ወደ BDF በደህና መጡ! ምን ማዘዝ ይፈልጋሉ?", reply_markup=kb_customer_main())
-    
-    # ደንበኛው አዲስ ከሆነ ዳታቤዝ ላይ ይመዝገብ
-    if str(user_id) not in db["users"]:
-        db["users"][str(user_id)] = {"name": message.from_user.first_name, "joined_at": "today"}
-        save_data(db)
+        # 2. ባለሱቅ (Vendor) መሆኑን መለየት
+        if str(user_id) in db.get("vendors_list", {}):
+            v_name = db["vendors_list"][str(user_id)]["name"]
+            return bot.send_message(user_id, f"🏬 ሰላም {v_name} (ባለሱቅ)!", 
+                                    reply_markup=kb_vendor_main())
+
+        # 3. ደንበኛ (Customer)
+        bot.send_message(user_id, "👋 እንኳን ወደ BDF በደህና መጡ!", 
+                         reply_markup=kb_customer_main())
+        
+        # አዲስ ደንበኛ ከሆነ መመዝገብ
+        if "users" not in db: db["users"] = {}
+        if str(user_id) not in db["users"]:
+            db["users"][str(user_id)] = {"name": message.from_user.first_name}
+            save_data(db)
+
+    except Exception as e:
+        # ስህተት ቢኖር እንኳ ለምን እንዳልሰራ ለአድሚን ይነግረዋል
+        print(f"❌ Start Error: {e}")
+        bot.send_message(message.chat.id, "⚠️ በሲስተሙ ላይ ትንሽ ችግር አጋጥሟል፣ እባክዎ ጥቂት ቆይተው ይሞክሩ።")
+
 @bot.message_handler(func=lambda m: m.text == "⚙️ ሲስተም")
 def system_settings(message):
     if message.from_user.id not in ADMIN_IDS: return
