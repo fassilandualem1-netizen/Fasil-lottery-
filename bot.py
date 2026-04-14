@@ -937,8 +937,10 @@ def check_admin(message):
 
 
 if __name__ == "__main__":
-    print("🚀 BDF Delivery Bot ስራ ጀምሯል...")
-    try:
-        bot.polling(none_stop=True)
-    except Exception as e:
-        print(f"❌ ስህተት ተፈጥሯል፦ {e}")
+    threading.Thread(target=run_flask, daemon=True).start()
+    bot.remove_webhook()
+    while True:
+        try:
+            bot.polling(none_stop=True, interval=1, timeout=40)
+        except Exception as e:
+            time.sleep(5)
