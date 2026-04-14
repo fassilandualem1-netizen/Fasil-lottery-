@@ -880,6 +880,44 @@ def finalize_order(call):
     bot.edit_message_text(f"✅ ትዕዛዝ #{oid} ተጠናቋል። ሂሳብ ተሰልቷል።", call.message.chat.id, call.message.message_id)
     bot.send_message(order["customer_id"], "🎉 ትዕዛዝዎ ደርሷል! እናመሰግናለን።")
 
+def finalize_item_registration(message, photo_id, item_name, description):
+    try:
+        price = float(message.text)
+        db = load_data() # እዚህ ጋር Redis የምትጠቀም ከሆነ redis.get() ተጠቀም
+        uid = str(message.from_user.id)
+        
+        # የባለሱቁን ስም ማግኘት
+        vendor_info = db.get("vendors_list", {}).get(uid, {"name": "ባለሱቅ"})
+        
+        # አዲስ ID መፍጠር
+        item_id = str(int(time.time())) # ልዩ ID እንዲኖረው በሰዓት መቁጠር ይሻላል
+        
+        pending_item = {
+            "id": item_id,
+            "vid": uid,
+            "v_name": vendor_info["name"],
+            "name": item_name,
+            "description": description,
+            "price": price,
+            "photo": photo_id,
+            "status": "Pending"
+        }
+        
+        # መረጃውን ማስቀመጥ
+        if "pending" not in db: db["pending"] = {}
+        db["pending"][item_id] = pending_item
+        save_data(db)
+        
+        bot.send_message(message.chat.id, "✅ እቃው ተመዝግቧል! አድሚን ሲያጸድቀው ለደንበኞች ይታያል።")
+        
+        # 🔥 ዋናው ነጥብ፦ ለአድሚን ማሳወቂያ መላክ
+        notify_admin_new_item(item_id, pending_item)
+        
+    except ValueError:
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ!")
+        bot.register_next_step_handler(msg, finalize_item_registration, photo_id, item_name, description)
+
+
 def notify_admins_new_order(order_id, order_data):
     # ለሁሉም አድሚኖች መላክ
     for admin_id in ADMIN_IDS:
