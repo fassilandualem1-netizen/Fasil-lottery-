@@ -302,6 +302,81 @@ def add_category_logic(message):
         bot.send_message(message.chat.id, "⚠️ ይህ ምድብ ቀድሞውኑ አለ።")
 
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_list_vendors")
+def list_all_vendors(call):
+    db = load_data()
+    vendors = db.get("vendors_list", {})
+    
+    if not vendors:
+        return bot.send_message(call.message.chat.id, "🏢 እስካሁን የተመዘገበ ድርጅት የለም።")
+    
+    text = "🏢 **የአጋር ድርጅቶች ዝርዝር**\n\n"
+    for vid, vdata in vendors.items():
+        text += (f"🔹 **ስም:** {vdata['name']}\n"
+                 f"🆔 **ID:** `{vid}`\n"
+                 f"📍 **አድራሻ:** {vdata.get('address', 'ያልተገለጸ')}\n"
+                 f"📈 **ጠቅላላ ሽያጭ:** {vdata.get('total_sales', 0)} ETB\n"
+                 f"------------------------\n")
+    
+    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_rider_status")
+def view_rider_status(call):
+    db = load_data()
+    riders = db.get("riders_list", {})
+    
+    active_riders = [r for r in riders.values() if r['is_online']]
+    busy_riders = [r for r in riders.values() if r['status'] == "Busy"]
+    
+    text = (f"🛵 **የዴሊቨሪዎች ወቅታዊ ሁኔታ**\n\n"
+            f"✅ ክፍት (Online): {len(active_riders)}\n"
+            f"⏳ ስራ ላይ (Busy): {len(busy_riders)}\n"
+            f"❌ ዝግ (Offline): {len(riders) - len(active_riders)}\n\n"
+            f"ጠቅላላ የተመዘገቡ፦ {len(riders)}")
+    
+    bot.send_message(call.message.chat.id, text)
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_block_manager")
+def block_manager_start(call):
+    msg = bot.send_message(call.message.chat.id, "🚫 ለማገድ ወይም ለመፍቀድ የሚፈልጉትን የሰው/የድርጅት User ID ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_block_unblock)
+
+def process_block_unblock(message):
+    target_id = message.text
+    db = load_data()
+    
+    # መጀመሪያ ድርጅቶች ውስጥ ይፈልጋል፣ ካልሆነ ዴሊቨሪዎች ውስጥ
+    found = False
+    for category in ['vendors_list', 'riders_list']:
+        if target_id in db.get(category, {}):
+            current_status = db[category][target_id].get('status', 'active')
+            new_status = 'blocked' if current_status != 'blocked' else 'active'
+            db[category][target_id]['status'] = new_status
+            found = True
+            break
+    
+    if found:
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ የ ID {target_id} ሁኔታ ወደ **{new_status}** ተቀይሯል።")
+    else:
+        bot.send_message(message.chat.id, "❌ ስህተት፦ ይህ ID በሲስተሙ ላይ አልተገኘም።")
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_system_lock")
+def toggle_system_lock(call):
+    db = load_data()
+    # የነበረውን ሁኔታ ይገለብጠዋል (True ከሆነ False፣ False ከሆነ True)
+    db['settings']['system_locked'] = not db['settings'].get('system_locked', False)
+    save_data(db)
+    
+    status_text = "🔒 ዝግ (Locked)" if db['settings']['system_locked'] else "🔓 ክፍት (Unlocked)"
+    bot.send_message(call.message.chat.id, f"⚠️ የሲስተሙ ሁኔታ ተቀይሯል። አሁን ሲስተሙ፦ **{status_text}** ነው")
+
+# ደንበኛው ትዕዛዝ ሲጀምር የሚደረግ ቼክ (Logic)
+# if db['settings']['system_locked']:
+#     bot.send_message(user_id, "❌ ይቅርታ፣ ሲስተሙ ለጥገና ለጊዜው ተዘግቷል።")
+
+
 
 if __name__ == "__main__":
     # 1. የ Flask ሰርቨርን በ Background ያስነሳል
