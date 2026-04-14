@@ -24,69 +24,94 @@ def run_flask():
     app.run(host='0.0.0.0', port=PORT)
 
 # --- 2. ዳታቤዝ ተግባራት ---
+import json
+import math
+from telebot import types
+
+# 1. ዳታቤዝ ማውረጃ (Redis ተጠቅሞ)
 def load_data():
     try:
-        raw = redis.get("beu_delivery_db")
+        raw = redis.get("bdf_delivery_db")
         if raw: 
             return json.loads(raw)
-        
+
+        # መዋቅሩን ለፋይናንስ ቁጥጥር እንዲመች አድርገን እናስተካክለው
         initial_data = {
-            "vendors": {}, "vendors_list": {}, "orders": {}, 
-            "items": {}, "pending": {}, "users": {}, 
-            "categories": [], "promos": {}, "payment_logs": [], # አዳዲስ
-            "riders": {}, "total_profit": 0, 
-            "settings": {"base_delivery": 50, "commission_rate": 10} # ኮሚሽን ተጨምሯል
+            "vendors_list": {},    # የድርጅቶች ዝርዝር (Wallet እዚህ ይገባል)
+            "orders": {},          # የታዘዙ ትዕዛዞች
+            "pending_items": {},   # አድሚን ያላጸደቃቸው እቃዎች
+            "categories": [],      # የምድብ ዝርዝር
+            "total_profit": 0,     # የአድሚን የተጣራ ኮሚሽን
+            "settings": {
+                "base_delivery": 50, 
+                "commission_rate": 10,
+                "system_locked": False # ሲስተሙን መዝጊያ
+            }
         }
         return initial_data
     except Exception as e:
         print(f"❌ Database Load Error: {e}")
-        return {"vendors": {}, "vendors_list": {}, "orders": {}, "items": {}, "pending": {}, "users": {}, "categories": [], "settings": {"base_delivery": 50}}
+        return {"vendors_list": {}, "orders": {}, "categories": [], "settings": {"base_delivery": 50}}
 
-def save_category(message):
-    db = load_data()
-    new_cat = message.text.strip()
-    
-    # categories የሚል ቁልፍ መኖሩን በድጋሚ ቼክ ማድረግ (ለጥንቃቄ)
-    if "categories" not in db:
-        db["categories"] = []
-    
-    if new_cat not in db["categories"]:
-        db["categories"].append(new_cat)
-        save_data(db)
-        
-        # ምድቡ ከተመዘገበ በኋላ ወደ አድሚን ዳሽቦርድ መመለሻ በተን
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("🔙 ወደ ዳሽቦርድ ተመለስ", callback_data="admin_main"))
-        
-        bot.send_message(message.chat.id, f"✅ ምድብ '{new_cat}' በሚገባ ተጨምሯል!", reply_markup=markup)
-    else:
-        bot.send_message(message.chat.id, "⚠️ ይህ ምድብ ቀድሞውኑ ተመዝግቧል።")
-
-def process_item_name(message, photo_id):
-    item_name = message.text
-    db = load_data()
-    categories = db.get("categories", ["ሌሎች"]) # አድሚኑ የጨመራቸውን ያመጣል
-    
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    for cat in categories:
-        # እያንዳንዱን ምድብ በተን እናደርገዋለን
-        markup.add(types.InlineKeyboardButton(cat, callback_data=f"selcat_{cat}"))
-    
-    msg = bot.send_message(message.chat.id, f"📂 የ '{item_name}' ምድብ (Category) ይምረጡ፦", reply_markup=markup)
-    # ማሳሰቢያ፦ እዚህ ጋር callback_handler ስለሚቀበለው register_next_step አያስፈልግም
-
+# 2. አድሚን መሆኑን ማረጋገጫ (Check Admin)
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
         bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
         return False
     return True
 
+# 3. አዲስ ምድብ መመዝገቢያ (Save Category)
+def save_category(message):
+    if not check_admin(message): return
+    
+    db = load_data()
+    new_cat = message.text.strip()
+
+    if not new_cat:
+        return bot.send_message(message.chat.id, "⚠️ እባክዎ የምድብ ስም በትክክል ያስገቡ።")
+
+    if "categories" not in db: db["categories"] = []
+
+    if new_cat not in db["categories"]:
+        db["categories"].append(new_cat)
+        save_data(db) # ዳታ ሴቭ ማድረጊያ ፈንክሽን መኖሩን እርግጠኛ ሁን
+
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🔙 ወደ ዳሽቦርድ", callback_data="admin_main"))
+        bot.send_message(message.chat.id, f"✅ ምድብ '{new_cat}' በሚገባ ተጨምሯል!", reply_markup=markup)
+    else:
+        bot.send_message(message.chat.id, "⚠️ ይህ ምድብ ቀድሞውኑ ተመዝግቧል።")
+
+# 4. እቃ ሲመዘገብ ምድብ መምረጫ (Category Selector)
+def process_item_name(message, photo_id):
+    item_name = message.text.strip()
+    db = load_data()
+    
+    # ድርጅቱ ዋስትና (Balance) እንዳለው እዚህ ጋር ቼክ ማድረግ ይቻላል
+    v_id = str(message.from_user.id)
+    if v_id in db['vendors_list']:
+        if db['vendors_list'][v_id].get('deposit_balance', 0) <= 0:
+            return bot.send_message(message.chat.id, "❌ ይቅርታ፣ የቀሪ ዋስትና ሂሳብዎ 0 ስለሆነ እቃ መመዝገብ አይችሉም። እባክዎ አድሚኑን ያነጋግሩ።")
+
+    categories = db.get("categories", ["ሌሎች"])
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    
+    for cat in categories:
+        # callback_data ላይ የፎቶውን ID እና ስሙን መያዝ ለቀጣይ ደረጃ ይረዳል
+        markup.add(types.InlineKeyboardButton(cat, callback_data=f"selcat_{cat}"))
+
+    bot.send_message(message.chat.id, f"📂 የ '{item_name}' ምድብ ይምረጡ፦", reply_markup=markup)
+
+# 5. የርቀት ስሌት (Distance)
 def calculate_distance(lat1, lon1, lat2, lon2):
-    R = 6371000 
+    R = 6371000 # በሜትር
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi, dlambda = math.radians(lat2-lat1), math.radians(lon2-lon1)
+    dphi = math.radians(lat2-lat1)
+    dlambda = math.radians(lon2-lon1)
+    
     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
-    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return R * c
 
 
 from telebot import types
