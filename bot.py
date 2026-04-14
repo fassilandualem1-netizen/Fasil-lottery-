@@ -937,10 +937,19 @@ def check_admin(message):
 
 
 if __name__ == "__main__":
-    threading.Thread(target=run_flask, daemon=True).start()
+    # 1. የ Flask ሰርቨርን በ Background ያስነሳል (ለ Render Port ማታለያ)
+    t = threading.Thread(target=run_flask)
+    t.daemon = True
+    t.start()
+    
+    # 2. ቀድሞ የነበረን Webhook ያጸዳል
     bot.remove_webhook()
+    
+    # 3. ቦቱ ሳይቋረጥ እንዲሰራ የሚያደርግ ዑደት
+    print("🚀 ቦቱ ስራ ጀምሯል...")
     while True:
         try:
-            bot.polling(none_stop=True, interval=1, timeout=40)
+            bot.polling(none_stop=True, interval=1, timeout=60)
         except Exception as e:
+            print(f"⚠️ ስህተት አጋጥሟል፣ በ 5 ሰከንድ ውስጥ ይነሳል፦ {e}")
             time.sleep(5)
