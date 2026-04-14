@@ -126,6 +126,51 @@ def start_command(message):
 
     except Exception as e:
         print(f"❌ Error in start: {e}")
+# --- የቋሚ በተኖች (Reply Keyboard) ተግባር ---
+
+@bot.message_handler(func=lambda m: m.text == "🏬 አጋር ድርጅቶች")
+def admin_partners_btn(message):
+    if message.from_user.id in ADMIN_IDS:
+        # አጋር ድርጅቶች ሲነካ ያንን ያማረውን ዳሽቦርድ (Inline) ይልካል
+        bot.send_message(message.chat.id, "የዴሊቨሪ ሲስተም መቆጣጠሪያ ዳሽቦርድ፦", 
+                         reply_markup=admin_delivery_dashboard())
+
+@bot.message_handler(func=lambda m: m.text == "📦 ትዕዛዞች")
+def admin_orders_btn(message):
+    if message.from_user.id in ADMIN_IDS:
+        bot.send_message(message.chat.id, "📊 ሁሉንም ትዕዛዞች እዚህ ማየት ይችላሉ።")
+
+@bot.message_handler(func=lambda m: m.text == "⚙️ ሲስተም")
+def admin_system_btn(message):
+    if message.from_user.id in ADMIN_IDS:
+        bot.send_message(message.chat.id, "🛠 የሲስተም ማስተካከያ ገጽ (በቅርብ ቀን...)")
+
+# --- የኢንላይን በተኖች (Inline Dashboard) ተግባር ---
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_"))
+def admin_dashboard_callbacks(call):
+    db = load_data()
+    
+    # ለምሳሌ፡ "በመጠባበቅ ላይ" የሚለው ሲነካ
+    if call.data == "admin_pending_items":
+        pending = db.get("pending", {})
+        if not pending:
+            return bot.answer_callback_query(call.id, "✅ በመጠባበቅ ላይ ያለ እቃ የለም።", show_alert=True)
+        
+        bot.answer_callback_query(call.id, "እቃዎቹን በማምጣት ላይ...")
+        # እዚህ ጋር እቃዎቹን ለይቶ የሚያሳይ ኮድ ይቀጥላል...
+
+    # ለምሳሌ፡ "የሱቆች ዝርዝር" የሚለው ሲነካ
+    elif call.data == "admin_list_v":
+        vendors = db.get("vendors_list", {})
+        if not vendors:
+            return bot.answer_callback_query(call.id, "❌ ምንም የተመዘገበ ሱቅ የለም!", show_alert=True)
+        
+        text = "📋 **የተመዘገቡ ሱቆች፦**\n\n"
+        for vid, vdata in vendors.items():
+            text += f"🏪 {vdata['name']} (ID: `{vid}`)\n"
+        bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
 
 
 @bot.message_handler(func=lambda m: m.text == "⚙️ ሲስተም")
