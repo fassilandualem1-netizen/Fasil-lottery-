@@ -945,19 +945,18 @@ def check_admin(message):
 
 
 if __name__ == "__main__":
-    # 1. የ Flask ሰርቨርን በ Background ያስነሳል (ለ Render Port ማታለያ)
-    t = threading.Thread(target=run_flask)
-    t.daemon = True
-    t.start()
+    # 1. የ Flask ሰርቨርን በ Background ያስነሳል
+    threading.Thread(target=run_flask, daemon=True).start()
     
-    # 2. ቀድሞ የነበረን Webhook ያጸዳል
+    # 2. የቆየ ግንኙነትን ያጸዳል
     bot.remove_webhook()
+    time.sleep(1) # ለደህንነት 1 ሰከንድ መጠበቅ
     
-    # 3. ቦቱ ሳይቋረጥ እንዲሰራ የሚያደርግ ዑደት
-    print("🚀 ቦቱ ስራ ጀምሯል...")
+    # 3. ቦቱን ያስነሳል
+    print(f"🚀 ቦቱ በ Port {PORT} ላይ ስራ ጀምሯል...")
     while True:
         try:
             bot.polling(none_stop=True, interval=1, timeout=60)
         except Exception as e:
-            print(f"⚠️ ስህተት አጋጥሟል፣ በ 5 ሰከንድ ውስጥ ይነሳል፦ {e}")
+            print(f"⚠️ ስህተት፦ {e}")
             time.sleep(5)
