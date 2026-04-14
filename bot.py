@@ -1,67 +1,57 @@
-import logging
-import asyncio
-from aiogram import Bot, Dispatcher, types
+import telebot
+from telebot import types
+import os
+from flask import Flask
+import threading
 
 # --- ውቅረት (Configuration) ---
-# ቶከንህ እዚህ ገብቷል
-API_TOKEN = '8663228906:AAFsTC0fKqAVEWMi7rk59iSdfVD-1vlJA0Y' 
-
-# የሦስታችሁም ID እዚህ ዝርዝር ውስጥ ገብቷል
-ADMIN_IDS = [8488592165, 5690096145, 7072611117]
-
-# የቻናላችሁ ID
+TOKEN = "8663228906:AAFsTC0fKqAVEWMi7rk59iSdfVD-1vlJA0Y"
+ADMIN_IDS =
 DRIVER_CHANNEL_ID = -1003962139457
+PORT = int(os.getenv("PORT", 8080))
 
-logging.basicConfig(level=logging.INFO)
+bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
+server = Flask(__name__)
 
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot)
+@server.route('/')
+def health_check(): return "Delivery Bot is Active!", 200
 
-# --- የአድሚን/ሾፌር ሜኑ ---
+# --- የአድሚን ቁልፎች ---
 def get_driver_keyboard():
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(types.KeyboardButton("አዳዲስ ትዕዛዞች 📦"))
-    keyboard.add(types.KeyboardButton("እቃ ጨምር (Vendor) ➕"), types.KeyboardButton("ሪፖርት 📊"))
-    return keyboard
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    btn1 = types.KeyboardButton("አዳዲስ ትዕዛዞች 📦")
+    btn2 = types.KeyboardButton("እቃ ጨምር (Vendor) ➕")
+    btn3 = types.KeyboardButton("ሪፖርት 📊")
+    markup.add(btn1)
+    markup.add(btn2, btn3)
+    return markup
 
-# --- የገዢው ሜኑ ---
+# --- የገዢ ቁልፎች ---
 def get_customer_keyboard():
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(types.KeyboardButton("ሱቆችን ተመልከት 🏪"))
-    return keyboard
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(types.KeyboardButton("ሱቆችን ተመልከት 🏪"))
+    return markup
 
-@dp.message_handler(commands=['start'])
-async def cmd_start(message: types.Message):
-    user_id = message.from_user.id
-    # እዚህ ጋር 'in ADMIN_IDS' የሚለው ሦስታችሁንም ቼክ ያደርጋል
-    if user_id in ADMIN_IDS:
-        await message.answer(
-            f"ሰላም ሾፌር {message.from_user.first_name}! የቢዝነሱ ባለቤት መሆንህ ተረጋግጧል። ስራ እንጀምር?",
-            reply_markup=get_driver_keyboard()
-        )
+@bot.message_handler(commands=['start'])
+def start(message):
+    if message.from_user.id in ADMIN_IDS:
+        bot.send_message(message.chat.id, f"ሰላም ሾፌር {message.from_user.first_name}!", reply_markup=get_driver_keyboard())
     else:
-        await message.answer(
-            "እንኳን ወደ Beu-Style Delivery በደህና መጡ! በቅርብ ቀን ሙሉ አገልግሎት እንጀምራለን።",
-            reply_markup=get_customer_keyboard()
-        )
+        bot.send_message(message.chat.id, "እንኳን ወደ Beu-Style በደህና መጡ!", reply_markup=get_customer_keyboard())
 
-@dp.message_handler(lambda message: message.text == "አዳዲስ ትዕዛዞች 📦")
-async def check_orders(message: types.Message):
+@bot.message_handler(func=lambda m: m.text == "አዳዲስ ትዕዛዞች 📦")
+def check_orders(message):
     if message.from_user.id in ADMIN_IDS:
         try:
-            await bot.send_message(DRIVER_CHANNEL_ID, f"🔔 ማሳወቂያ፡ ሾፌር {message.from_user.first_name} ትዕዛዝ ለመቀበል ዝግጁ ነው።")
-            await message.answer("ወደ ሾፌሮች ቻናል ማሳወቂያ ተልኳል! ✅")
+            bot.send_message(DRIVER_CHANNEL_ID, f"🔔 ሾፌር {message.from_user.first_name} ለስራ ዝግጁ ነው።")
+            bot.reply_to(message, "ማሳወቂያ ወደ ቻናሉ ተልኳል! ✅")
         except Exception as e:
-            await message.answer(f"ስህተት ተፈጥሯል፦ {e}\n(ቦቱ ቻናሉ ላይ Admin መሆኑን አረጋግጥ!)")
+            bot.reply_to(message, f"ስህተት፡ {e}\n(ቦቱ ቻናሉ ላይ አድሚን መሆኑን እባክህ አረጋግጥ)")
 
-async def main():
-    print("🚀 ቦቱ በ Termux ላይ ስራ ጀምሯል...")
-    await dp.start_polling(bot)
+def run_flask():
+    server.run(host='0.0.0.0', port=PORT)
 
-if __name__ == '__main__':
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        print("ቦቱ ቆሟል!")
-
-እሄንን በ phyton ከዛ github ላይ commit አድርጌ pc ላይ ደሞ በ ረንደር እጭነዋለሁ ምን ትላለህ
+if __name__ == "__main__":
+    threading.Thread(target=run_flask, daemon=True).start()
+    print("🚀 ቦቱ በሰላም ተነስቷል...")
+    bot.infinity_polling()
