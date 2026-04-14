@@ -6,7 +6,7 @@ import threading
 
 # --- ውቅረት (Configuration) ---
 TOKEN = "8663228906:AAFsTC0fKqAVEWMi7rk59iSdfVD-1vlJA0Y"
-ADMIN_IDS =
+ADMIN_IDS = [5690096145, 7072611117,8488592165]
 DRIVER_CHANNEL_ID = -1003962139457
 PORT = int(os.getenv("PORT", 8080))
 
