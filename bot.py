@@ -234,6 +234,64 @@ def save_new_fee(message):
     except:
         bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ!")
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("del_cat_"))
+def delete_category(call):
+    db = load_data()
+    cat_to_del = call.data.replace("del_cat_", "")
+    
+    if "categories" in db and cat_to_del in db["categories"]:
+        db["categories"].remove(cat_to_del)
+        save_data(db)
+        bot.answer_callback_query(call.id, f"✅ {cat_to_del} ተሰርዟል", show_alert=True)
+        # ገጹን ሪፍሬሽ ለማድረግ የድሮውን ፈንክሽን መልሰህ ጥራው
+        admin_manage_categories(call) 
+    else:
+        bot.answer_callback_query(call.id, "❌ ምድቡ አልተገኘም")
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith(("approve_", "reject_")))
+def handle_item_approval(call):
+    db = load_data()
+    action, item_id = call.data.split("_")
+    
+    # እቃውን ከ pending ውስጥ ፈልጎ ማውጣት
+    item = db.get("pending", {}).pop(item_id, None)
+    
+    if not item:
+        return bot.edit_message_caption("❌ ይህ እቃ ቀድሞውኑ ተሰርዟል ወይም የለም።", call.message.chat.id, call.message.message_id)
+
+    if action == "approve":
+        # ወደ ዋናው የዕቃዎች ዝርዝር (items) መጨመር
+        if "items" not in db: db["items"] = {}
+        item["status"] = "Active"
+        db["items"][item_id] = item
+        save_data(db)
+        
+        bot.edit_message_caption(f"✅ እቃው '{item['name']}' ጸድቋል! ለደንበኞች ይታያል።", call.message.chat.id, call.message.message_id)
+        # ለባለሱቁ ሜሴጅ መላክ (ካስፈለገ)
+    
+    else: # Reject ከሆነ
+        save_data(db)
+        bot.edit_message_caption(f"🔴 እቃው '{item['name']}' ውድቅ ተደርጓል።", call.message.chat.id, call.message.message_id)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_settings")
+def change_delivery_fee(call):
+    msg = bot.send_message(call.message.chat.id, "💰 እባክዎ መነሻ የዴሊቨሪ ዋጋ በቁጥር ብቻ ይጻፉ (ለምሳሌ፦ 60)፦")
+    bot.register_next_step_handler(msg, save_delivery_settings)
+
+def save_delivery_settings(message):
+    try:
+        new_fee = float(message.text)
+        db = load_data()
+        db["settings"]["base_delivery"] = new_fee
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ የዴሊቨሪ ዋጋ ወደ {new_fee} ETB ተቀይሯል።")
+    except:
+        bot.send_message(message.chat.id, "⚠️ እባክዎ ትክክለኛ ቁጥር ብቻ ያስገቡ።")
+
+
 
 
 
