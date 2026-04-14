@@ -182,7 +182,8 @@ def vendor_active_orders(message):
         
         bot.send_message(message.chat.id, f"📦 ትዕዛዝ #{oid}\n🛍 እቃ፦ {order['item_name']}\n💰 ዋጋ፦ {order['item_price']} ETB", reply_markup=markup)
 
-# 1. ባለሱቁ እቃ መጨመር ሲጀምር
+# --- የዕቃ መጨመሪያ ሂደት ---
+
 @bot.message_handler(func=lambda m: m.text == "➕ እቃ ጨምር")
 def vendor_add_item(message):
     db = load_data()
@@ -218,14 +219,17 @@ def process_item_price(message, photo_id, item_name, description):
     try:
         price = float(message.text)
         db = load_data()
-        vendor_info = db["vendors_list"][str(message.from_user.id)]
+        uid = str(message.from_user.id)
         
-        # ID መፍጠር
-        item_id = str(len(db.get("items", {})) + len(db.get("pending", {})) + 1)
+        # የባለሱቁን መረጃ ከ vendors_list ማግኘት
+        vendor_info = db.get("vendors_list", {}).get(uid, {"name": "ባለሱቅ"})
+        
+        # ልዩ ID መፍጠር (በሰከንድ መቁጠሪያ ቢሆን ይሻላል)
+        item_id = str(int(time.time()))
         
         pending_item = {
             "id": item_id,
-            "vid": str(message.from_user.id),
+            "vid": uid,
             "v_name": vendor_info["name"],
             "name": item_name,
             "description": description,
@@ -240,7 +244,7 @@ def process_item_price(message, photo_id, item_name, description):
         
         bot.send_message(message.chat.id, "✅ እቃው ተመዝግቧል! አድሚን ሲያጸድቀው ለደንበኞች ይታያል።")
         
-        # ለአድሚን ማሳወቂያ መላክ
+        # ለአድሚን ማሳወቂያ መላክ (የፈንክሽኑን ስም እዚህ ጋር አስተውል)
         notify_admin_new_item(item_id, pending_item)
         
     except ValueError:
@@ -249,6 +253,32 @@ def process_item_price(message, photo_id, item_name, description):
     except Exception as e:
         print(f"❌ Error in process_item_price: {e}")
         bot.send_message(message.chat.id, "⚠️ ችግር አጋጥሟል፣ እባክዎ ደግመው ይሞክሩ።")
+
+# --- ለአድሚን የሚላክ ማሳወቂያ ፈንክሽን ---
+
+def notify_admin_new_item(item_id, item_data):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("✅ ፍቀድ", callback_data=f"approve_{item_id}"),
+        types.InlineKeyboardButton("❌ አትፍቀድ", callback_data=f"reject_{item_id}")
+    )
+    
+    caption = (
+        f"🔔 <b>አዲስ ዕቃ ቀርቧል</b>\n\n"
+        f"🏬 ሱቅ፦ {item_data.get('v_name', 'ያልታወቀ')}\n"
+        f"📦 ስም፦ {item_data.get('name', 'N/A')}\n"
+        f"💰 ዋጋ፦ {item_data.get('price', 0)} ETB\n"
+        f"📝 መግለጫ፦ {item_data.get('description', 'የለም')}"
+    )
+
+    for admin in ADMIN_IDS:
+        try:
+            bot.send_photo(admin, item_data['photo'], caption=caption, reply_markup=markup, parse_mode="HTML")
+            print(f"✅ ለአድሚን {admin} ማሳወቂያ ተልኳል።")
+        except Exception as e:
+            print(f"❌ ለአድሚን {admin} መላክ አልተቻለም፦ {e}")
+
+
 
 # ሻጭ እቃ ሲጨምር ለAdmin የሚመጣ ማሳወቂያ
 def notify_admin_new_item(item_id, item_data):
