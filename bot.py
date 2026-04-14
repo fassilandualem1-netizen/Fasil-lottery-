@@ -302,17 +302,36 @@ def notify_admin_new_item(item_id, item_data):
 
 @bot.message_handler(func=lambda m: m.text == "⚙️ የሱቅ ሁኔታ")
 def vendor_status_toggle(message):
-    db = load_data()
-    vid = str(message.from_user.id)
-    
-    # የሱቁን አሁናዊ ሁኔታ ማግኘት (ካለ ካልሆነ Open ነው)
-    current_status = db["vendors_list"][vid].get("shop_status", "Open 🟢")
-    
-    markup = types.InlineKeyboardMarkup()
-    new_status = "Closed 🔴" if current_status == "Open 🟢" else "Open 🟢"
-    markup.add(types.InlineKeyboardButton(f"ወደ {new_status} ቀይር", callback_data=f"toggle_v_{vid}"))
-    
-    bot.send_message(message.chat.id, f"🏬 ሱቅዎ በአሁኑ ሰዓት፦ **{current_status}** ነው", reply_markup=markup, parse_mode="Markdown")
+    try:
+        db = load_data()
+        vid = str(message.from_user.id)
+        
+        # ተጠቃሚው በባለሱቅ ዝርዝር ውስጥ መኖሩን ማረጋገጥ
+        if "vendors_list" not in db or vid not in db["vendors_list"]:
+            return bot.send_message(message.chat.id, "❌ ይቅርታ፣ ይህን ተግባር ለመጠቀም የባለሱቅ አካውንት ያስፈልገዎታል።")
+        
+        # የሱቁን አሁናዊ ሁኔታ ማግኘት (ካለ፣ ካልሆነ Open ነው)
+        current_status = db["vendors_list"][vid].get("shop_status", "Open 🟢")
+        
+        # አዲሱን ሁኔታ መወሰን
+        new_status_text = "Closed 🔴" if "Open" in current_status else "Open 🟢"
+        
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton(f"ወደ {new_status_text} ቀይር", callback_data=f"toggle_v_{vid}"))
+        
+        text = (
+            f"🏬 **የሱቅ መቆጣጠሪያ**\n\n"
+            f"የሱቅዎ አሁናዊ ሁኔታ፦ **{current_status}**\n\n"
+            f"💡 *ማሳሰቢያ፦ ሱቅዎ ዝግ ከሆነ ደንበኞች ማዘዝ አይችሉም።*"
+        )
+        
+        bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+        
+    except Exception as e:
+        print(f"❌ Error in vendor_status_toggle: {e}")
+        bot.send_message(message.chat.id, "⚠️ ችግር አጋጥሟል፣ እባክዎ ጥቂት ቆይተው ይሞክሩ።")
+
+# ማሳሰቢያ፦ ይህ ኮድ እንዲሰራ 'toggle_v_' የሚለውን callback_query_handler በትክክል መጻፍህን አረጋግጥ።
 
 @bot.message_handler(func=lambda m: m.text == "🛍 የኔ ትዕዛዞች")
 def customer_orders(message):
