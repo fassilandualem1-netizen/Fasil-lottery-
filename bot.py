@@ -513,6 +513,38 @@ def notify_vendor_new_order(order_id, order_data):
     except Exception as e:
         print(f"❌ Error notifying vendor: {e}")
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_pending_items")
+def list_pending_items(call):
+    try:
+        db = load_data()
+        pending = db.get("pending", {})
+
+        if not pending:
+            return bot.answer_callback_query(call.id, "✅ በአሁኑ ሰዓት በመጠባበቅ ላይ ያለ እቃ የለም።", show_alert=True)
+
+        bot.answer_callback_query(call.id, "እቃዎቹን በማምጣት ላይ...")
+
+        for item_id, item in pending.items():
+            markup = types.InlineKeyboardMarkup()
+            markup.add(
+                types.InlineKeyboardButton("✅ ፍቀድ (Approve)", callback_data=f"approve_{item_id}"),
+                types.InlineKeyboardButton("❌ ሰርዝ (Reject)", callback_data=f"reject_{item_id}")
+            )
+            
+            caption = (
+                f"📝 **አዲስ እቃ ማረጋገጫ**\n\n"
+                f"🏬 ሱቅ፦ {item.get('v_name', 'ያልታወቀ')}\n"
+                f"📦 እቃ፦ {item.get('name', 'N/A')}\n"
+                f"💰 ዋጋ፦ {item.get('price', 0)} ETB\n"
+                f"📜 መግለጫ፦ {item.get('description', 'የለም')}"
+            )
+            
+            bot.send_photo(call.message.chat.id, item['photo'], caption=caption, reply_markup=markup, parse_mode="Markdown")
+            
+    except Exception as e:
+        print(f"❌ Error in list_pending_items: {e}")
+
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("v_history_"))
 def vendor_order_history(call):
     vid = call.data.split("_")
