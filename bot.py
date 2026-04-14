@@ -99,31 +99,33 @@ def show_vendors(message):
 def start_command(message):
     try:
         user_id = message.from_user.id
-        db = load_data() # ዳታቤዙ ካልተነሳ እዚህ ጋር ይቆማል
+        uid_str = str(user_id) # ለዳታቤዝ ፍለጋ እንዲመች
+        db = load_data() 
 
-        # 1. አድሚን መሆኑን መለየት
+        # 1. አድሚን መሆኑን መለየት (ADMIN_IDS ዝርዝር ውስጥ ካለ)
         if user_id in ADMIN_IDS:
             return bot.send_message(user_id, "👑 እንኳን ደህና መጡ ጌታዬ (አድሚን)!", 
                                     reply_markup=kb_admin_main())
 
-        # 2. ባለሱቅ (Vendor) መሆኑን መለየት
-        if str(user_id) in db.get("vendors_list", {}):
-            v_name = db["vendors_list"][str(user_id)]["name"]
-            return bot.send_message(user_id, f"🏬 ሰላም {v_name} (ባለሱቅ)!", 
+        # 2. ባለሱቅ (Vendor) መሆኑን መለየት (በመዘገብከው ID መሠረት)
+        # እዚህ ጋር 'vendors_list' መሆኑን እርግጠኛ ሁን (ከላይ ምዝገባው ላይ የተጠቀምነው ስም ነው)
+        vendors = db.get("vendors_list", {})
+        if uid_str in vendors:
+            v_name = vendors[uid_str]["name"]
+            return bot.send_message(user_id, f"🏬 ሰላም {v_name} (ባለሱቅ)!\nዛሬ ምን ማስተካከል ይፈልጋሉ?", 
                                     reply_markup=kb_vendor_main())
 
-        # 3. ደንበኛ (Customer)
-        bot.send_message(user_id, "👋 እንኳን ወደ BDF በደህና መጡ!", 
+        # 3. ደንበኛ (Customer) - ከላይ ያሉት ካልሆኑ እንደ ደንበኛ ይታያል
+        bot.send_message(user_id, "👋 እንኳን ወደ BDF በደህና መጡ! የሚፈልጉትን ሱቅ መርጠው ማዘዝ ይችላሉ።", 
                          reply_markup=kb_customer_main())
         
         # አዲስ ደንበኛ ከሆነ መመዝገብ
         if "users" not in db: db["users"] = {}
-        if str(user_id) not in db["users"]:
-            db["users"][str(user_id)] = {"name": message.from_user.first_name}
+        if uid_str not in db["users"]:
+            db["users"][uid_str] = {"name": message.from_user.first_name, "joined_at": time.time()}
             save_data(db)
 
     except Exception as e:
-        # ስህተት ቢኖር እንኳ ለምን እንዳልሰራ ለአድሚን ይነግረዋል
         print(f"❌ Start Error: {e}")
         bot.send_message(message.chat.id, "⚠️ በሲስተሙ ላይ ትንሽ ችግር አጋጥሟል፣ እባክዎ ጥቂት ቆይተው ይሞክሩ።")
 
