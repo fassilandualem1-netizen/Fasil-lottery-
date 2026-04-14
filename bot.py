@@ -74,6 +74,20 @@ def save_category(message):
     else:
         bot.send_message(message.chat.id, "⚠️ ይህ ምድብ ቀድሞውኑ ተመዝግቧል።")
 
+def process_item_name(message, photo_id):
+    item_name = message.text
+    db = load_data()
+    categories = db.get("categories", ["ሌሎች"]) # አድሚኑ የጨመራቸውን ያመጣል
+    
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    for cat in categories:
+        # እያንዳንዱን ምድብ በተን እናደርገዋለን
+        markup.add(types.InlineKeyboardButton(cat, callback_data=f"selcat_{cat}"))
+    
+    msg = bot.send_message(message.chat.id, f"📂 የ '{item_name}' ምድብ (Category) ይምረጡ፦", reply_markup=markup)
+    # ማሳሰቢያ፦ እዚህ ጋር callback_handler ስለሚቀበለው register_next_step አያስፈልግም
+
+
 
 def calculate_distance(lat1, lon1, lat2, lon2):
     R = 6371000 
