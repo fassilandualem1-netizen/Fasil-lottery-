@@ -162,7 +162,7 @@ def get_admin_dashboard():
     markup.add(report_label)
     markup.add(btn_stats)
     
-    return ማርቁፕ
+    return markup
 
 @bot.message_handler(commands=['start'])
 def start_command(message):
