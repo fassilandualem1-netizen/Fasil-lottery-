@@ -112,6 +112,32 @@ def notify_admin_new_item(item_id, item_data):
                        caption=f"🔔 አዲስ ዕቃ ቀርቧል\nስም፦ {item_data['name']}\nዋጋ፦ {item_data['price']}\nሱቅ፦ {item_data['v_name']}", 
                        reply_markup=markup)
 
+def notify_vendor_new_order(order_id, order_data):
+    db = load_data()
+    # የባለሱቁን የቴሌግራም ID መፈለግ
+    vendor_id = None
+    for vid, vdata in db.get("vendors_list", {}).items():
+        if str(order_data['vid']) == str(vid): # vid በምዝገባ ወቅት የተሰጠው ነው
+            vendor_id = vid
+            break
+            
+    if vendor_id:
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("👨‍🍳 እቃው ተዘጋጅቷል (Ready)", callback_data=f"vready_{order_id}"))
+        
+        text = (
+            f"🔔 **አዲስ ትዕዛዝ መጥቷል!**\n"
+            f"--------------------------\n"
+            f"🆔 ትዕዛዝ ቁጥር፦ #{order_id}\n"
+            f"🛍 እቃ፦ {order_data['item_name']}\n"
+            f"🔢 ብዛት፦ {order_data.get('quantity', 1)}\n"
+            f"💰 ዋጋ፦ {order_data['item_price']} ETB\n"
+            f"--------------------------\n"
+            f"እባክዎ እቃውን አዘጋጅተው ሲጨርሱ 'Ready' የሚለውን ይጫኑ።"
+        )
+        bot.send_message(vendor_id, text, reply_markup=markup, parse_mode="Markdown")
+
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
 def approve_item(call):
     iid = call.data.split("_")
