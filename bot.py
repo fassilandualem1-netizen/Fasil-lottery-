@@ -147,10 +147,21 @@ def notify_admin_new_item(item_id, item_data):
         types.InlineKeyboardButton("✅ ፍቀድ", callback_data=f"approve_{item_id}"),
         types.InlineKeyboardButton("❌ አትፍቀድ", callback_data=f"reject_{item_id}")
     )
+    
+    caption = (
+        f"🔔 <b>አዲስ ዕቃ ቀርቧል</b>\n\n"
+        f"🏬 ሱቅ፦ {item_data.get('v_name', 'ያልታወቀ')}\n"
+        f"📦 ስም፦ {item_data.get('name', 'N/A')}\n"
+        f"💰 ዋጋ፦ {item_data.get('price', 0)} ETB\n"
+        f"📝 መግለጫ፦ {item_data.get('description', 'የለም')}"
+    )
+
     for admin in ADMIN_IDS:
-        bot.send_photo(admin, item_data['photo'], 
-                       caption=f"🔔 አዲስ ዕቃ ቀርቧል\nስም፦ {item_data['name']}\nዋጋ፦ {item_data['price']}\nሱቅ፦ {item_data['v_name']}", 
-                       reply_markup=markup)
+        try:
+            bot.send_photo(admin, item_data['photo'], caption=caption, reply_markup=markup, parse_mode="HTML")
+            print(f"✅ ለአድሚን {admin} ማሳወቂያ ተልኳል።")
+        except Exception as e:
+            print(f"❌ ለአድሚን {admin} መላክ አልተቻለም፦ {e}")
 
 @bot.message_handler(func=lambda m: m.text == "📦 የመጡ ትዕዛዞች")
 def vendor_active_orders(message):
