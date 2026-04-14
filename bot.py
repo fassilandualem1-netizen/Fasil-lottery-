@@ -160,6 +160,83 @@ def show_admin_panel(message):
         bot.reply_to(message, "❌ ይቅርታ፣ ይህንን ትዕዛዝ ለመጠቀም ፈቃድ የለዎትም።")
 
 
+# ሀ. በተኑ ሲጫን መጀመሪያ የድርጅቱን መለያ ይጠይቃል
+@bot.callback_query_handler(func=lambda call: call.data == "admin_add_funds")
+def start_funding(call):
+    msg = bot.send_message(call.message.chat.id, "🆔 እባክዎ ብር የሚሞሉለትን የድርጅት User ID ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_vendor_id)
+
+# ለ. የብር መጠኑን ይጠይቃል
+def process_vendor_id(message):
+    vendor_id = message.text
+    msg = bot.send_message(message.chat.id, f"💵 ለድርጅት {vendor_id} ስንት ብር ተከፈለ?")
+    bot.register_next_step_handler(msg, process_fund_amount, vendor_id)
+
+# ሐ. ዳታቤዝ ላይ መረጃውን ያዘምናል
+def process_fund_amount(message, vendor_id):
+    try:
+        amount = float(message.text)
+        db = load_data()
+        
+        if vendor_id in db['vendors_list']:
+            # ሂሳቡን ይጨምራል
+            db['vendors_list'][vendor_id]['deposit_balance'] = db['vendors_list'][vendor_id].get('deposit_balance', 0) + amount
+            save_data(db)
+            bot.send_message(message.chat.id, f"✅ ተሳክቷል! ለድርጅት {vendor_id} {amount} ETB ዋስትና ተጨምሯል።")
+        else:
+            bot.send_message(message.chat.id, "❌ ስህተት፦ ይህ የድርጅት መለያ (ID) አልተገኘም።")
+    except ValueError:
+        bot.send_message(message.chat.id, "⚠️ እባክዎ ቁጥር ብቻ ያስገቡ።")
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_monitor_balance")
+def view_all_balances(call):
+    db = load_data()
+    vendors = db.get("vendors_list", {})
+    
+    if not vendors:
+        return bot.send_message(call.message.chat.id, "📭 እስካሁን የተመዘገበ ድርጅት የለም።")
+    
+    report = "📉 **የድርጅቶች ቀሪ የዋስትና ሂሳብ**\n\n"
+    for vid, data in vendors.items():
+        bal = data.get('deposit_balance', 0)
+        report += f"🏢 ድርጅት፦ {data['name']}\n💰 ቀሪ ዋስትና፦ {bal} ETB\n"
+        report += "------------------------\n"
+    
+    bot.send_message(call.message.chat.id, report, parse_mode="Markdown")
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_profit_track")
+def view_total_profit(call):
+    db = load_data()
+    profit = db.get("total_profit", 0)
+    
+    text = (f"💰 **ጠቅላላ የኮሚሽን ትርፍ**\n\n"
+            f"ቦቱ ከሽያጮች የሰበሰበው ጠቅላላ ትርፍ፦\n"
+            f"✨ **{profit} ETB** ✨")
+    
+    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_low_credit")
+def view_low_balances(call):
+    db = load_data()
+    vendors = db.get("vendors_list", {})
+    limit = 200 # ማስጠንቀቂያ የሚሰጥበት ጣሪያ
+    
+    low_list = []
+    for vid, data in vendors.items():
+        bal = data.get('deposit_balance', 0)
+        if bal < limit:
+            low_list.append(f"⚠️ {data['name']} - ቀሪ፦ {bal} ETB")
+            
+    if low_list:
+        text = "🚨 **ዋስትናቸው ሊያልቅ የደረሱ ድርጅቶች**\n\n" + "\n".join(low_list)
+    else:
+        text = "✅ ሁሉም ድርጅቶች በቂ የዋስትና ሂሳብ አላቸው።"
+        
+    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+
 
 if __name__ == "__main__":
     # 1. የ Flask ሰርቨርን በ Background ያስነሳል
