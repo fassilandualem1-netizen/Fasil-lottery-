@@ -157,6 +157,67 @@ def general_report(message):
     )
     bot.send_message(message.chat.id, text, parse_mode="Markdown")
 
+# 1. ባለሱቁ እቃ መጨመር ሲጀምር
+@bot.message_handler(func=lambda m: m.text == "➕ እቃ ጨምር")
+def vendor_add_item(message):
+    db = load_data()
+    # ተጠቃሚው ባለሱቅ መሆኑን ቼክ ማድረግ
+    if str(message.from_user.id) not in db.get("vendors_list", {}):
+        bot.reply_to(message, "❌ ይቅርታ፣ እቃ ለመጨመር የባለሱቅ ፍቃድ ያስፈልገዎታል።")
+        return
+    
+    msg = bot.send_message(message.chat.id, "📸 በመጀመሪያ የእቃውን ፎቶ ይላኩ፦")
+    bot.register_next_step_handler(msg, process_item_photo)
+
+def process_item_photo(message):
+    if not message.photo:
+        msg = bot.send_message(message.chat.id, "❌ እባክዎ የእቃውን ፎቶ ይላኩ!")
+        bot.register_next_step_handler(msg, process_item_photo)
+        return
+    
+    photo_id = message.photo[-1].file_id
+    msg = bot.send_message(message.chat.id, "📝 የእቃውን ስም ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_item_name, photo_id)
+
+def process_item_name(message, photo_id):
+    item_name = message.text
+    msg = bot.send_message(message.chat.id, f"💰 የ '{item_name}' ዋጋ ስንት ነው? (ቁጥር ብቻ ያስገቡ)፦")
+    bot.register_next_step_handler(msg, process_item_price, photo_id, item_name)
+
+def process_item_price(message, photo_id, item_name):
+    try:
+        price = float(message.text)
+        db = load_data()
+        vendor_info = db["vendors_list"][str(message.from_user.id)]
+        
+        # እቃውን ለጊዜው 'pending' (ጥበቃ) ውስጥ ማስገባት
+        item_id = str(len(db.get("items", {})) + len(db.get("pending", {})) + 1)
+        
+        pending_item = {
+            "id": item_id,
+            "vid": str(message.from_user.id), # የባለሱቁ ID
+            "v_name": vendor_info["name"],
+            "name": item_name,
+            "price": price,
+            "photo": photo_id,
+            "status": "Pending"
+        }
+        
+        if "pending" not in db: db["pending"] = {}
+        db["pending"][item_id] = pending_item
+        save_data(db)
+        
+        bot.send_message(message.chat.id, "✅ እቃው ተመዝግቧል! አድሚን ሲያጸድቀው ለደንበኞች ይታያል።")
+        
+        # ለአድሚን ማሳወቂያ መላክ (ይህ ቀደም ብለን የሰራነው ነው)
+        notify_admin_new_item(item_id, pending_item)
+        
+    except ValueError:
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ!")
+        bot.register_next_step_handler(msg, process_item_price, photo_id, item_name)
+
+
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("ban_"))
 def ban_user(call):
     uid = call.data.split("_")
