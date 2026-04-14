@@ -104,6 +104,45 @@ def start_command(message):
     except Exception as e:
         print(f"❌ Error in start: {e}")
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_manage_cats")
+def admin_manage_categories(call):
+    db = load_data()
+    # በዳታቤዝ ውስጥ "categories" የሚል ዝርዝር መኖሩን ማረጋገጥ
+    categories = db.get("categories", ["ምግብ", "ኤሌክትሮኒክስ", "ልብስ"]) # መነሻ ምድቦች
+    
+    text = "📁 **ያሉ የምርት ምድቦች፦**\n\n"
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    
+    for cat in categories:
+        text += f"🔹 {cat}\n"
+        # እያንዳንዱን ምድብ ለመሰረዝ በተን ማዘጋጀት
+        markup.add(types.InlineKeyboardButton(f"❌ {cat} ሰርዝ", callback_data=f"del_cat_{cat}"))
+    
+    markup.add(types.InlineKeyboardButton("➕ አዲስ ምድብ ጨምር", callback_data="add_new_cat"))
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_main"))
+    
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+# --- አዲስ ምድብ ለመጨመር ---
+@bot.callback_query_handler(func=lambda call: call.data == "add_new_cat")
+def ask_category_name(call):
+    msg = bot.send_message(call.message.chat.id, "📝 አዲሱን የምድብ ስም ይጻፉ (ለምሳሌ፦ ኮስሞቲክስ)፦")
+    bot.register_next_step_handler(msg, save_category)
+
+def save_category(message):
+    db = load_data()
+    new_cat = message.text.strip()
+    
+    if "categories" not in db: db["categories"] = []
+    
+    if new_cat not in db["categories"]:
+        db["categories"].append(new_cat)
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ ምድብ '{new_cat}' በሚገባ ተጨምሯል።", reply_markup=kb_admin_main())
+    else:
+        bot.send_message(message.chat.id, "⚠️ ይህ ምድብ ቀድሞውኑ አለ።")
+
+
 # ሱቅ መመዝገቢያ ሎጂክ
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_v")
 def start_add_v(call):
