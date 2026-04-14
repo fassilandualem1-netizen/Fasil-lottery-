@@ -546,14 +546,22 @@ def show_category_items(call):
         bot.send_photo(call.message.chat.id, item['photo'], caption=caption, reply_markup=markup, parse_mode="Markdown")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
-def approve_item(call):
-    iid = call.data.split("_")
+def approve_item_callback(call):
+    item_id = call.data.split("_")
     db = load_data()
-    if iid in db["pending"]:
-        item = db["pending"].pop(iid)
-        db["items"][iid] = item
+    
+    if "pending" in db and item_id in db["pending"]:
+        item = db["pending"].pop(item_id) # ከጥበቃ አውጣው
+        if "items" not in db: db["items"] = {}
+        db["items"][item_id] = item # ወደ ዋናው ዝርዝር አስገባው
         save_data(db)
-        bot.edit_message_caption("✅ ዕቃው ጸድቆ ለሽያጭ ቀርቧል!", call.message.chat.id, call.message.message_id)
+        
+        bot.edit_message_caption(chat_id=call.message.chat.id, 
+                                 message_id=call.message.message_id, 
+                                 caption=call.message.caption + "\n\n✅ **ጸድቋል!**")
+        bot.answer_callback_query(call.id, "እቃው ጸድቋል!")
+    else:
+        bot.answer_callback_query(call.id, "❌ ስህተት፡ እቃው አልተገኘም!")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("vready_"))
