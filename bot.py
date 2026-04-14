@@ -36,13 +36,58 @@ def kb_admin_main():
     kb.add("🏬 አጋር ድርጅቶች", "📦 ትዕዛዞች", "📊 ሪፖርት", "👤 የኔ ፕሮፋይል", "⚙️ ሲስተም")
     return kb
 
+def kb_vendor_main():
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    kb.add("➕ እቃ ጨምር", "📦 የመጡ ትዕዛዞች", "📉 የኔ ሽያጭ", "⚙️ የሱቅ ሁኔታ")
+    return kb
+
 @bot.message_handler(commands=['start'])
 def start_command(message):
-    if message.from_user.id in ADMIN_IDS:
-        bot.send_message(message.chat.id, f"👑 እንኳን ደህና መጡ አድሚን {message.from_user.first_name}!", reply_markup=kb_admin_main())
-    else:
-        # ለደንበኛው የሚሆን ሜኑ (ወደፊት የምንሰራው)
-        bot.send_message(message.chat.id, "👋 እንኳን ወደ BDF በደህና መጡ!")
+    user_id = message.from_user.id
+    db = load_data()
+    
+    # 1. አድሚን መሆኑን መለየት (ከዝርዝሩ ውስጥ)
+    if user_id in ADMIN_IDS:
+        bot.send_message(user_id, "👑 እንኳን ደህና መጡ ጌታዬ (አድሚን)!", reply_markup=kb_admin_main())
+        return
+
+    # 2. ባለሱቅ (Vendor) መሆኑን መለየት
+    # 'vendors_list' በዳታቤዝ ውስጥ የባለሱቆችን ID የያዘ ዝርዝር ነው
+    if str(user_id) in db.get("vendors_list", {}):
+        v_name = db["vendors_list"][str(user_id)]["name"]
+        bot.send_message(user_id, f"🏬 ሰላም {v_name} (ባለሱቅ)!\nሽያጭዎን እዚህ ያስተዳድሩ።", reply_markup=kb_vendor_main())
+        return
+
+    # 3. ካልሆነ እንደ ደንበኛ መቁጠር
+    bot.send_message(user_id, "👋 እንኳን ወደ BDF በደህና መጡ! ምን ማዘዝ ይፈልጋሉ?", reply_markup=kb_customer_main())
+    
+    # ደንበኛው አዲስ ከሆነ ዳታቤዝ ላይ ይመዝገብ
+    if str(user_id) not in db["users"]:
+        db["users"][str(user_id)] = {"name": message.from_user.first_name, "joined_at": "today"}
+        save_data(db)
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_assign_v")
+def start_assign_vendor(call):
+    msg = bot.send_message(call.message.chat.id, "👤 የባለሱቁን የቴሌግራም ID ያስገቡ፦\n(ከ @userinfobot ማግኘት ይቻላል)")
+    bot.register_next_step_handler(msg, save_vendor_id)
+
+def save_vendor_id(message):
+    v_id = message.text
+    msg = bot.send_message(message.chat.id, f"🏬 የሱቁን ስም ያስገቡ፦")
+    bot.register_next_step_handler(msg, finalize_v_assignment, v_id)
+
+def finalize_v_assignment(message, v_id):
+    v_name = message.text
+    db = load_data()
+    
+    if "vendors_list" not in db: db["vendors_list"] = {}
+    
+    # የሰውየውን ID ከሱቁ ስም ጋር ማያያዝ
+    db["vendors_list"][str(v_id)] = {"name": v_name}
+    save_data(db)
+    
+    bot.send_message(message.chat.id, f"✅ ተጠናቋል! ID `{v_id}` አሁን የ '{v_name}' ባለሱቅ ሆኗል።")
+
 
 @bot.message_handler(func=lambda m: m.text == "⚙️ ሲስተም")
 def system_settings(message):
