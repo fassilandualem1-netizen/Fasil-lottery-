@@ -202,6 +202,51 @@ def vendor_status_toggle(message):
     
     bot.send_message(message.chat.id, f"🏬 ሱቅዎ በአሁኑ ሰዓት፦ **{current_status}** ነው", reply_markup=markup, parse_mode="Markdown")
 
+@bot.message_handler(func=lambda m: m.text == "🛍 የኔ ትዕዛዞች")
+def customer_orders(message):
+    db = load_data()
+    uid = message.from_user.id
+    
+    # የዚን ደንበኛ ትዕዛዞች መፈለግ
+    my_orders = [o for o in db["orders"].values() if o['customer_id'] == uid]
+    
+    if not my_orders:
+        return bot.send_message(message.chat.id, "እስካሁን ያዘዙት እቃ የለም።")
+
+    text = "📦 **የእርስዎ ትዕዛዞች፦**\n\n"
+    for o in my_orders[-5:]: # የመጨረሻዎቹን 5 ብቻ
+        status_icon = "⏳" if o['status'] == "Pending" else "🛵" if "way" in o['status'] else "✅"
+        text += f"{status_icon} #{o['id']} - {o['item_name']} ({o['status']})\n"
+    
+    bot.send_message(message.chat.id, text)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("conf_order_"))
+def confirm_order_final(call):
+    oid = call.data.split("_")
+    db = load_data()
+    order = db["orders"].get(oid)
+    
+    if not order:
+        return bot.answer_callback_query(call.id, "❌ ስህተት፦ ትዕዛዙ አልተገኘም!")
+
+    # የትዕዛዙን ሁኔታ መቀየር
+    db["orders"][oid]["status"] = "Pending"
+    save_data(db)
+
+    # 1. ለደንበኛው ማሳወቅ
+    bot.edit_message_text("✅ ትዕዛዝዎ ተቀባይነት አግኝቷል! ባለሱቁ እቃውን ሲያዘጋጅ እና ሾፌር ሲረከበው እናሳውቅዎታለን።", 
+                          call.message.chat.id, call.message.message_id)
+
+    # 2. ለባለሱቁ (Vendor) ማሳወቅ (እቃ እንዲያዘጋጅ)
+    notify_vendor_new_order(oid, order)
+
+    # 3. ለአድሚኖች (Admins) ማሳወቅ (ዝግጁ እንዲሆኑ)
+    # ማሳሰቢያ፦ ባለሱቁ "Ready" ሲል ነው ሾፌሩ እንዲሄድ የምናደርገው፣ ግን አሁኑኑ እንዲያውቁት ማድረግ ጥሩ ነው።
+    for admin_id in ADMIN_IDS:
+        bot.send_message(admin_id, f"🔔 **አዲስ ትዕዛዝ ተመዝግቧል!**\n🆔 ID: #{oid}\n🛍 እቃ: {order['item_name']}\n🏬 ሱቅ: {order.get('v_name', 'የተመዘገበ ሱቅ')}\n\nባለሱቁ 'Ready' እስኪል ይጠብቁ።")
+
+
 @bot.callback_query_handler(func=lambda call: call.data == "v_manage_items")
 def manage_items(call):
     db = load_data()
@@ -892,5 +937,8 @@ def check_admin(message):
 
 
 if __name__ == "__main__":
-    threading.Thread(target=run).start()
-    bot.infinity_polling()
+    print("🚀 BDF Delivery Bot ስራ ጀምሯል...")
+    try:
+        bot.polling(none_stop=True)
+    except Exception as e:
+        print(f"❌ ስህተት ተፈጥሯል፦ {e}")
