@@ -174,8 +174,8 @@ def vendor_active_orders(message):
 @bot.message_handler(func=lambda m: m.text == "➕ እቃ ጨምር")
 def vendor_add_item(message):
     db = load_data()
-    # ተጠቃሚው ባለሱቅ መሆኑን ቼክ ማድረግ
-    if str(message.from_user.id) not in db.get("vendors_list", {}):
+    uid = str(message.from_user.id)
+    if uid not in db.get("vendors_list", {}):
         bot.reply_to(message, "❌ ይቅርታ፣ እቃ ለመጨመር የባለሱቅ ፍቃድ ያስፈልገዎታል።")
         return
     
@@ -194,23 +194,29 @@ def process_item_photo(message):
 
 def process_item_name(message, photo_id):
     item_name = message.text
-    msg = bot.send_message(message.chat.id, f"💰 የ '{item_name}' ዋጋ ስንት ነው? (ቁጥር ብቻ ያስገቡ)፦")
-    bot.register_next_step_handler(msg, process_item_price, photo_id, item_name)
+    msg = bot.send_message(message.chat.id, f"📝 ስለ '{item_name}' አጭር መግለጫ (Description) ይጻፉ፦")
+    bot.register_next_step_handler(msg, process_item_description, photo_id, item_name)
 
-def process_item_price(message, photo_id, item_name):
+def process_item_description(message, photo_id, item_name):
+    description = message.text
+    msg = bot.send_message(message.chat.id, f"💰 የ '{item_name}' ዋጋ ስንት ነው? (ቁጥር ብቻ ያስገቡ)፦")
+    bot.register_next_step_handler(msg, process_item_price, photo_id, item_name, description)
+
+def process_item_price(message, photo_id, item_name, description):
     try:
         price = float(message.text)
         db = load_data()
         vendor_info = db["vendors_list"][str(message.from_user.id)]
         
-        # እቃውን ለጊዜው 'pending' (ጥበቃ) ውስጥ ማስገባት
+        # ID መፍጠር
         item_id = str(len(db.get("items", {})) + len(db.get("pending", {})) + 1)
         
         pending_item = {
             "id": item_id,
-            "vid": str(message.from_user.id), # የባለሱቁ ID
+            "vid": str(message.from_user.id),
             "v_name": vendor_info["name"],
             "name": item_name,
+            "description": description,
             "price": price,
             "photo": photo_id,
             "status": "Pending"
@@ -222,12 +228,35 @@ def process_item_price(message, photo_id, item_name):
         
         bot.send_message(message.chat.id, "✅ እቃው ተመዝግቧል! አድሚን ሲያጸድቀው ለደንበኞች ይታያል።")
         
-        # ለአድሚን ማሳወቂያ መላክ (ይህ ቀደም ብለን የሰራነው ነው)
+        # ለአድሚን ማሳወቂያ መላክ
         notify_admin_new_item(item_id, pending_item)
         
     except ValueError:
         msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ!")
-        bot.register_next_step_handler(msg, process_item_price, photo_id, item_name)
+        bot.register_next_step_handler(msg, process_item_price, photo_id, item_name, description)
+    except Exception as e:
+        print(f"❌ Error in process_item_price: {e}")
+        bot.send_message(message.chat.id, "⚠️ ችግር አጋጥሟል፣ እባክዎ ደግመው ይሞክሩ።")
+
+# ሻጭ እቃ ሲጨምር ለAdmin የሚመጣ ማሳወቂያ
+def notify_admin_new_item(item_id, item_data):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("✅ ፍቀድ", callback_data=f"approve_{item_id}"),
+        types.InlineKeyboardButton("❌ አትፍቀድ", callback_data=f"reject_{item_id}")
+    )
+    for admin in ADMIN_IDS:
+        try:
+            bot.send_photo(admin, item_data['photo'], 
+                           caption=f"🔔 **አዲስ ዕቃ ቀርቧል**\n\n"
+                                   f"📦 ስም፦ {item_data['name']}\n"
+                                   f"💰 ዋጋ፦ {item_data['price']} ETB\n"
+                                   f"📝 መግለጫ፦ {item_data.get('description', 'የለም')}\n"
+                                   f"🏬 ሱቅ፦ {item_data['v_name']}", 
+                           reply_markup=markup, parse_mode="HTML")
+        except Exception as e:
+            print(f"❌ ለአድሚን {admin} መላክ አልተቻለም: {e}")
+
 
 @bot.message_handler(func=lambda m: m.text == "⚙️ የሱቅ ሁኔታ")
 def vendor_status_toggle(message):
