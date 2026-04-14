@@ -353,6 +353,43 @@ def show_vendor_categories(call):
     bot.edit_message_text(f"🏬 **የ {v_name} ማውጫ**\nእባክዎ የምድብ ምርጫዎን ያስገቡ፦", 
                           call.message.chat.id, call.message.message_id, 
                           reply_markup=markup, parse_mode="Markdown")
+@bot.callback_query_handler(func=lambda call: call.data.startswith("buy_"))
+def start_order_process(call):
+    item_id = call.data.split("_")
+    
+    # ሎኬሽን ለመጠየቅ ቁልፍ ማዘጋጀት
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add(types.KeyboardButton("📍 ያለሁበትን ቦታ ላክ (Share Location)", request_location=True))
+    
+    msg = bot.send_message(call.message.chat.id, 
+                           "ትዕዛዝዎን ለማድረስ እንዲረዳን እባክዎ ያለሁበትን ቦታ ላክ የሚለውን ቁልፍ ይጫኑ፦", 
+                           reply_markup=markup)
+    # የሚቀጥለው እርምጃ ሎኬሽን መቀበል ነው
+    bot.register_next_step_handler(msg, process_location, item_id)
+
+def process_location(message, item_id):
+    if not message.location:
+        msg = bot.send_message(message.chat.id, "❌ እባክዎ የሎኬሽን ቁልፉን ተጠቅመው ሎኬሽን ይላኩ!")
+        bot.register_next_step_handler(msg, process_location, item_id)
+        return
+
+    user_loc = {"lat": message.location.latitude, "lon": message.location.longitude}
+    
+    # የኮንዶሚኒየም ስም መጠየቅ
+    msg = bot.send_message(message.chat.id, "🏢 የኮንዶሚኒየሙን ስም ያስገቡ (ለምሳሌ፦ ጎተራ ኮንዶ)፦", 
+                           reply_markup=types.ReplyKeyboardRemove())
+    bot.register_next_step_handler(msg, process_condo_name, item_id, user_loc)
+
+def process_condo_name(message, item_id, user_loc):
+    condo_name = message.text
+    msg = bot.send_message(message.chat.id, f"🧱 የ {condo_name} ብሎክ (Block) ቁጥር ስንት ነው?")
+    bot.register_next_step_handler(msg, process_block_no, item_id, user_loc, condo_name)
+
+def process_block_no(message, item_id, user_loc, condo_name):
+    block_no = message.text
+    msg = bot.send_message(message.chat.id, "🚪 የቤት ቁጥር (House No) ስንት ነው?")
+    bot.register_next_step_handler(msg, process_house_no, item_id, user_loc, condo_name, block_no)
+
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("cat_"))
@@ -737,6 +774,7 @@ def send_to_admin_for_approval(item_id, item):
         bot.send_photo(admin_id, item['photo'], caption=caption, reply_markup=markup, parse_mode="Markdown")
 
 
+
 # 1. መግለጫ (Description) ተቀባይ ፈንክሽን መጨመር
 def process_item_name(message, photo_id):
     item_name = message.text
@@ -779,6 +817,69 @@ def process_item_price(message, photo_id, item_name, description):
     except ValueError:
         msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ!")
         bot.register_next_step_handler(msg, process_item_price, photo_id, item_name, description)
+
+def process_house_no(message, item_id, user_loc, condo_name, block_no):
+    house_no = message.text
+    
+    # ስልክ ቁጥር መጠየቅ
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add(types.KeyboardButton("📲 ስልክ ቁጥሬን ላክ (Share Contact)", request_contact=True))
+    
+    msg = bot.send_message(message.chat.id, "በመጨረሻም ሾፌሩ እንዲደውልልዎ ስልክ ቁጥርዎን ያጋሩ፦", reply_markup=markup)
+    bot.register_next_step_handler(msg, finalize_customer_order, item_id, user_loc, condo_name, block_no, house_no)
+
+def finalize_customer_order(message, item_id, user_loc, condo_name, block_no, house_no):
+    if not message.contact:
+        msg = bot.send_message(message.chat.id, "❌ እባክዎ ስልክ ቁጥርዎን ያጋሩ!")
+        bot.register_next_step_handler(msg, finalize_customer_order, item_id, user_loc, condo_name, block_no, house_no)
+        return
+
+    phone = message.contact.phone_number
+    db = load_data()
+    item = db["items"][item_id]
+    vendor = db["vendors_list"][str(item['vid'])]
+    
+    # ርቀት እና ዋጋ ስሌት (ቀደም ሲል የሰራነው Logic)
+    dist = calculate_distance(user_loc["lat"], user_loc["lon"], vendor.get('lat', 0), vendor.get('lon', 0))
+    base_fee = db["settings"].get("base_delivery", 50)
+    delivery_fee = base_fee if dist <= 1000 else base_fee + 20 # ቀለል ያለ ስሌት
+    total_price = item['price'] + delivery_fee
+
+    order_id = str(len(db["orders"]) + 1)
+    
+    summary = (
+        f"📝 **የትዕዛዝ ማጠቃለያ**\n\n"
+        f"🛍 እቃ፦ {item['name']}\n"
+        f"🏢 አድራሻ፦ {condo_name}, Blk {block_no}, H.No {house_no}\n"
+        f"📲 ስልክ፦ {phone}\n"
+        f"--------------------------\n"
+        f"💰 የእቃ ዋጋ፦ {item['price']} ETB\n"
+        f"🛵 ማድረሻ፦ {delivery_fee} ETB\n"
+        f"💵 **ጠቅላላ ክፍያ፦ {total_price} ETB**\n\n"
+        f"ትዕዛዙን ማረጋገጥ ይፈልጋሉ?"
+    )
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("✅ ትዕዛዙን አረጋግጥ", callback_data=f"conf_order_{order_id}"))
+    markup.add(types.InlineKeyboardButton("❌ ሰርዝ", callback_data="cancel_order"))
+    
+    bot.send_message(message.chat.id, summary, reply_markup=markup, parse_mode="Markdown")
+
+    # ትዕዛዙን በ 'Pending' ሁኔታ ለጊዜው መመዝገብ
+    db["orders"][order_id] = {
+        "id": order_id,
+        "customer_id": message.from_user.id,
+        "item_name": item['name'],
+        "item_price": item['price'],
+        "delivery_fee": delivery_fee,
+        "total": total_price,
+        "address_details": {"condo": condo_name, "block": block_no, "house_no": house_no},
+        "location": user_loc,
+        "phone": phone,
+        "vid": item['vid'],
+        "status": "Awaiting Confirmation"
+    }
+    save_data(db)
 
 
 
