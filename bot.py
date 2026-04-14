@@ -62,63 +62,57 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
+# 1. የአድሚን ዋና ሜኑ (Reply Keyboard - ከታች የሚቀመጥ)
 def kb_admin_main():
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     kb.add("🏬 አጋር ድርጅቶች", "📦 ትዕዛዞች", "📊 ሪፖርት", "👤 የኔ ፕሮፋይል", "⚙️ ሲስተም")
     return kb
 
+# 2. የባለሱቅ ዋና ሜኑ
 def kb_vendor_main():
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     kb.add("➕ እቃ ጨምር", "📦 የመጡ ትዕዛዞች", "📉 የኔ ሽያጭ", "⚙️ የሱቅ ሁኔታ")
     return kb
 
+# 3. የደንበኛ ዋና ሜኑ
 def kb_customer_main():
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     kb.add("🏪 ሱቆችን ተመልከት", "🛍 የኔ ትዕዛዞች")
     kb.add("👤 ፕሮፋይል", "📞 እርዳታ")
     return kb
 
-@bot.message_handler(func=lambda m: m.text == "🏪 ሱቆችን ተመልከት")
-def show_vendors(message):
-    db = load_data()
-    vendors = db.get("vendors_list", {})
-    
-    if not vendors:
-        return bot.send_message(message.chat.id, "ለጊዜው ምንም የተመዘገቡ ሱቆች የሉም።")
-
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    for vid, vdata in vendors.items():
-        # ሱቁ ክፍት መሆኑን ቼክ ማድረግ (አማራጭ)
-        status = vdata.get("shop_status", "Open 🟢")
-        if "Open" in status:
-            markup.add(types.InlineKeyboardButton(f"🏬 {vdata['name']}", callback_data=f"v_show_{vid}"))
-    
-    bot.send_message(message.chat.id, "🛒 **የመረጡትን ሱቅ ይክፈቱ፦**", reply_markup=markup, parse_mode="Markdown")
-
+# --- ዋናው የ /start ፈንክሽን ---
 @bot.message_handler(commands=['start'])
 def start_command(message):
     try:
         user_id = message.from_user.id
-        uid_str = str(user_id) 
+        uid_str = str(user_id)
         db = load_data() 
 
-        # 1. አድሚን መሆኑን መለየት
+        # ሀ. አድሚን መሆኑን መለየት
         if user_id in ADMIN_IDS:
-            bot.send_message(user_id, "👑 እንኳን ደህና መጡ ጌታዬ (አድሚን)!", 
-                             reply_markup=kb_admin_main())
-            return
+            return bot.send_message(
+                user_id, 
+                "👑 እንኳን ደህና መጡ ጌታዬ (አድሚን)!\nከታች ያሉትን በተኖች በመጠቀም ሲስተሙን መቆጣጠር ይችላሉ።", 
+                reply_markup=kb_admin_main()
+            )
 
-        # 2. ባለሱቅ (Vendor) መሆኑን መለየት
+        # ለ. ባለሱቅ (Vendor) መሆኑን መለየት
         vendors = db.get("vendors_list", {})
         if uid_str in vendors:
             v_name = vendors[uid_str].get("name", "ባለሱቅ")
-            bot.send_message(user_id, f"🏬 ሰላም {v_name} (ባለሱቅ)!\nዛሬ ምን ማስተካከል ይፈልጋሉ?", 
-                             reply_markup=kb_vendor_main())
-            return
+            return bot.send_message(
+                user_id, 
+                f"🏬 ሰላም {v_name} (ባለሱቅ)!\nዛሬ ምን ማስተካከል ይፈልጋሉ?", 
+                reply_markup=kb_vendor_main()
+            )
 
-        # 3. ደንበኛ (Customer)
-        bot.send_message(user_id, "👋 እንኳን ወደ BDF በደህና መጡ! የሚፈልጉትን ሱቅ መርጠው ማዘዝ ይችላሉ።", 
-                         reply_markup=kb_customer_main())
+        # ሐ. ደንበኛ (Customer)
+        bot.send_message(
+            user_id, 
+            "👋 እንኳን ወደ BDF በደህና መጡ! የሚፈልጉትን ሱቅ መርጠው ማዘዝ ይችላሉ።", 
+            reply_markup=kb_customer_main()
+        )
 
     except Exception as e:
         print(f"❌ Error in start_command: {e}")
