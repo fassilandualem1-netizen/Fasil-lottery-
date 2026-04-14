@@ -163,28 +163,34 @@ def show_admin_panel(message):
 # ሀ. በተኑ ሲጫን መጀመሪያ የድርጅቱን መለያ ይጠይቃል
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_funds")
 def start_funding(call):
-    msg = bot.send_message(call.message.chat.id, "🆔 እባክዎ ብር የሚሞሉለትን የድርጅት User ID ያስገቡ፦")
-    bot.register_next_step_handler(msg, process_vendor_id)
+    # 1. መጀመሪያ የድርጅቱን ID ይጠይቃል
+    msg = bot.send_message(call.message.chat.id, "🆔 እባክዎ ብር የሰጡትን የድርጅት User ID ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_fund_vendor_id)
 
-# ለ. የብር መጠኑን ይጠይቃል
-def process_vendor_id(message):
-    vendor_id = message.text
-    msg = bot.send_message(message.chat.id, f"💵 ለድርጅት {vendor_id} ስንት ብር ተከፈለ?")
-    bot.register_next_step_handler(msg, process_fund_amount, vendor_id)
+def process_fund_vendor_id(message):
+    vendor_id = message.text.strip()
+    db = load_data()
+    
+    # ድርጅቱ መኖሩን ቼክ ያደርጋል
+    if vendor_id in db.get("vendors_list", {}):
+        msg = bot.send_message(message.chat.id, f"💵 ለድርጅት '{db['vendors_list'][vendor_id]['name']}' ስንት ብር ሰጡ?")
+        bot.register_next_step_handler(msg, complete_funding, vendor_id)
+    else:
+        bot.send_message(message.chat.id, "❌ ስህተት፡ ይህ የድርጅት ID አልተመዘገበም።")
 
-# ሐ. ዳታቤዝ ላይ መረጃውን ያዘምናል
-def process_fund_amount(message, vendor_id):
+def complete_funding(message, vendor_id):
     try:
         amount = float(message.text)
         db = load_data()
         
-        if vendor_id in db['vendors_list']:
-            # ሂሳቡን ይጨምራል
-            db['vendors_list'][vendor_id]['deposit_balance'] = db['vendors_list'][vendor_id].get('deposit_balance', 0) + amount
-            save_data(db)
-            bot.send_message(message.chat.id, f"✅ ተሳክቷል! ለድርጅት {vendor_id} {amount} ETB ዋስትና ተጨምሯል።")
-        else:
-            bot.send_message(message.chat.id, "❌ ስህተት፦ ይህ የድርጅት መለያ (ID) አልተገኘም።")
+        # ብሩን ይጨምራል (አንተ ለድርጅቱ የሰጠኸው ዋስትና)
+        db['vendors_list'][vendor_id]['deposit_balance'] = db['vendors_list'][vendor_id].get('deposit_balance', 0) + amount
+        
+        # Redis ወይም ፋይል ላይ ሴቭ ያደርጋል
+        save_data(db) 
+        
+        bot.send_message(message.chat.id, f"✅ ተሳክቷል!\n🏢 ድርጅት: {db['vendors_list'][vendor_id]['name']}\n💰 የታከለ ብር: {amount} ETB\n📉 አጠቃላይ ቀሪ ዋስትና: {db['vendors_list'][vendor_id]['deposit_balance']} ETB")
+        
     except ValueError:
         bot.send_message(message.chat.id, "⚠️ እባክዎ ቁጥር ብቻ ያስገቡ።")
 
