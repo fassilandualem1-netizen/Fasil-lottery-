@@ -1,57 +1,49 @@
 import telebot
 from telebot import types
 import os
+import json
+import math
 from flask import Flask
 import threading
+from upstash_redis import Redis
 
-# --- ውቅረት (Configuration) ---
+# --- 1. ውቅረት (Configuration) ---
 TOKEN = "8663228906:AAFsTC0fKqAVEWMi7rk59iSdfVD-1vlJA0Y"
+REDIS_URL = "https://nice-kitten-98436.upstash.io"
+REDIS_TOKEN = "gQAAAAAAAYCEAAIncDEyMWMyNjczNmZiNjM0NzlkODI4MmUyODAyZGIxNDI5N3AxOTg0MzY"
 ADMIN_IDS = [5690096145, 7072611117,8488592165]
-DRIVER_CHANNEL_ID = -1003962139457
 PORT = int(os.getenv("PORT", 8080))
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
+redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 server = Flask(__name__)
 
-@server.route('/')
-def health_check(): return "Delivery Bot is Active!", 200
+# --- 2. ዳታቤዝ ተግባራት ---
+def load_data():
+    raw = redis.get("beu_delivery_db")
+    if raw: return json.loads(raw)
+    return {"vendors": {}, "orders": {}, "total_profit": 0}
 
-# --- የአድሚን ቁልፎች ---
-def get_driver_keyboard():
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    btn1 = types.KeyboardButton("አዳዲስ ትዕዛዞች 📦")
-    btn2 = types.KeyboardButton("እቃ ጨምር (Vendor) ➕")
-    btn3 = types.KeyboardButton("ሪፖርት 📊")
-    markup.add(btn1)
-    markup.add(btn2, btn3)
-    return markup
+def save_data(data):
+    redis.set("beu_delivery_db", json.dumps(data))
 
-# --- የገዢ ቁልፎች ---
-def get_customer_keyboard():
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(types.KeyboardButton("ሱቆችን ተመልከት 🏪"))
+# --- 3. ርቀት ማሰያ (Haversine Formula) ---
+def calculate_distance(lat1, lon1, lat2, lon2):
+    R = 6371000  # በሜትር
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi, dlambda = math.radians(lat2-lat1), math.radians(lon2-lon1)
+    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+# --- 4. አዝራሮች (Keyboards) ---
+def get_admin_keyboard():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add("🏬 አጋር ድርጅቶች", "📦 ትዕዛዞች", "📊 ሪፖርት")
     return markup
 
 @bot.message_handler(commands=['start'])
 def start(message):
     if message.from_user.id in ADMIN_IDS:
-        bot.send_message(message.chat.id, f"ሰላም ሾፌር {message.from_user.first_name}!", reply_markup=get_driver_keyboard())
+        bot.send_message(message.chat.id, "👑 <b>የአድሚን ፓነል</b>\nሰላም ሾፌር!", reply_markup=get_admin_keyboard())
     else:
-        bot.send_message(message.chat.id, "እንኳን ወደ Beu-Style በደህና መጡ!", reply_markup=get_customer_keyboard())
-
-@bot.message_handler(func=lambda m: m.text == "አዳዲስ ትዕዛዞች 📦")
-def check_orders(message):
-    if message.from_user.id in ADMIN_IDS:
-        try:
-            bot.send_message(DRIVER_CHANNEL_ID, f"🔔 ሾፌር {message.from_user.first_name} ለስራ ዝግጁ ነው።")
-            bot.reply_to(message, "ማሳወቂያ ወደ ቻናሉ ተልኳል! ✅")
-        except Exception as e:
-            bot.reply_to(message, f"ስህተት፡ {e}\n(ቦቱ ቻናሉ ላይ አድሚን መሆኑን እባክህ አረጋግጥ)")
-
-def run_flask():
-    server.run(host='0.0.0.0', port=PORT)
-
-if __name__ == "__main__":
-    threading.Thread(target=run_flask, daemon=True).start()
-    print("🚀 ቦቱ በሰላም ተነስቷል...")
-    bot.infinity_polling()
+        bot.send_message(message.chat.id, "👋 እንኳን ወደ BDF በደህና መጡ!")
