@@ -88,6 +88,13 @@ def process_item_name(message, photo_id):
     # ማሳሰቢያ፦ እዚህ ጋር callback_handler ስለሚቀበለው register_next_step አያስፈልግም
 
 
+    if message.from_user.id not in ADMIN_IDS:
+        bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
+        return False
+    return True
+
+
+
 
 def calculate_distance(lat1, lon1, lat2, lon2):
     R = 6371000 
@@ -291,16 +298,33 @@ def save_delivery_settings(message):
     except:
         bot.send_message(message.chat.id, "⚠️ እባክዎ ትክክለኛ ቁጥር ብቻ ያስገቡ።")
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_promo")
+def create_promo(call):
+    msg = bot.send_message(call.message.chat.id, "🎟 አዲስ የማስተዋወቂያ ኮድ ይጻፉ (ለምሳሌ: SAVE10)፦")
+    bot.register_next_step_handler(msg, set_promo_amount)
+
+def set_promo_amount(message):
+    promo_code = message.text.upper().strip()
+    msg = bot.send_message(message.chat.id, f"💰 ለ '{promo_code}' ስንት ብር ቅናሽ ይደረግ? (በቁጥር ብቻ)፦")
+    bot.register_next_step_handler(msg, save_promo, promo_code)
+
+def save_promo(message, promo_code):
+    try:
+        amount = float(message.text)
+        db = load_data()
+        if "promos" not in db: db["promos"] = {}
+        db["promos"][promo_code] = amount
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ ኮድ '{promo_code}' ለ {amount} ብር ቅናሽ ተመዝግቧል።")
+    except:
+        bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ።")
+
+
 
 
 
 
 def check_admin(message):
-    if message.from_user.id not in ADMIN_IDS:
-        bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
-        return False
-    return True
-
 
 
 if __name__ == "__main__":
