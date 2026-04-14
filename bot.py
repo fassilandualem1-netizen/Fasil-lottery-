@@ -482,6 +482,25 @@ def notify_admins_new_order(order_id, order_data):
         bot.send_message(admin_id, alert_text, reply_markup=markup, parse_mode="Markdown")
 
 
+def send_to_admin_for_approval(item_id, item):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("✅ ፍቀድ (Approve)", callback_data=f"appr_{item_id}"),
+        types.InlineKeyboardButton("❌ አትፍቀድ (Reject)", callback_data=f"rejt_{item_id}")
+    )
+    
+    caption = (
+        f"🆕 **አዲስ እቃ ከባለሱቅ ቀርቧል**\n\n"
+        f"🏬 ሱቅ፦ {item['v_name']}\n"
+        f"🛍 እቃ፦ {item['name']}\n"
+        f"📝 መግለጫ፦ {item['description']}\n"
+        f"💰 ዋጋ፦ {item['price']} ETB"
+    )
+    
+    for admin_id in ADMIN_IDS:
+        bot.send_photo(admin_id, item['photo'], caption=caption, reply_markup=markup, parse_mode="Markdown")
+
+
 
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
