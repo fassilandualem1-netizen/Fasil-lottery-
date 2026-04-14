@@ -488,6 +488,54 @@ def handle_pending_action(call):
         bot.edit_message_caption(f"🔴 እቃው '{item['name']}' ውድቅ ተደርጓል (ተሰርዟል)።", 
                                  call.message.chat.id, call.message.message_id)
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("broadcast_order_"))
+def broadcast_to_riders(call):
+    order_id = call.data.replace("broadcast_order_", "")
+    db = load_data()
+    order = db['orders'][order_id]
+    
+    riders = db.get("riders", {})
+    online_riders = [rid for rid, rdata in riders.items() if rdata.get("is_online") and not rdata.get("on_duty")]
+    
+    if not online_riders:
+        return bot.answer_callback_query(call.id, "⚠️ በአሁኑ ሰዓት ክፍት የሆነ ዴሊቨሪ የለም።", show_alert=True)
+
+    rider_text = (f"📦 **አዲስ የዴሊቨሪ ስራ!**\n\n"
+                  f"📍 መነሻ (ሱቅ)፦ {order['vendor_address']}\n"
+                  f"🏁 መድረሻ፦ {order['address']}\n"
+                  f"💵 የዴሊቨሪ ክፍያ፦ {order['delivery_fee']} ETB\n")
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("✅ ስራውን ተቀበል", callback_data=f"accept_order_{order_id}"))
+
+    for rider_id in online_riders:
+        bot.send_message(rider_id, rider_text, reply_markup=markup)
+    
+    bot.edit_message_text(f"✅ ትዕዛዝ #{order_id} ለ {len(online_riders)} ዴሊቨሪዎች ተልኳል", call.message.chat.id, call.message.message_id)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("accept_order_"))
+def rider_accept_order(call):
+    order_id = call.data.replace("accept_order_", "")
+    rider_id = str(call.from_user.id)
+    db = load_data()
+    
+    order = db['orders'].get(order_id)
+    
+    if order.get('status') != "Pending Assignment":
+        return bot.answer_callback_query(call.id, "❌ ይቅርታ፣ ይህ ትዕዛዝ በሌላ ሰው ተወስዷል።", show_alert=True)
+
+    # ትዕዛዙን ለዴሊቨሪው መመደብ
+    order['status'] = "On the way"
+    order['rider_id'] = rider_id
+    db['riders'][rider_id]['on_duty'] = True
+    save_data(db)
+
+    bot.edit_message_text(f"✅ ትዕዛዝ #{order_id} ተረክበዋል። መልካም ጉዞ!", call.message.chat.id, call.message.message_id)
+    
+    # ለደንበኛው ማሳወቅ
+    bot.send_message(order['customer_id'], f"🚀 ትዕዛዝዎ ተረክቧል! ዴሊቨሪ {call.from_user.first_name} በቅርቡ ይደርሰዎታል።")
+
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('admin_'))
 def admin_dashboard_handler(call):
@@ -571,6 +619,28 @@ def admin_dashboard_handler(call):
         bot.edit_message_text("የዴሊቨሪ ሲስተም መቆጣጠሪያ ዳሽቦርድ፦", 
                               call.message.chat.id, call.message.message_id, 
                               reply_markup=admin_delivery_dashboard())
+
+
+
+def notify_admin_new_order(order_id):
+    db = load_data()
+    order = db['orders'][order_id]
+    
+    text = (f"🔔 **አዲስ ትዕዛዝ መጥቷል!**\n\n"
+            f"🆔 ትዕዛዝ ቁጥር፦ #{order_id}\n"
+            f"👤 ደንበኛ፦ {order['customer_name']}\n"
+            f"📞 ስልክ፦ {order['customer_phone']}\n"
+            f"📍 አድራሻ፦ {order['address']}\n"
+            f"🛍 እቃ፦ {order['item_name']}\n"
+            f"💰 ጠቅላላ ዋጋ፦ {order['total']} ETB\n\n"
+            f"እባክዎ ትዕዛዙን ለዴሊቨሪ ይምድቡ ወይም ለሁሉም ክፍት ያድርጉት።")
+    
+    markup = types.InlineKeyboardMarkup()
+    # ትዕዛዙን ለዴሊቨሪዎች ክፍት የሚያደርግ በተን
+    markup.add(types.InlineKeyboardButton("🛵 ለዴሊቨሪዎች ላክ", callback_data=f"broadcast_order_{order_id}"))
+    
+    for admin_id in ADMIN_IDS:
+        bot.send_message(admin_id, text, reply_markup=markup, parse_mode="Markdown")
 
 
 
