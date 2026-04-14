@@ -179,6 +179,24 @@ def vendor_status_toggle(message):
     
     bot.send_message(message.chat.id, f"🏬 ሱቅዎ በአሁኑ ሰዓት፦ **{current_status}** ነው", reply_markup=markup, parse_mode="Markdown")
 
+@bot.callback_query_handler(func=lambda call: call.data == "v_manage_items")
+def manage_items(call):
+    db = load_data()
+    vid = str(call.from_user.id)
+    # የዚህ ባለሱቅ እቃዎችን መፈለግ
+    my_items = [i for i in db["items"].values() if str(i['vid']) == vid]
+    
+    if not my_items:
+        return bot.answer_callback_query(call.id, "እስካሁን የጨመሩት እቃ የለም።")
+    
+    markup = types.InlineKeyboardMarkup()
+    for item in my_items:
+        status = "✅" if item.get('available', True) else "❌"
+        markup.add(types.InlineKeyboardButton(f"{status} {item['name']} - {item['price']} ETB", callback_data=f"toggle_item_{item['id']}"))
+    
+    bot.send_message(call.message.chat.id, "የእቃዎ ዝርዝር (ለመቀየር ይጫኑ)፦", reply_markup=markup)
+
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("toggle_v_"))
 def process_status_toggle(call):
     vid = call.data.split("_")
