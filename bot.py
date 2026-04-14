@@ -15,6 +15,11 @@ bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 server = Flask(__name__)
 
+def run_flask():
+    # Render የሚሰጠውን Port በራሱ እንዲያገኝ '0.0.0.0' መጠቀም አስፈላጊ ነው
+    app.run(host='0.0.0.0', port=10000) 
+
+
 # --- 2. ዳታቤዝ ተግባራት ---
 def load_data():
     raw = r.get("beu_delivery_db")
