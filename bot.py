@@ -67,44 +67,20 @@ def admin_delivery_dashboard():
     markup = types.InlineKeyboardMarkup(row_width=2)
     btns = [
         types.InlineKeyboardButton("📊 ጠቅላላ ሪፖርት", callback_data="admin_stats"),
-        types.InlineKeyboardButton("🏢 አዳዲስ ሱቆች", callback_data="admin_list_v"),
+        types.InlineKeyboardButton("🏢 አጋር ሱቆች", callback_data="admin_list_v"),
         types.InlineKeyboardButton("🛵 የደላላዎች ሁኔታ", callback_data="admin_riders"),
         types.InlineKeyboardButton("💰 የኮሚሽን ተመን", callback_data="admin_change_com"),
-        types.InlineKeyboardButton("🎁 የማስተዋወቂያ ኮድ", callback_data="admin_promo"),
         types.InlineKeyboardButton("📦 በመጠባበቅ ላይ ያሉ", callback_data="admin_pending_items"),
-        types.InlineKeyboardButton("🏆 ምርጥ ሻጮች", callback_data="admin_top_vendors"),
-        types.InlineKeyboardButton("🧹 ዳታቤዝ አጽዳ", callback_data="admin_clear_db"),
-        types.InlineKeyboardButton("💵 የክፍያ ታሪክ", callback_data="admin_pay_history"),
-        types.InlineKeyboardButton("🗑 ትዕዛዝ ሰርዝ", callback_data="admin_cancel_order")
+        types.InlineKeyboardButton("🧹 ዳታቤዝ አጽዳ", callback_data="admin_clear_db")
     ]
     markup.add(*btns)
     return markup
 
-# 2. ቋሚ የሪፕላይ (Reply) ኪቦርዶች (ከታች የሚቀመጡ)
+# 2. የአድሚን ቋሚ የሪፕላይ (Reply) ኪቦርድ
 def kb_admin_main():
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    kb.add("🏬 አጋር ድርጅቶች", "📦 ትዕዛዞች", "📊 ሪፖርት", "👤 የኔ ፕሮፋይል", "⚙️ ሲስተም")
+    kb.add("🏬 አጋር ድርጅቶች", "📦 ትዕዛዞች", "📊 ሪፖርት", "⚙️ ሲስተም")
     return kb
-
-def kb_vendor_main():
-    kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    kb.add("➕ እቃ ጨምር", "📦 የመጡ ትዕዛዞች", "📉 የኔ ሽያጭ", "⚙️ የሱቅ ሁኔታ")
-    return kb
-
-def kb_customer_main():
-    kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    kb.add("🏪 ሱቆችን ተመልከት", "🛍 የኔ ትዕዛዞች", "👤 ፕሮፋይል", "📞 እርዳታ")
-    return kb
-
-# 3. የ "🏬 አጋር ድርጅቶች" በተን ሲነካ የሚሰራው
-@bot.message_handler(func=lambda m: m.text == "🏬 አጋር ድርጅቶች")
-def handle_admin_partners(message):
-    if message.from_user.id in ADMIN_IDS:
-        bot.send_message(
-            message.chat.id, 
-            "የዴሊቨሪ ሲስተም መቆጣጠሪያ ዳሽቦርድ፦", 
-            reply_markup=admin_delivery_dashboard()
-        )
 
 # 4. ዋናው የ /start ፈንክሽን
 @bot.message_handler(commands=['start'])
