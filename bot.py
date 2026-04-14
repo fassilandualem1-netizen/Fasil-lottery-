@@ -237,6 +237,71 @@ def view_low_balances(call):
     bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
 
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_live_orders")
+def view_live_orders(call):
+    db = load_data()
+    orders = db.get("orders", {})
+    
+    # "Pending" (ገና ያልተረከበ) ወይም "On the way" (መንገድ ላይ ያለ) የሆኑትን ብቻ መለየት
+    live_orders = {k: v for k, v in orders.items() if v['status'] in ["Pending", "On the way"]}
+    
+    if not live_orders:
+        return bot.send_message(call.message.chat.id, "📭 በአሁኑ ሰዓት ምንም አይነት የቀጥታ ትዕዛዝ የለም።")
+    
+    text = "📋 **የቀጥታ ትዕዛዞች ዝርዝር**\n\n"
+    for oid, odata in live_orders.items():
+        text += (f"🆔 ትዕዛዝ ቁጥር: #{oid}\n"
+                 f"🏢 ድርጅት: {odata['vendor_name']}\n"
+                 f"👤 ደንበኛ: {odata['customer_name']}\n"
+                 f"📍 ሁኔታ: {odata['status']}\n"
+                 f"------------------------\n")
+    
+    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_pending_approvals")
+def view_pending_items(call):
+    db = load_data()
+    pending = db.get("pending_items", {}) 
+    
+    if not pending:
+        return bot.send_message(call.message.chat.id, "✅ በመጠባበቅ ላይ ያለ አዲስ እቃ የለም።")
+    
+    for item_id, idata in pending.items():
+        text = (f"📦 **አዲስ እቃ ለመመዝገብ ቀርቧል**\n\n"
+                f"🏢 ድርጅት: {idata['vendor_name']}\n"
+                f"🛍 እቃ: {idata['item_name']}\n"
+                f"💰 ዋጋ: {idata['price']} ETB\n"
+                f"📝 መግለጫ: {idata['description']}")
+        
+        # ለማጽደቅ ወይም ለመሰረዝ በተኖች
+        markup = types.InlineKeyboardMarkup()
+        markup.add(
+            types.InlineKeyboardButton("✅ ፍቀድ (Approve)", callback_data=f"approve_{item_id}"),
+            types.InlineKeyboardButton("❌ ሰርዝ (Reject)", callback_data=f"reject_{item_id}")
+        )
+        bot.send_message(call.message.chat.id, text, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_manage_cats")
+def manage_categories(call):
+    msg = bot.send_message(call.message.chat.id, "📁 ለመጨመር የሚፈልጉትን አዲስ ምድብ ስም ያስገቡ፦\n(ለምሳሌ፦ ፋርማሲ፣ ምግብ ቤት፣ ልብስ ቤት...)")
+    bot.register_next_step_handler(msg, add_category_logic)
+
+def add_category_logic(message):
+    new_cat = message.text
+    db = load_data()
+    
+    if "categories" not in db:
+        db["categories"] = []
+    
+    if new_cat not in db["categories"]:
+        db["categories"].append(new_cat)
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ ምድብ '{new_cat}' በሚገባ ተጨምሯል!")
+    else:
+        bot.send_message(message.chat.id, "⚠️ ይህ ምድብ ቀድሞውኑ አለ።")
+
+
 
 if __name__ == "__main__":
     # 1. የ Flask ሰርቨርን በ Background ያስነሳል
