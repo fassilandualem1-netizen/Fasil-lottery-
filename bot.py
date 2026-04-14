@@ -108,3 +108,43 @@ def process_deposit(message, vid):
         save_data(db)
         bot.send_message(message.chat.id, f"✅ ባላንስ ተሞልቷል!")
 
+# --- 1. ትዕዛዝ ማጠናቀቂያ (Completed) ---
+@bot.callback_query_handler(func=lambda call: call.data.startswith("finish_"))
+def finalize_order(call):
+    order_id = call.data.split("_")
+    db = load_data()
+    if order_id in db["orders"]:
+        order = db["orders"][order_id]
+        vid = order["vendor_id"]
+        if vid in db["vendors"]:
+            # ሂሳብ ማወራረድ
+            price = order["item_price"]
+            comm = (db["vendors"][vid]["commission"]/100) * price
+            db["vendors"][vid]["wallet"] -= price
+            db["total_profit"] += comm
+            order["status"] = "Completed"
+            save_data(db)
+            bot.edit_message_text(f"✅ ትዕዛዝ ተጠናቋል!\nትርፍ፦ {comm} ETB", call.message.chat.id, call.message.message_id)
+
+# --- 2. ሪፖርት ---
+@bot.message_handler(func=lambda m: m.text == "📊 ሪፖርት")
+def show_reports(message):
+    if message.from_user.id in ADMIN_IDS:
+        db = load_data()
+        text = f"📊 <b>ሪፖርት</b>\n\n💰 ጠቅላላ ትርፍ፦ {db['total_profit']} ETB\n"
+        text += "\n🏬 <b>የሱቆች ካዝና፦</b>\n"
+        for vid, v in db["vendors"].items():
+            text += f"• {v['name']}፦ {v['wallet']} ETB\n"
+        bot.send_message(message.chat.id, text)
+
+# --- 3. Flask & Polling ---
+@server.route('/')
+def health(): return "Active", 200
+
+def run(): server.run(host='0.0.0.0', port=PORT)
+
+if __name__ == "__main__":
+    threading.Thread(target=run).start()
+    bot.infinity_polling()
+
+
