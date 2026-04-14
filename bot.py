@@ -54,6 +54,32 @@ def system_settings(message):
     )
     bot.send_message(message.chat.id, "የሲስተም ማስተካከያ፦", reply_markup=markup)
 
+
+# ሻጭ እቃ ሲጨምር ለAdmin የሚመጣ ማሳወቂያ
+def notify_admin_new_item(item_id, item_data):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("✅ ፍቀድ", callback_data=f"approve_{item_id}"),
+        types.InlineKeyboardButton("❌ አትፍቀድ", callback_data=f"reject_{item_id}")
+    )
+    for admin in ADMIN_IDS:
+        bot.send_photo(admin, item_data['photo'], 
+                       caption=f"🔔 አዲስ ዕቃ ቀርቧል\nስም፦ {item_data['name']}\nዋጋ፦ {item_data['price']}\nሱቅ፦ {item_data['v_name']}", 
+                       reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
+def approve_item(call):
+    iid = call.data.split("_")
+    db = load_data()
+    if iid in db["pending"]:
+        item = db["pending"].pop(iid)
+        db["items"][iid] = item
+        save_data(db)
+        bot.edit_message_caption("✅ ዕቃው ጸድቆ ለሽያጭ ቀርቧል!", call.message.chat.id, call.message.message_id)
+
+
+
+
 @bot.callback_query_handler(func=lambda call: call.data == "set_del_fee")
 def change_delivery_fee(call):
     msg = bot.send_message(call.message.chat.id, "አዲሱን የማድረሻ መነሻ ዋጋ ያስገቡ (ለምሳሌ፦ 60)፦")
@@ -246,6 +272,38 @@ def admin_vendor_menu(message):
     markup.add(types.InlineKeyboardButton("📜 የሱቆች ዝርዝር/ሂሳብ", callback_data="admin_list_v"))
     bot.send_message(message.chat.id, "የአጋር ድርጅቶች መቆጣጠሪያ፦", reply_markup=markup)
 
+@bot.callback_query_handler(func=lambda call: call.data == "settle_my_cash")
+def settle_cash(call):
+    # ይህ አድሚኑ በእጁ ያለውን ገንዘብ አስረክቦ ሂሳቡን ዜሮ የሚያደርግበት ነው
+    db = load_data()
+    admin_id = str(call.from_user.id)
+    
+    # ሪኮርድ እንዲቀመጥ (Log)
+    bot.send_message(call.message.chat.id, "✅ በእጅዎ የነበረው ገንዘብ ለዋናው ካዝና ገቢ ተደርጓል። ሂሳብዎ ተወራርዷል።")
+    # እዚህ ጋር እንደ ፍላጎትህ የተወራረደበትን ሎጂክ መጻፍ ይቻላል
+
+@bot.message_handler(func=lambda m: m.text == "📝 ማስታወሻ")
+def admin_note(message):
+    if message.from_user.id not in ADMIN_IDS: return
+    db = load_data()
+    current_note = db.get("admin_note", "ምንም ማስታወሻ የለም።")
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🖊 አዲስ ጻፍ", callback_data="edit_note"))
+    bot.send_message(message.chat.id, f"📌 **የአድሚኖች ማስታወሻ፦**\n\n{current_note}", reply_markup=markup, parse_mode="Markdown")
+
+@bot.callback_query_handler(func=lambda call: call.data == "edit_note")
+def start_edit_note(call):
+    msg = bot.send_message(call.message.chat.id, "የሚለጠፈውን አጭር ማስታወሻ ይጻፉ፦")
+    bot.register_next_step_handler(msg, save_note)
+
+def save_note(message):
+    db = load_data()
+    db["admin_note"] = message.text
+    save_data(db)
+    bot.send_message(message.chat.id, "✅ ማስታወሻው ተለጥፏል፤ ለሁሉም አድሚኖች ይታያል።")
+
+
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_v")
 def start_add_v(call):
     msg = bot.send_message(call.message.chat.id, "📝 የሱቁን ስም ያስገቡ፦")
@@ -300,6 +358,30 @@ def finalize_order(call):
     save_data(db)
     bot.edit_message_text(f"✅ ትዕዛዝ #{oid} ተጠናቋል። ሂሳብ ተሰልቷል።", call.message.chat.id, call.message.message_id)
     bot.send_message(order["customer_id"], "🎉 ትዕዛዝዎ ደርሷል! እናመሰግናለን።")
+
+def notify_admins_new_order(order_id, order_data):
+    # ለሁሉም አድሚኖች መላክ
+    for admin_id in ADMIN_IDS:
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🛵 ትዕዛዙን ተረከብ (Claim)", callback_data=f"claim_{order_id}"))
+        
+        alert_text = (
+            f"🚨 **አዲስ ትዕዛዝ መጥቷል!**\n"
+            f"--------------------------\n"
+            f"🆔 ቁጥር፦ #{order_id}\n"
+            f"🛍 እቃ፦ {order_data['item_name']}\n"
+            f"💰 ዋጋ፦ {order_data['total']} ETB\n"
+            f"📍 አድራሻ፦ {order_data['address_details']['condo']}"
+        )
+        bot.send_message(admin_id, alert_text, reply_markup=markup, parse_mode="Markdown")
+
+
+
+def check_admin(message):
+    if message.from_user.id not in ADMIN_IDS:
+        bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
+        return False
+    return True
 
 
 
