@@ -1,6 +1,6 @@
 import telebot
 from telebot import types
-import os, json, math, threading
+import os, json, math, threading, time
 from flask import Flask
 from upstash_redis import Redis
 
@@ -9,16 +9,19 @@ TOKEN = "8663228906:AAFsTC0fKqAVEWMi7rk59iSdfVD-1vlJA0Y"
 REDIS_URL = "https://nice-kitten-98436.upstash.io"
 REDIS_TOKEN = "gQAAAAAAAYCEAAIncDEyMWMyNjczNmZiNjM0NzlkODI4MmUyODAyZGIxNDI5N3AxOTg0MzY"
 ADMIN_IDS = [5690096145, 7072611117,8488592165]
-PORT = int(os.getenv("PORT", 8080))
+PORT = int(os.getenv("PORT", 8080)) # Render የራሱን Port እዚህ ይሰጥሃል
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
-server = Flask(__name__)
+app = Flask(__name__) # ስሙን 'app' ብንለው ይሻላል
+
+@app.route('/')
+def index():
+    return "BDF Bot is running!"
 
 def run_flask():
-    # Render የሚሰጠውን Port በራሱ እንዲያገኝ '0.0.0.0' መጠቀም አስፈላጊ ነው
-    app.run(host='0.0.0.0', port=10000) 
-
+    # በ Render ላይ ስራ እንዲጀምር host እና port በትክክል መሰጠት አለባቸው
+    app.run(host='0.0.0.0', port=PORT)
 
 # --- 2. ዳታቤዝ ተግባራት ---
 def load_data():
