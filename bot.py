@@ -254,11 +254,13 @@ def show_admin_panel(message):
         bot.send_message(
             message.chat.id, 
             "👑 **BDF አድሚን ዳሽቦርድ**",
-            reply_markup=get_admin_dashboard(), # አሁን በላይኛው ፈንክሽን ይጠራል
+            # ✅ እዚህ ጋር በቅንፍ ውስጥ ID መስጠት ግዴታ ነው
+            reply_markup=get_admin_dashboard(message.from_user.id), 
             parse_mode="Markdown"
         )
     else:
         bot.send_message(message.chat.id, "❌ ፈቃድ የለዎትም።")
+
 
 @bot.message_handler(func=lambda message: message.text and message.text.startswith('/'))
 def interrupt_handler(message):
