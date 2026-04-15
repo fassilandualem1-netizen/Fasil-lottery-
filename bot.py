@@ -535,6 +535,34 @@ def view_reviews(call):
         text += f"🏢 {r['vendor_name']} ➡️ {r['stars']}⭐\n💬 {r['comment']}\n---\n"
     bot.send_message(call.message.chat.id, text)
 
+def view_rider_status(call):
+    db = load_data()
+    riders = db.get("riders_list", {})
+    
+    if not riders:
+        return bot.send_message(call.message.chat.id, "🛵 እስካሁን የተመዘገበ ዴሊቨሪ የለም።")
+    
+    active_count = 0
+    busy_count = 0
+    report = "🛵 **የዴሊቨሪዎች ወቅታዊ ሁኔታ**\n\n"
+    
+    for rid, rdata in riders.items():
+        status_icon = "🟢" if rdata['is_online'] else "🔴"
+        work_status = "🏃 ስራ ላይ" if rdata['status'] == "Busy" else "⏳ ክፍት"
+        
+        if rdata['is_online']: active_count += 1
+        if rdata['status'] == "Busy": busy_count += 1
+        
+        report += f"{status_icon} **{rdata['name']}**\n   - ሁኔታ፦ {work_status}\n   - ስልክ፦ {rdata['phone']}\n"
+    
+    summary = (f"\n📊 **ማጠቃለያ**\n"
+               f"✅ ኦንላይን፦ {active_count}\n"
+               f"🏃 ስራ ላይ፦ {busy_count}\n"
+               f"💤 ኦፍላይን፦ {len(riders) - active_count}")
+    
+    bot.send_message(call.message.chat.id, report + summary)
+
+
 
 
 
