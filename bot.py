@@ -320,6 +320,58 @@ def save_new_commission(message):
         bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ።")
 
 
+# 1. አድሚኑ "ብር መሙያ" የሚለውን በተን ሲጫን የሚጀምር
+@bot.callback_query_handler(func=lambda call: call.data == "admin_add_funds")
+def start_add_funds(call):
+    msg = bot.send_message(call.message.chat.id, "💳 **ብር የሚሞላለትን የድርጅት User ID ያስገቡ፦**\n(ID ቁጥሩን ከድርጅቶች ዝርዝር ማግኘት ይችላሉ)")
+    bot.register_next_step_handler(msg, process_fund_id)
+
+# 2. ID ተቀብሎ መጠኑን ይጠይቃል
+def process_fund_id(message):
+    v_id = message.text.strip()
+    
+    # ለማቋረጥ /start ካለ
+    if v_id.startswith('/'): return start_command(message)
+    
+    db = load_data()
+    if v_id not in db.get('vendors_list', {}):
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ ይህ ID በሲስተሙ ላይ አልተገኘም። እባክዎ በትክክል ያስገቡ፦")
+        return bot.register_next_step_handler(msg, process_fund_id)
+    
+    v_name = db['vendors_list'][v_id]['name']
+    msg = bot.send_message(message.chat.id, f"💰 ለ **'{v_name}'** የሚሞላውን የብር መጠን በቁጥር ብቻ ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_fund_amount, v_id, v_name)
+
+# 3. ብሩን በዳታቤዝ ላይ ይጨምራል
+def process_fund_amount(message, v_id, v_name):
+    amount_str = message.text.strip()
+    
+    if amount_str.startswith('/'): return start_command(message)
+
+    try:
+        amount = float(amount_str)
+        if amount <= 0:
+            msg = bot.send_message(message.chat.id, "⚠️ እባክዎ ከ 0 በላይ የሆነ ቁጥር ያስገቡ፦")
+            return bot.register_next_step_handler(msg, process_fund_amount, v_id, v_name)
+        
+        db = load_data()
+        # የቆየውን ሂሳብ አንብቦ አዲሱን ይጨምራል
+        current_bal = db['vendors_list'][v_id].get('deposit_balance', 0)
+        db['vendors_list'][v_id]['deposit_balance'] = current_bal + amount
+        save_data(db)
+        
+        # ለአድሚኑ ማረጋገጫ
+        bot.send_message(message.chat.id, f"✅ ተሳክቷል!\n🏢 ድርጅት፦ {v_name}\n➕ የተጨመረ፦ {amount} ETB\n💰 አጠቃላይ ቀሪ ሂሳብ፦ {db['vendors_list'][v_id]['deposit_balance']} ETB")
+        
+        # ለድርጅቱ ባለቤት ማሳወቂያ (Notification) መላክ
+        try:
+            bot.send_message(v_id, f"🔔 **የሂሳብ መሙያ ማሳወቂያ**\n\nበአድሚን በኩል **{amount} ETB** ዋስትና ተሞልቶልዎታል።\n💰 የአሁኑ ጠቅላላ ቀሪ ሂሳብዎ፦ **{db['vendors_list'][v_id]['deposit_balance']} ETB**")
+        except:
+            pass # ባለቤቱ ቦቱን Block ካደረገ እንዳይቆም
+            
+    except ValueError:
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ (ለምሳሌ፦ 500)፦")
+        return bot.register_next_step_handler(msg, process_fund_amount, v_id, v_name)
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_monitor_balance")
 def view_all_balances(call):
