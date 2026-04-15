@@ -149,6 +149,7 @@ def get_admin_dashboard(user_id): # ✅ user_id እዚህ መግባቱን እር
     btn_add_vendor = types.InlineKeyboardButton("➕ አዲስ ድርጅት መመዝገቢያ", callback_data="admin_add_vendor")
     btn_vendors = types.InlineKeyboardButton("🏢 የአጋር ድርጅቶች", callback_data="admin_list_vendors")
     btn_add_rider = types.InlineKeyboardButton("➕ አዲስ driver መመዝገቢያ", callback_data="admin_add_rider")
+    btn_phone = types.InlineKeyboardButton("📞 ስልክ መመዝገቢያ", callback_data="register_rider_phone")
     btn_set_commission = types.InlineKeyboardButton("⚙️ የኮሚሽን መጠን ቀይር", callback_data="admin_set_commission")
     btn_riders = types.InlineKeyboardButton("🛵 drivers ሁኔታ", callback_data="admin_rider_status")
     btn_block = types.InlineKeyboardButton("🚫 አግድ/ፍቀድ", callback_data="admin_block_manager")
@@ -180,6 +181,7 @@ def get_admin_dashboard(user_id): # ✅ user_id እዚህ መግባቱን እር
     markup.add(btn_broadcast)
     markup.add(report_label)
     markup.add(btn_stats)
+    markup.add(btn_phone)
     
 
     # 🛵 drivers (Driver) ሁኔታ መቆጣጠሪያ 
