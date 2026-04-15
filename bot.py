@@ -180,6 +180,9 @@ def get_admin_dashboard():
     markup.add(btn_broadcast)
     markup.add(report_label)
     markup.add(btn_stats)
+if str(message.from_user.id) in db.get('riders_list', {}):
+    btn_rider = types.InlineKeyboardButton("🛵 Rider: Online/Offline", callback_data="rider_toggle_status")
+    markup.add(btn_rider)
 
     return markup
 
