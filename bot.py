@@ -246,10 +246,11 @@ def start_command(message):
         welcome_text = f"Welcome {message.from_user.first_name} to BDF Delivery! 👋\nYour ID: `{user_id}`"
         bot.send_message(user_id, welcome_text, reply_markup=get_main_menu(), parse_mode="Markdown")
 
-    except Exception as e:
-        # Render Log ላይ Errorሩን በደንብ ለማየት ይረዳሃል
-        print(f"❌ Error in start_command: {str(e)}")
-        bot.send_message(message.chat.id, "⚠️ ቦቱ ላይ ትንሽ ችግር ተፈጥሯል፣ እባክዎ ደግመው ይሞክሩ።")
+        except Exception as e:
+        # ይህ መስመር ትክክለኛውን ስህተት በቦቱ ላይ ይልክልሃል
+        error_msg = f"❌ Error: {str(e)}"
+        print(error_msg)
+        bot.send_message(message.chat.id, error_msg)
 
 @bot.message_handler(commands=['admin'])
 def show_admin_panel(message):
