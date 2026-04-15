@@ -148,9 +148,9 @@ def get_admin_dashboard(user_id): # ✅ user_id እዚህ መግባቱን እር
     security_label = types.InlineKeyboardButton("--- 🔐 ደህንነትና ተሳታፊዎች ---", callback_data="none")
     btn_add_vendor = types.InlineKeyboardButton("➕ አዲስ ድርጅት መመዝገቢያ", callback_data="admin_add_vendor")
     btn_vendors = types.InlineKeyboardButton("🏢 የአጋር ድርጅቶች", callback_data="admin_list_vendors")
-    btn_add_rider = types.InlineKeyboardButton("➕ አዲስ ደላላ መመዝገቢያ", callback_data="admin_add_rider")
+    btn_add_rider = types.InlineKeyboardButton("➕ አዲስ driver መመዝገቢያ", callback_data="admin_add_rider")
     btn_set_commission = types.InlineKeyboardButton("⚙️ የኮሚሽን መጠን ቀይር", callback_data="admin_set_commission")
-    btn_riders = types.InlineKeyboardButton("🛵 የደላላዎች ሁኔታ", callback_data="admin_rider_status")
+    btn_riders = types.InlineKeyboardButton("🛵 drivers ሁኔታ", callback_data="admin_rider_status")
     btn_block = types.InlineKeyboardButton("🚫 አግድ/ፍቀድ", callback_data="admin_block_manager")
     btn_lock = types.InlineKeyboardButton("🔒 ሲስተም ዝጋ (Lock)", callback_data="admin_system_lock")
 
@@ -182,7 +182,7 @@ def get_admin_dashboard(user_id): # ✅ user_id እዚህ መግባቱን እር
     markup.add(btn_stats)
     
 
-    # 🛵 የደላላ (Driver) ሁኔታ መቆጣጠሪያ 
+    # 🛵 drivers (Driver) ሁኔታ መቆጣጠሪያ 
     uid_str = str(user_id) 
     if uid_str in db.get('riders_list', {}):
         status = "🟢 Online" if db['riders_list'][uid_str].get('is_online') else "🔴 Offline"
@@ -229,7 +229,7 @@ def start_command(message):
             return bot.send_message(user_id, f"እንኳን ደህና መጡ **{v_name}** 👋", 
                                    reply_markup=get_vendor_menu(), parse_mode="Markdown")
 
-        # 3. ለተራ ደላላዎች
+        # 3. drivers
         if uid_str in db.get('riders_list', {}):
             return show_rider_menu(message)
 
