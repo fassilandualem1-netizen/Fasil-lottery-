@@ -700,6 +700,18 @@ def reject_item(call):
         try: bot.send_message(item_data['vendor_id'], f"⚠️ ይቅርታ፣ ያቀረቡት እቃ '{item_data['item_name']}' በአድሚን ተቀባይነት አላገኘም።")
         except: pass
 
+def get_admin_dashboard_with_rider(user_id, db):
+    markup = get_admin_dashboard() # ዋናውን የአድሚን በተኖች ይጠራል
+    
+    uid_str = str(user_id)
+    if uid_str in db.get('riders_list', {}):
+        status = "🟢 Online" if db['riders_list'][uid_str].get('is_online') else "🔴 Offline"
+        btn_rider = types.InlineKeyboardButton(f"🛵 ስራ: {status}", callback_data="rider_toggle_status")
+        markup.add(btn_rider)
+        
+    return markup
+
+
 
 
 
