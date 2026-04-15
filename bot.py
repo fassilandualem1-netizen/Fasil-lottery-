@@ -248,94 +248,73 @@ def interrupt_handler(message):
     elif message.text == '/admin':
         show_admin_panel(message)
 
-# ሀ. በተኑ ሲጫን መጀመሪያ የድርጅቱን መለያ ይጠይቃል
-@bot.callback_query_handler(func=lambda call: call.data == "admin_add_funds")
-def start_funding(call):
-    # 1. መጀመሪያ የድርጅቱን ID ይጠይቃል
-    msg = bot.send_message(call.message.chat.id, "🆔 እባክዎ ብር የሰጡትን የድርጅት User ID ያስገቡ፦")
-    bot.register_next_step_handler(msg, process_fund_vendor_id)
-
-def process_fund_vendor_id(message):
-    vendor_id = message.text.strip()
-    db = load_data()
-    
-    # ድርጅቱ መኖሩን ቼክ ያደርጋል
-    if vendor_id in db.get("vendors_list", {}):
-        msg = bot.send_message(message.chat.id, f"💵 ለድርጅት '{db['vendors_list'][vendor_id]['name']}' ስንት ብር ሰጡ?")
-        bot.register_next_step_handler(msg, complete_funding, vendor_id)
-    else:
-        bot.send_message(message.chat.id, "❌ ስህተት፡ ይህ የድርጅት ID አልተመዘገበም።")
-
-def complete_funding(message, vendor_id):
-    try:
-        amount = float(message.text)
-        db = load_data()
-        
-        # ብሩን ይጨምራል (አንተ ለድርጅቱ የሰጠኸው ዋስትና)
-        db['vendors_list'][vendor_id]['deposit_balance'] = db['vendors_list'][vendor_id].get('deposit_balance', 0) + amount
-        
-        # Redis ወይም ፋይል ላይ ሴቭ ያደርጋል
-        save_data(db) 
-        
-        bot.send_message(message.chat.id, f"✅ ተሳክቷል!\n🏢 ድርጅት: {db['vendors_list'][vendor_id]['name']}\n💰 የታከለ ብር: {amount} ETB\n📉 አጠቃላይ ቀሪ ዋስትና: {db['vendors_list'][vendor_id]['deposit_balance']} ETB")
-        
-    except ValueError:
-        bot.send_message(message.chat.id, "⚠️ እባክዎ ቁጥር ብቻ ያስገቡ።")
-
 # ሀ. መመዝገቢያውን ይጀምራል
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_vendor")
 def start_vendor_registration(call):
-    # አዙሪት እንዳይፈጠር መጀመሪያ እናጸዳለን
     bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
-    msg = bot.send_message(call.message.chat.id, "🏢 **የድርጅቱን ስም ያስገቡ፦**\n(ለምሳሌ፦ አቢሲኒያ ሬስቶራንት)")
+    # ለመሰረዝ /start ይበሉ የሚል ማሳሰቢያ ጨምረናል
+    msg = bot.send_message(call.message.chat.id, "🏢 **የድርጅቱን ስም ያስገቡ፦**\n\n(ለማቋረጥ በማንኛውም ሰዓት /start ይበሉ)")
     bot.register_next_step_handler(msg, process_v_name)
 
 # ለ. ስሙን ተቀብሎ User ID ይጠይቃል
 def process_v_name(message):
     v_name = message.text.strip()
-    msg = bot.send_message(message.chat.id, f"🆔 የ '{v_name}' ባለቤት የቴሌግራም **User ID** ያስገቡ፦\n(ባለቤቱ ቦቱን ሲከፍት የሚያገኘውን ቁጥር ይጠይቁት)")
+    
+    # ተጠቃሚው /start ካለ ምዝገባውን ያቆማል
+    if v_name.startswith('/'):
+        bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+        return start_command(message)
+
+    msg = bot.send_message(message.chat.id, f"🆔 የ '{v_name}' ባለቤት የቴሌግራም **User ID** ያስገቡ፦")
     bot.register_next_step_handler(msg, process_v_id, v_name)
 
 # ሐ. ID ተቀብሎ አድራሻ ይጠይቃል
 def process_v_id(message, v_name):
     v_id = message.text.strip()
-    # ID ቁጥር መሆኑን ቼክ እናድርግ
+    
+    # ተጠቃሚው /start ካለ ምዝገባውን ያቆማል
+    if v_id.startswith('/'):
+        bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+        return start_command(message)
+
     if not v_id.isdigit():
-        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ User ID ቁጥር መሆን አለበት። እባክዎ እንደገና ያስገቡ፦")
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ User ID ቁጥር መሆን አለበት።\nእንደገና ያስገቡ ወይም ለማቆም /start ይበሉ፦")
         return bot.register_next_step_handler(msg, process_v_id, v_name)
     
-    msg = bot.send_message(message.chat.id, f"📍 የ '{v_name}' **አድራሻ** ያስገቡ፦\n(ለምሳሌ፦ ፒያሳ፣ ካሳንቺስ...)")
+    msg = bot.send_message(message.chat.id, f"📍 የ '{v_name}' **አድራሻ** ያስገቡ፦")
     bot.register_next_step_handler(msg, process_v_address, v_name, v_id)
 
 # መ. ሁሉንም መረጃ ሰብስቦ ዳታቤዝ ውስጥ ይከታል።
 def process_v_address(message, v_name, v_id):
     address = message.text.strip()
+    
+    # ተጠቃሚው /start ካለ ምዝገባውን ያቆማል
+    if address.startswith('/'):
+        bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+        return start_command(message)
+
     db = load_data()
     
-    # ድርጅቱ አስቀድሞ ተመዝግቦ ከሆነ ቼክ እናድርግ
     if v_id in db['vendors_list']:
-        return bot.send_message(message.chat.id, f"⚠️ ይህ ድርጅት (ID: {v_id}) ቀድሞውኑ ተመዝግቧል።")
+        bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+        return bot.send_message(message.chat.id, f"⚠️ ይህ ድርጅት (ID: {v_id}) ቀድሞውኑ ተመዝግቧል።", reply_markup=get_admin_dashboard())
 
-    # አዲሱን ድርጅት መመዝገብ
     db['vendors_list'][v_id] = {
         "name": v_name,
         "address": address,
-        "deposit_balance": 0,    # መጀመሪያ ላይ ሂሳቡ 0 ነው
+        "deposit_balance": 0,
         "total_sales": 0,
         "status": "active",
-        "items": {},             # እቃዎቹ እዚህ ይገባሉ
+        "items": {},
         "registered_date": str(time.ctime())
     }
     
-    save_data(db) # ዳታውን ወደ Redis ይልካል
+    save_data(db)
     
-    text = (f"✅ **ድርጅት በሚገባ ተመዝግቧል!**\n\n"
-            f"🏢 ስም፦ {v_name}\n"
-            f"🆔 መለያ፦ `{v_id}`\n"
-            f"📍 አድራሻ፦ {address}\n\n"
-            f"አሁን ለድርጅቱ '💳 ብር መሙያ' በሚለው በተን ዋስትና ማስያዝ ይችላሉ።")
+    # ምዝገባው ሲያልቅ አዙሪቱን በደንብ እናጸዳለን
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
     
-    bot.send_message(message.chat.id, text, parse_mode="Markdown")
+    bot.send_message(message.chat.id, f"✅ **{v_name}** በሚገባ ተመዝግቧል!", reply_markup=get_admin_dashboard())
 
 
 
