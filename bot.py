@@ -251,6 +251,41 @@ def complete_funding(message, vendor_id):
     except ValueError:
         bot.send_message(message.chat.id, "⚠️ እባክዎ ቁጥር ብቻ ያስገቡ።")
 
+# 1. አድሚኑ "አዲስ ድርጅት መመዝገብ" ሲል
+@bot.callback_query_handler(func=lambda call: call.data == "admin_add_vendor")
+def start_add_vendor(call):
+    msg = bot.send_message(call.message.chat.id, "🏢 የድርጅቱን ስም ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_vendor_name)
+
+def process_vendor_name(message):
+    vendor_name = message.text.strip()
+    msg = bot.send_message(message.chat.id, f"🆔 የ '{vendor_name}' ባለቤት የቴሌግራም User ID ያስገቡ፦\n(ባለቤቱ ቦቱን ሲከፍት የሚመጣለትን ቁጥር ይጠይቁት)")
+    bot.register_next_step_handler(msg, process_vendor_id, vendor_name)
+
+def process_vendor_id(message, vendor_name):
+    vendor_id = message.text.strip()
+    msg = bot.send_message(message.chat.id, f"📍 የ '{vendor_name}' አድራሻ (ለምሳሌ፦ ቦሌ መድኃኒዓለም) ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_vendor_address, vendor_name, vendor_id)
+
+def process_vendor_address(message, vendor_name, vendor_id):
+    address = message.text.strip()
+    db = load_data()
+    
+    # ድርጅቱን በዳታቤዝ ውስጥ መመዝገብ
+    db['vendors_list'][vendor_id] = {
+        "name": vendor_name,
+        "address": address,
+        "deposit_balance": 0,    # መጀመሪያ ላይ ሂሳቡ 0 ነው
+        "total_sales": 0,
+        "status": "active",
+        "registered_date": str(time.ctime())
+    }
+    
+    save_data(db) # ዳታውን ሴቭ ያደርጋል
+    
+    bot.send_message(message.chat.id, f"✅ ተሳክቷል! '{vendor_name}' በሚገባ ተመዝግቧል።\n\nአሁን ለድርጅቱ '💳 ብር መሙያ' በሚለው በተን ዋስትና ማስያዝ ይችላሉ።")
+
+
 @bot.callback_query_handler(func=lambda call: call.data == "admin_monitor_balance")
 def view_all_balances(call):
     db = load_data()
