@@ -134,44 +134,71 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 def get_admin_dashboard(user_id):
     db = load_data()
     markup = types.InlineKeyboardMarkup(row_width=2)
-    
-    # --- 1. ፋይናንስና ትዕዛዞች ---
-    btn_fund = types.InlineKeyboardButton("💳 ብር መሙያ", callback_data="admin_add_funds")
-    btn_orders = types.InlineKeyboardButton("📋 ትዕዛዞች", callback_data="admin_live_orders")
-    
-    # --- 2. ሪፖርትና ፔንዲንግ ---
-    btn_stats = types.InlineKeyboardButton("📊 ሪፖርት", callback_data="admin_full_stats")
-    btn_pending = types.InlineKeyboardButton("📦 ፔንዲንግ እቃ", callback_data="admin_pending_approvals")
-    
-    # --- 3. ድርጅቶችና ደላላዎች (ዝርዝር ማያ) ---
-    btn_vendors = types.InlineKeyboardButton("🏢 ድርጅቶች", callback_data="admin_list_vendors")
-    btn_riders = types.InlineKeyboardButton("🛵 ደላላዎች", callback_data="admin_rider_status")
-    
-    # --- 4. አዲስ ምዝገባ (ስም+ID+ስልክ የሚጠይቁት) ---
+
+    # --- ምድብ 4 & 5: ድጋፍና ማስታወቂያ (ወደ ላይ ወጥቷል) ---
+    support_label = types.InlineKeyboardButton("--- 📣 ድጋፍና ማስታወቂያ ---", callback_data="none")
+    btn_dispute = types.InlineKeyboardButton("💬 ቅሬታዎች", callback_data="admin_disputes")
+    btn_reviews = types.InlineKeyboardButton("⭐ ግምገማዎች", callback_data="admin_reviews")
+    btn_broadcast = types.InlineKeyboardButton("📢 ማስታወቂያ ላክ", callback_data="admin_broadcast")
+
+    # --- ምድብ 1: ፋይናንስና ዋስትና ---
+    finance_label = types.InlineKeyboardButton("--- 💰 ፋይናንስና ዋስትና ---", callback_data="none")
+    btn_fund = types.InlineKeyboardButton("💳 ብር መሙያ (Fund)", callback_data="admin_add_funds")
+    btn_balance = types.InlineKeyboardButton("📉 የሂሳብ ክትትል", callback_data="admin_monitor_balance")
+    btn_profit = types.InlineKeyboardButton("💰 የኮሚሽን ትርፍ", callback_data="admin_profit_track")
+    btn_low_credit = types.InlineKeyboardButton("⚠️ ዝቅተኛ ሂሳብ", callback_data="admin_low_credit")
+
+    # --- ምድብ 2: ኦፕሬሽን ---
+    ops_label = types.InlineKeyboardButton("--- 📦 ኦፕሬሽን ---", callback_data="none")
+    btn_live_orders = types.InlineKeyboardButton("📋 የቀጥታ ትዕዛዞች", callback_data="admin_live_orders")
+    btn_pending = types.InlineKeyboardButton("📦 በመጠባበቅ ላይ ያሉ", callback_data="admin_pending_approvals")
+    btn_cats = types.InlineKeyboardButton("📁 ምድቦች (Categories)", callback_data="admin_manage_cats")
+
+    # --- ምድብ 3: ደህንነትና ተሳታፊዎች ---
+    security_label = types.InlineKeyboardButton("--- 🔐 ደህንነትና ተሳታፊዎች ---", callback_data="none")
     btn_add_vendor = types.InlineKeyboardButton("➕ አዲስ ድርጅት", callback_data="admin_add_vendor")
-    btn_add_rider = types.InlineKeyboardButton("➕ አዲስ ደላላ", callback_data="admin_add_rider")
-    
-    # --- 5. ሲስተም ---
-    btn_broadcast = types.InlineKeyboardButton("📢 ማስታወቂያ", callback_data="admin_broadcast")
-    btn_lock = types.InlineKeyboardButton("🔒 ሲስተም", callback_data="admin_system_lock")
+    btn_add_rider = types.InlineKeyboardButton("➕ አዲስ ደላላ", callback_data="admin_add_rider") # ተጨምሯል
+    btn_vendors = types.InlineKeyboardButton("🏢 የአጋር ድርጅቶች", callback_data="admin_list_vendors")
+    btn_riders = types.InlineKeyboardButton("🛵 የደላላዎች ሁኔታ", callback_data="admin_rider_status")
+    btn_set_commission = types.InlineKeyboardButton("⚙️ የኮሚሽን መጠን", callback_data="admin_set_commission")
+    btn_block = types.InlineKeyboardButton("🚫 አግድ/ፍቀድ", callback_data="admin_block_manager")
+    btn_lock = types.InlineKeyboardButton("🔒 ሲስተም ዝጋ (Lock)", callback_data="admin_system_lock")
 
-    # አደራደሩን እዚህ ጋር እናሳጥረዋለን (Row Width 2)
-    markup.add(btn_fund, btn_orders)
-    markup.add(btn_stats, btn_pending)
-    markup.add(btn_vendors, btn_riders)
-    markup.add(btn_add_vendor, btn_add_rider)
-    markup.add(btn_broadcast, btn_lock)
+    # --- ምድብ 6: ሪፖርት ---
+    report_label = types.InlineKeyboardButton("--- 📊 ሪፖርት ---", callback_data="none")
+    btn_stats = types.InlineKeyboardButton("📈 ጠቅላላ ሪፖርት", callback_data="admin_full_stats")
 
-    # 🛵 አድሚኑ ደላላ ከሆነ የሚመጡ (ሁኔታ እና ስልክ)
-    uid_str = str(user_id) 
+    # --- ወደ Markup መጨመር (ቅደም ተከተል) ---
+    markup.add(support_label)
+    markup.add(btn_dispute, btn_reviews)
+    markup.add(btn_broadcast)
+
+    markup.add(finance_label)
+    markup.add(btn_fund, btn_balance)
+    markup.add(btn_profit, btn_low_credit)
+
+    markup.add(ops_label)
+    markup.add(btn_live_orders, btn_pending)
+    markup.add(btn_cats)
+
+    markup.add(security_label)
+    markup.add(btn_add_vendor, btn_add_rider) # ጎን ለጎን
+    markup.add(btn_vendors, btn_riders)       # ጎን ለጎን
+    markup.add(btn_set_commission)
+    markup.add(btn_block, btn_lock)
+
+    markup.add(report_label)
+    markup.add(btn_stats)
+
+    # አድሚኑ ራሱ ደላላ ከሆነ (የስራ ሁኔታ መቀያየሪያ)
+    uid_str = str(user_id)
     if uid_str in db.get('riders_list', {}):
         status = "🟢" if db['riders_list'][uid_str].get('is_online') else "🔴"
-        btn_self_status = types.InlineKeyboardButton(f"ስራ: {status}", callback_data="rider_toggle_status")
-        btn_self_phone = types.InlineKeyboardButton("📞 ስልኬ", callback_data="register_rider_phone")
-        markup.add(btn_self_status, btn_self_phone)
+        btn_self_status = types.InlineKeyboardButton(f"የእኔ ስራ: {status}", callback_data="rider_toggle_status")
+        markup.add(btn_self_status)
 
     return markup
- 
+
 
 # 1. መጀመሪያ ይህ መኖሩን አረጋግጥ
 def get_main_menu():
