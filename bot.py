@@ -172,14 +172,21 @@ def get_admin_dashboard():
     return markup
 
 
-# 2. የ /start ትዕዛዝ
+# 1. መጀመሪያ ይህ መኖሩን አረጋግጥ
+def get_main_menu():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add("🏢 አጋር ድርጅቶች", "📦 ትዕዛዞች", "📊 ሪፖርት", "⚙️ ሲስተም")
+    return markup
+
+# 2. የተስተካከለው የ /start
 @bot.message_handler(commands=['start'])
 def start_command(message):
     try:
         user_id = message.from_user.id
-        bot.clear_step_handler_by_chat_id(chat_id=user_id) # አዙሪቱን ይሰብራል
+        bot.clear_step_handler_by_chat_id(chat_id=user_id) # አዙሪት እንዳይፈጠር
         
-        # አድሚን ከሆነ
+        db = load_data() 
+
         if user_id in ADMIN_IDS:
             return bot.send_message(
                 user_id, 
@@ -194,6 +201,7 @@ def start_command(message):
 
     except Exception as e:
         print(f"❌ Error in start_command: {e}")
+
 
 
 @bot.message_handler(commands=['admin'])
