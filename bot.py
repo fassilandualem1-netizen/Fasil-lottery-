@@ -237,6 +237,18 @@ def show_admin_panel(message):
     else:
         bot.send_message(message.chat.id, "❌ ፈቃድ የለዎትም።")
 
+@bot.message_handler(func=lambda message: message.text and message.text.startswith('/'))
+def catch_all_commands(message):
+    # ማንኛውም ኮማንድ ሲመጣ የቆየውን ጥያቄ ይሰርዛል
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+    
+    # ከዚያ ወደሚመለከተው የኮማንድ ፈንክሽን ይልከዋል
+    if message.text.startswith('/start'):
+        start_command(message)
+    elif message.text.startswith('/admin'):
+        show_admin_panel(message)
+
+
 # ሀ. በተኑ ሲጫን መጀመሪያ የድርጅቱን መለያ ይጠይቃል
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_funds")
 def start_funding(call):
