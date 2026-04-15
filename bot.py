@@ -134,7 +134,7 @@ def get_admin_dashboard():
     
     # --- ምድብ 3: ተሳታፊዎች እና ደህንነት ---
     security_label = types.InlineKeyboardButton("--- 🔐 ደህንነትና ተሳታፊዎች ---", callback_data="none")
-    btn_vendors = types.InlineKeyboardButton("🏢 የአጋር ሱቆች", callback_data="admin_list_vendors")
+    btn_vendors = types.InlineKeyboardButton("🏢 የአጋር ድርጅት", callback_data="admin_list_vendors")
     btn_riders = types.InlineKeyboardButton("🛵 የደላላዎች ሁኔታ", callback_data="admin_rider_status")
     btn_block = types.InlineKeyboardButton("🚫 አግድ/ፍቀድ", callback_data="admin_block_manager")
     btn_lock = types.InlineKeyboardButton("🔒 ሲስተም ዝጋ (Lock)", callback_data="admin_system_lock")
