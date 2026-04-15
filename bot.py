@@ -658,26 +658,6 @@ def view_total_profit(call):
         # ኤዲት ማድረግ ካልተቻለ አዲስ ይልካል
         bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
 
-# 3. ዋስትናቸው ሊያልቅ የደረሱ ድርጅቶች (ዝቅተኛ ሂሳብ)
-def view_low_balances(call):
-    db = load_data()
-    vendors = db.get("vendors_list", {})
-    limit = 100  # ማስጠንቀቂያ የሚሰጥበት የብር መጠን
-    
-    low_list = [f"⚠️ {data['name']} - ቀሪ፦ {data.get('deposit_balance', 0)} ETB" 
-                for vid, data in vendors.items() if data.get('deposit_balance', 0) < limit]
-    
-    if not low_list:
-        text = "✅ ሁሉም ድርጅቶች በቂ ዋስትና አላቸው።"
-    else:
-        text = "🚨 **ዋስትናቸው ሊያልቅ የደረሱ ድርጅቶች**\n\n" + "\n".join(low_list)
-        
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🔙 ወደ ዳሽቦርድ", callback_data="admin_main"))
-    
-    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, 
-                          reply_markup=markup, parse_mode="Markdown")
-
 
 # 3. ዋስትናቸው ሊያልቅ የደረሱ ድርጅቶች
 def view_low_balances(call):
@@ -935,16 +915,6 @@ def show_full_stats(call):
 def view_disputes(call):
     db = load_data()
     disputes = db.get("disputes", {})
-    if not disputes:
-        return bot.send_message(call.message.chat.id, "✅ ምንም አይነት የደንበኛ ቅሬታ የለም።")
-    
-    for d_id, d_data in disputes.items():
-        text = f"❗ **ቅሬታ**\n👤 ደንበኛ: {d_data['user_name']}\n📝 ጉዳዩ: {d_data['issue']}"
-        bot.send_message(call.message.chat.id, text)
-
-def view_disputes(call):
-    db = load_data()
-    disputes = db.get("disputes", {})
     
     if not disputes:
         # አድሚኑን በ Popup ማሳወቅ
@@ -1104,6 +1074,41 @@ def add_category_logic(message):
     else:
         bot.send_message(message.chat.id, f"⚠️ '{new_cat}' የሚባል ምድብ ቀድሞውኑ አለ።")
 
+
+# 1. የድርጅት ምዝገባ ሂደት (የጠፋው ክፍል)
+def process_v_id(message, v_name):
+    v_id = message.text.strip()
+    if not v_id.isdigit():
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፡ ID ቁጥር መሆን አለበት። ደግመው ይሞክሩ፦")
+        return bot.register_next_step_handler(msg, process_v_id, v_name)
+    
+    msg = bot.send_message(message.chat.id, f"📍 የ '{v_name}' አድራሻ ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_v_address, v_name, v_id)
+
+# 2. የተሻሻለ የ Callback አስተዳዳሪ (ሁሉንም የአድሚን ተግባራት በአንድ ላይ)
+@bot.callback_query_handler(func=lambda call: call.data.startswith('admin_'))
+def final_admin_manager(call):
+    bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
+    uid = str(call.from_user.id)
+    
+    # 📝 መረጃ መቀበል የሚፈልጉ (Next Steps)
+    if call.data == "admin_add_vendor":
+        msg = bot.send_message(call.message.chat.id, "🏢 የድርጅቱን ስም ያስገቡ፦")
+        bot.register_next_step_handler(msg, process_v_name)
+    elif call.data == "admin_add_rider":
+        msg = bot.send_message(call.message.chat.id, "👤 የደላላውን ስም ያስገቡ፦")
+        bot.register_next_step_handler(msg, get_rider_id)
+    elif call.data == "admin_manage_cats":
+        msg = bot.send_message(call.message.chat.id, "📁 የአዲሱን ምድብ ስም ያስገቡ፦")
+        bot.register_next_step_handler(msg, add_category_logic)
+
+    # 📊 ሪፖርትና ዝርዝር ማሳያዎች
+    elif call.data == "admin_list_vendors": list_all_vendors(call)
+    elif call.data == "admin_rider_status": view_rider_status(call)
+    elif call.data == "admin_pending_approvals": view_pending_items(call)
+    elif call.data == "admin_main":
+        bot.edit_message_text("👑 **BDF አድሚን ዳሽቦርድ**", call.message.chat.id, call.message.message_id, 
+                              reply_markup=get_admin_dashboard(call.from_user.id), parse_mode="Markdown")
 
 def approve_item(call):
     item_id = call.data.replace("approve_", "")
