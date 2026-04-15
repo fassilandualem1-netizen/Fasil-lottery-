@@ -449,6 +449,27 @@ def view_low_balances(call):
     text = "🚨 **ዋስትናቸው ሊያልቅ የደረሱ ድርጅቶች**\n\n" + "\n".join(low_list) if low_list else "✅ ሁሉም ድርጅቶች በቂ ዋስትና አላቸው።"
     bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
 
+def process_admin_rider_id(message):
+    try:
+        rider_id = message.text.strip()
+        db = load_data()
+        
+        if "riders_list" not in db: db["riders_list"] = {}
+        
+        # አዲስ ደላላ ሲመዘገብ የሚከተሉትን መረጃዎች መያዝ አለበት
+        db['riders_list'][rider_id] = {
+            "name": "Admin/Rider", 
+            "phone": "ያልተመዘገበ",   # ስልኩ ገና ነው
+            "is_online": False,
+            "total_earned": 0,      # ✅ አዲስ፡ የሰራው ብር (Wallet) 0 ETB
+            "completed_orders": 0   # ያደረሰው ትዕዛዝ ብዛት
+        }
+        
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ ደላላ {rider_id} ተመዝግቧል።")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ ስህተት፡ {e}")
+
 # 4. የቀጥታ ትዕዛዞችን ማሳያ (Live Orders)
 def view_live_orders(call):
     db = load_data()
