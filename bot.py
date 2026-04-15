@@ -426,27 +426,6 @@ def view_low_balances(call):
     text = "🚨 **ዋስትናቸው ሊያልቅ የደረሱ ድርጅቶች**\n\n" + "\n".join(low_list) if low_list else "✅ ሁሉም ድርጅቶች በቂ ዋስትና አላቸው።"
     bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
 
-def process_admin_rider_id(message):
-    try:
-        rider_id = message.text.strip()
-        db = load_data()
-        
-        if "riders_list" not in db: db["riders_list"] = {}
-        
-        # አዲስ ደላላ ሲመዘገብ የሚከተሉትን መረጃዎች መያዝ አለበት
-        db['riders_list'][rider_id] = {
-            "name": "Admin/Rider", 
-            "phone": "ያልተመዘገበ",   # ስልኩ ገና ነው
-            "is_online": False,
-            "total_earned": 0,      # ✅ አዲስ፡ የሰራው ብር (Wallet) 0 ETB
-            "completed_orders": 0   # ያደረሰው ትዕዛዝ ብዛት
-        }
-        
-        save_data(db)
-        bot.send_message(message.chat.id, f"✅ ደላላ {rider_id} ተመዝግቧል።")
-    except Exception as e:
-        bot.send_message(message.chat.id, f"❌ ስህተት፡ {e}")
-
 # 4. የቀጥታ ትዕዛዞችን ማሳያ (Live Orders)
 def view_live_orders(call):
     db = load_data()
@@ -761,28 +740,43 @@ def central_callback_manager(call):
             notify_admins(f"🏃 አድሚን {call.from_user.first_name} ትዕዛዝ #{order_id}ን ይዞ ወጥቷል።")
 
 
-# ሀ. በተኑ ሲነካ ስልክ እንዲጠይቅ
-@bot.callback_query_handler(func=lambda call: call.data == "register_rider_phone")
-def ask_for_phone(call):
-    msg = bot.send_message(call.message.chat.id, "📞 እባክዎ ስልክ ቁጥርዎን ያስገቡ (ምሳሌ፦ 0911223344)፦")
-    bot.register_next_step_handler(msg, save_rider_phone)
+# 1. መጀመሪያ ስም ይጠይቃል
+@bot.callback_query_handler(func=lambda call: call.data == "admin_add_rider")
+def start_rider_reg(call):
+    msg = bot.send_message(call.message.chat.id, "👤 የደላላውን ስም ያስገቡ፦")
+    bot.register_next_step_handler(msg, get_rider_id)
 
-# ለ. ቁጥሩን ተቀብሎ ዳታቤዝ ውስጥ 'phone' በሚለው ቦታ ላይ እንዲያስቀምጥ
-def save_rider_phone(message):
-    db = load_data()
-    uid = str(message.from_user.id)
-    phone = message.text.strip()
+# 2. ቀጥሎ ID ይጠይቃል
+def get_rider_id(message):
+    rider_name = message.text.strip()
+    msg = bot.send_message(message.chat.id, f"🆔 የ {rider_name} User ID ያስገቡ፦")
+    bot.register_next_step_handler(msg, get_rider_phone, rider_name)
+
+# 3. በመጨረሻ ስልክ ቁጥር ተቀብሎ ይመዘግባል
+def get_rider_phone(message, rider_name):
+    rider_id = message.text.strip()
+    if not rider_id.isdigit():
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፡ ID ቁጥር መሆን አለበት። ደግመው ይሞክሩ፦")
+        return bot.register_next_step_handler(msg, get_rider_phone, rider_name)
     
-    if phone.isdigit() and len(phone) >= 10:
-        if uid in db.get('riders_list', {}):
-            db['riders_list'][uid]['phone'] = phone
-            save_data(db)
-            bot.send_message(message.chat.id, f"✅ ስልክዎ {phone} ተመዝግቧል!")
-        else:
-            bot.send_message(message.chat.id, "❌ መጀመሪያ እንደ ደላላ መመዝገብ አለብዎት።")
-    else:
-        msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ ትክክለኛ ቁጥር ያስገቡ፦")
-        bot.register_next_step_handler(msg, save_rider_phone)
+    msg = bot.send_message(message.chat.id, f"📞 የ {rider_name} ስልክ ቁጥር ያስገቡ፦")
+    bot.register_next_step_handler(msg, save_full_rider, rider_name, rider_id)
+
+def save_full_rider(message, rider_name, rider_id):
+    phone = message.text.strip()
+    db = load_data()
+    
+    db['riders_list'][str(rider_id)] = {
+        "name": rider_name,
+        "phone": phone,        # ✅ ስልኩ እዚህ ጋር ተመዘገበ
+        "is_online": False,
+        "status": "Idle",
+        "earnings": 0,
+        "is_authorized": True
+    }
+    save_data(db)
+    bot.send_message(message.chat.id, f"✅ ደላላ {rider_name} በስልክ {phone} ተመዝግቧል!")
+
 
 if __name__ == "__main__":
     # 1. የ Flask ሰርቨርን በ Background ያስነሳል
