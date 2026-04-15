@@ -190,11 +190,12 @@ def get_admin_dashboard(user_id):
     markup.add(report_label)
     markup.add(btn_stats)
 
-        # --- አዲሱ የመቀያየሪያ ስዊች (Switch Mode) ---
+            # --- አዲሱ የመቀያየሪያ ስዊች (Switch Mode) ---
     uid_str = str(user_id)
     if uid_str in db.get('riders_list', {}):
-        # የአድሚን ገጹን ዘግቶ ወደ ደላላ ሜኑ የሚወስድ በተን
-        btn_switch = types.InlineKeyboardButton("🔄 ወደ ደላላነት ቀይር (Rider Mode)", callback_mode="switch_to_rider")
+        # ❌ ስህተት የነበረው: callback_mode="switch_to_rider"
+        # ✅ ትክክለኛው: callback_data="switch_to_rider"
+        btn_switch = types.InlineKeyboardButton("🔄 ወደ ደላላነት ቀይር (Rider Mode)", callback_data="switch_to_rider")
         markup.add(btn_switch)
 
     return markup
@@ -1009,9 +1010,8 @@ def view_rider_status(call):
 
 # 1. የደላላው ዋና ሜኑ
 def show_rider_menu(message):
-    # message.from_user.id የሚሰራው ከ message handler ሲመጣ ነው
-    # ከ callback ሲመጣ ግን message.chat.id መጠቀም ይመረጣል
-    user_id = message.from_user.id if hasattr(message, 'from_user') else message.chat.id
+    # መለያ ቁጥሩን በትክክል ማግኘት (ከሜሴጅም ይሁን ከcallback)
+    user_id = message.from_user.id if hasattr(message, 'from_user') and message.from_user else message.chat.id
     rider_id = str(user_id)
     
     db = load_data()
@@ -1029,20 +1029,20 @@ def show_rider_menu(message):
         
         markup = types.InlineKeyboardMarkup(row_width=1)
         
-        # 1. ሁኔታ መቀያየሪያ በተን
+        # 1. የሁኔታ መቀያየሪያ (Online/Offline)
         toggle_label = "🔴 ራስህን ዝጋ (Offline)" if is_online else "🟢 ስራ ጀምር (Online)"
         markup.add(types.InlineKeyboardButton(toggle_label, callback_data="rider_toggle_status"))
         
-        # 2. 💡 አዲሱ በተን፦ አድሚን ከሆነ ብቻ የሚታይ (Switch Back)
-        if int(rider_id) in ADMIN_IDS:
+        # 2. 💡 ወደ አድሚንነት መመለሻ (አድሚን ከሆነ ብቻ የሚታይ)
+        if int(user_id) in ADMIN_IDS:
             markup.add(types.InlineKeyboardButton("🔄 ወደ አድሚንነት ተመለስ", callback_data="switch_to_admin"))
         
-        # 3. ሌሎች የደላላ ተግባራት
+        # 3. የደላላው ትዕዛዞች ማያ
         markup.add(types.InlineKeyboardButton("📋 የእኔ ትዕዛዞች", callback_data="rider_my_orders"))
         
-        bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+        return bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
     else:
-        bot.send_message(message.chat.id, "⚠️ **ይቅርታ!**\nአንተ እንደ ደላላ አልተመዘገብክም ወይም መለያህ ታግዷል።")
+        return bot.send_message(message.chat.id, "⚠️ **ይቅርታ!**\nአንተ እንደ ደላላ አልተመዘገብክም ወይም መለያህ ታግዷል።")
 
 # 2. ሁኔታውን የሚቀይር የ Callback ሎጂክ
 # ይህ በ callback_query_handler ውስጥ መካተት አለበት
