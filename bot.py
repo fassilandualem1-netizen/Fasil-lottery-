@@ -201,29 +201,41 @@ def start_command(message):
 
         db = load_data() 
 
-        # --- ተጠቃሚውን ወደ ሊስት መጨመሪያ (እዚህ ቦታ መሆኑ ወሳኝ ነው) ---
+        # --- ተጠቃሚውን ወደ ሊስት መጨመሪያ ---
         if "user_list" not in db: db["user_list"] = []
         if user_id not in db["user_list"]:
             db["user_list"].append(user_id)
             save_data(db)
-        # --------------------------------------------------------
 
+        # 1. ለአድሚኖች (የእናንተ የሦስታችሁ ክፍል)
         if user_id in ADMIN_IDS:
-            return bot.send_message(user_id, "👑 **እንኳን ደህና መጡ የBDF አድሚን!**", 
-                                   reply_markup=get_admin_dashboard(), parse_mode="Markdown")
+            markup = get_admin_dashboard() # የአድሚን ዳሽቦርድ
+            
+            # እናንተ ደላላም ስለሆናችሁ፣ ሁኔታችሁን (Online/Offline) መቆጣጠሪያ በተን እዚህ ዳሽቦርድ ላይ እንጨምረው
+            if uid_str in db.get('riders_list', {}):
+                status = "🟢 Online" if db['riders_list'][uid_str].get('is_online') else "🔴 Offline"
+                btn_rider_mode = types.InlineKeyboardButton(f"🛵 My Status: {status}", callback_data="rider_toggle_status")
+                markup.add(btn_rider_mode)
+            
+            return bot.send_message(user_id, "👑 **Welcome to BDF Admin Panel**\n\n(Note: You can toggle your Driver status below)", 
+                                   reply_markup=markup, parse_mode="Markdown")
 
+        # 2. ለድርጅቶች (Vendors)
         if uid_str in db.get('vendors_list', {}):
             v_name = db['vendors_list'][uid_str]['name']
             return bot.send_message(user_id, f"እንኳን ደህና መጡ **{v_name}** 👋", 
                                    reply_markup=get_vendor_menu(), parse_mode="Markdown")
 
-        welcome_text = f"ሰላም {message.from_user.first_name} 👋\nየመለያ ቁጥርዎ፦ `{user_id}`"
+        # 3. ለተራ ደላላዎች (ለወደፊት ለሚቀጠሩ)
+        if uid_str in db.get('riders_list', {}):
+            return show_rider_menu(message)
+
+        # 4. ለደንበኞች (Customers)
+        welcome_text = f"Welcome {message.from_user.first_name} to BDF Delivery! 👋\nYour ID: `{user_id}`"
         bot.send_message(user_id, welcome_text, reply_markup=get_main_menu(), parse_mode="Markdown")
 
     except Exception as e:
         print(f"❌ Error in start_command: {e}")
-
-
 
 
 @bot.message_handler(commands=['admin'])
