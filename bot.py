@@ -168,31 +168,25 @@ def get_admin_dashboard():
 # 2. የ /start ትዕዛዝ
 @bot.message_handler(commands=['start'])
 def start_command(message):
-    # ማንኛውንም የቆየ "ቁጥር አስገባ" ጥያቄ ያጠፋል
     bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
-
-    welcome_text = (
-        f"ሰላም {message.from_user.first_name} 👋\n"
-        "እንኳን ወደ BDF የዴሊቨሪ ቦት በደህና መጡ።\n\n"
-        "እባክዎ ከታች ካሉት አማራጮች አንዱን ይምረጡ፦"
+    bot.send_message(
+        message.chat.id, 
+        f"ሰላም {message.from_user.first_name} 👋 እንኳን ወደ BDF delivery በደህና መጡ።",
+        reply_markup=get_main_menu() # የቅድሙ ትላልቅ በተኖች
     )
-    bot.send_message(message.chat.id, welcome_text, reply_markup=get_main_menu())
 
-# 3. የ /admin ትዕዛዝ
 @bot.message_handler(commands=['admin'])
 def show_admin_panel(message):
-    # መጀመሪያ አዙሪቱን ይሰብራል (ከ 'if' ውጪ መሆን አለበት)
     bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
-
     if message.from_user.id in ADMIN_IDS:
         bot.send_message(
             message.chat.id, 
-            "👑 **እንኳን ወደ BDF አድሚን ዳሽቦርድ በደህና መጡ!**\nእባክዎ ከታች ካሉት አማራጮች አንዱን ይምረጡ፦",
-            reply_markup=get_admin_dashboard(),
+            "👑 **BDF አድሚን ዳሽቦርድ**",
+            reply_markup=get_admin_dashboard(), # አሁን በላይኛው ፈንክሽን ይጠራል
             parse_mode="Markdown"
         )
     else:
-        bot.reply_to(message, "❌ ይቅርታ፣ ይህንን ትዕዛዝ ለመጠቀም ፈቃድ የለዎትም።")
+        bot.send_message(message.chat.id, "❌ ፈቃድ የለዎትም።")
 
 # ሀ. በተኑ ሲጫን መጀመሪያ የድርጅቱን መለያ ይጠይቃል
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_funds")
