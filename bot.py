@@ -128,9 +128,9 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return R * c
 
-def get_admin_dashboard():
+def get_admin_dashboard(user_id): # ✅ user_id እዚህ መግባቱን እርግጠኛ ሁን
+    db = load_data() # ✅ ዳታውን መጫን ግዴታ ነው
     markup = types.InlineKeyboardMarkup(row_width=2)
-
     # ምድብ 1
     finance_label = types.InlineKeyboardButton("--- 💰 ፋይናንስና ዋስትና ---", callback_data="none")
     btn_fund = types.InlineKeyboardButton("💳 ብር መሙያ (Fund)", callback_data="admin_add_funds")
