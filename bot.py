@@ -366,6 +366,101 @@ def save_new_commission(message):
         bot.send_message(message.chat.id, f"✅ ኮሚሽን ወደ {new_rate}% ተቀይሯል።")
     except: bot.send_message(message.chat.id, "❌ ቁጥር ብቻ ያስገቡ።")
 
+# 1. የሁሉንም ድርጅቶች ቀሪ ዋስትና ማሳያ
+def view_all_balances(call):
+    db = load_data()
+    vendors = db.get("vendors_list", {})
+    if not vendors:
+        return bot.send_message(call.message.chat.id, "📭 እስካሁን የተመዘገበ ድርጅት የለም።")
+    
+    report = "📉 **የድርጅቶች ቀሪ የዋስትና ሂሳብ**\n\n"
+    for vid, data in vendors.items():
+        bal = data.get('deposit_balance', 0)
+        report += f"🏢 ድርጅት፦ {data['name']}\n💰 ቀሪ ዋስትና፦ {bal} ETB\n"
+        report += "------------------------\n"
+    bot.send_message(call.message.chat.id, report, parse_mode="Markdown")
+
+# 2. የቦቱን ጠቅላላ ትርፍ ማሳያ
+def view_total_profit(call):
+    db = load_data()
+    profit = db.get("total_profit", 0)
+    rate = db.get('settings', {}).get('commission_rate', 5)
+    text = (f"📊 **የቦቱ ትርፍ ሪፖርት**\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"📉 የኮሚሽን መጠን፦ **{rate}%**\n"
+            f"💰 ጠቅላላ የተጣራ ትርፍ፦ **{profit:,.2f} ETB**\n"
+            f"━━━━━━━━━━━━━━━")
+    bot.answer_callback_query(call.id)
+    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+# 3. ዋስትናቸው ሊያልቅ የደረሱ ድርጅቶች
+def view_low_balances(call):
+    db = load_data()
+    vendors = db.get("vendors_list", {})
+    limit = 200 # ማስጠንቀቂያ ጣሪያ
+    low_list = [f"⚠️ {data['name']} - ቀሪ፦ {data.get('deposit_balance', 0)} ETB" 
+                for vid, data in vendors.items() if data.get('deposit_balance', 0) < limit]
+    
+    text = "🚨 **ዋስትናቸው ሊያልቅ የደረሱ ድርጅቶች**\n\n" + "\n".join(low_list) if low_list else "✅ ሁሉም ድርጅቶች በቂ ዋስትና አላቸው።"
+    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+# 4. የቀጥታ ትዕዛዞችን ማሳያ (Live Orders)
+def view_live_orders(call):
+    db = load_data()
+    orders = db.get("orders", {})
+    live_orders = {k: v for k, v in orders.items() if v['status'] in ["Pending", "On the way"]}
+    
+    if not live_orders:
+        return bot.send_message(call.message.chat.id, "📭 በአሁኑ ሰዓት ምንም አይነት የቀጥታ ትዕዛዝ የለም።")
+    
+    text = "📋 **የቀጥታ ትዕዛዞች ዝርዝር**\n\n"
+    for oid, odata in live_orders.items():
+        text += (f"🆔 ትዕዛዝ: #{oid}\n🏢 ድርጅት: {odata['vendor_name']}\n"
+                 f"👤 ደንበኛ: {odata['customer_name']}\n📍 ሁኔታ: {odata['status']}\n"
+                 f"------------------------\n")
+    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+# 5. ድርጅቶችን ለማገድ ወይም ለመፍቀድ (Block Manager)
+def process_block_unblock(message):
+    target_id = message.text.strip()
+    db = load_data()
+    found = False
+    for category in ['vendors_list', 'riders_list']:
+        if target_id in db.get(category, {}):
+            current_status = db[category][target_id].get('status', 'active')
+            new_status = 'blocked' if current_status != 'blocked' else 'active'
+            db[category][target_id]['status'] = new_status
+            found = True; break
+    if found:
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ የ ID {target_id} ሁኔታ ወደ **{new_status}** ተቀይሯል።")
+    else:
+        bot.send_message(message.chat.id, "❌ ስህተት፦ ይህ ID በሲስተሙ ላይ አልተገኘም።")
+
+# 6. ሲስተሙን መቆለፊያ (System Lock)
+def toggle_system_lock(call):
+    db = load_data()
+    db['settings']['system_locked'] = not db['settings'].get('system_locked', False)
+    save_data(db)
+    status_text = "🔒 ዝግ (Locked)" if db['settings']['system_locked'] else "🔓 ክፍት (Unlocked)"
+    bot.send_message(call.message.chat.id, f"⚠️ የሲስተሙ ሁኔታ ተቀይሯል። አሁን ሲስተሙ፦ **{status_text}** ነው")
+
+# 7. የማስታወቂያ መላኪያ ሎጂክ (Broadcast)
+def send_broadcast_logic(message):
+    if message.text and message.text.startswith('/'): return start_command(message)
+    db = load_data(); all_users = db.get("user_list", [])
+    if not all_users: return bot.send_message(message.chat.id, "⚠️ ተጠቃሚ የለም።")
+    
+    count = 0
+    status_msg = bot.send_message(message.chat.id, "⏳ እየተላከ ነው...")
+    for user_id in all_users:
+        try:
+            bot.send_message(user_id, f"🔔 **ማሳሰቢያ፦**\n\n{message.text}", parse_mode="Markdown")
+            count += 1; time.sleep(0.05)
+        except: continue
+    bot.delete_message(message.chat.id, status_msg.message_id)
+    bot.send_message(message.chat.id, f"✅ ለ {count} ተጠቃሚዎች ተልኳል።")
+
 
 
 
