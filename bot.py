@@ -170,21 +170,18 @@ def get_admin_dashboard():
 def start_command(message):
     try:
         user_id = message.from_user.id
-        # ማንኛውንም የቆየ የጥያቄ አዙሪት (Next Step Handler) ይሰብራል
-        bot.clear_step_handler_by_chat_id(chat_id=user_id)
+        bot.clear_step_handler_by_chat_id(chat_id=user_id) # አዙሪቱን ይሰብራል
         
-        db = load_data() 
-
-        # ተጠቃሚው አድሚን ከሆነ
+        # አድሚን ከሆነ
         if user_id in ADMIN_IDS:
             return bot.send_message(
                 user_id, 
-                "👑 እንኳን ደህና መጡ (የBDF አድሚን)!\nከታች ካሉት አማራጮች አንዱን ይምረጡ፦", 
-                reply_markup=kb_admin_main(),
+                "👑 **እንኳን ደህና መጡ የBDF አድሚን!**\nእባክዎ መቆጣጠሪያውን ይጠቀሙ፦", 
+                reply_markup=get_admin_dashboard(), # ስሙ ተስተካክሏል
                 parse_mode="Markdown"
             )
 
-        # ተጠቃሚው መደበኛ ሰው ከሆነ
+        # መደበኛ ተጠቃሚ ከሆነ
         welcome_text = f"ሰላም {message.from_user.first_name} 👋\nእንኳን ወደ BDF የዴሊቨሪ ቦት በደህና መጡ።"
         bot.send_message(user_id, welcome_text, reply_markup=get_main_menu())
 
