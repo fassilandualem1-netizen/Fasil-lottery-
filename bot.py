@@ -130,7 +130,10 @@ def get_admin_dashboard():
     ops_label = types.InlineKeyboardButton("--- 📦 ኦፕሬሽን ---", callback_data="none")
     btn_live_orders = types.InlineKeyboardButton("📋 የቀጥታ ትዕዛዞች", callback_data="admin_live_orders")
     btn_pending = types.InlineKeyboardButton("📦 በመጠባበቅ ላይ ያሉ", callback_data="admin_pending_approvals")
-    btn_cats = types.InlineKeyboardButton("📁 ምድቦች (Categories)", callback_data="admin_manage_cats")
+    btn_cats = types.InlineKeyboardButton("📁 ምድቦች (Categories)", callback_data="admin_manage_cats")",# get_admin_dashboard() ውስጥ ከሚገኙት በተኖች አንዱ፡
+btn_add_vendor = types.InlineKeyboardButton("➕ አዲስ ድርጅት መመዝገቢያ", callback_data="admin_add_vendor")
+
+
     
     # --- ምድብ 3: ተሳታፊዎች እና ደህንነት ---
     security_label = types.InlineKeyboardButton("--- 🔐 ደህንነትና ተሳታፊዎች ---", callback_data="none")
@@ -251,39 +254,61 @@ def complete_funding(message, vendor_id):
     except ValueError:
         bot.send_message(message.chat.id, "⚠️ እባክዎ ቁጥር ብቻ ያስገቡ።")
 
-# 1. አድሚኑ "አዲስ ድርጅት መመዝገብ" ሲል
+# ሀ. መመዝገቢያውን ይጀምራል
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_vendor")
-def start_add_vendor(call):
-    msg = bot.send_message(call.message.chat.id, "🏢 የድርጅቱን ስም ያስገቡ፦")
-    bot.register_next_step_handler(msg, process_vendor_name)
+def start_vendor_registration(call):
+    # አዙሪት እንዳይፈጠር መጀመሪያ እናጸዳለን
+    bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
+    msg = bot.send_message(call.message.chat.id, "🏢 **የድርጅቱን ስም ያስገቡ፦**\n(ለምሳሌ፦ አቢሲኒያ ሬስቶራንት)")
+    bot.register_next_step_handler(msg, process_v_name)
 
-def process_vendor_name(message):
-    vendor_name = message.text.strip()
-    msg = bot.send_message(message.chat.id, f"🆔 የ '{vendor_name}' ባለቤት የቴሌግራም User ID ያስገቡ፦\n(ባለቤቱ ቦቱን ሲከፍት የሚመጣለትን ቁጥር ይጠይቁት)")
-    bot.register_next_step_handler(msg, process_vendor_id, vendor_name)
+# ለ. ስሙን ተቀብሎ User ID ይጠይቃል
+def process_v_name(message):
+    v_name = message.text.strip()
+    msg = bot.send_message(message.chat.id, f"🆔 የ '{v_name}' ባለቤት የቴሌግራም **User ID** ያስገቡ፦\n(ባለቤቱ ቦቱን ሲከፍት የሚያገኘውን ቁጥር ይጠይቁት)")
+    bot.register_next_step_handler(msg, process_v_id, v_name)
 
-def process_vendor_id(message, vendor_name):
-    vendor_id = message.text.strip()
-    msg = bot.send_message(message.chat.id, f"📍 የ '{vendor_name}' አድራሻ (ለምሳሌ፦ ቦሌ መድኃኒዓለም) ያስገቡ፦")
-    bot.register_next_step_handler(msg, process_vendor_address, vendor_name, vendor_id)
+# ሐ. ID ተቀብሎ አድራሻ ይጠይቃል
+def process_v_id(message, v_name):
+    v_id = message.text.strip()
+    # ID ቁጥር መሆኑን ቼክ እናድርግ
+    if not v_id.isdigit():
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ User ID ቁጥር መሆን አለበት። እባክዎ እንደገና ያስገቡ፦")
+        return bot.register_next_step_handler(msg, process_v_id, v_name)
+    
+    msg = bot.send_message(message.chat.id, f"📍 የ '{v_name}' **አድራሻ** ያስገቡ፦\n(ለምሳሌ፦ ፒያሳ፣ ካሳንቺስ...)")
+    bot.register_next_step_handler(msg, process_v_address, v_name, v_id)
 
-def process_vendor_address(message, vendor_name, vendor_id):
+# መ. ሁሉንም መረጃ ሰብስቦ ዳታቤዝ ውስጥ ይከታል።
+def process_v_address(message, v_name, v_id):
     address = message.text.strip()
     db = load_data()
     
-    # ድርጅቱን በዳታቤዝ ውስጥ መመዝገብ
-    db['vendors_list'][vendor_id] = {
-        "name": vendor_name,
+    # ድርጅቱ አስቀድሞ ተመዝግቦ ከሆነ ቼክ እናድርግ
+    if v_id in db['vendors_list']:
+        return bot.send_message(message.chat.id, f"⚠️ ይህ ድርጅት (ID: {v_id}) ቀድሞውኑ ተመዝግቧል።")
+
+    # አዲሱን ድርጅት መመዝገብ
+    db['vendors_list'][v_id] = {
+        "name": v_name,
         "address": address,
         "deposit_balance": 0,    # መጀመሪያ ላይ ሂሳቡ 0 ነው
         "total_sales": 0,
         "status": "active",
+        "items": {},             # እቃዎቹ እዚህ ይገባሉ
         "registered_date": str(time.ctime())
     }
     
-    save_data(db) # ዳታውን ሴቭ ያደርጋል
+    save_data(db) # ዳታውን ወደ Redis ይልካል
     
-    bot.send_message(message.chat.id, f"✅ ተሳክቷል! '{vendor_name}' በሚገባ ተመዝግቧል።\n\nአሁን ለድርጅቱ '💳 ብር መሙያ' በሚለው በተን ዋስትና ማስያዝ ይችላሉ።")
+    text = (f"✅ **ድርጅት በሚገባ ተመዝግቧል!**\n\n"
+            f"🏢 ስም፦ {v_name}\n"
+            f"🆔 መለያ፦ `{v_id}`\n"
+            f"📍 አድራሻ፦ {address}\n\n"
+            f"አሁን ለድርጅቱ '💳 ብር መሙያ' በሚለው በተን ዋስትና ማስያዝ ይችላሉ።")
+    
+    bot.send_message(message.chat.id, text, parse_mode="Markdown")
+
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_monitor_balance")
