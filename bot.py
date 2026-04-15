@@ -137,6 +137,7 @@ def get_admin_dashboard():
     # እዚህ ጋር አዲሱን መመዝገቢያ በተን ጨምሬልሃለሁ
     btn_add_vendor = types.InlineKeyboardButton("➕ አዲስ ድርጅት መመዝገቢያ", callback_data="admin_add_vendor")
     btn_vendors = types.InlineKeyboardButton("🏢 የአጋር ድርጅቶች", callback_data="admin_list_vendors")
+    btn_set_commission = types.InlineKeyboardButton("⚙️ የኮሚሽን መጠን ቀይር", callback_data="admin_set_commission")
     btn_riders = types.InlineKeyboardButton("🛵 የደላላዎች ሁኔታ", callback_data="admin_rider_status")
     btn_block = types.InlineKeyboardButton("🚫 አግድ/ፍቀድ", callback_data="admin_block_manager")
     btn_lock = types.InlineKeyboardButton("🔒 ሲስተም ዝጋ (Lock)", callback_data="admin_system_lock")
@@ -598,6 +599,31 @@ def show_full_stats(call):
             f"🛵 ንቁ ዴሊቨሪዎች: {len(db.get('riders_list', {}))}")
     
     bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+def process_order_completion(order_id):
+    db = load_data()
+    order = db['orders'].get(order_id)
+    if not order: return
+
+    v_id = str(order['vendor_id'])
+    total_price = order['total_price']
+    
+    # 1. ኮሚሽኑን ከሴቲንግ ላይ ያነባል (ከሌለ 5% ይጠቀማል)
+    rate = db.get('settings', {}).get('commission_rate', 5)
+    commission = (total_price * rate) / 100
+    
+    # 2. ከድርጅቱ ዋስትና (Deposit) ላይ ኮሚሽኑን ይቀንሳል
+    if v_id in db['vendors_list']:
+        db['vendors_list'][v_id]['deposit_balance'] -= commission
+        # የድርጅቱን ጠቅላላ ሽያጭ ለመመዝገብ
+        db['vendors_list'][v_id]['total_sales'] += total_price 
+    
+    # 3. ለአድሚን ትርፍ ላይ ይጨምራል
+    db['total_profit'] = db.get('total_profit', 0) + commission
+    
+    save_data(db)
+    print(f"✅ ኮሚሽን ተቀንሷል፦ {commission} ETB")
+
 
 
 
