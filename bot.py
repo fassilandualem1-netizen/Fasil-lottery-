@@ -31,23 +31,26 @@ def load_data():
         if raw: 
             return json.loads(raw)
 
-        # መዋቅሩን ለፋይናንስ ቁጥጥር እንዲመች አድርገን እናስተካክለው
+        # መዋቅሩን ለደላላ ስልክ እና ዋሌት እንዲመች አድርገን እናስተካክለው
         initial_data = {
-            "vendors_list": {},    # የድርጅቶች ዝርዝር (Wallet እዚህ ይገባል)
+            "riders_list": {},     # ✅ አዲስ፡ ለደላላ ስልክ እና የሰራው ብር መመዝገቢያ
+            "vendors_list": {},    # የድርጅቶች ዝርዝር
             "orders": {},          # የታዘዙ ትዕዛዞች
-            "pending_items": {},   # አድሚን ያላጸደቃቸው እቃዎች
-            "categories": [],      # የምድብ ዝርዝር
-            "total_profit": 0,     # የአድሚን የተጣራ ኮሚሽን
+            "pending_items": {},   
+            "categories": [],      
+            "total_profit": 0,     
             "settings": {
                 "base_delivery": 50, 
                 "commission_rate": 10,
-                "system_locked": False # ሲስተሙን መዝጊያ
+                "system_locked": False 
             }
         }
         return initial_data
     except Exception as e:
         print(f"❌ Database Load Error: {e}")
-        return {"vendors_list": {}, "orders": {}, "categories": [], "settings": {"base_delivery": 50}}
+        # Error ቢመጣም ቦቱ እንዳይቆም ባዶውን riders_list እንላክ
+        return {"riders_list": {}, "vendors_list": {}, "orders": {}, "categories": [], "settings": {"base_delivery": 50}}
+
 
 def save_data(db):
     try:
