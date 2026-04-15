@@ -182,26 +182,42 @@ def get_main_menu():
     markup.add("🏢 አጋር ድርጅቶች", "📦 ትዕዛዞች", "📊 ሪፖርት", "⚙️ ሲስተም")
     return markup
 
-# 2. የተስተካከለው የ /start
 @bot.message_handler(commands=['start'])
 def start_command(message):
     try:
         user_id = message.from_user.id
-        bot.clear_step_handler_by_chat_id(chat_id=user_id) # አዙሪት እንዳይፈጠር
+        uid_str = str(user_id)
         
+        # 1. ማንኛውንም የቆየ የጥያቄ አዙሪት (Next Step Handler) ወዲያውኑ ይሰብራል
+        bot.clear_step_handler_by_chat_id(chat_id=user_id) 
+
         db = load_data() 
 
+        # 2. ተጠቃሚው አድሚን ከሆነ
         if user_id in ADMIN_IDS:
             return bot.send_message(
                 user_id, 
                 "👑 **እንኳን ደህና መጡ የBDF አድሚን!**\nእባክዎ መቆጣጠሪያውን ይጠቀሙ፦", 
-                reply_markup=get_admin_dashboard(), # ስሙ ተስተካክሏል
+                reply_markup=get_admin_dashboard(), 
                 parse_mode="Markdown"
             )
 
-        # መደበኛ ተጠቃሚ ከሆነ
-        welcome_text = f"ሰላም {message.from_user.first_name} 👋\nእንኳን ወደ BDF የዴሊቨሪ ቦት በደህና መጡ።"
-        bot.send_message(user_id, welcome_text, reply_markup=get_main_menu())
+        # 3. ተጠቃሚው የተመዘገበ የድርጅት ባለቤት (Vendor) ከሆነ
+        if uid_str in db.get('vendors_list', {}):
+            v_name = db['vendors_list'][uid_str]['name']
+            welcome_vendor = (
+                f"እንኳን ደህና መጡ **{v_name}** (ባለቤት) 👋\n\n"
+                f"እዚህ እቃዎችን መመዝገብ፣ ትዕዛዞችን ማየት እና ሂሳብዎን መቆጣጠር ይችላሉ።"
+            )
+            return bot.send_message(user_id, welcome_vendor, reply_markup=get_vendor_menu(), parse_mode="Markdown")
+
+        # 4. መደበኛ ተጠቃሚ/ደንበኛ ከሆነ
+        welcome_text = (
+            f"ሰላም {message.from_user.first_name} 👋\n"
+            f"የእርስዎ መለያ ቁጥር (ID)፦ `{user_id}`\n\n"
+            f"እንኳን ወደ BDF የዴሊቨሪ ቦት በደህና መጡ።"
+        )
+        bot.send_message(user_id, welcome_text, reply_markup=get_main_menu(), parse_mode="Markdown")
 
     except Exception as e:
         print(f"❌ Error in start_command: {e}")
