@@ -712,6 +712,44 @@ def get_admin_dashboard_with_rider(user_id, db):
     return markup
 
 
+# መጀመሪያ ፊልተሩን ሁሉንም እንዲቀበል እናስተካክለው (startswith የሚለውን እናስፋው)
+@bot.callback_query_handler(func=lambda call: call.data.startswith(('admin_', 'rider_', 'accept_')))
+def central_callback_manager(call):
+    bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
+    db = load_data()
+    uid = str(call.from_user.id)
+
+    # 1. የአድሚን በተኖች
+    if call.data.startswith('admin_'):
+        if call.data == "admin_add_rider":
+            msg = bot.send_message(call.message.chat.id, "🛵 የደላላ User ID ያስገቡ፦")
+            bot.register_next_step_handler(msg, process_admin_rider_id)
+        # ... ሌሎቹ የአድሚን elif እዚህ ይቀጥላሉ ...
+
+    # 2. የደላላ (Rider) በተኖች (elif መጠቀም ትችላለህ)
+    elif call.data == "rider_toggle_status":
+        if uid in db.get('riders_list', {}):
+            current = db['riders_list'][uid].get('is_online', False)
+            db['riders_list'][uid]['is_online'] = not current
+            save_data(db)
+            new_status = "🟢 Online" if not current else "🔴 Offline"
+            bot.answer_callback_query(call.id, f"ሁኔታዎ ወደ {new_status} ተቀይሯል")
+            # ሜኑውን Update ለማድረግ
+            bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, 
+                                          reply_markup=get_admin_dashboard())
+        else:
+            bot.answer_callback_query(call.id, "⚠️ መጀመሪያ እንደ ደላላ መመዝገብ አለብዎት!", show_alert=True)
+
+    # 3. የትዕዛዝ መቀበያ (Accept Order)
+    elif call.data.startswith("accept_order_"):
+        order_id = call.data.replace("accept_order_", "")
+        if order_id in db['orders'] and db['orders'][order_id]['status'] == "Pending":
+            db['orders'][order_id]['status'] = "On the way"
+            db['orders'][order_id]['rider_id'] = uid
+            save_data(db)
+            bot.edit_message_text(f"✅ ትዕዛዝ #{order_id} በ {call.from_user.first_name} ተይዟል!", 
+                                  call.message.chat.id, call.message.message_id)
+            notify_admins(f"🏃 አድሚን {call.from_user.first_name} ትዕዛዝ #{order_id}ን ይዞ ወጥቷል።")
 
 
 
