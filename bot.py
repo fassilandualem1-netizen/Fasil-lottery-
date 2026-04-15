@@ -150,7 +150,8 @@ def get_admin_dashboard():
     report_label = types.InlineKeyboardButton("--- 📊 ሪፖርት ---", callback_data="none")
     btn_stats = types.InlineKeyboardButton("📈 ጠቅላላ ሪፖርት", callback_data="admin_full_stats")
 
-    # --- ወደ Markup መጨመር ---
+    
+    # --- Adding to Markup ---
     markup.add(finance_label)
     markup.add(btn_fund, btn_balance)
     markup.add(btn_profit, btn_low_credit)
@@ -158,8 +159,8 @@ def get_admin_dashboard():
     markup.add(btn_live_orders, btn_pending)
     markup.add(btn_cats)
     markup.add(security_label)
-    markup.add(btn_add_vendor)
-    markup.add(btn_vendors, btn_set_commission) # እዚህ ተስተካክሏል
+    markup.add(btn_add_vendor, btn_add_rider) # Both registration buttons side by side
+    markup.add(btn_vendors, btn_set_commission)
     markup.add(btn_riders)
     markup.add(btn_block, btn_lock)
     markup.add(support_label)
@@ -169,7 +170,6 @@ def get_admin_dashboard():
     markup.add(btn_stats)
 
     return markup
-
 # 1. መጀመሪያ ይህ መኖሩን አረጋግጥ
 def get_main_menu():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
