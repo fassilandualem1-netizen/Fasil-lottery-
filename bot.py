@@ -217,17 +217,15 @@ def start_command(message):
             db["user_list"].append(user_id)
             save_data(db)
 
-        # 1. ለአድሚኖች (የእናንተ የሦስታችሁ ክፍል)
+        # 1. ለአድሚኖች
         if user_id in ADMIN_IDS:
-            markup = get_admin_dashboard() # የአድሚን ዳሽቦርድ
+            # 💡 እዚህ ጋር ነው ስህተቱ የነበረው፦ user_id መጨመር አለበት
+            markup = get_admin_dashboard(user_id) 
             
-            # እናንተ ደላላም ስለሆናችሁ፣ ሁኔታችሁን (Online/Offline) መቆጣጠሪያ በተን እዚህ ዳሽቦርድ ላይ እንጨምረው
-            if uid_str in db.get('riders_list', {}):
-                status = "🟢 Online" if db['riders_list'][uid_str].get('is_online') else "🔴 Offline"
-                btn_rider_mode = types.InlineKeyboardButton(f"🛵 My Status: {status}", callback_data="rider_toggle_status")
-                markup.add(btn_rider_mode)
+            # ⚠️ ማሳሰቢያ፦ የሪደር በተኑን ቀጥታ get_admin_dashboard ውስጥ ከጨመርከው 
+            # እዚህ ጋር ድጋሚ markup.add ማድረግ አያስፈልግህም (ደራራቢ እንዳይሆን)
             
-            return bot.send_message(user_id, "👑 **Welcome to BDF Admin Panel**\n\n(Note: You can toggle your Driver status below)", 
+            return bot.send_message(user_id, "👑 **Welcome to BDF Admin Panel**", 
                                    reply_markup=markup, parse_mode="Markdown")
 
         # 2. ለድርጅቶች (Vendors)
@@ -236,17 +234,18 @@ def start_command(message):
             return bot.send_message(user_id, f"እንኳን ደህና መጡ **{v_name}** 👋", 
                                    reply_markup=get_vendor_menu(), parse_mode="Markdown")
 
-        # 3. ለተራ ደላላዎች (ለወደፊት ለሚቀጠሩ)
+        # 3. ለተራ ደላላዎች
         if uid_str in db.get('riders_list', {}):
             return show_rider_menu(message)
 
-        # 4. ለደንበኞች (Customers)
+        # 4. ለደንበኞች
         welcome_text = f"Welcome {message.from_user.first_name} to BDF Delivery! 👋\nYour ID: `{user_id}`"
         bot.send_message(user_id, welcome_text, reply_markup=get_main_menu(), parse_mode="Markdown")
 
     except Exception as e:
-        print(f"❌ Error in start_command: {e}")
-
+        # Render Log ላይ Errorሩን በደንብ ለማየት ይረዳሃል
+        print(f"❌ Error in start_command: {str(e)}")
+        bot.send_message(message.chat.id, "⚠️ ቦቱ ላይ ትንሽ ችግር ተፈጥሯል፣ እባክዎ ደግመው ይሞክሩ።")
 
 @bot.message_handler(commands=['admin'])
 def show_admin_panel(message):
