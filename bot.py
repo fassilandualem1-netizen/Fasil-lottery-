@@ -580,6 +580,36 @@ def show_rider_menu(message):
     else:
         bot.send_message(message.chat.id, "⚠️ ይቅርታ፣ አንተ እንደ ደላላ አልተመዘገብክም። እባክህ አድሚኑን አነጋግር።")
 
+def process_admin_rider_id(message):
+    rider_id = message.text.strip()
+    if rider_id.startswith('/'): return start_command(message)
+    
+    if not rider_id.isdigit():
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ User ID ቁጥር መሆን አለበት። ደግመው ያስገቡ፦")
+        return bot.register_next_step_handler(msg, process_admin_rider_id)
+
+    msg = bot.send_message(message.chat.id, "👤 የደላላውን ስም ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_admin_rider_name, rider_id)
+
+def process_admin_rider_name(message, rider_id):
+    rider_name = message.text.strip()
+    db = load_data()
+    
+    if 'riders_list' not in db: db['riders_list'] = {}
+    
+    # ደላላውን በ IDው መመዝገብ (IDው ሁልጊዜ String መሆን አለበት)
+    db['riders_list'][str(rider_id)] = {
+        "name": rider_name,
+        "phone": "ያልተመዘገበ",
+        "status": "Idle",
+        "is_online": False, 
+        "earnings": 0,
+        "total_deliveries": 0,
+        "is_authorized": True 
+    }
+    save_data(db)
+    bot.send_message(message.chat.id, f"✅ ደላላ {rider_name} (ID: {rider_id}) በሚገባ ተመዝግቧል!")
+
 
 
 
