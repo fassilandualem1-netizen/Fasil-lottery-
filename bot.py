@@ -56,12 +56,24 @@ def save_data(db):
     except Exception as e:
         print(f"❌ Database Save Error: {e}")
 
+# --- አዲሱ ክፍል እዚህ ጋር ይግባ ---
+def notify_admins(text):
+    """ለሦስቱም አድሚኖች የኦፕሬሽን መልዕክት መላኪያ"""
+    for admin_id in ADMIN_IDS:
+        try:
+            bot.send_message(admin_id, f"📢 **የBDF ኦፕሬሽን ማሳሰቢያ**\n\n{text}", parse_mode="Markdown")
+        except Exception as e:
+            print(f"ለአድሚን {admin_id} መላክ አልተቻለም: {e}")
+
+# --------------------------------
+
 # 2. አድሚን መሆኑን ማረጋገጫ (Check Admin)
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
         bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
         return False
     return True
+
 
 # 3. አዲስ ምድብ መመዝገቢያ (Save Category)
 def save_category(message):
