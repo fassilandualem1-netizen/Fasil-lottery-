@@ -541,6 +541,20 @@ def send_broadcast_logic(message):
             
     bot.send_message(message.chat.id, f"✅ ማስታወቂያው ለ {count} ተጠቃሚዎች ተልኳል።")
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
+def approve_item(call):
+    item_id = call.data.replace("approve_", "")
+    db = load_data()
+    item_data = db['pending_items'].pop(item_id, None)
+    
+    if item_data:
+        v_id = item_data['vendor_id']
+        db['vendors_list'][v_id]['items'][item_id] = item_data
+        save_data(db)
+        bot.send_message(call.message.chat.id, "✅ እቃው ጸድቋል!")
+        bot.send_message(v_id, f"🔔 '{item_data['item_name']}' የተባለው እቃዎ በአድሚን ጽድቆ ለሽያጭ ቀርቧል።")
+
+
 @bot.callback_query_handler(func=lambda call: call.data == "admin_disputes")
 def view_disputes(call):
     db = load_data()
