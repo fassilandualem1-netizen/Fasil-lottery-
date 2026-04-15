@@ -760,6 +760,28 @@ def central_callback_manager(call):
             notify_admins(f"🏃 አድሚን {call.from_user.first_name} ትዕዛዝ #{order_id}ን ይዞ ወጥቷል።")
 
 
+# ሀ. በተኑ ሲነካ ስልክ እንዲጠይቅ
+@bot.callback_query_handler(func=lambda call: call.data == "register_rider_phone")
+def ask_for_phone(call):
+    msg = bot.send_message(call.message.chat.id, "📞 እባክዎ ስልክ ቁጥርዎን ያስገቡ (ምሳሌ፦ 0911223344)፦")
+    bot.register_next_step_handler(msg, save_rider_phone)
+
+# ለ. ቁጥሩን ተቀብሎ ዳታቤዝ ውስጥ 'phone' በሚለው ቦታ ላይ እንዲያስቀምጥ
+def save_rider_phone(message):
+    db = load_data()
+    uid = str(message.from_user.id)
+    phone = message.text.strip()
+    
+    if phone.isdigit() and len(phone) >= 10:
+        if uid in db['riders_list']:
+            db['riders_list'][uid]['phone'] = phone # ስልኩን እዚህ ጋር ይከተዋል
+            save_data(db)
+            bot.send_message(message.chat.id, f"✅ ስልክ ቁጥርዎ {phone} በሚገባ ተመዝግቧል!")
+        else:
+            bot.send_message(message.chat.id, "❌ መጀመሪያ እንደ ደላላ መመዝገብ አለብዎት።")
+    else:
+        msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ ትክክለኛ ስልክ ቁጥር ያስገቡ፦")
+        bot.register_next_step_handler(msg, save_rider_phone)
 
 
 
