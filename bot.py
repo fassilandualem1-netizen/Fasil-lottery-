@@ -49,6 +49,13 @@ def load_data():
         print(f"❌ Database Load Error: {e}")
         return {"vendors_list": {}, "orders": {}, "categories": [], "settings": {"base_delivery": 50}}
 
+def save_data(db):
+    try:
+        # ዳታውን ወደ Redis መላኪያ
+        redis.set("bdf_delivery_db", json.dumps(db))
+    except Exception as e:
+        print(f"❌ Database Save Error: {e}")
+
 # 2. አድሚን መሆኑን ማረጋገጫ (Check Admin)
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
