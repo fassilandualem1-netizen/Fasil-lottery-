@@ -187,12 +187,12 @@ def get_admin_dashboard(user_id): # ✅ user_id እዚህ መግባቱን እር
     markup.add(btn_phone)
     
 
-    # 🛵 drivers (Driver) ሁኔታ መቆጣጠሪያ 
     uid_str = str(user_id) 
     if uid_str in db.get('riders_list', {}):
         status = "🟢 Online" if db['riders_list'][uid_str].get('is_online') else "🔴 Offline"
         btn_rider = types.InlineKeyboardButton(f"🛵 ስራ: {status}", callback_data="rider_toggle_status")
-        markup.add(btn_rider)
+        btn_phone = types.InlineKeyboardButton("📞 ስልክ መመዝገቢያ", callback_data="register_rider_phone")
+        markup.add(btn_rider, btn_phone)
 
     return markup  
 
