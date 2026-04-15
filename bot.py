@@ -568,22 +568,38 @@ def toggle_system_lock(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_broadcast")
 def start_broadcast(call):
+    # 1. መጀመሪያ ሌሎች የሚጠባበቁ Handler-ዎችን ማጽዳት ወሳኝ ነው
+    bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
+    
     msg = bot.send_message(call.message.chat.id, "📢 ለሁሉም ተጠቃሚዎች የሚተላለፈውን መልዕክት ይጻፉ፦")
     bot.register_next_step_handler(msg, send_broadcast_logic)
 
 def send_broadcast_logic(message):
+    # ተጠቃሚው /start ካለ ማስታወቂያውን ያቆማል
+    if message.text.startswith('/'): 
+        bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+        return start_command(message)
+
     db = load_data()
-    all_users = db.get("user_list", []) # በቦቱ /start ያሉትን ሁሉ ID መያዝ አለበት
+    all_users = db.get("user_list", [])
+    
+    if not all_users:
+        return bot.send_message(message.chat.id, "⚠️ እስካሁን የተመዘገበ ተጠቃሚ የለም (user_list ባዶ ነው)።")
     
     count = 0
+    broadcast_text = message.text
+    
     for user_id in all_users:
         try:
-            bot.send_message(user_id, f"🔔 **ከአድሚን የተላከ መልዕክት፦**\n\n{message.text}", parse_mode="Markdown")
+            bot.send_message(user_id, f"🔔 **ከአድሚን የተላከ መልዕክት፦**\n\n{broadcast_text}", parse_mode="Markdown")
             count += 1
+            # ብዙ ተጠቃሚ ካለ ቴሌግራም እንዳያግደን ትንሽ ፍጥነት መቀነስ (Optional)
+            time.sleep(0.05) 
         except:
-            continue # ቦቱን Block ያደረጉ ካሉ ዝለላቸው
+            continue
             
     bot.send_message(message.chat.id, f"✅ ማስታወቂያው ለ {count} ተጠቃሚዎች ተልኳል።")
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
 def approve_item(call):
