@@ -317,6 +317,24 @@ def process_v_address(message, v_name, v_id):
     bot.send_message(message.chat.id, f"✅ **{v_name}** በሚገባ ተመዝግቧል!", reply_markup=get_admin_dashboard())
 
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_set_commission")
+def start_set_commission(call):
+    msg = bot.send_message(call.message.chat.id, "⚙️ አዲሱን የኮሚሽን መጠን በቁጥር ብቻ ያስገቡ (ለምሳሌ 5 ወይም 7.5)፦")
+    bot.register_next_step_handler(msg, save_new_commission)
+
+def save_new_commission(message):
+    try:
+        new_rate = float(message.text.strip())
+        db = load_data()
+        if 'settings' not in db: db['settings'] = {}
+        
+        db['settings']['commission_rate'] = new_rate
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ ተሳክቷል! የኮሚሽን መጠን ወደ **{new_rate}%** ተቀይሯል።")
+    except ValueError:
+        bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ።")
+
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_monitor_balance")
 def view_all_balances(call):
@@ -339,11 +357,15 @@ def view_all_balances(call):
 def view_total_profit(call):
     db = load_data()
     profit = db.get("total_profit", 0)
+    rate = db.get('settings', {}).get('commission_rate', 5)
     
-    text = (f"💰 **ጠቅላላ የኮሚሽን ትርፍ**\n\n"
-            f"ቦቱ ከሽያጮች የሰበሰበው ጠቅላላ ትርፍ፦\n"
-            f"✨ **{profit} ETB** ✨")
+    text = (f"📊 **የቦቱ ትርፍ ሪፖርት**\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"📉 የኮሚሽን መጠን፦ **{rate}%**\n"
+            f"💰 ጠቅላላ የተጣራ ትርፍ፦ **{profit:,.2f} ETB**\n"
+            f"━━━━━━━━━━━━━━━")
     
+    bot.answer_callback_query(call.id) # በተኑን ሲነካው የሚመጣውን "Loading" ለማጥፋት
     bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
 
 
