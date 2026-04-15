@@ -632,6 +632,38 @@ def view_reviews(call):
     bot.send_message(call.message.chat.id, text)
 
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
+def approve_item(call):
+    item_id = call.data.replace("approve_", "")
+    db = load_data()
+    item_data = db['pending_items'].pop(item_id, None)
+    
+    if item_data:
+        v_id = str(item_data['vendor_id']) # ወደ String ቀይረው
+        if 'items' not in db['vendors_list'][v_id]: 
+            db['vendors_list'][v_id]['items'] = {}
+            
+        db['vendors_list'][v_id]['items'][item_id] = item_data
+        save_data(db)
+        bot.send_message(call.message.chat.id, "✅ እቃው ጸድቋል!")
+        try:
+            bot.send_message(v_id, f"🔔 '{item_data['item_name']}' የተባለው እቃዎ በአድሚን ጽድቆ ለሽያጭ ቀርቧል።")
+        except: pass
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("reject_"))
+def reject_item(call):
+    item_id = call.data.replace("reject_", "")
+    db = load_data()
+    item_data = db['pending_items'].pop(item_id, None) # ከጥበቃ ክፍል ያወጣዋል
+    save_data(db)
+    
+    bot.send_message(call.message.chat.id, "❌ እቃው ውድቅ ተደርጓል (ተሰርዟል)።")
+    if item_data:
+        try:
+            bot.send_message(item_data['vendor_id'], f"⚠️ ይቅርታ፣ '{item_data['item_name']}' የተባለው እቃዎ በአድሚን ውድቅ ተደርጓል። እባክዎ መረጃውን አስተካክለው ድጋሚ ይሞክሩ።")
+        except: pass
+
+
 @bot.callback_query_handler(func=lambda call: call.data == "admin_full_stats")
 def show_full_stats(call):
     db = load_data()
