@@ -180,11 +180,21 @@ def get_admin_dashboard():
     markup.add(btn_broadcast)
     markup.add(report_label)
     markup.add(btn_stats)
-    if str(message.from_user.id) in db.get('riders_list', {}):
-    btn_rider = types.InlineKeyboardButton("🛵 Rider: Online/Offline", callback_data="rider_toggle_status")
-    markup.add(btn_rider)
+       # 1. መጀመሪያ ቫሪያብሉን አስተካክል (user_id መሆኑን አረጋግጥ)
+    uid_str = str(user_id) 
 
+    # 2. 'if' መስመር
+    if uid_str in db.get('riders_list', {}):
+        # ⚠️ ከታች ያለው መስመር የግድ ገባ (Indent) ማለት አለበት!
+        btn_rider = types.InlineKeyboardButton(
+            "🛵 Rider: Online/Offline", 
+            callback_data="rider_toggle_status"
+        )
+        markup.add(btn_rider)
+
+    # 3. መጨረሻ ላይ return
     return markup
+
 
 # 1. መጀመሪያ ይህ መኖሩን አረጋግጥ
 def get_main_menu():
