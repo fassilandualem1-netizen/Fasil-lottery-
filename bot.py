@@ -797,18 +797,15 @@ def save_rider_phone(message):
     phone = message.text.strip()
     
     if phone.isdigit() and len(phone) >= 10:
-        if uid in db['riders_list']:
-            db['riders_list'][uid]['phone'] = phone # ስልኩን እዚህ ጋር ይከተዋል
+        if uid in db.get('riders_list', {}):
+            db['riders_list'][uid]['phone'] = phone
             save_data(db)
-            bot.send_message(message.chat.id, f"✅ ስልክ ቁጥርዎ {phone} በሚገባ ተመዝግቧል!")
+            bot.send_message(message.chat.id, f"✅ ስልክዎ {phone} ተመዝግቧል!")
         else:
             bot.send_message(message.chat.id, "❌ መጀመሪያ እንደ ደላላ መመዝገብ አለብዎት።")
     else:
-        msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ ትክክለኛ ስልክ ቁጥር ያስገቡ፦")
+        msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ ትክክለኛ ቁጥር ያስገቡ፦")
         bot.register_next_step_handler(msg, save_rider_phone)
-
-
-
 
 if __name__ == "__main__":
     # 1. የ Flask ሰርቨርን በ Background ያስነሳል
