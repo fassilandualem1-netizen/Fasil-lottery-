@@ -563,6 +563,24 @@ def view_rider_status(call):
     
     bot.send_message(call.message.chat.id, report + summary)
 
+def show_rider_menu(message):
+    rider_id = str(message.from_user.id)
+    db = load_data()
+    
+    # ደላላው በአድሚን የተመዘገበ መሆኑን ቼክ ያደርጋል
+    if rider_id in db.get('riders_list', {}) and db['riders_list'][rider_id].get('is_authorized'):
+        status = "ክፍት (Online)" if db['riders_list'][rider_id]['is_online'] else "ዝግ (Offline)"
+        text = f"🛵 **የዴሊቨሪ ማእከል**\n\nየአሁኑ ሁኔታህ፦ **{status}**"
+        
+        markup = types.InlineKeyboardMarkup()
+        btn_text = "🔴 ራስህን ዝጋ (Go Offline)" if db['riders_list'][rider_id]['is_online'] else "🟢 ራስህን ክፈት (Go Online)"
+        markup.add(types.InlineKeyboardButton(btn_text, callback_data="rider_toggle_status"))
+        
+        bot.send_message(message.chat.id, text, reply_markup=markup)
+    else:
+        bot.send_message(message.chat.id, "⚠️ ይቅርታ፣ አንተ እንደ ደላላ አልተመዘገብክም። እባክህ አድሚኑን አነጋግር።")
+
+
 
 
 
