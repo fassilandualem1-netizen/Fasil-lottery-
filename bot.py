@@ -242,12 +242,12 @@ def start_command(message):
         if uid_str in db.get('riders_list', {}):
             return show_rider_menu(message)
 
-        # 4. ለደንበኞች
+                # 4. ለደንበኞች
         welcome_text = f"Welcome {message.from_user.first_name} to BDF Delivery! 👋\nYour ID: `{user_id}`"
         bot.send_message(user_id, welcome_text, reply_markup=get_main_menu(), parse_mode="Markdown")
 
-        except Exception as e:
-        # ይህ መስመር ትክክለኛውን ስህተት በቦቱ ላይ ይልክልሃል
+    except Exception as e:
+        # እነዚህ መስመሮች አሁን በትክክል ገባ ብለዋል
         error_msg = f"❌ Error: {str(e)}"
         print(error_msg)
         bot.send_message(message.chat.id, error_msg)
