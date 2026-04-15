@@ -164,11 +164,6 @@ def get_admin_dashboard():
     
     return markup
 
-# 1. መጀመሪያ ሜኑውን እንፍጠር (ይህ ከ /start በላይ መሆን አለበት)
-def get_main_menu():
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.add("🏢 አጋር ድርጅቶች", "📦 ትዕዛዞች", "📊 ሪፖርት", "⚙️ ሲስተም")
-    return markup
 
 # 2. የ /start ትዕዛዝ
 @bot.message_handler(commands=['start'])
