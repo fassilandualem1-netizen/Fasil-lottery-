@@ -461,6 +461,81 @@ def send_broadcast_logic(message):
     bot.delete_message(message.chat.id, status_msg.message_id)
     bot.send_message(message.chat.id, f"✅ ለ {count} ተጠቃሚዎች ተልኳል።")
 
+def list_all_vendors(call):
+    db = load_data()
+    vendors = db.get("vendors_list", {})
+    
+    if not vendors:
+        return bot.send_message(call.message.chat.id, "🏢 እስካሁን የተመዘገበ ድርጅት የለም።")
+    
+    text = "🏢 **የአጋር ድርጅቶች ዝርዝር**\n\n"
+    for vid, vdata in vendors.items():
+        text += (f"🔹 **ስም:** {vdata['name']}\n"
+                 f"🆔 **ID:** `{vid}`\n"
+                 f"📍 **አድራሻ:** {vdata.get('address', 'ያልተገለጸ')}\n"
+                 f"📈 **ጠቅላላ ሽያጭ:** {vdata.get('total_sales', 0)} ETB\n"
+                 f"------------------------\n")
+    
+    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+
+def view_pending_items(call):
+    db = load_data()
+    pending = db.get("pending_items", {}) 
+    
+    if not pending:
+        return bot.send_message(call.message.chat.id, "✅ በመጠባበቅ ላይ ያለ አዲስ እቃ የለም።")
+    
+    for item_id, idata in pending.items():
+        text = (f"📦 **አዲስ እቃ ለመመዝገብ ቀርቧል**\n\n"
+                f"🏢 ድርጅት: {idata['vendor_name']}\n"
+                f"🛍 እቃ: {idata['item_name']}\n"
+                f"💰 ዋጋ: {idata['price']} ETB")
+        
+        markup = types.InlineKeyboardMarkup()
+        markup.add(
+            types.InlineKeyboardButton("✅ ፍቀድ", callback_data=f"approve_{item_id}"),
+            types.InlineKeyboardButton("❌ ሰርዝ", callback_data=f"reject_{item_id}")
+        )
+        bot.send_message(call.message.chat.id, text, reply_markup=markup)
+
+
+def show_full_stats(call):
+    db = load_data()
+    orders = db.get("orders", {})
+    total_sales = sum(o['total_price'] for o in orders.values() if o.get('status') == "Completed")
+    
+    text = (f"📊 **አጠቃላይ የቦቱ እንቅስቃሴ**\n\n"
+            f"💰 ጠቅላላ ሽያጭ: {total_sales} ETB\n"
+            f"📈 የተጣራ ትርፍ: {db.get('total_profit', 0)} ETB\n"
+            f"📦 ጠቅላላ የታዘዙ እቃዎች: {len(orders)}\n"
+            f"🏢 የተመዘገቡ ድርጅቶች: {len(db.get('vendors_list', {}))}\n"
+            f"🛵 ንቁ ዴሊቨሪዎች: {len(db.get('riders_list', {}))}")
+    
+    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+def view_disputes(call):
+    db = load_data()
+    disputes = db.get("disputes", {})
+    if not disputes:
+        return bot.send_message(call.message.chat.id, "✅ ምንም አይነት የደንበኛ ቅሬታ የለም።")
+    
+    for d_id, d_data in disputes.items():
+        text = f"❗ **ቅሬታ**\n👤 ደንበኛ: {d_data['user_name']}\n📝 ጉዳዩ: {d_data['issue']}"
+        bot.send_message(call.message.chat.id, text)
+
+def view_reviews(call):
+    db = load_data()
+    reviews = db.get("reviews", [])
+    if not reviews:
+        return bot.send_message(call.message.chat.id, "⭐ እስካሁን የተሰጠ አስተያየት የለም።")
+    
+    text = "⭐ **የቅርብ ጊዜ አስተያየቶች**\n\n"
+    for r in reviews[-5:]: # የመጨረሻዎቹን 5 ብቻ
+        text += f"🏢 {r['vendor_name']} ➡️ {r['stars']}⭐\n💬 {r['comment']}\n---\n"
+    bot.send_message(call.message.chat.id, text)
+
+
 
 
 
