@@ -164,11 +164,18 @@ def get_admin_dashboard():
     
     return markup
 
+# 1. መጀመሪያ ሜኑውን እንፍጠር (ይህ ከ /start በላይ መሆን አለበት)
+def get_main_menu():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add("🏢 አጋር ድርጅቶች", "📦 ትዕዛዞች", "📊 ሪፖርት", "⚙️ ሲስተም")
+    return markup
+
+# 2. የ /start ትዕዛዝ
 @bot.message_handler(commands=['start'])
 def start_command(message):
     # ማንኛውንም የቆየ "ቁጥር አስገባ" ጥያቄ ያጠፋል
     bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
-    
+
     welcome_text = (
         f"ሰላም {message.from_user.first_name} 👋\n"
         "እንኳን ወደ BDF የዴሊቨሪ ቦት በደህና መጡ።\n\n"
@@ -176,9 +183,12 @@ def start_command(message):
     )
     bot.send_message(message.chat.id, welcome_text, reply_markup=get_main_menu())
 
-# # አድሚኑ /admin ሲል የሚመጣ መልዕክት
+# 3. የ /admin ትዕዛዝ
 @bot.message_handler(commands=['admin'])
 def show_admin_panel(message):
+    # መጀመሪያ አዙሪቱን ይሰብራል (ከ 'if' ውጪ መሆን አለበት)
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+
     if message.from_user.id in ADMIN_IDS:
         bot.send_message(
             message.chat.id, 
