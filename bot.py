@@ -271,9 +271,8 @@ def admin_callback_manager(call):
         bot.register_next_step_handler(msg, process_fund_id)
 
     elif call.data == "admin_add_rider":
-        msg = bot.send_message(call.message.chat.id, "🛵 ለመመዝገብ የሚፈልጉትን የደላላ User ID ያስገቡ፦")
-        bot.register_next_step_handler(msg, process_admin_rider_id)
-
+        msg = bot.send_message(call.message.chat.id, "👤 ለመመዝገብ የሚፈልጉትን የደላላ ስም ያስገቡ፦")
+        bot.register_next_step_handler(msg, start_rider_registration) # ስም መጠየቂያውን ይጠራል
 
     elif call.data == "admin_manage_cats":
         msg = bot.send_message(call.message.chat.id, "📁 **የአዲሱን ምድብ ስም ያስገቡ፦**")
