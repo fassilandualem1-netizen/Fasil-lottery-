@@ -615,6 +615,63 @@ def process_admin_rider_name(message, rider_id):
     save_data(db)
     bot.send_message(message.chat.id, f"✅ ደላላ {rider_name} (ID: {rider_id}) በሚገባ ተመዝግቧል!")
 
+def add_category_logic(message):
+    if not check_admin(message): return
+    
+    db = load_data()
+    new_cat = message.text.strip()
+
+    if not new_cat:
+        return bot.send_message(message.chat.id, "⚠️ እባክዎ የምድብ ስም በትክክል ያስገቡ።")
+
+    if "categories" not in db: db["categories"] = []
+
+    if new_cat not in db["categories"]:
+        db["categories"].append(new_cat)
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ ምጻብ '{new_cat}' ተጨምሯል።", reply_markup=get_admin_dashboard())
+    else:
+        bot.send_message(message.chat.id, "⚠️ ይህ ምድብ ቀድሞውኑ አለ።")
+
+def approve_item(call):
+    item_id = call.data.replace("approve_", "")
+    db = load_data()
+    
+    if item_id in db.get('pending_items', {}):
+        item_data = db['pending_items'].pop(item_id) # ከፔንዲንግ አውጣው
+        vendor_id = str(item_data['vendor_id'])
+        
+        # ወደ ድርጅቱ እቃዎች ዝርዝር ጨምረው
+        if vendor_id not in db['vendors_list']:
+            return bot.send_message(call.message.chat.id, "❌ ድርጅቱ አልተገኘም።")
+            
+        db['vendors_list'][vendor_id]['items'][item_id] = item_data
+        save_data(db)
+        
+        bot.edit_message_text(f"✅ እቃው ተፈቅዷል!\n📦 እቃ፦ {item_data['item_name']}", 
+                              call.message.chat.id, call.message.message_id)
+        
+        # ለድርጅቱ ማሳወቂያ ላክ
+        try: bot.send_message(vendor_id, f"🎉 እቃዎ '{item_data['item_name']}' በአድሚን ጸድቆ ለሽያጭ ቀርቧል።")
+        except: pass
+    else:
+        bot.answer_callback_query(call.id, "❌ ይህ እቃ ቀድሞውኑ ተስተካክሏል።")
+
+def reject_item(call):
+    item_id = call.data.replace("reject_", "")
+    db = load_data()
+    
+    if item_id in db.get('pending_items', {}):
+        item_data = db['pending_items'].pop(item_id)
+        save_data(db)
+        
+        bot.edit_message_text(f"❌ እቃው ተሰርዟል!\n📦 እቃ፦ {item_data['item_name']}", 
+                              call.message.chat.id, call.message.message_id)
+        
+        # ለድርጅቱ ማሳወቂያ ላክ
+        try: bot.send_message(item_data['vendor_id'], f"⚠️ ይቅርታ፣ ያቀረቡት እቃ '{item_data['item_name']}' በአድሚን ተቀባይነት አላገኘም።")
+        except: pass
+
 
 
 
