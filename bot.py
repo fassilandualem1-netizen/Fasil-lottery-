@@ -566,17 +566,32 @@ def toggle_system_lock(call):
 #     bot.send_message(user_id, "❌ ይቅርታ፣ ሲስተሙ ለጥገና ለጊዜው ተዘግቷል።")
 
 
-@bot.callback_query_handler(func=lambda call: call.data == "admin_broadcast")
-def start_broadcast(call):
-    # 1. መጀመሪያ ሌሎች የሚጠባበቁ Handler-ዎችን ማጽዳት ወሳኝ ነው
+# --- የሁሉም አድሚን በተኖች የጋራ መቆጣጠሪያ ---
+@bot.callback_query_handler(func=lambda call: call.data.startswith('admin_'))
+def admin_callback_manager(call):
+    # 🌟 ወሳኝ፦ ማንኛውንም የቆየ Next Step Handler ወዲያውኑ ያጠፋል (Overlap ይከላከላል)
     bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
     
-    msg = bot.send_message(call.message.chat.id, "📢 ለሁሉም ተጠቃሚዎች የሚተላለፈውን መልዕክት ይጻፉ፦")
-    bot.register_next_step_handler(msg, send_broadcast_logic)
+    if call.data == "admin_broadcast":
+        msg = bot.send_message(call.message.chat.id, "📢 **ለማስታወቂያ የሚላክ መልዕክት ይጻፉ፦**\n(ለማቋረጥ /start ይበሉ)")
+        bot.register_next_step_handler(msg, send_broadcast_logic)
 
+    elif call.data == "admin_add_vendor":
+        msg = bot.send_message(call.message.chat.id, "🏢 **የድርጅቱን ስም ያስገቡ፦**")
+        bot.register_next_step_handler(msg, process_v_name)
+
+    elif call.data == "admin_add_funds":
+        msg = bot.send_message(call.message.chat.id, "💳 **ብር የሚሞላለትን የድርጅት User ID ያስገቡ፦**")
+        bot.register_next_step_handler(msg, process_fund_id)
+
+    elif call.data == "admin_manage_cats":
+        msg = bot.send_message(call.message.chat.id, "📁 **የአዲሱን ምድብ (Category) ስም ያስገቡ፦**")
+        bot.register_next_step_handler(msg, add_category_logic)
+
+# --- የማስታወቂያ መላኪያ ሎጂክ ---
 def send_broadcast_logic(message):
-    # ተጠቃሚው /start ካለ ማስታወቂያውን ያቆማል
-    if message.text.startswith('/'): 
+    # ተጠቃሚው /start ካለ ስራውን ያቆማል
+    if message.text and message.text.startswith('/'): 
         bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
         return start_command(message)
 
@@ -584,21 +599,25 @@ def send_broadcast_logic(message):
     all_users = db.get("user_list", [])
     
     if not all_users:
-        return bot.send_message(message.chat.id, "⚠️ እስካሁን የተመዘገበ ተጠቃሚ የለም (user_list ባዶ ነው)።")
-    
+        return bot.send_message(message.chat.id, "⚠️ ማሳሰቢያ፦ እስካሁን የተመዘገበ ተጠቃሚ የለም። (መጀመሪያ /start ይበሉ)")
+
     count = 0
     broadcast_text = message.text
     
+    # አድሚኑ እንዲጠባበቅ የሚገልጽ መልዕክት
+    status_msg = bot.send_message(message.chat.id, "⏳ መልዕክቱ ለሁሉም ተጠቃሚዎች እየተላከ ነው...")
+
     for user_id in all_users:
         try:
             bot.send_message(user_id, f"🔔 **ከአድሚን የተላከ መልዕክት፦**\n\n{broadcast_text}", parse_mode="Markdown")
             count += 1
-            # ብዙ ተጠቃሚ ካለ ቴሌግራም እንዳያግደን ትንሽ ፍጥነት መቀነስ (Optional)
-            time.sleep(0.05) 
-        except:
+            time.sleep(0.05) # ለቴሌግራም ደህንነት ሲባል
+        except Exception:
             continue
-            
-    bot.send_message(message.chat.id, f"✅ ማስታወቂያው ለ {count} ተጠቃሚዎች ተልኳል።")
+    
+    # መጨረሻ ላይ ማጠቃለያ መላክ
+    bot.delete_message(message.chat.id, status_msg.message_id)
+    bot.send_message(message.chat.id, f"✅ ተሳክቷል!\n📢 መልዕክቱ ለ **{count}** ተጠቃሚዎች ደርሷል።")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
