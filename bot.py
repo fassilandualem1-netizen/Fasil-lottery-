@@ -168,12 +168,29 @@ def get_admin_dashboard():
 # 2. የ /start ትዕዛዝ
 @bot.message_handler(commands=['start'])
 def start_command(message):
-    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
-    bot.send_message(
-        message.chat.id, 
-        f"ሰላም {message.from_user.first_name} 👋 እንኳን ወደ BDF delivery በደህና መጡ።",
-        reply_markup=get_main_menu() # የቅድሙ ትላልቅ በተኖች
-    )
+    try:
+        user_id = message.from_user.id
+        # ማንኛውንም የቆየ የጥያቄ አዙሪት (Next Step Handler) ይሰብራል
+        bot.clear_step_handler_by_chat_id(chat_id=user_id)
+        
+        db = load_data() 
+
+        # ተጠቃሚው አድሚን ከሆነ
+        if user_id in ADMIN_IDS:
+            return bot.send_message(
+                user_id, 
+                "👑 እንኳን ደህና መጡ (የBDF አድሚን)!\nከታች ካሉት አማራጮች አንዱን ይምረጡ፦", 
+                reply_markup=kb_admin_main(),
+                parse_mode="Markdown"
+            )
+
+        # ተጠቃሚው መደበኛ ሰው ከሆነ
+        welcome_text = f"ሰላም {message.from_user.first_name} 👋\nእንኳን ወደ BDF የዴሊቨሪ ቦት በደህና መጡ።"
+        bot.send_message(user_id, welcome_text, reply_markup=get_main_menu())
+
+    except Exception as e:
+        print(f"❌ Error in start_command: {e}")
+
 
 @bot.message_handler(commands=['admin'])
 def show_admin_panel(message):
