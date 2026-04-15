@@ -190,12 +190,12 @@ def get_admin_dashboard(user_id):
     markup.add(report_label)
     markup.add(btn_stats)
 
-    # አድሚኑ ራሱ ደላላ ከሆነ (የስራ ሁኔታ መቀያየሪያ)
+        # --- አዲሱ የመቀያየሪያ ስዊች (Switch Mode) ---
     uid_str = str(user_id)
     if uid_str in db.get('riders_list', {}):
-        status = "🟢" if db['riders_list'][uid_str].get('is_online') else "🔴"
-        btn_self_status = types.InlineKeyboardButton(f"የእኔ ስራ: {status}", callback_data="rider_toggle_status")
-        markup.add(btn_self_status)
+        # የአድሚን ገጹን ዘግቶ ወደ ደላላ ሜኑ የሚወስድ በተን
+        btn_switch = types.InlineKeyboardButton("🔄 ወደ ደላላነት ቀይር (Rider Mode)", callback_mode="switch_to_rider")
+        markup.add(btn_switch)
 
     return markup
 
@@ -453,6 +453,24 @@ def item_approval_manager(call):
                 pass
         else:
             bot.answer_callback_query(call.id, "❌ ቅሬታው አልተገኘም ወይም ቀድሞ ተፈቷል።")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('switch_to_'))
+def switch_mode_handler(call):
+    user_id = call.from_user.id
+    
+    if call.data == "switch_to_rider":
+        # አድሚን ዳሽቦርዱን አጥፍቶ የደላላውን ሜኑ ያመጣል
+        bot.answer_callback_query(call.id, "አሁን በደላላነት ሁኔታ ላይ ነህ")
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        show_rider_menu(call.message)
+
+    elif call.data == "switch_to_admin":
+        if user_id in ADMIN_IDS:
+            # የደላላውን ሜኑ አጥፍቶ የአድሚን ዳሽቦርዱን ያመጣል
+            bot.answer_callback_query(call.id, "ወደ አድሚን ዳሽቦርድ ተመልሰሃል")
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+            bot.send_message(call.message.chat.id, "👑 **BDF አድሚን ዳሽቦርድ**", 
+                             reply_markup=get_admin_dashboard(user_id), parse_mode="Markdown")
 
 # --- 3. መረጃ ተቀባይ ሎጂኮች (Logic Functions) ---
 
@@ -990,11 +1008,14 @@ def view_rider_status(call):
 
 # 1. የደላላው ዋና ሜኑ
 def show_rider_menu(message):
-    rider_id = str(message.from_user.id)
-    db = load_data()
+    # message.from_user.id የሚሰራው ከ message handler ሲመጣ ነው
+    # ከ callback ሲመጣ ግን message.chat.id መጠቀም ይመረጣል
+    user_id = message.from_user.id if hasattr(message, 'from_user') else message.chat.id
+    rider_id = str(user_id)
     
-    # ደላላው የተመዘገበና ፈቃድ ያለው መሆኑን ማረጋገጥ
+    db = load_data()
     riders = db.get('riders_list', {})
+    
     if rider_id in riders and riders[rider_id].get('status') != 'blocked':
         is_online = riders[rider_id].get('is_online', False)
         status_text = "🟢 ክፍት (Online)" if is_online else "🔴 ዝግ (Offline)"
@@ -1005,17 +1026,22 @@ def show_rider_menu(message):
                 f"📊 የወቅቱ ሁኔታህ፦ **{status_text}**\n"
                 f"━━━━━━━━━━━━━━━")
         
-        markup = types.InlineKeyboardMarkup()
-        # ሁኔታ መቀያየሪያ በተን
+        markup = types.InlineKeyboardMarkup(row_width=1)
+        
+        # 1. ሁኔታ መቀያየሪያ በተን
         toggle_label = "🔴 ራስህን ዝጋ (Offline)" if is_online else "🟢 ስራ ጀምር (Online)"
         markup.add(types.InlineKeyboardButton(toggle_label, callback_data="rider_toggle_status"))
         
-        # ሌሎች ተግባራት (ለምሳሌ የታዘዙትን ማያ)
+        # 2. 💡 አዲሱ በተን፦ አድሚን ከሆነ ብቻ የሚታይ (Switch Back)
+        if int(rider_id) in ADMIN_IDS:
+            markup.add(types.InlineKeyboardButton("🔄 ወደ አድሚንነት ተመለስ", callback_data="switch_to_admin"))
+        
+        # 3. ሌሎች የደላላ ተግባራት
         markup.add(types.InlineKeyboardButton("📋 የእኔ ትዕዛዞች", callback_data="rider_my_orders"))
         
         bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
     else:
-        bot.send_message(message.chat.id, "⚠️ **ይቅርታ!**\nአንተ እንደ ደላላ አልተመዘገብክም ወይም መለያህ ታግዷል። እባክህ አድሚኑን አነጋግር።")
+        bot.send_message(message.chat.id, "⚠️ **ይቅርታ!**\nአንተ እንደ ደላላ አልተመዘገብክም ወይም መለያህ ታግዷል።")
 
 # 2. ሁኔታውን የሚቀይር የ Callback ሎጂክ
 # ይህ በ callback_query_handler ውስጥ መካተት አለበት
