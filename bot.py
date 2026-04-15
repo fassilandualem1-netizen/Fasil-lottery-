@@ -254,61 +254,35 @@ def interrupt_handler(message):
 # --- 1. የሁሉም አድሚን በተኖች ማዕከላዊ መቆጣጠሪያ (Manager) ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('admin_'))
 def admin_callback_manager(call):
-    # 🌟 ወሳኝ፦ ማንኛውንም የቆየ ስራ ያጸዳል (Overlap መከላከያ)
     bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
     
-    # ሀ. መረጃ መቀበል የሚፈልጉ (Next Step የሚጠቀሙ)
-    if call.data == "admin_broadcast":
-        msg = bot.send_message(call.message.chat.id, "📢 **ማስታወቂያ ይጻፉ፦**\n(ለማቋረጥ /start ይበሉ)")
-        bot.register_next_step_handler(msg, send_broadcast_logic)
+    # 1. መረጃ መቀበል የሚፈልጉ (Next Step)
+    if call.data == "admin_add_rider":
+        msg = bot.send_message(call.message.chat.id, "👤 ለመመዝገብ የሚፈልጉትን የደላላ ስም ያስገቡ፦")
+        # ⚠️ እዚህ ጋር የሚጠራው ፈንክሽን ስም 'get_rider_id' መሆኑን እርግጠኛ ሁን (ከታች ባለው ኮድህ መሠረት)
+        bot.register_next_step_handler(msg, get_rider_id) 
 
     elif call.data == "admin_add_vendor":
-        msg = bot.send_message(call.message.chat.id, "🏢 **የድርጅቱን ስም ያስገቡ፦**")
+        msg = bot.send_message(call.message.chat.id, "🏢 የድርጅቱን ስም ያስገቡ፦")
         bot.register_next_step_handler(msg, process_v_name)
 
     elif call.data == "admin_add_funds":
-        msg = bot.send_message(call.message.chat.id, "💳 **የድርጅት User ID ያስገቡ፦**")
+        msg = bot.send_message(call.message.chat.id, "💳 የድርጅት User ID ያስገቡ፦")
         bot.register_next_step_handler(msg, process_fund_id)
 
-    elif call.data == "admin_add_rider":
-        msg = bot.send_message(call.message.chat.id, "👤 ለመመዝገብ የሚፈልጉትን የደላላ ስም ያስገቡ፦")
-        bot.register_next_step_handler(msg, start_rider_registration) # ስም መጠየቂያውን ይጠራል
+    elif call.data == "admin_broadcast":
+        msg = bot.send_message(call.message.chat.id, "📢 ማስታወቂያ ይጻፉ፦")
+        bot.register_next_step_handler(msg, send_broadcast_logic)
 
-    elif call.data == "admin_manage_cats":
-        msg = bot.send_message(call.message.chat.id, "📁 **የአዲሱን ምድብ ስም ያስገቡ፦**")
-        bot.register_next_step_handler(msg, add_category_logic)
+    # 2. ቀጥታ ሪፖርት የሚያሳዩ
+    elif call.data == "admin_live_orders": view_live_orders(call)
+    elif call.data == "admin_full_stats": show_full_stats(call)
+    elif call.data == "admin_pending_approvals": view_pending_items(call)
+    elif call.data == "admin_list_vendors": list_all_vendors(call)
+    elif call.data == "admin_rider_status": view_rider_status(call)
+    elif call.data == "admin_system_lock": toggle_system_lock(call)
+    elif call.data == "admin_monitor_balance": view_all_balances(call)
 
-    elif call.data == "admin_block_manager":
-        msg = bot.send_message(call.message.chat.id, "🚫 **የሚታገደውን ወይም የሚፈቀደውን User ID ያስገቡ፦**")
-        bot.register_next_step_handler(msg, process_block_unblock)
-
-    elif call.data == "admin_set_commission":
-        msg = bot.send_message(call.message.chat.id, "⚙️ **አዲሱን የኮሚሽን መጠን ያስገቡ (%)፦**")
-        bot.register_next_step_handler(msg, save_new_commission)
-
-    # ለ. ቀጥታ ሪፖርት የሚያሳዩ (Next Step የማይፈልጉ)
-    elif call.data == "admin_monitor_balance":
-        view_all_balances(call)
-    elif call.data == "admin_profit_track":
-        view_total_profit(call)
-    elif call.data == "admin_low_credit":
-        view_low_balances(call)
-    elif call.data == "admin_live_orders":
-        view_live_orders(call)
-    elif call.data == "admin_pending_approvals":
-        view_pending_items(call)
-    elif call.data == "admin_list_vendors":
-        list_all_vendors(call)
-    elif call.data == "admin_rider_status":
-        view_rider_status(call)
-    elif call.data == "admin_system_lock":
-        toggle_system_lock(call)
-    elif call.data == "admin_disputes":
-        view_disputes(call)
-    elif call.data == "admin_reviews":
-        view_reviews(call)
-    elif call.data == "admin_full_stats":
-        show_full_stats(call)
 
 # --- 2. እቃ የማጽደቅ/የመሰረዝ ስራ (ልዩ Callback) ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith(("approve_", "reject_", "resolve_")))
@@ -600,35 +574,8 @@ def show_rider_menu(message):
     else:
         bot.send_message(message.chat.id, "⚠️ ይቅርታ፣ አንተ እንደ ደላላ አልተመዘገብክም። እባክህ አድሚኑን አነጋግር።")
 
-def process_admin_rider_id(message):
-    rider_id = message.text.strip()
-    if rider_id.startswith('/'): return start_command(message)
-    
-    if not rider_id.isdigit():
-        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ User ID ቁጥር መሆን አለበት። ደግመው ያስገቡ፦")
-        return bot.register_next_step_handler(msg, process_admin_rider_id)
 
-    msg = bot.send_message(message.chat.id, "👤 የደላላውን ስም ያስገቡ፦")
-    bot.register_next_step_handler(msg, process_admin_rider_name, rider_id)
 
-def process_admin_rider_name(message, rider_id):
-    rider_name = message.text.strip()
-    db = load_data()
-    
-    if 'riders_list' not in db: db['riders_list'] = {}
-    
-    # ደላላውን በ IDው መመዝገብ (IDው ሁልጊዜ String መሆን አለበት)
-    db['riders_list'][str(rider_id)] = {
-        "name": rider_name,
-        "phone": "ያልተመዘገበ",
-        "status": "Idle",
-        "is_online": False, 
-        "earnings": 0,
-        "total_deliveries": 0,
-        "is_authorized": True 
-    }
-    save_data(db)
-    bot.send_message(message.chat.id, f"✅ ደላላ {rider_name} (ID: {rider_id}) በሚገባ ተመዝግቧል!")
 
 def add_category_logic(message):
     if not check_admin(message): return
