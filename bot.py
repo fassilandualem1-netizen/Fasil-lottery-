@@ -142,7 +142,7 @@ def get_admin_dashboard():
     # --- ምድብ 4: ድጋፍና ማስታወቂያ ---
     support_label = types.InlineKeyboardButton("--- 📣 ድጋፍና ማስታወቂያ ---", callback_data="none")
     btn_dispute = types.InlineKeyboardButton("💬 ቅሬታዎች", callback_data="admin_disputes")
-    btn_reviews = types.InlineKeyboardButton("⭐ ግምገማዎች", callback_ደታ="admin_reviews")
+    btn_reviews = types.InlineKeyboardButton("⭐ ግምገማዎች", callback_data="admin_reviews")
     btn_broadcast = types.InlineKeyboardButton("📢 ማስታወቂያ ላክ", callback_data="admin_broadcast")
     
     # --- ምድብ 5: ሪፖርት ---
