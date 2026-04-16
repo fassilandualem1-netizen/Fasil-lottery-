@@ -378,7 +378,6 @@ def central_rider_handler(call):
 
     if call.data == "rider_toggle_status":
         toggle_rider_status(call)
-    elif call.data == "rider_withdraw_request":
     elif call.data == "rider_wallet":
         show_rider_wallet(call)
     elif call.data == "rider_view_orders":
@@ -428,6 +427,16 @@ def show_rider_wallet(call):
         bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
 
     bot.send_message(call.message.chat.id, "📦 በአሁኑ ሰዓት በአቅራቢያዎ የሚገኙ አዳዲስ ትዕዛዞች የሉም።")
+
+def show_available_orders(call):
+    # እዚህ ጋር ትዕዛዝ ካለ በዝርዝር ታሳያለህ፣ ከሌለ ግን፡
+    text = "📦 በአሁኑ ሰዓት በአቅራቢያዎ የሚገኙ አዳዲስ ትዕዛዞች የሉም።"
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="rider_main"))
+    
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup)
+
 
 # --- 5. የሥራ ታሪክ ማሳያ ---
 def show_rider_history(call):
