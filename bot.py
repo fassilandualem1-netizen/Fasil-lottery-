@@ -245,11 +245,12 @@ def start_command(message):
             return bot.send_message(user_id, "👑 **Welcome to BDF Admin Panel**", 
                                    reply_markup=markup, parse_mode="Markdown")
 
-        # 2. ለድርጅቶች (Vendors)
+                # 2. ለድርጅቶች (Vendors)
         if uid_str in db.get('vendors_list', {}):
             v_name = db['vendors_list'][uid_str]['name']
+            # እዚህ ጋር ስሙን 'get_vendor_dashboard' አድርገው
             return bot.send_message(user_id, f"እንኳን ደህና መጡ **{v_name}** 👋", 
-                                   reply_markup=get_vendor_menu(), parse_mode="Markdown")
+                                   reply_markup=get_vendor_dashboard(uid_str), parse_mode="Markdown")
 
         # 3. drivers
         if uid_str in db.get('riders_list', {}):
