@@ -1033,15 +1033,37 @@ def view_reviews(call):
 #የተጣራ ትርፍ ክትትል
 def view_total_profit(call):
     db = load_data()
-    profit = db.get("total_profit", 0)
-    rate = db.get('settings', {}).get('commission_rate', 5)
+    profit = db.get('total_profit', 0)
+    v_comm = db['settings'].get('vendor_commission_p', 0)
+    c_fee = db['settings'].get('customer_service_fee', 0)
     
-    text = (f"💰 **የቦቱ ትርፍ ሪፖርት**\n"
+    text = (f"📈 **የቦቱ አጠቃላይ የትርፍ ሪፖርት**\n"
             f"━━━━━━━━━━━━━━━\n"
-            f"📈 የኮሚሽን መጠን: {rate}%\n"
-            f"💵 ጠቅላላ የተጣራ ትርፍ: **{profit:,.2f} ETB**\n"
-            f"━━━━━━━━━━━━━━━")
-    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+            f"💰 ጠቅላላ የተጣራ ትርፍ፦ **{profit:,.2f} ETB**\n\n"
+            f"⚙️ **አሁን እየሰሩ ያሉ መተመኛዎች፦**\n"
+            f"• የድርጅት ኮሚሽን፦ {v_comm}%\n"
+            f"• የደንበኛ አገልግሎት ክፍያ፦ {c_fee} ETB")
+    
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, parse_mode="Markdown")
+
+
+def complete_order_logic(order_id):
+    db = load_data()
+    order = db['orders'][order_id]
+    item_price = float(order['price'])
+    
+    # 🟢 ከሴቲንግ ላይ የትኩስ ኮሚሽን ዋጋዎችን ማንበብ
+    v_comm_percent = db['settings'].get('vendor_commission_p', 10)
+    service_fee = db['settings'].get('customer_service_fee', 15)
+    
+    # ትርፉን ማስላት
+    vendor_commission_amount = item_price * (v_comm_percent / 100)
+    total_order_profit = vendor_commission_amount + service_fee
+    
+    # 🟢 በጠቅላላ ትርፍ ላይ መደመር
+    db['total_profit'] = db.get('total_profit', 0) + total_order_profit
+    save_data(db)
+
 
 #ዝቅተኛ የዋስትና ሂሳብ
 def view_low_balances(call):
