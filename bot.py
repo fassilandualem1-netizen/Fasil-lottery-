@@ -482,11 +482,12 @@ def central_admin_handler(call):
 
     bot.answer_callback_query(call.id)
 
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith('vendor_'))
 def central_vendor_handler(call):
     # ማንኛውንም የቆየ ስራ ያጸዳል
     bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
-    
+
     if call.data == "vendor_add_item":
         msg = bot.send_message(call.message.chat.id, "📝 የዕቃውን **ስም** ያስገቡ (ለምሳሌ፦ በርገር)፦")
         bot.register_next_step_handler(msg, process_item_name)
@@ -495,7 +496,7 @@ def central_vendor_handler(call):
         db = load_data()
         v_id = str(call.from_user.id)
         vendor = db['vendors_list'].get(v_id, {})
-        
+
         balance = vendor.get('balance', 0)
         total_sold = vendor.get('total_sold', 0)
         commission_rate = db['settings'].get('vendor_commission_p', 10)
@@ -504,11 +505,9 @@ def central_vendor_handler(call):
                        f"💵 ቀሪ ሂሳብ፦ `{balance} ETB`\n"
                        f"📊 አጠቃላይ ሽያጭ፦ `{total_sold} ETB`\n"
                        f"⚙️ ኮሚሽን፦ `{commission_rate}%` ")
-        
         bot.send_message(call.message.chat.id, wallet_text, parse_mode="Markdown")
 
-
-        elif call.data == "vendor_list_items":
+    elif call.data == "vendor_list_items":
         db = load_data()
         v_id = str(call.from_user.id)
         items = db['vendors_list'].get(v_id, {}).get('items', [])
@@ -519,54 +518,40 @@ def central_vendor_handler(call):
         bot.send_message(call.message.chat.id, "📂 **የጫኗቸው ዕቃዎች ዝርዝር፦**")
         for i, item in enumerate(items):
             text = f"🍎 ዕቃ፦ {item['name']}\n💰 ዋጋ፦ {item['price']} ETB\n📁 ምድብ፦ {item['category']}"
-            
             markup = types.InlineKeyboardMarkup()
             markup.add(
                 types.InlineKeyboardButton("✏️ ዋጋ ቀይር", callback_data=f"v_edit_p_{i}"),
                 types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"v_del_i_{i}")
             )
-            
-            # ፎቶ ካለው ከነፎቶው ካልሆነ በጽሁፍ
             if 'photo' in item:
                 bot.send_photo(call.message.chat.id, item['photo'], caption=text, reply_markup=markup)
             else:
                 bot.send_message(call.message.chat.id, text, reply_markup=markup)
 
-
-
-        elif call.data == "vendor_profile":
+    elif call.data == "vendor_profile":
         db = load_data()
         v_id = str(call.from_user.id)
         v_info = db['vendors_list'].get(v_id, {})
-
         profile_text = (f"🏢 **የድርጅት መረጃ**\n\n"
                         f"📝 ስም፦ `{v_info.get('name', 'ያልተጠቀሰ')}`\n"
                         f"🆔 መለያ ቁጥር (ID)፦ `{v_id}`\n"
                         f"📍 ስልክ፦ `{v_info.get('phone', 'ያልተጠቀሰ')}`\n"
                         f"✅ ሁኔታ፦ `ንቁ (Active)`")
-        
         bot.send_message(call.message.chat.id, profile_text, parse_mode="Markdown")
 
-
-
-        elif call.data == "vendor_view_orders":
+    elif call.data == "vendor_view_orders":
         bot.send_message(call.message.chat.id, "📋 **የተላኩ ትዕዛዞች**\n\nአዲስ ትዕዛዝ ሲኖር እዚህ ጋር ይዘረዘራሉ...")
 
-
-        elif call.data == "vendor_toggle_status":
+    elif call.data == "vendor_toggle_status":
         db = load_data()
         v_id = str(call.from_user.id)
-        
         if v_id in db['vendors_list']:
             current_status = db['vendors_list'][v_id].get('is_open', True)
             new_status = not current_status
             db['vendors_list'][v_id]['is_open'] = new_status
             save_data(db)
-            
-            msg = "አሁን ክፍት ነዎት፣ ትዕዛዝ ይቀበላሉ!" if new_status else "አሁን ዝግ ነዎት፣ ትዕዛዝ አይቀበሉም!"
+            msg = "አሁን ክፍት ነዎት!" if new_status else "አሁን ዝግ ነዎት!"
             bot.answer_callback_query(call.id, msg, show_alert=True)
-            
-            # ዳሽቦርዱን በራሱ አዘምነው (የተቀየረውን በተን እንዲያሳይ)
             bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, 
                                           reply_markup=get_vendor_dashboard(v_id))
 
