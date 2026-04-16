@@ -320,6 +320,10 @@ def central_admin_handler(call):
         
     elif call.data == "admin_profit_track":
         view_total_profit(call)
+    
+    elif call.data == "rider_withdraw_request":
+    start_withdraw_flow(call)
+
         
     elif call.data == "admin_low_credit":
         view_low_balances(call)
@@ -421,25 +425,25 @@ def show_rider_wallet(call):
     db = load_data()
     uid = str(call.from_user.id)
     balance = db['riders_list'][uid].get('wallet', 0)
-    
+
     markup = types.InlineKeyboardMarkup()
     if balance > 100:
         markup.add(types.InlineKeyboardButton("💸 ብር አውጣ (Withdraw)", callback_data="rider_withdraw_request"))
-    
+
     markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="rider_main"))
-    
+
     text = (f"💰 **የእርስዎ ዋሌት**\n"
             f"━━━━━━━━━━━━━━━\n"
             f"💵 ጠቅላላ ቀሪ ሂሳብ፦ **{balance:,.2f} ETB**\n\n"
             f"ብር ለማውጣት በዋሌትዎ ውስጥ ከ 100 ETB በላይ ሊኖርዎት ይገባል።")
-            
-    # bot.send_message ከሚሆን bot.edit_message_text ተጠቀም
+
     try:
         bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
     except:
         bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+    
+ 
 
-    bot.send_message(call.message.chat.id, "📦 በአሁኑ ሰዓት በአቅራቢያዎ የሚገኙ አዳዲስ ትዕዛዞች የሉም።")
 
 def show_available_orders(call):
     # እዚህ ጋር ትዕዛዝ ካለ በዝርዝር ታሳያለህ፣ ከሌለ ግን፡
@@ -539,12 +543,13 @@ def start_withdraw_flow(call):
     if balance <= 100:
         return bot.answer_callback_query(call.id, "❌ ዝቅተኛው የማውጫ መጠን ከ 100 ብር በላይ መሆን አለበት።", show_alert=True)
     
-    msg = bot.send_message(call.message.chat.id, 
-        f"💰 የዋሌትዎ ቀሪ ሂሳብ፦ **{balance:,.2f} ETB**\n\n"
-        f"ማውጣት የሚፈልጉትን **የብር መጠን** ያስገቡ፦", parse_mode="Markdown")
-    bot.register_next_step_handler(msg, process_rider_withdraw_amount)
+    # edit_message_text በመጠቀም የድሮውን ሜኑ እናጠፋዋለን
+    bot.edit_message_text(f"💰 የዋሌትዎ ቀሪ ሂሳብ፦ **{balance:,.2f} ETB**\n\n"
+                         f"ማውጣት የሚፈልጉትን **የብር መጠን** ያስገቡ፦", 
+                         call.message.chat.id, call.message.message_id, parse_mode="Markdown")
+    
+    bot.register_next_step_handler(call.message, process_rider_withdraw_amount)
 
-# መጠኑን ተቀብሎ ለአድሚን መላኪያ
 def process_rider_withdraw_amount(message):
     try:
         amount = float(message.text.strip())
@@ -552,29 +557,24 @@ def process_rider_withdraw_amount(message):
         db = load_data()
         balance = db['riders_list'][uid].get('wallet', 0)
         
-        if amount < 50: # ዝቅተኛ መነሻ መወሰን ትችላለህ
-            msg = bot.send_message(message.chat.id, "❌ ትንሹ ማውጣት የሚችሉት መጠን 50 ብር ነው። እባክዎ እንደገና ያስገቡ፦")
-            return bot.register_next_step_handler(msg, process_rider_withdraw_amount)
-            
-        if amount > balance:
-            msg = bot.send_message(message.chat.id, f"❌ ስህተት፦ ዋሌትዎ ላይ ካለው {balance} ብር በላይ ማውጣት አይችሉም። እባክዎ መጠኑን ያስተካክሉ፦")
+        if amount < 50 or amount > balance:
+            msg = bot.send_message(message.chat.id, "❌ ስህተት፦ መጠኑ ከ 50 ብር በታች ወይም ከዋሌትዎ በላይ ነው። እንደገና ያስገቡ፦")
             return bot.register_next_step_handler(msg, process_rider_withdraw_amount)
 
-        # ለአድሚን የሚላክ ማሳወቂያ
+        # ለአድሚን መላክ
         r_name = db['riders_list'][uid].get('name', 'ደላላ')
-        admin_text = (f"💸 **አዲስ የገንዘብ ማውጫ ጥያቄ**\n"
-                      f"━━━━━━━━━━━━━━━\n"
-                      f"👤 ስም፦ {r_name}\n"
-                      f"🆔 ID፦ `{uid}`\n"
-                      f"💰 የጠየቀው መጠን፦ **{amount:,.2f} ETB**\n"
-                      f"💵 አጠቃላይ ዋሌቱ፦ {balance:,.2f} ETB")
-        
+        admin_text = f"💸 **አዲስ የገንዘብ ማውጫ ጥያቄ**\n\n👤 ስም፦ {r_name}\n💰 መጠን፦ **{amount} ETB**"
         notify_admins(admin_text)
-        bot.send_message(message.chat.id, f"✅ የ {amount} ብር ማውጫ ጥያቄዎ ለአድሚን ደርሷል።")
         
+        bot.send_message(message.chat.id, f"✅ የ {amount} ብር ጥያቄ ተልኳል።")
+        
+        # ስራው ሲያልቅ ዋናውን ሜኑ መልሰን እናምጣ (ይህንን ፈንክሽን መጥራትህን አትርሳ)
+        # show_rider_menu(message) 
+
     except ValueError:
-        msg = bot.send_message(message.chat.id, "❌ እባክዎ መጠኑን በቁጥር ብቻ ያስገቡ፦")
+        msg = bot.send_message(message.chat.id, "❌ እባክዎ ቁጥር ብቻ ያስገቡ፦")
         bot.register_next_step_handler(msg, process_rider_withdraw_amount)
+
 
 
 @bot.callback_query_handler(func=lambda call: call.data in ["add_fund_vendor", "add_fund_rider"])
