@@ -330,7 +330,10 @@ def central_admin_handler(call):
         
     elif call.data == "admin_reviews":
         view_reviews(call)
-        
+    
+    elif call.data == "admin_view_categories":
+        show_admin_categories(call.message)
+
     elif call.data == "admin_profit_track":
         view_total_profit(call)
     
