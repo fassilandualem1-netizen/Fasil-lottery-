@@ -601,6 +601,57 @@ def handle_item_approval(call):
 
 
 
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('approve_item_') or call.data.startswith('reject_item_'))
+def handle_item_approval(call):
+    # 1. መረጃውን መበለል (Split)
+    data_parts = call.data.split('_')
+    action = data_parts # approve ወይም reject
+    item_id = data_parts # የእቃው ID
+    
+    db = load_data()
+    
+    if item_id not in db.get('pending_items', {}):
+        bot.answer_callback_query(call.id, "❌ ስህተት፦ ይህ እቃ ቀድሞ ተሰርዟል ወይም አልተገኘም።")
+        return
+
+    item = db['pending_items'].pop(item_id)
+    v_id = item['vendor_id']
+
+    if action == "approve":
+        # ወደ ድርጅቱ ዝርዝር መደመር
+        if v_id in db['vendors_list']:
+            if 'items' not in db['vendors_list'][v_id]:
+                db['vendors_list'][v_id]['items'] = []
+            
+            db['vendors_list'][v_id]['items'].append({
+                "name": item['item_name'],
+                "price": item['price'],
+                "category": item['category'],
+                "photo": item['photo']
+            })
+            save_data(db)
+            
+            bot.edit_message_caption(caption=call.message.caption + "\n\n✅ **ጸድቋል!**", 
+                                     chat_id=call.message.chat.id, 
+                                     message_id=call.message.message_id)
+            
+            bot.send_message(v_id, f"🎉 እቃዎ **'{item['item_name']}'** ጸድቋል!")
+            
+    elif action == "reject":
+        save_data(db)
+        bot.edit_message_caption(caption=call.message.caption + "\n\n❌ **ውድቅ ተደርጓል!**", 
+                                 chat_id=call.message.chat.id, 
+                                 message_id=call.message.message_id)
+        
+        bot.send_message(v_id, f"⚠️ ይቅርታ፣ እቃዎ **'{item['item_name']}'** ውድቅ ተደርጓል።")
+
+    bot.answer_callback_query(call.id, "ተፈጽሟል!")
+
+
+
+
+
 def show_available_orders(call):
     # እዚህ ጋር ትዕዛዝ ካለ በዝርዝር ታሳያለህ፣ ከሌለ ግን፡
     text = "📦 በአሁኑ ሰዓት በአቅራቢያዎ የሚገኙ አዳዲስ ትዕዛዞች የሉም።"
