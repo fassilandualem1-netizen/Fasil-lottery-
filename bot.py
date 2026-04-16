@@ -673,31 +673,37 @@ def show_riders_report_logic(message):
         
     bot.send_message(message.chat.id, text, parse_mode="Markdown")
 
-#Set Commission
-def save_new_commission(message):
-    try:
-        new_rate = float(message.text.strip())
-        db = load_data()
-        if 'settings' not in db: db['settings'] = {}
-        db['settings']['commission_rate'] = new_rate
-        save_data(db)
-        bot.send_message(message.chat.id, f"✅ የኮሚሽን መጠን ወደ **{new_rate}%** ተቀይሯል!", reply_markup=get_admin_dashboard(message.from_user.id))
-    except ValueError:
-        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ (ለምሳሌ 5)፦")
-        bot.register_next_step_handler(msg, save_new_commission)
 
-#የኮሚሽን መጠን መቀየሪያ
-def save_new_commission(message):
+# ኮሚሽን መተመኛ ምርጫ
+def set_commission_choice(message):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🏢 የሻጭ ኮሚሽን (%)", callback_data="set_vendor_comm"))
+    markup.add(types.InlineKeyboardButton("🛵 የደላላ ክፍያ (ETB)", callback_data="set_rider_fee"))
+    bot.send_message(message.chat.id, "የትኛውን ዋጋ መተመን ይፈልጋሉ?", reply_markup=markup)
+
+# የሻጭ ኮሚሽን (በፐርሰንት)
+def save_vendor_commission(message):
     try:
-        new_rate = float(message.text.strip())
+        rate = float(message.text.strip())
         db = load_data()
         if 'settings' not in db: db['settings'] = {}
-        db['settings']['commission_rate'] = new_rate
+        db['settings']['vendor_commission_percent'] = rate
         save_data(db)
-        bot.send_message(message.chat.id, f"✅ የኮሚሽን መጠን ወደ **{new_rate}%** ተቀይሯል!", reply_markup=get_admin_dashboard(message.from_user.id))
-    except ValueError:
-        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ (ለምሳሌ 5)፦")
-        bot.register_next_step_handler(msg, save_new_commission)
+        bot.send_message(message.chat.id, f"✅ የሻጭ ኮሚሽን ወደ **{rate}%** ተቀይሯል።")
+    except:
+        bot.send_message(message.chat.id, "❌ ስህተት ቁጥር ብቻ ያስገቡ።")
+
+# የደላላ ክፍያ (ቋሚ ብር - 0 ወይም 5 ወይም የፈለጉትን)
+def save_rider_fixed_fee(message):
+    try:
+        fee = float(message.text.strip())
+        db = load_data()
+        if 'settings' not in db: db['settings'] = {}
+        db['settings']['rider_fixed_fee'] = fee
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ የደላላ የአገልግሎት ክፍያ ወደ **{fee} ETB** ተቀይሯል።")
+    except:
+        bot.send_message(message.chat.id, "❌ ስህተት ቁጥር ብቻ ያስገቡ።")
 
 #የአጋር ድርጅቶች ዝርዝር
 def show_vendors_list_logic(message):
