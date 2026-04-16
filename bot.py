@@ -31,26 +31,34 @@ def load_data():
         if raw: 
             return json.loads(raw)
 
-        # መዋቅሩን ለደላላ ስልክ እና ዋሌት እንዲመች አድርገን እናስተካክለው
+        # መዋቅሩን ለሁሉም ተዋናዮች (Vendor, Driver, Customer) እንዲመች አድርገን መጀመር
         initial_data = {
-            "riders_list": {},     # ✅ አዲስ፡ ለደላላ ስልክ እና የሰራው ብር መመዝገቢያ
-            "vendors_list": {},    # የድርጅቶች ዝርዝር
-            "orders": {},          # የታዘዙ ትዕዛዞች
+            "riders_list": {},     
+            "vendors_list": {},    
+            "orders": {},          
             "pending_items": {},   
             "categories": [],      
             "total_profit": 0,     
+            "user_list": [],       # ሁሉንም ተጠቃሚዎች ለማስታወቂያ መያዣ
             "settings": {
-                "base_delivery": 50, 
-                "commission_rate": 10,
+                "vendor_commission_p": 10,   # ከድርጅቱ ሽያጭ የሚቀነስ (%)
+                "rider_fixed_fee": 30,       # ለደላላው የሚከፈል ቋሚ ክፍያ (ETB)
+                "customer_service_fee": 15,  # ከደንበኛው የሚወሰድ አገልግሎት ክፍያ (ETB)
+                "base_delivery": 50,         # የመነሻ መላኪያ ዋጋ
                 "system_locked": False 
             }
         }
         return initial_data
     except Exception as e:
         print(f"❌ Database Load Error: {e}")
-        # Error ቢመጣም ቦቱ እንዳይቆም ባዶውን riders_list እንላክ
-        return {"riders_list": {}, "vendors_list": {}, "orders": {}, "categories": [], "settings": {"base_delivery": 50}}
-
+        # Error ቢመጣ እንኳን ቦቱ እንዳይቆም መሠረታዊ መዋቅሩን እንላክ
+        return {
+            "riders_list": {}, 
+            "vendors_list": {}, 
+            "orders": {}, 
+            "categories": [], 
+            "settings": {"vendor_commission_p": 10, "rider_fixed_fee": 30, "customer_service_fee": 15}
+        }
 
 def save_data(db):
     try:
@@ -323,8 +331,10 @@ def central_admin_handler(call):
     
     elif call.data == "rider_withdraw_request":
         start_withdraw_flow(call)
+    
+    elif call.data == "admin_set_commission":
+        start_commission_setting(call) # አዲሱን ሰንሰለት ይጀምራል
 
-        
     elif call.data == "admin_low_credit":
         view_low_balances(call)
         
@@ -675,6 +685,42 @@ def add_category_logic(message):
         bot.send_message(message.chat.id, f"✅ ምድብ '{new_cat}' ተጨምሯል!", reply_markup=get_admin_dashboard(message.from_user.id))
     else:
         bot.send_message(message.chat.id, "⚠️ ይህ ምድብ ቀድሞውኑ አለ።")
+
+# ሀ. መጀመሪያ የድርጅቱን ኮሚሽን ይጠይቃል
+@bot.callback_query_handler(func=lambda call: call.data == "admin_set_commission")
+def start_commission_setting(call):
+    msg = bot.send_message(call.message.chat.id, "🏢 የድርጅት (Vendor) ኮሚሽን በ % ያስገቡ (ለምሳሌ 10)፦")
+    bot.register_next_step_handler(msg, process_vendor_comm)
+
+# ለ. የደላላውን ክፍያ ይጠይቃል
+def process_vendor_comm(message):
+    v_comm = message.text
+    msg = bot.send_message(message.chat.id, "🛵 ለደላላ (Driver) የሚከፈለውን ቋሚ ክፍያ በብር ያስገቡ (ለምሳሌ 30)፦")
+    bot.register_next_step_handler(msg, process_rider_fee, v_comm)
+
+# ሐ. የደንበኛውን ሰርቪስ ፊ ይጠይቃል
+def process_rider_fee(message, v_comm):
+    r_fee = message.text
+    msg = bot.send_message(message.chat.id, "👤 ለደንበኛ (Customer) የሚታሰበውን የሰርቪስ ፊ በብር ያስገቡ (ለምሳሌ 15)፦")
+    bot.register_next_step_handler(msg, save_all_fees, v_comm, r_fee)
+
+# መ. ሁሉንም በአንድ ላይ ሴቭ ያደርጋል
+def save_all_fees(message, v_comm, r_fee):
+    c_fee = message.text
+    try:
+        db = load_data()
+        db['settings']['vendor_commission_p'] = float(v_comm)
+        db['settings']['rider_fixed_fee'] = float(r_fee)
+        db['settings']['customer_service_fee'] = float(c_fee)
+        save_data(db)
+        
+        bot.send_message(message.chat.id, "✅ ሁሉም ዋጋዎች በትክክል ተመዝግበዋል!\n"
+                         f"🏢 ድርጅት፦ {v_comm}%\n"
+                         f"🛵 ደላላ፦ {r_fee} ETB\n"
+                         f"👤 ደንበኛ፦ {c_fee} ETB")
+    except:
+        bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ።")
+
 
 #ማስታወቂያ 
 def send_broadcast_logic(message):
