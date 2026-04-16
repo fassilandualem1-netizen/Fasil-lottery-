@@ -333,11 +333,12 @@ def central_admin_handler(call):
         bot.register_next_step_handler(msg, send_broadcast_logic)
 
     elif call.data == "admin_add_funds":
-        markup = types.InlineKeyboardMarkup()
+markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("🏢 ለድርጅት", callback_data="add_fund_vendor"))
 
-
-        markup.add(types.InlineKeyboardButton("🛵 driver", callback_data="add_fund_rider"))
+markup.add(types.InlineKeyboardButton("➖ driver ዋሌት ቀንሥ", callback_data="admin_deduct_rider_wallet"))
+        markup.add(types.InlineKeyboardButton("🛵 driver", 
+callback_data="add_fund_rider"))
         bot.send_message(call.message.chat.id, "የማንን ሂሳብ መሙላት ይፈልጋሉ?", reply_markup=markup)
 
     elif call.data == "admin_add_vendor":
