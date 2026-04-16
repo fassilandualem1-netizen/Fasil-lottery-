@@ -177,7 +177,7 @@ def get_admin_dashboard(user_id):
     uid_str = str(user_id)
     riders = db.get('riders_list', {})
     if uid_str in riders:
-        btn_switch = types.InlineKeyboardButton("🔄 ወደ ደላላነት ቀይር (Rider Mode)", callback_data="switch_to_rider")
+        btn_switch = types.InlineKeyboardButton("🔄 ወደ driver ቀይር (Rider Mode)", callback_data="switch_to_rider")
         markup.add(btn_switch)
 
     return markup
@@ -339,7 +339,7 @@ def central_admin_handler(call):
         bot.register_next_step_handler(msg, process_v_name)
         
     elif call.data == "admin_add_rider":
-        msg = bot.send_message(call.message.chat.id, "🛵 የአዲሱን ደላላ ሙሉ ስም ያስገቡ፦")
+        msg = bot.send_message(call.message.chat.id, "🛵 የአዲሱን driver ሙሉ ስም ያስገቡ፦")
         bot.register_next_step_handler(msg, process_rider_name)
         
     elif call.data == "admin_manage_cats":
@@ -533,7 +533,7 @@ def show_riders_report_logic(message):
     db = load_data()
     riders = db.get('riders_list', {})
     if not riders:
-        return bot.send_message(message.chat.id, "🛵 እስካሁን የተመዘገበ ደላላ የለም።")
+        return bot.send_message(message.chat.id, "🛵 እስካሁን የተመዘገበ driver የለም።")
 
     text = "🛵 **driver ወቅታዊ ሁኔታና ዋሌት**\n"
     text += "━━━━━━━━━━━━━━━\n"
@@ -701,6 +701,40 @@ def view_all_balances(message):
     
     text += "━━━━━━━━━━━━━━━"
     bot.send_message(message.chat.id, text, parse_mode="Markdown")
+
+#የደላላው ሜኑ (Rider Menu)
+def show_rider_menu(message):
+    user_id = message.chat.id
+    db = load_data()
+    rider_data = db['riders_list'].get(str(user_id), {})
+    
+    # driverሁኔታ (Online/Offline)
+    status_text = "🟢 ኦንላይን" if rider_data.get('is_online') else "🔴 ኦፍላይን"
+    wallet = rider_data.get('wallet', 0)
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    
+    btn_status = types.InlineKeyboardButton(f"ሁኔታ፦ {status_text}", callback_data="rider_toggle_status")
+    btn_orders = types.InlineKeyboardButton("📦 አዲስ ትዕዛዞች", callback_data="rider_view_orders")
+    btn_wallet = types.InlineKeyboardButton(f"💰 ዋሌት ({wallet} ETB)", callback_data="rider_wallet")
+    btn_history = types.InlineKeyboardButton("📜 የታሪክ ማህደር", callback_data="rider_history")
+    
+    # ወደ አድሚንነት መመለሻ በተን
+    btn_back_admin = types.InlineKeyboardButton("👑 ወደ አድሚን ተመለስ", callback_data="switch_to_admin")
+    
+    markup.add(btn_status)
+    markup.add(btn_orders, btn_wallet)
+    markup.add(btn_history)
+    markup.add(btn_back_admin)
+
+    text = (f"🛵 **driverማኔጅመንት**\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"👤 ስም፦ {rider_data.get('name', 'Driver')}\n"
+            f"📞 ስልክ፦ {rider_data.get('phone', '-')}\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"ትዕዛዝ ለመቀበል 'ኦንላይን' መሆንዎን ያረጋግጡ።")
+            
+    bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
 
 
 
