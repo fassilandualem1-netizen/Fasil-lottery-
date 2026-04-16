@@ -161,10 +161,10 @@ def get_admin_dashboard(user_id):
     btn_live_orders = types.InlineKeyboardButton("📋 ቀጥታ ትዕዛዝ", callback_data="admin_live_orders")
     btn_pending = types.InlineKeyboardButton("📦 በመጠባበቅ", callback_data="admin_pending_approvals")
     btn_cats = types.InlineKeyboardButton("📁 ምድቦች", callback_data="admin_manage_cats")
-    
     btn_add_vendor = types.InlineKeyboardButton("➕ አዲስ ድርጅት", callback_data="admin_add_vendor")
     btn_add_rider = types.InlineKeyboardButton("➕ አዲስ driver", callback_data="admin_add_rider")
     btn_vendors = types.InlineKeyboardButton("🏢 ድርጅቶች", callback_data="admin_list_vendors")
+    btn_cats = types.InlineKeyboardButton("📁 ምድቦች (Categories)", callback_data="admin_view_categories")
     btn_riders = types.InlineKeyboardButton("🛵 driver", callback_data="admin_rider_status")
     btn_set_commission = types.InlineKeyboardButton("⚙️ ኮሚሽን", callback_data="admin_set_commission")
     btn_block = types.InlineKeyboardButton("🚫 አግድ/ፍቀድ", callback_data="admin_block_manager")
@@ -823,6 +823,26 @@ def show_full_stats_logic(message):
             f"━━━━━━━━━━━━━━━")
     
     bot.send_message(message.chat.id, text, parse_mode="Markdown")
+
+
+def show_admin_categories(message):
+    db = load_data()
+    categories = db.get('categories', [])
+    
+    if not categories:
+        return bot.send_message(message.chat.id, "📁 እስካሁን ምንም አይነት የምድብ ዝርዝር አልተመዘገበም።")
+    
+    text = "📁 **የBDF የዕቃ ምድቦች (Categories)**\n"
+    text += "━━━━━━━━━━━━━━━\n"
+    for i, cat in enumerate(categories, 1):
+        text += f"{i}. {cat}\n"
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("➕ አዲስ ምድብ ጨምር", callback_data="admin_manage_cats"))
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="switch_to_admin"))
+    
+    bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+
 
 # system lock
 def toggle_system_lock_logic(message):
