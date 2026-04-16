@@ -357,6 +357,11 @@ def central_admin_handler(call):
         msg = bot.send_message(call.message.chat.id, "🚫 ለማገድ/ለመፍቀድ የፈለጉትን User ID ያስገቡ፦")
         bot.register_next_step_handler(msg, process_block_logic)
 
+    elif call.data == "admin_deduct_rider_wallet":
+        msg = bot.send_message(call.message.chat.id, "➖ ብር የሚቀነስለትን **ደላላ ID** ያስገቡ፦")
+        bot.register_next_step_handler(msg, process_rider_deduct_id)
+
+
     # 4. ሲስተም ነክ
     elif call.data == "admin_system_lock":
         toggle_system_lock_logic(call.message)
@@ -977,6 +982,30 @@ def show_rider_menu(message):
             f"ትዕዛዝ ለመቀበል 'ኦንላይን' መሆንዎን ያረጋግጡ።")
             
     bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+
+def process_rider_deduct_id(message):
+    r_id = message.text.strip()
+    db = load_data()
+    if r_id not in db.get('riders_list', {}):
+        return bot.send_message(message.chat.id, "❌ ID አልተገኘም።")
+    
+    r_name = db['riders_list'][r_id]['name']
+    curr_balance = db['riders_list'][r_id].get('wallet', 0)
+    msg = bot.send_message(message.chat.id, f"👤 ደላላ፦ {r_name}\n💰 አሁኑ ዋሌት፦ {curr_balance} ETB\n\nከዋሌቱ ላይ **የሚቀነሰውን መጠን** ያስገቡ (ሙሉውን ከሆነ {curr_balance})፦")
+    bot.register_next_step_handler(msg, process_rider_deduct_amount, r_id)
+
+def process_rider_deduct_amount(message, r_id):
+    try:
+        amount = float(message.text.strip())
+        db = load_data()
+        db['riders_list'][r_id]['wallet'] -= amount # ዋሌቱን መቀነስ
+        save_data(db)
+        
+        bot.send_message(message.chat.id, f"✅ ተሳክቷል! ከ {r_id} ዋሌት ላይ {amount} ETB ተቀንሷል።")
+        bot.send_message(r_id, f"💸 **የክፍያ ማሳወቂያ**\n\nየጠየቁት {amount} ETB ተከፍሎዎ ከዋሌትዎ ላይ ተቀንሷል። ስለሰሩ እናመሰግናለን!")
+    except:
+        bot.send_message(message.chat.id, "❌ ስህተት ተፈጥሯል።")
+
 
 
 
