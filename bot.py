@@ -657,6 +657,43 @@ def view_low_balances(call):
     text = "🚨 **የዋስትና ሂሳባቸው ዝቅተኛ የሆኑ ድርጅቶች**\n\n" + "\n".join(low_list)
     bot.send_message(call.message.chat.id, text)
 
+#በመጠባበቅ ላይ ያሉ
+def view_pending_items(call):
+    db = load_data()
+    # በዳታቤዝህ ውስጥ 'pending_items' የሚል ዝርዝር መኖር አለበት
+    pending = db.get('pending_items', [])
+    
+    if not pending:
+        return bot.answer_callback_query(call.id, "✅ በመጠባበቅ ላይ ያለ አዲስ ዕቃ የለም።", show_alert=True)
+    
+    text = "📦 **ጸደቃ የሚጠብቁ አዳዲስ ዕቃዎች**\n\n"
+    for item in pending:
+        text += f"🏢 ድርጅት፦ {item['vendor_name']}\n🍎 ዕቃ፦ {item['item_name']}\n💰 ዋጋ፦ {item['price']} ETB\n---\n"
+    
+    # እዚህ ጋር አድሚኑ እንዲያጸድቅ "አጽድቅ" የሚል በተን መጨመር ይቻላል
+    bot.send_message(call.message.chat.id, text)
+
+#የክትትል ሎጂክ
+def view_all_balances(message):
+    db = load_data()
+    vendors = db.get('vendors_list', {})
+    
+    if not vendors:
+        return bot.send_message(message.chat.id, "❌ እስካሁን ምንም የተመዘገበ ድርጅት የለም።")
+    
+    text = "📉 **የድርጅቶች የሂሳብ ክትትል**\n"
+    text += "━━━━━━━━━━━━━━━\n"
+    
+    for vid, vdata in vendors.items():
+        balance = vdata.get('deposit_balance', 0)
+        # ሂሳቡ ከ 100 በታች ከሆነ ቀይ ምልክት እንዲያሳይ
+        status_icon = "🔴" if balance < 100 else "🟢"
+        text += f"{status_icon} **{vdata['name']}**\n   ቀሪ ሂሳብ፦ `{balance:,.2f} ETB`\n"
+    
+    text += "━━━━━━━━━━━━━━━"
+    bot.send_message(message.chat.id, text, parse_mode="Markdown")
+
+
 
 
 
