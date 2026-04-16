@@ -486,35 +486,53 @@ def handle_pending_action(call):
 
 
 
-#ብር መሙያ 
-def process_fund_id(message):
-    v_id = message.text.strip()
-    if v_id.startswith('/'): return start_command(message) # ለማቋረጥ
+@bot.callback_query_handler(func=lambda call: call.data in ["add_fund_vendor", "add_fund_rider"])
+def fund_selection_handler(call):
+    bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
+    
+    if call.data == "add_fund_vendor":
+        msg = bot.send_message(call.message.chat.id, "🏢 ብር የሚሞላለትን **የድርጅት ID** ያስገቡ፦")
+        bot.register_next_step_handler(msg, process_fund_id) # ያንተ ኮድ
+        
+    elif call.data == "add_fund_rider":
+        msg = bot.send_message(call.message.chat.id, "🛵 ብር የሚሞላለትን **የደላላ (Driver) ID** ያስገቡ፦")
+        bot.register_next_step_handler(msg, process_rider_fund_id) # አዲሱ ፈንክሽን
+
+
+# ሀ. የደላላውን ID መቀበያ
+def process_rider_fund_id(message):
+    r_id = message.text.strip()
+    if r_id.startswith('/'): return start_command(message)
     
     db = load_data()
-    if v_id not in db.get('vendors_list', {}):
-        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ ይህ ID አልተገኘም። እባክዎ በትክክል ያስገቡ፦")
-        return bot.register_next_step_handler(msg, process_fund_id)
+    if r_id not in db.get('riders_list', {}):
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ ይህ የደላላ ID አልተገኘም። እንደገና ያስገቡ፦")
+        return bot.register_next_step_handler(msg, process_rider_fund_id)
     
-    v_name = db['vendors_list'][v_id]['name']
-    msg = bot.send_message(message.chat.id, f"💰 ለ **'{v_name}'** የሚሞላውን የብር መጠን ያስገቡ፦")
-    bot.register_next_step_handler(msg, process_fund_amount, v_id, v_name)
+    r_name = db['riders_list'][r_id]['name']
+    msg = bot.send_message(message.chat.id, f"💰 ለደላላ **'{r_name}'** የሚሞላውን የብር መጠን ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_rider_fund_amount, r_id, r_name)
 
-def process_fund_amount(message, v_id, v_name):
+# ለ. የብሩን መጠን መቀበያና ለደላላው ዋሌት ላይ መመዝገቢያ
+def process_rider_fund_amount(message, r_id, r_name):
     try:
         amount = float(message.text.strip())
         if amount <= 0: raise ValueError
         
         db = load_data()
-        db['vendors_list'][v_id]['deposit_balance'] = db['vendors_list'][v_id].get('deposit_balance', 0) + amount
+        # ለደላላው 'wallet' ውስጥ ይደመራል
+        db['riders_list'][r_id]['wallet'] = db['riders_list'][r_id].get('wallet', 0) + amount
         save_data(db)
         
-        bot.send_message(message.chat.id, f"✅ ተሳክቷል! ለ {v_name} {amount} ETB ተሞልቷል።", reply_markup=get_admin_dashboard(message.from_user.id))
-        # ለባለቤቱ ማሳወቂያ
-        bot.send_message(v_id, f"🔔 በአድሚን በኩል {amount} ETB ዋስትና ተሞልቶልዎታል።")
+        bot.send_message(message.chat.id, f"✅ ተሳክቷል! ለደላላ {r_name} {amount} ETB ተሞልቷል።", 
+                         reply_markup=get_admin_dashboard(message.from_user.id))
+        
+        # ለደላላው ማሳወቂያ መላክ
+        bot.send_message(r_id, f"🔔 **የዋሌት ማሳወቂያ**\n\nበአድሚን በኩል {amount} ETB ዋሌትዎ ላይ ተሞልቶልዎታል።")
     except:
         msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ትክክለኛ ቁጥር ያስገቡ፦")
-        bot.register_next_step_handler(msg, process_fund_amount, v_id, v_name)
+        bot.register_next_step_handler(msg, process_rider_fund_amount, r_id, r_name)
+
 
 # ድርጅት መመዝገቢያ 
 def process_v_name(message):
