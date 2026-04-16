@@ -136,26 +136,26 @@ def get_admin_dashboard(user_id):
     markup = types.InlineKeyboardMarkup(row_width=2)
 
     # --- ምድብ 4 & 5: ድጋፍና ማስታወቂያ (ወደ ላይ ወጥቷል) ---
-    support_label = types.InlineKeyboardButton("--- 📣 ድጋፍና ማስታወቂያ ---", callback_data="none")
+    
     btn_dispute = types.InlineKeyboardButton("💬 ቅሬታዎች", callback_data="admin_disputes")
     btn_reviews = types.InlineKeyboardButton("⭐ ግምገማዎች", callback_data="admin_reviews")
     btn_broadcast = types.InlineKeyboardButton("📢 ማስታወቂያ ላክ", callback_data="admin_broadcast")
 
     # --- ምድብ 1: ፋይናንስና ዋስትና ---
-    finance_label = types.InlineKeyboardButton("--- 💰 ፋይናንስና ዋስትና ---", callback_data="none")
+    
     btn_fund = types.InlineKeyboardButton("💳 ብር መሙያ (Fund)", callback_data="admin_add_funds")
     btn_balance = types.InlineKeyboardButton("📉 የሂሳብ ክትትል", callback_data="admin_monitor_balance")
     btn_profit = types.InlineKeyboardButton("💰 የኮሚሽን ትርፍ", callback_data="admin_profit_track")
     btn_low_credit = types.InlineKeyboardButton("⚠️ ዝቅተኛ ሂሳብ", callback_data="admin_low_credit")
 
     # --- ምድብ 2: ኦፕሬሽን ---
-    ops_label = types.InlineKeyboardButton("--- 📦 ኦፕሬሽን ---", callback_data="none")
+    
     btn_live_orders = types.InlineKeyboardButton("📋 የቀጥታ ትዕዛዞች", callback_data="admin_live_orders")
     btn_pending = types.InlineKeyboardButton("📦 በመጠባበቅ ላይ ያሉ", callback_data="admin_pending_approvals")
     btn_cats = types.InlineKeyboardButton("📁 ምድቦች (Categories)", callback_data="admin_manage_cats")
 
     # --- ምድብ 3: ደህንነትና ተሳታፊዎች ---
-    security_label = types.InlineKeyboardButton("--- 🔐 ደህንነትና ተሳታፊዎች ---", callback_data="none")
+     types.InlineKeyboardButton("--- 🔐 ደህንነትና ተሳታፊዎች ---", callback_data="none")
     btn_add_vendor = types.InlineKeyboardButton("➕ አዲስ ድርጅት", callback_data="admin_add_vendor")
     btn_add_rider = types.InlineKeyboardButton("➕ አዲስ ደላላ", callback_data="admin_add_rider") # ተጨምሯል
     btn_vendors = types.InlineKeyboardButton("🏢 የአጋር ድርጅቶች", callback_data="admin_list_vendors")
@@ -170,41 +170,39 @@ def get_admin_dashboard(user_id):
 
         # --- ወደ Markup መጨመር (በሁለት ረድፍ የተደረደረ) ---
     
-    # ድጋፍ
-    markup.add(support_label)
+    በ ሁለት ረድፍ እናድርገው 
+
+    # --- ወደ Markup መጨመር (ቅደም ተከተል) ---
+    
     markup.add(btn_dispute, btn_reviews)
     markup.add(btn_broadcast)
 
-    # ፋይናንስ
-    markup.add(finance_label)
+    
     markup.add(btn_fund, btn_balance)
     markup.add(btn_profit, btn_low_credit)
 
-    # ኦፕሬሽን
-    markup.add(ops_label)
+    )
     markup.add(btn_live_orders, btn_pending)
     markup.add(btn_cats)
 
-    # ደህንነት (ሁሉም ጎን ለጎን)
-    markup.add(security_label)
-    markup.add(btn_add_vendor, btn_add_rider) 
-    markup.add(btn_vendors, btn_riders)       
-    markup.add(btn_set_commission, btn_block) # ኮሚሽን እና ብሎክ ጎን ለጎን
-    markup.add(btn_lock)                      # ሲስተም መዝጊያ ለብቻው (ለጥንቃቄ)
+    
+    markup.add(btn_add_vendor, btn_add_rider) # ጎን ለጎን
+    markup.add(btn_vendors, btn_riders)       # ጎን ለጎን
+    markup.add(btn_set_commission)
+    markup.add(btn_block, btn_lock)
 
-    # ሪፖርት
-    markup.add(report_label)
+    
     markup.add(btn_stats)
 
-    # --- አዲሱ የመቀያየሪያ ስዊች (Switch Mode) ---
+            # --- አዲሱ የመቀያየሪያ ስዊች (Switch Mode) ---
     uid_str = str(user_id)
     if uid_str in db.get('riders_list', {}):
+        # ❌ ስህተት የነበረው: callback_mode="switch_to_rider"
+        # ✅ ትክክለኛው: callback_data="switch_to_rider"
         btn_switch = types.InlineKeyboardButton("🔄 ወደ ደላላነት ቀይር (Rider Mode)", callback_data="switch_to_rider")
         markup.add(btn_switch)
 
     return markup
-
-
 # 1. መጀመሪያ ይህ መኖሩን አረጋግጥ
 def get_main_menu():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
