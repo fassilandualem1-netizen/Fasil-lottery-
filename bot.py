@@ -1323,7 +1323,6 @@ def process_item_photo(message, item_name, category, price):
         except Exception as e:
             print(f"ለአድሚን {admin_id} መላክ አልተቻለም፦ {e}")
 
-እዚሁ ላይ ከ ፎቶ ልኬለት ምን እንደሚያደርግ ንግረው እዚሁ ኮድ ላይ
 
 
 
