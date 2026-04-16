@@ -155,7 +155,7 @@ def get_admin_dashboard(user_id):
     btn_cats = types.InlineKeyboardButton("📁 ምድቦች (Categories)", callback_data="admin_manage_cats")
 
     # --- ምድብ 3: ደህንነትና ተሳታፊዎች ---
-     types.InlineKeyboardButton("--- 🔐 ደህንነትና ተሳታፊዎች ---", callback_data="none")
+     
     btn_add_vendor = types.InlineKeyboardButton("➕ አዲስ ድርጅት", callback_data="admin_add_vendor")
     btn_add_rider = types.InlineKeyboardButton("➕ አዲስ ደላላ", callback_data="admin_add_rider") # ተጨምሯል
     btn_vendors = types.InlineKeyboardButton("🏢 የአጋር ድርጅቶች", callback_data="admin_list_vendors")
@@ -165,7 +165,7 @@ def get_admin_dashboard(user_id):
     btn_lock = types.InlineKeyboardButton("🔒 ሲስተም ዝጋ (Lock)", callback_data="admin_system_lock")
 
     # --- ምድብ 6: ሪፖርት ---
-    report_label = types.InlineKeyboardButton("--- 📊 ሪፖርት ---", callback_data="none")
+    
     btn_stats = types.InlineKeyboardButton("📈 ጠቅላላ ሪፖርት", callback_data="admin_full_stats")
 
         # --- ወደ Markup መጨመር (በሁለት ረድፍ የተደረደረ) ---
