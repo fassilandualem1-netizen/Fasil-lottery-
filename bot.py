@@ -160,11 +160,11 @@ def get_admin_dashboard(user_id):
     
     btn_live_orders = types.InlineKeyboardButton("📋 ቀጥታ ትዕዛዝ", callback_data="admin_live_orders")
     btn_pending = types.InlineKeyboardButton("📦 በመጠባበቅ", callback_data="admin_pending_approvals")
-    btn_cats = types.InlineKeyboardButton("📁 ምድቦች", callback_data="admin_manage_cats")
     btn_add_vendor = types.InlineKeyboardButton("➕ አዲስ ድርጅት", callback_data="admin_add_vendor")
     btn_add_rider = types.InlineKeyboardButton("➕ አዲስ driver", callback_data="admin_add_rider")
     btn_vendors = types.InlineKeyboardButton("🏢 ድርጅቶች", callback_data="admin_list_vendors")
-    btn_cats = types.InlineKeyboardButton("📁 ምድቦች (Categories)", callback_data="admin_view_categories")
+    btn_view_cats = types.InlineKeyboardButton("📁 ምድቦች ማሳያ", callback_data="admin_view_categories")
+    btn_add_cats = types.InlineKeyboardButton("➕ አዲስ ምድብ", callback_data="admin_manage_cats")
     btn_riders = types.InlineKeyboardButton("🛵 driver", callback_data="admin_rider_status")
     btn_set_commission = types.InlineKeyboardButton("⚙️ ኮሚሽን", callback_data="admin_set_commission")
     btn_block = types.InlineKeyboardButton("🚫 አግድ/ፍቀድ", callback_data="admin_block_manager")
@@ -179,7 +179,8 @@ def get_admin_dashboard(user_id):
     markup.add(btn_profit, btn_low_credit)
     
     markup.add(btn_live_orders, btn_pending)
-    markup.add(btn_view_cats, btn_add_cats)
+    markup.add(btn_view_cats, btn_add_cats) 
+    markup.add(btn_stats) 
     
     markup.add(btn_add_vendor, btn_add_rider)
     markup.add(btn_vendors, btn_riders)
