@@ -378,14 +378,25 @@ def central_rider_handler(call):
 
     if call.data == "rider_toggle_status":
         toggle_rider_status(call)
+    
     elif call.data == "rider_wallet":
         show_rider_wallet(call)
+
+    # ✅ አዲሱ መስመር እዚህ ጋር ገባ
+    elif call.data == "rider_withdraw_request":
+        handle_withdraw_request(call)
+
     elif call.data == "rider_view_orders":
         show_available_orders(call)
+    
     elif call.data == "rider_history":
         show_rider_history(call)
     
-    bot.answer_callback_query(call.id)
+    # ለደህንነት ሲባል መልሱን መጨረሻ ላይ እናድርገው
+    try:
+        bot.answer_callback_query(call.id)
+    except:
+        pass
 
 # --- 2. የደላላው ሁኔታ (Online/Offline) መቀያየሪያ ---
 def toggle_rider_status(call):
@@ -1021,9 +1032,6 @@ def process_rider_deduct_amount(message, r_id):
         bot.send_message(r_id, f"💸 **የክፍያ ማሳወቂያ**\n\nየጠየቁት {amount} ETB ተከፍሎዎ ከዋሌትዎ ላይ ተቀንሷል። ስለሰሩ እናመሰግናለን!")
     except:
         bot.send_message(message.chat.id, "❌ ስህተት ተፈጥሯል።")
-
-
-
 
 
 
