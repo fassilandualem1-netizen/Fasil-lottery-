@@ -331,8 +331,10 @@ def central_admin_handler(call):
         bot.register_next_step_handler(msg, send_broadcast_logic)
 
     elif call.data == "admin_add_funds":
-        msg = bot.send_message(call.message.chat.id, "💳 ብር የሚሞላለትን ድርጅት ID ያስገቡ፦")
-        bot.register_next_step_handler(msg, process_fund_id)
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🏢 ለድርጅት", callback_data="add_fund_vendor"))
+        markup.add(types.InlineKeyboardButton("🛵 ለደላላ", callback_data="add_fund_rider"))
+        bot.send_message(call.message.chat.id, "የማንን ሂሳብ መሙላት ይፈልጋሉ?", reply_markup=markup)
 
     elif call.data == "admin_add_vendor":
         msg = bot.send_message(call.message.chat.id, "➕ የአዲሱን ድርጅት ስም ያስገቡ፦")
@@ -348,8 +350,8 @@ def central_admin_handler(call):
         
     elif call.data == "admin_set_commission":
         msg = bot.send_message(call.message.chat.id, "🏢 **የሻጭ (Vendor) ኮሚሽን** በፐርሰንት ያስገቡ (ለምሳሌ 5 ወይም 10)፦")
-        bot.register_next_step_handler(msg, process_vendor_comm_step)
-
+        # ስሙን ከታች ካለው ፈንክሽን ጋር እናዛምደው
+        bot.register_next_step_handler(msg, process_vendor_comm_step) 
         
     elif call.data == "admin_block_manager":
         msg = bot.send_message(call.message.chat.id, "🚫 ለማገድ/ለመፍቀድ የፈለጉትን User ID ያስገቡ፦")
@@ -716,22 +718,39 @@ def process_rider_fee_step(message, v_rate):
 
 def apply_wallet_deduction(rider_id, vendor_id, item_price):
     db = load_data()
+    rider_id = str(rider_id)
+    vendor_id = str(vendor_id)
     
-    # 1. ከሻጩ የሚወሰደው (%)
-    v_rate = db.get('settings', {}).get('vendor_commission_percent', 5)
-    vendor_cut = (item_price * v_rate) / 100
-    db['vendors_list'][vendor_id]['deposit_balance'] -= vendor_cut
+    # --- 1. የሻጭ ኮሚሽን ተቀናሽ ---
+    if vendor_id in db.get('vendors_list', {}):
+        v_rate = db.get('settings', {}).get('vendor_commission_percent', 5)
+        vendor_cut = (item_price * v_rate) / 100
+        db['vendors_list'][vendor_id]['deposit_balance'] -= vendor_cut
+    else:
+        vendor_cut = 0 # ድርጅቱ ካልተገኘ
 
-    # 2. ከደላላው የሚወሰደው (ቋሚ ብር)
-    r_fee = db.get('settings', {}).get('rider_fixed_fee', 0)
-    # ጠቅላላ ተቀናሽ = የዕቃው ዋጋ + ያንተ ቋሚ ክፍያ
-    rider_total_deduct = item_price + r_fee
-    db['riders_list'][rider_id]['wallet'] -= rider_total_deduct
-    
-    # 3. የአድሚን ትርፍ
-    db['total_profit'] = db.get('total_profit', 0) + (vendor_cut + r_fee)
+    # --- 2. የደላላ ተቀናሽ (ዕቃ + ቋሚ ክፍያ) ---
+    if rider_id in db.get('riders_list', {}):
+        r_fee = db.get('settings', {}).get('rider_fixed_fee', 0)
+        rider_total_deduct = item_price + r_fee
+        db['riders_list'][rider_id]['wallet'] -= rider_total_deduct
+        
+        # ደላላው ሂሳቡ ካለቀበት ማሳወቂያ መላክ
+        if db['riders_list'][rider_id]['wallet'] < 50:
+            try:
+                bot.send_message(rider_id, "⚠️ **ማሳሰቢያ፦** የዋሌት ሂሳብዎ ከ 50 ETB በታች ዝቅ ብሏል። እባክዎ በቅርቡ ሂሳብዎን ይሙሉ!")
+            except: pass
+    else:
+        r_fee = 0 # ደላላው ካልተገኘ
+
+    # --- 3. የአድሚን ትርፍ መመዝገብ ---
+    # ትርፍህ ከሻጩ የወሰድከው ኮሚሽን + ከደላላው የወሰድከው የአገልግሎት ክፍያ ነው
+    admin_gain = vendor_cut + r_fee
+    db['total_profit'] = db.get('total_profit', 0) + admin_gain
     
     save_data(db)
+    print(f"💰 Deduction Complete: Admin gained {admin_gain} ETB")
+
 
 
 #የአጋር ድርጅቶች ዝርዝር
