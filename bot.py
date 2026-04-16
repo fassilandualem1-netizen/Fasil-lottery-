@@ -198,20 +198,33 @@ def get_admin_dashboard(user_id):
 
 
 def get_vendor_dashboard(vendor_id):
+    # መጀመሪያ ዳታቤዙን እናነባለን
+    db = load_data()
+    v_id_str = str(vendor_id)
+    
+    # የድርጅቱን መረጃ እናገኛለን፣ ከሌለ default True (ክፍት) እንሰጠዋለን
+    vendor_info = db.get('vendors_list', {}).get(v_id_str, {})
+    is_open = vendor_info.get('is_open', True) 
+    
     markup = types.InlineKeyboardMarkup(row_width=2)
+
+    # 🟢/🔴 የሁኔታ መግለጫ በተን (Toggle Button)
+    status_text = "🟢 ክፍት ነኝ (Open)" if is_open else "🔴 ዝግ ነኝ (Closed)"
+    btn_status = types.InlineKeyboardButton(status_text, callback_data="vendor_toggle_status")
     
     btn_add_item = types.InlineKeyboardButton("➕ አዲስ ዕቃ ጨምር", callback_data="vendor_add_item")
     btn_my_items = types.InlineKeyboardButton("📦 የኔ ዕቃዎች", callback_data="vendor_list_items")
     btn_orders = types.InlineKeyboardButton("📋 ትዕዛዞች", callback_data="vendor_view_orders")
     btn_wallet = types.InlineKeyboardButton("💰 ዋሌት", callback_data="vendor_wallet")
     btn_profile = types.InlineKeyboardButton("🏢 የድርጅት መረጃ", callback_data="vendor_profile")
-    
+
+    # አደራጃጀቱ፦ መጀመሪያ ሁኔታው ለብቻው፣ ቀጥሎ ሌሎቹ
+    markup.add(btn_status)
     markup.add(btn_add_item, btn_my_items)
     markup.add(btn_orders, btn_wallet)
     markup.add(btn_profile)
-    
-    return markup
 
+    return markup
 
 # 1. መጀመሪያ ይህ መኖሩን አረጋግጥ
 def get_main_menu():
