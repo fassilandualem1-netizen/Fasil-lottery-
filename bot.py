@@ -748,18 +748,26 @@ def view_low_balances(call):
 #በመጠባበቅ ላይ ያሉ
 def view_pending_items(call):
     db = load_data()
-    # በዳታቤዝህ ውስጥ 'pending_items' የሚል ዝርዝር መኖር አለበት
     pending = db.get('pending_items', [])
     
     if not pending:
         return bot.answer_callback_query(call.id, "✅ በመጠባበቅ ላይ ያለ አዲስ ዕቃ የለም።", show_alert=True)
     
-    text = "📦 **ጸደቃ የሚጠብቁ አዳዲስ ዕቃዎች**\n\n"
-    for item in pending:
-        text += f"🏢 ድርጅት፦ {item['vendor_name']}\n🍎 ዕቃ፦ {item['item_name']}\n💰 ዋጋ፦ {item['price']} ETB\n---\n"
+    bot.send_message(call.message.chat.id, "📦 **ጸደቃ የሚጠብቁ ዕቃዎች ዝርዝር፦**")
     
-    # እዚህ ጋር አድሚኑ እንዲያጸድቅ "አጽድቅ" የሚል በተን መጨመር ይቻላል
-    bot.send_message(call.message.chat.id, text)
+    for index, item in enumerate(pending):
+        markup = types.InlineKeyboardMarkup()
+        # እያንዳንዱን እቃ በ index ቁጥሩ እንለየዋለን
+        btn_approve = types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"approve_{index}")
+        btn_reject = types.InlineKeyboardButton("❌ ሰርዝ", callback_data=f"reject_{index}")
+        markup.add(btn_approve, btn_reject)
+        
+        text = (f"🏢 ድርጅት፦ {item['vendor_name']}\n"
+                f"🍎 ዕቃ፦ {item['item_name']}\n"
+                f"💰 ዋጋ፦ {item['price']} ETB\n"
+                f"📁 ምድብ፦ {item['category']}")
+        
+        bot.send_message(call.message.chat.id, text, reply_markup=markup)
 
 #የክትትል ሎጂክ
 def view_all_balances(message):
