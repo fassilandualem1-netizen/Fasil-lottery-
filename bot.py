@@ -402,26 +402,38 @@ def show_rider_wallet(call):
     uid = str(call.from_user.id)
     balance = db['riders_list'][uid].get('wallet', 0)
     
+    markup = types.InlineKeyboardMarkup()
+    # 💵 ብሩ ከ 100 በላይ ከሆነ ብቻ 'ብር አውጣ' የሚለው እንዲመጣ
+    if balance > 100:
+        markup.add(types.InlineKeyboardButton("💸 ብር አውጣ (Withdraw)", callback_data="rider_withdraw_request"))
+    
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="rider_main")) # ወደ ኋላ መመለሻ ካለህ
+    
     text = (f"💰 **የእርስዎ ዋሌት**\n"
             f"━━━━━━━━━━━━━━━\n"
             f"💵 ጠቅላላ ቀሪ ሂሳብ፦ **{balance:,.2f} ETB**\n\n"
-            f"ብር ለማውጣት ቢያንስ 100 ETB ሊኖርዎት ይገባል።")
-    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+            f"ብር ለማውጣት በዋሌትዎ ውስጥ **ከ 100 ETB በላይ** ሊኖርዎት ይገባል።")
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
-# --- 4. አዲስ ትዕዛዞች ማሳያ ---
-def show_available_orders(call):
     bot.send_message(call.message.chat.id, "📦 በአሁኑ ሰዓት በአቅራቢያዎ የሚገኙ አዳዲስ ትዕዛዞች የሉም።")
 
 # --- 5. የሥራ ታሪክ ማሳያ ---
 def show_rider_history(call):
     db = load_data()
     uid = str(call.from_user.id)
-    deliveries = db['riders_list'][uid].get('total_deliveries', 0)
+    
+    # ዳታው መኖሩን ቼክ እናድርግ (ለጥንቃቄ)
+    rider_data = db.get('riders_list', {}).get(uid, {})
+    deliveries = rider_data.get('total_deliveries', 0)
+    
+    # መነሻውን 0.0 እናድርገው
+    rating = rider_data.get('rating', 0.0) 
     
     text = (f"📜 **የእርስዎ የሥራ ታሪክ**\n"
             f"━━━━━━━━━━━━━━━\n"
             f"✅ በስኬት ያደረሷቸው ትዕዛዞች፦ **{deliveries}**\n"
-            f"⭐ አጠቃላይ ደረጃዎ፦ {db['riders_list'][uid].get('rating', 5.0)}")
+            f"⭐ አጠቃላይ ደረጃዎ፦ {rating:.1f}") # .1f ለአንድ ዲጂታል ነጥብ (ለምሳሌ 4.5)
+            
     bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
 
 # --- 6. የደላላው በተኖች ማደሻ (Helper) ---
@@ -482,6 +494,31 @@ def handle_pending_action(call):
     # መልዕክቱን እናጠፋዋለን (ወይም እናስተካክላለን)
     bot.delete_message(call.message.chat.id, call.message.message_id)
     bot.answer_callback_query(call.id, "ተፈጽሟል!")
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "rider_withdraw_request")
+def handle_withdraw_request(call):
+    uid = str(call.from_user.id)
+    db = load_data()
+    rider_data = db['riders_list'].get(uid, {})
+    balance = rider_data.get('wallet', 0)
+    
+    if balance <= 100:
+        return bot.answer_callback_query(call.id, "❌ ዝቅተኛው የማውጫ መጠን ከ 100 ብር በላይ መሆን አለበት።", show_alert=True)
+    
+    # ለአድሚን ማሳወቂያ መላክ
+    admin_msg = (f"🚀 **አዲስ የገንዘብ ማውጫ ጥያቄ**\n\n"
+                 f"👤 ስም፦ {rider_data.get('name')}\n"
+                 f"📞 ስልክ፦ {rider_data.get('phone')}\n"
+                 f"🆔 ID፦ `{uid}`\n"
+                 f"💰 መጠን፦ **{balance:,.2f} ETB**")
+    
+    # ይህ ቀድሞ የሰራነው notify_admins ፈንክሽን ነው
+    notify_admins(admin_msg)
+    
+    bot.answer_callback_query(call.id, "✅ የጥያቄ መልዕክት ለአድሚን ተልኳል!", show_alert=True)
+    bot.edit_message_text("✅ የገንዘብ ማውጫ ጥያቄዎ ለአድሚን ተልኳል። አድሚኑ ሂሳብዎን አጣርቶ በውስጥ መስመር ያነጋግርዎታል።", 
+                         call.message.chat.id, call.message.message_id)
 
 
 
@@ -661,14 +698,17 @@ def process_rider_id(message, r_name, r_phone):
     db = load_data()
     if 'riders_list' not in db: db['riders_list'] = {}
     
+    # process_rider_id ውስጥ ይሄን ተካ
     db['riders_list'][r_id] = {
         "name": r_name,
         "phone": r_phone,
-        "wallet": 0,           # የሰራው የኮሚሽን ሂሳብ
+        "wallet": 0,
         "is_online": False,
         "status": "active",
-        "total_deliveries": 0
+        "total_deliveries": 0,
+        "rating": 0.0  # ✅ ከ 5.0 ወደ 0.0 ተቀይሯል
     }
+
     save_data(db)
     bot.send_message(message.chat.id, f"✅ driver'{r_name}' በስልክ {r_phone} ተመዝግቧል!", reply_markup=get_admin_dashboard(message.from_user.id))
 
