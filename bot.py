@@ -279,27 +279,48 @@ def central_admin_handler(call):
     # ማንኛውንም የቆየ ግቤት (input) ያጸዳል
     bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
 
-    # ሀ. የስዊች ሎጂክ
+    # 1. የስዊች ሎጂክ
     if call.data == "switch_to_rider":
-        handle_switch_to_rider(call)
-    
-    # ለ. የሪፖርትና መረጃ ማሳያ (ቀጥታ የሚሰሩ)
+        # ወደ ሪደር ሜኑ መላክ
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        show_rider_menu(call.message)
+
+    # 2. የሪፖርትና መረጃ ማሳያ (ቀጥታ የሚሰሩ)
     elif call.data == "admin_full_stats":
-        show_full_stats(call.message)
+        show_full_stats_logic(call.message)
+        
     elif call.data == "admin_list_vendors":
-        list_all_vendors(call.message)
+        show_vendors_list_logic(call.message)
+        
     elif call.data == "admin_live_orders":
         view_live_orders(call.message)
+        
     elif call.data == "admin_monitor_balance":
         view_all_balances(call.message)
-    elif call.data == "admin_rider_status":
-        view_rider_status(call.message)
-
-    # ሐ. ግቤት (Input) የሚፈልጉ ስራዎች
-    elif call.data == "admin_broadcast":
-        msg = bot.send_message(call.message.chat.id, "📢 ማስታወቂያውን ይጻፉ፦")
-        bot.register_next_step_handler(msg, send_broadcast_logic)
         
+    elif call.data == "admin_rider_status":
+        show_riders_report_logic(call.message) # ዋሌት ያለበት ሪፖርት
+        
+    elif call.data == "admin_disputes":
+        view_disputes(call)
+        
+    elif call.data == "admin_reviews":
+        view_reviews(call)
+        
+    elif call.data == "admin_profit_track":
+        view_total_profit(call)
+        
+    elif call.data == "admin_low_credit":
+        view_low_balances(call)
+        
+    elif call.data == "admin_pending_approvals":
+        view_pending_items(call)
+
+    # 3. ግቤት (Input/Next Step) የሚፈልጉ ስራዎች
+    elif call.data == "admin_broadcast":
+        msg = bot.send_message(call.message.chat.id, "📢 ማስታወቂያውን ይጻፉ (ለመሰረዝ /start ይበሉ)፦")
+        bot.register_next_step_handler(msg, send_broadcast_logic)
+
     elif call.data == "admin_add_funds":
         msg = bot.send_message(call.message.chat.id, "💳 ብር የሚሞላለትን ድርጅት ID ያስገቡ፦")
         bot.register_next_step_handler(msg, process_fund_id)
@@ -307,12 +328,29 @@ def central_admin_handler(call):
     elif call.data == "admin_add_vendor":
         msg = bot.send_message(call.message.chat.id, "➕ የአዲሱን ድርጅት ስም ያስገቡ፦")
         bot.register_next_step_handler(msg, process_v_name)
+        
+    elif call.data == "admin_add_rider":
+        msg = bot.send_message(call.message.chat.id, "🛵 የአዲሱን ደላላ ሙሉ ስም ያስገቡ፦")
+        bot.register_next_step_handler(msg, process_rider_name)
+        
+    elif call.data == "admin_manage_cats":
+        msg = bot.send_message(call.message.chat.id, "📁 የአዲሱን ምድብ (Category) ስም ያስገቡ፦")
+        bot.register_next_step_handler(msg, add_category_logic)
+        
+    elif call.data == "admin_set_commission":
+        msg = bot.send_message(call.message.chat.id, "⚙️ አዲሱን የኮሚሽን መጠን በቁጥር ብቻ ያስገቡ (ለምሳሌ 5)፦")
+        bot.register_next_step_handler(msg, save_new_commission)
+        
+    elif call.data == "admin_block_manager":
+        msg = bot.send_message(call.message.chat.id, "🚫 ለማገድ/ለመፍቀድ የፈለጉትን User ID ያስገቡ፦")
+        bot.register_next_step_handler(msg, process_block_logic)
 
-    # መ. ሲስተም ነክ
+    # 4. ሲስተም ነክ
     elif call.data == "admin_system_lock":
-        toggle_system_lock(call.message)
+        toggle_system_lock_logic(call.message)
 
     bot.answer_callback_query(call.id)
+
 
 #ብር መሙያ 
 def process_fund_id(message):
