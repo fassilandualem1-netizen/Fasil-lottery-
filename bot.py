@@ -168,33 +168,37 @@ def get_admin_dashboard(user_id):
     report_label = types.InlineKeyboardButton("--- 📊 ሪፖርት ---", callback_data="none")
     btn_stats = types.InlineKeyboardButton("📈 ጠቅላላ ሪፖርት", callback_data="admin_full_stats")
 
-    # --- ወደ Markup መጨመር (ቅደም ተከተል) ---
+        # --- ወደ Markup መጨመር (በሁለት ረድፍ የተደረደረ) ---
+    
+    # ድጋፍ
     markup.add(support_label)
     markup.add(btn_dispute, btn_reviews)
     markup.add(btn_broadcast)
 
+    # ፋይናንስ
     markup.add(finance_label)
     markup.add(btn_fund, btn_balance)
     markup.add(btn_profit, btn_low_credit)
 
+    # ኦፕሬሽን
     markup.add(ops_label)
     markup.add(btn_live_orders, btn_pending)
     markup.add(btn_cats)
 
+    # ደህንነት (ሁሉም ጎን ለጎን)
     markup.add(security_label)
-    markup.add(btn_add_vendor, btn_add_rider) # ጎን ለጎን
-    markup.add(btn_vendors, btn_riders)       # ጎን ለጎን
-    markup.add(btn_set_commission)
-    markup.add(btn_block, btn_lock)
+    markup.add(btn_add_vendor, btn_add_rider) 
+    markup.add(btn_vendors, btn_riders)       
+    markup.add(btn_set_commission, btn_block) # ኮሚሽን እና ብሎክ ጎን ለጎን
+    markup.add(btn_lock)                      # ሲስተም መዝጊያ ለብቻው (ለጥንቃቄ)
 
+    # ሪፖርት
     markup.add(report_label)
     markup.add(btn_stats)
 
-            # --- አዲሱ የመቀያየሪያ ስዊች (Switch Mode) ---
+    # --- አዲሱ የመቀያየሪያ ስዊች (Switch Mode) ---
     uid_str = str(user_id)
     if uid_str in db.get('riders_list', {}):
-        # ❌ ስህተት የነበረው: callback_mode="switch_to_rider"
-        # ✅ ትክክለኛው: callback_data="switch_to_rider"
         btn_switch = types.InlineKeyboardButton("🔄 ወደ ደላላነት ቀይር (Rider Mode)", callback_data="switch_to_rider")
         markup.add(btn_switch)
 
