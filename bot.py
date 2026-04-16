@@ -179,7 +179,7 @@ def get_admin_dashboard(user_id):
     markup.add(btn_profit, btn_low_credit)
     
     markup.add(btn_live_orders, btn_pending)
-    markup.add(btn_cats, btn_stats) # ሪፖርት እና ምድብ ጎን ለጎን
+    markup.add(btn_view_cats, btn_add_cats)
     
     markup.add(btn_add_vendor, btn_add_rider)
     markup.add(btn_vendors, btn_riders)
@@ -368,9 +368,15 @@ def central_admin_handler(call):
         msg = bot.send_message(call.message.chat.id, "🛵 የአዲሱን driver ሙሉ ስም ያስገቡ፦")
         bot.register_next_step_handler(msg, process_rider_name)
         
+    # 1. ያሉትን ምድቦች ለማየት
+    elif call.data == "admin_view_categories":
+        show_admin_categories(call.message)
+
+    # 2. አዲስ ምድብ ለመጨመር
     elif call.data == "admin_manage_cats":
         msg = bot.send_message(call.message.chat.id, "📁 የአዲሱን ምድብ (Category) ስም ያስገቡ፦")
         bot.register_next_step_handler(msg, add_category_logic)
+
         
     elif call.data == "admin_set_commission":
         msg = bot.send_message(call.message.chat.id, "🏢 **የሻጭ (Vendor) ኮሚሽን** በፐርሰንት ያስገቡ (ለምሳሌ 5 ወይም 10)፦")
