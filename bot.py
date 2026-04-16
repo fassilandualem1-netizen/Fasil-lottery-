@@ -281,9 +281,18 @@ def central_admin_handler(call):
 
     # 1. የስዊች ሎጂክ
     if call.data == "switch_to_rider":
-        # ወደ ሪደር ሜኑ መላክ
+        db = load_data()
+        # አድሚኑ እንደ ደላላ መመዝገቡን እናረጋግጣለን
+        if str(user_id) in db.get('riders_list', {}):
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+            show_rider_menu(call.message) # የደላላውን ሜኑ ይጠራል
+        else:
+            bot.answer_callback_query(call.id, "❌ ይቅርታ፣ እርስዎ እንደ ደላላ አልተመዘገቡም። መጀመሪያ 'አዲስ driver' በሚለው ይመዝገቡ።", show_alert=True)
+
+    elif call.data == "switch_to_admin":
         bot.delete_message(call.message.chat.id, call.message.message_id)
-        show_rider_menu(call.message)
+        bot.send_message(call.message.chat.id, "👑 BDF አድሚን ዳሽቦርድ", reply_markup=get_admin_dashboard(user_id))
+    
 
     # 2. የሪፖርትና መረጃ ማሳያ (ቀጥታ የሚሰሩ)
     elif call.data == "admin_full_stats":
