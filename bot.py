@@ -150,9 +150,9 @@ def get_admin_dashboard(user_id):
     btn_cats = types.InlineKeyboardButton("📁 ምድቦች", callback_data="admin_manage_cats")
     
     btn_add_vendor = types.InlineKeyboardButton("➕ አዲስ ድርጅት", callback_data="admin_add_vendor")
-    btn_add_rider = types.InlineKeyboardButton("➕ አዲስ ደላላ", callback_data="admin_add_rider")
+    btn_add_rider = types.InlineKeyboardButton("➕ አዲስ driver", callback_data="admin_add_rider")
     btn_vendors = types.InlineKeyboardButton("🏢 ድርጅቶች", callback_data="admin_list_vendors")
-    btn_riders = types.InlineKeyboardButton("🛵 ደላላዎች", callback_data="admin_rider_status")
+    btn_riders = types.InlineKeyboardButton("🛵 driver", callback_data="admin_rider_status")
     btn_set_commission = types.InlineKeyboardButton("⚙️ ኮሚሽን", callback_data="admin_set_commission")
     btn_block = types.InlineKeyboardButton("🚫 አግድ/ፍቀድ", callback_data="admin_block_manager")
     btn_lock = types.InlineKeyboardButton("🔒 ሲስተም ዝጋ", callback_data="admin_system_lock")
@@ -394,6 +394,61 @@ def add_category_logic(message):
         bot.send_message(message.chat.id, f"✅ ምድብ '{new_cat}' ተጨምሯል!", reply_markup=get_admin_dashboard(message.from_user.id))
     else:
         bot.send_message(message.chat.id, "⚠️ ይህ ምድብ ቀድሞውኑ አለ።")
+
+#ማስታወቂያ 
+def send_broadcast_logic(message):
+    if message.text == '/start': return start_command(message)
+    
+    broadcast_text = message.text
+    db = load_data()
+    all_users = db.get("user_list", []) # ተጠቃሚዎች ሲገቡ ID-ያቸው እዚህ መመዝገብ አለበት
+    
+    if not all_users:
+        return bot.send_message(message.chat.id, "⚠️ እስካሁን በቦቱ ላይ የተመዘገበ ተጠቃሚ የለም።")
+
+    sent_count = 0
+    status_msg = bot.send_message(message.chat.id, "⏳ መልዕክቱ እየተላከ ነው...")
+
+    for user_id in all_users:
+        try:
+            bot.send_message(user_id, f"📢 **አዲስ ማስታወቂያ**\n\n{broadcast_text}")
+            sent_count += 1
+        except:
+            continue # ቦቱን Block ካደረጉት ዝለላቸው
+    
+    bot.delete_message(message.chat.id, status_msg.message_id)
+    bot.send_message(message.chat.id, f"✅ መልዕክቱ ለ {sent_count} ተጠቃሚዎች ደርሷል።", reply_markup=get_admin_dashboard(message.from_user.id))
+
+#ረፖርት 
+def show_full_stats_logic(message):
+    db = load_data()
+    vendors = db.get('vendors_list', {})
+    total_sales = sum(v.get('total_sales', 0) for v in vendors.values())
+    total_profit = db.get('total_profit', 0) # ኮሚሽን ሲሰበሰብ እዚህ ይደመራል
+    
+    text = (f"📊 **አጠቃላይ የቦቱ ሪፖርት**\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"🏢 አጋር ድርጅቶች፦ {len(vendors)}\n"
+            f"🛵 ንቁ driver፦ {len(db.get('riders_list', {}))}\n"
+            f"💰 ጠቅላላ ሽያጭ፦ {total_sales:,.2f} ETB\n"
+            f"📈 የተጣራ ትርፍ፦ {total_profit:,.2f} ETB\n"
+            f"━━━━━━━━━━━━━━━")
+    
+    bot.send_message(message.chat.id, text, parse_mode="Markdown")
+
+# system lock
+def toggle_system_lock_logic(message):
+    db = load_data()
+    if 'settings' not in db: db['settings'] = {}
+    
+    # የነበረውን ይገለብጠዋል (True ከሆነ False...)
+    current_status = db['settings'].get('system_locked', False)
+    db['settings']['system_locked'] = not current_status
+    save_data(db)
+    
+    new_status = "🔒 ዝግ (Locked)" if db['settings']['system_locked'] else "🔓 ክፍት (Open)"
+    bot.send_message(message.chat.id, f"⚠️ የሲስተሙ ሁኔታ ተቀይሯል።\nአሁን ቦቱ፦ **{new_status}** ነው")
+
 
 
 
