@@ -273,6 +273,8 @@ def interrupt_handler(message):
     elif message.text == '/admin':
         show_admin_panel(message)
 
+
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith('admin_') or call.data.startswith('switch_'))
 def central_admin_handler(call):
     user_id = call.from_user.id
@@ -376,6 +378,7 @@ def central_rider_handler(call):
 
     if call.data == "rider_toggle_status":
         toggle_rider_status(call)
+    elif call.data == "rider_withdraw_request":
     elif call.data == "rider_wallet":
         show_rider_wallet(call)
     elif call.data == "rider_view_orders":
@@ -408,17 +411,21 @@ def show_rider_wallet(call):
     balance = db['riders_list'][uid].get('wallet', 0)
     
     markup = types.InlineKeyboardMarkup()
-    # 💵 ብሩ ከ 100 በላይ ከሆነ ብቻ 'ብር አውጣ' የሚለው እንዲመጣ
     if balance > 100:
         markup.add(types.InlineKeyboardButton("💸 ብር አውጣ (Withdraw)", callback_data="rider_withdraw_request"))
     
-    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="rider_main")) # ወደ ኋላ መመለሻ ካለህ
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="rider_main"))
     
     text = (f"💰 **የእርስዎ ዋሌት**\n"
             f"━━━━━━━━━━━━━━━\n"
             f"💵 ጠቅላላ ቀሪ ሂሳብ፦ **{balance:,.2f} ETB**\n\n"
-            f"ብር ለማውጣት በዋሌትዎ ውስጥ **ከ 100 ETB በላይ** ሊኖርዎት ይገባል።")
-    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+            f"ብር ለማውጣት በዋሌትዎ ውስጥ ከ 100 ETB በላይ ሊኖርዎት ይገባል።")
+            
+    # bot.send_message ከሚሆን bot.edit_message_text ተጠቀም
+    try:
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    except:
+        bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
 
     bot.send_message(call.message.chat.id, "📦 በአሁኑ ሰዓት በአቅራቢያዎ የሚገኙ አዳዲስ ትዕዛዞች የሉም።")
 
