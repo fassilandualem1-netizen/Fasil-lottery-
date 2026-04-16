@@ -729,40 +729,50 @@ def add_category_logic(message):
     else:
         bot.send_message(message.chat.id, "⚠️ ይህ ምድብ ቀድሞውኑ አለ።")
 
-# ሀ. መጀመሪያ የድርጅቱን ኮሚሽን ይጠይቃል
-@bot.callback_query_handler(func=lambda call: call.data == "admin_set_commission")
+
+# ሀ. የድርጅት ኮሚሽን መቀበያ (ዲኮሬተሩ ጠፍቷል)
 def start_commission_setting(call):
-    msg = bot.send_message(call.message.chat.id, "🏢 የድርጅት (Vendor) ኮሚሽን በ % ያስገቡ (ለምሳሌ 10)፦")
+    # ማንኛውንም የቆየ ግቤት ያጸዳል
+    bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
+    msg = bot.send_message(call.message.chat.id, "🏢 **ደረጃ 1/3**\n\nየድርጅት (Vendor) ኮሚሽን በ % ያስገቡ (ለምሳሌ 10)፦")
     bot.register_next_step_handler(msg, process_vendor_comm)
 
 # ለ. የደላላውን ክፍያ ይጠይቃል
 def process_vendor_comm(message):
-    v_comm = message.text
-    msg = bot.send_message(message.chat.id, "🛵 ለደላላ (Driver) የሚከፈለውን ቋሚ ክፍያ በብር ያስገቡ (ለምሳሌ 30)፦")
+    v_comm = message.text.strip()
+    if v_comm.startswith('/'): return # ኮማንድ ከሆነ ይቁም
+    
+    msg = bot.send_message(message.chat.id, f"✅ የድርጅት ኮሚሽን፦ {v_comm}%\n\n**ደረጃ 2/3**\n\nለደላላ (Driver) የሚከፈለውን ቋሚ ክፍያ በብር ያስገቡ (ለምሳሌ 30)፦")
     bot.register_next_step_handler(msg, process_rider_fee, v_comm)
 
 # ሐ. የደንበኛውን ሰርቪስ ፊ ይጠይቃል
 def process_rider_fee(message, v_comm):
-    r_fee = message.text
-    msg = bot.send_message(message.chat.id, "👤 ለደንበኛ (Customer) የሚታሰበውን የሰርቪስ ፊ በብር ያስገቡ (ለምሳሌ 15)፦")
+    r_fee = message.text.strip()
+    if r_fee.startswith('/'): return
+    
+    msg = bot.send_message(message.chat.id, f"✅ የደላላ ክፍያ፦ {r_fee} ETB\n\n**ደረጃ 3/3**\n\nለደንበኛ (Customer) የሚታሰበውን የሰርቪስ ፊ በብር ያስገቡ (ለምሳሌ 15)፦")
     bot.register_next_step_handler(msg, save_all_fees, v_comm, r_fee)
 
 # መ. ሁሉንም በአንድ ላይ ሴቭ ያደርጋል
 def save_all_fees(message, v_comm, r_fee):
-    c_fee = message.text
+    c_fee = message.text.strip()
     try:
         db = load_data()
+        # ቁጥሮቹን አስተካክሎ መመዝገብ
         db['settings']['vendor_commission_p'] = float(v_comm)
         db['settings']['rider_fixed_fee'] = float(r_fee)
         db['settings']['customer_service_fee'] = float(c_fee)
         save_data(db)
         
-        bot.send_message(message.chat.id, "✅ ሁሉም ዋጋዎች በትክክል ተመዝግበዋል!\n"
+        bot.send_message(message.chat.id, 
+                         "✅ **ሁሉም ዋጋዎች በትክክል ተመዝግበዋል!**\n\n"
                          f"🏢 ድርጅት፦ {v_comm}%\n"
-                         f"🛵 ደላላ፦ {r_fee} ETB\n"
-                         f"👤 ደንበኛ፦ {c_fee} ETB")
-    except:
-        bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ።")
+                         f"🛵 driver፦ {r_fee} ETB\n"
+                         f"👤 ደንበኛ፦ {c_fee} ETB", 
+                         reply_markup=get_admin_dashboard(message.from_user.id))
+    except ValueError:
+        bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ። ሂደቱ ተቋርጧል።")
+
 
 
 #ማስታወቂያ 
