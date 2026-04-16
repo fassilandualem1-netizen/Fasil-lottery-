@@ -329,9 +329,7 @@ def central_admin_handler(call):
     elif call.data == "admin_profit_track":
         view_total_profit(call)
     
-    elif call.data == "rider_withdraw_request":
-        start_withdraw_flow(call)
-    
+  
     elif call.data == "admin_set_commission":
         start_commission_setting(call) # አዲሱን ሰንሰለት ይጀምራል
 
@@ -394,25 +392,25 @@ def central_rider_handler(call):
 
     if call.data == "rider_toggle_status":
         toggle_rider_status(call)
-    
+
     elif call.data == "rider_wallet":
         show_rider_wallet(call)
 
-    # ✅ አዲሱ መስመር እዚህ ጋር ገባ
+    # ✅ ስሙን አስተካክለነዋል - start_withdraw_flow መባል አለበት
     elif call.data == "rider_withdraw_request":
-        handle_withdraw_request(call)
+        start_withdraw_flow(call)
 
     elif call.data == "rider_view_orders":
         show_available_orders(call)
-    
+
     elif call.data == "rider_history":
         show_rider_history(call)
-    
-    # ለደህንነት ሲባል መልሱን መጨረሻ ላይ እናድርገው
+
     try:
         bot.answer_callback_query(call.id)
     except:
         pass
+
 
 # --- 2. የደላላው ሁኔታ (Online/Offline) መቀያየሪያ ---
 def toggle_rider_status(call):
