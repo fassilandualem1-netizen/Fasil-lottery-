@@ -360,6 +360,85 @@ def central_admin_handler(call):
 
     bot.answer_callback_query(call.id)
 
+# --- 1. የደላላው ማዕከላዊ ትራፊክ (Callback Handler) ---
+@bot.callback_query_handler(func=lambda call: call.data.startswith('rider_'))
+def central_rider_handler(call):
+    uid = str(call.from_user.id)
+    bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
+
+    if call.data == "rider_toggle_status":
+        toggle_rider_status(call)
+    elif call.data == "rider_wallet":
+        show_rider_wallet(call)
+    elif call.data == "rider_view_orders":
+        show_available_orders(call)
+    elif call.data == "rider_history":
+        show_rider_history(call)
+    
+    bot.answer_callback_query(call.id)
+
+# --- 2. የደላላው ሁኔታ (Online/Offline) መቀያየሪያ ---
+def toggle_rider_status(call):
+    db = load_data()
+    uid = str(call.from_user.id)
+    
+    current = db['riders_list'][uid].get('is_online', False)
+    db['riders_list'][uid]['is_online'] = not current
+    save_data(db)
+    
+    # በተኖቹን በለውጡ መሰረት ያድሳል
+    bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, 
+                                 reply_markup=get_rider_markup(uid, db))
+    
+    status_msg = "አሁን ኦንላይን ነዎት 🟢" if not current else "አሁን ኦፍላይን ነዎት 🔴"
+    bot.answer_callback_query(call.id, status_msg)
+
+# --- 3. የዋሌት ማሳያ ሎጂክ ---
+def show_rider_wallet(call):
+    db = load_data()
+    uid = str(call.from_user.id)
+    balance = db['riders_list'][uid].get('wallet', 0)
+    
+    text = (f"💰 **የእርስዎ ዋሌት**\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"💵 ጠቅላላ ቀሪ ሂሳብ፦ **{balance:,.2f} ETB**\n\n"
+            f"ብር ለማውጣት ቢያንስ 100 ETB ሊኖርዎት ይገባል።")
+    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+# --- 4. አዲስ ትዕዛዞች ማሳያ ---
+def show_available_orders(call):
+    bot.send_message(call.message.chat.id, "📦 በአሁኑ ሰዓት በአቅራቢያዎ የሚገኙ አዳዲስ ትዕዛዞች የሉም።")
+
+# --- 5. የሥራ ታሪክ ማሳያ ---
+def show_rider_history(call):
+    db = load_data()
+    uid = str(call.from_user.id)
+    deliveries = db['riders_list'][uid].get('total_deliveries', 0)
+    
+    text = (f"📜 **የእርስዎ የሥራ ታሪክ**\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"✅ በስኬት ያደረሷቸው ትዕዛዞች፦ **{deliveries}**\n"
+            f"⭐ አጠቃላይ ደረጃዎ፦ {db['riders_list'][uid].get('rating', 5.0)}")
+    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+# --- 6. የደላላው በተኖች ማደሻ (Helper) ---
+def get_rider_markup(uid, db):
+    rider_data = db['riders_list'].get(uid, {})
+    status_icon = "🟢" if rider_data.get('is_online') else "🔴"
+    status_text = "ኦንላይን" if rider_data.get('is_online') else "ኦፍላይን"
+    wallet = rider_data.get('wallet', 0)
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(types.InlineKeyboardButton(f"ሁኔታ፦ {status_icon} {status_text}", callback_data="rider_toggle_status"))
+    markup.add(
+        types.InlineKeyboardButton("📦 አዲስ ትዕዛዞች", callback_data="rider_view_orders"),
+        types.InlineKeyboardButton(f"💰 ዋሌት ({wallet} ETB)", callback_data="rider_wallet")
+    )
+    markup.add(types.InlineKeyboardButton("📜 የታሪክ ማህደር", callback_data="rider_history"))
+    markup.add(types.InlineKeyboardButton("👑 ወደ አድሚን ተመለስ", callback_data="switch_to_admin"))
+    return markup
+
+
 
 #ብር መሙያ 
 def process_fund_id(message):
