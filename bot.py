@@ -438,6 +438,49 @@ def get_rider_markup(uid, db):
     markup.add(types.InlineKeyboardButton("👑 ወደ አድሚን ተመለስ", callback_data="switch_to_admin"))
     return markup
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith(('approve_', 'reject_')))
+def handle_pending_action(call):
+    action, index = call.data.split('_')
+    index = int(index)
+    
+    db = load_data()
+    pending = db.get('pending_items', [])
+    
+    if index >= len(pending):
+        return bot.answer_callback_query(call.id, "❌ ስህተት፦ ይህ እቃ ቀድሞ ተሰርዟል።")
+    
+    item = pending.pop(index) # ከፔንዲንግ ዝርዝር ውስጥ እናወጣዋለን
+    
+    if action == "approve":
+        v_id = item['vendor_id']
+        # እቃውን ወደ ድርጅቱ ዝርዝር ውስጥ እንጨምራለን
+        if v_id in db['vendors_list']:
+            if 'items' not in db['vendors_list'][v_id]:
+                db['vendors_list'][v_id]['items'] = []
+            
+            db['vendors_list'][v_id]['items'].append({
+                "name": item['item_name'],
+                "price": item['price'],
+                "category": item['category']
+            })
+            save_data(db)
+            bot.send_message(call.message.chat.id, f"✅ '{item['item_name']}' ጸድቆ ለደንበኞች ክፍት ሆኗል።")
+            # ለድርጅቱ ባለቤት ማሳወቂያ
+            try: bot.send_message(v_id, f"🎉 ደስ የሚል ዜና! ያስገቡት ዕቃ '{item['item_name']}' በአድሚን ጸድቋል።")
+            except: pass
+            
+    elif action == "reject":
+        save_data(db) # የተቀነሰውን ዝርዝር ብቻ ሴቭ እናደርጋለን
+        bot.send_message(call.message.chat.id, f"❌ '{item['item_name']}' ውድቅ ተደርጓል።")
+        # ለድርጅቱ ባለቤት ማሳወቂያ
+        try: bot.send_message(item['vendor_id'], f"⚠️ ይቅርታ፣ ያስገቡት ዕቃ '{item['item_name']}' በአድሚን ውድቅ ተደርጓል።")
+        except: pass
+
+    # መልዕክቱን እናጠፋዋለን (ወይም እናስተካክላለን)
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+    bot.answer_callback_query(call.id, "ተፈጽሟል!")
+
+
 
 
 #ብር መሙያ 
