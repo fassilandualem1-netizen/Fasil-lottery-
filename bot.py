@@ -442,7 +442,8 @@ def show_rider_wallet(call):
     except:
         bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
     
- 
+    # ❌ እዚህ ስር የነበረውን "ትዕዛዝ የለም" የሚለውን ሜሴጅ አጥፍተነዋል
+
 
 
 def show_available_orders(call):
@@ -574,7 +575,6 @@ def process_rider_withdraw_amount(message):
     except ValueError:
         msg = bot.send_message(message.chat.id, "❌ እባክዎ ቁጥር ብቻ ያስገቡ፦")
         bot.register_next_step_handler(msg, process_rider_withdraw_amount)
-
 
 
 @bot.callback_query_handler(func=lambda call: call.data in ["add_fund_vendor", "add_fund_rider"])
