@@ -68,11 +68,16 @@ def save_data(db):
         print(f"❌ Database Save Error: {e}")
 
 # --- አዲሱ ክፍል እዚህ ጋር ይግባ ---
-def notify_admins(text):
-    """ለሦስቱም አድሚኖች የኦፕሬሽን መልዕክት መላኪያ"""
+def notify_admins(text, reply_markup=None):
+    """ለአድሚኖች መልዕክት እና በተኖችን መላኪያ"""
     for admin_id in ADMIN_IDS:
         try:
-            bot.send_message(admin_id, f"📢 **የBDF ኦፕሬሽን ማሳሰቢያ**\n\n{text}", parse_mode="Markdown")
+            bot.send_message(
+                admin_id, 
+                f"📢 **የBDF ኦፕሬሽን ማሳሰቢያ**\n\n{text}", 
+                parse_mode="Markdown",
+                reply_markup=reply_markup  # ✅ አዲሱ ጭማሪ እዚህ ነው
+            )
         except Exception as e:
             print(f"ለአድሚን {admin_id} መላክ አልተቻለም: {e}")
 
@@ -572,27 +577,27 @@ def process_rider_withdraw_amount(message):
 
         r_name = db['riders_list'][uid].get('name', 'ደላላ')
         
-        # ለአድሚን የሚሄድ በተን ማዘጋጀት
+        # 🟢 1. ለአድሚን የሚሆኑ በተኖችን እዚህ እንሰራለን
         markup = types.InlineKeyboardMarkup()
-        # እዚህ ጋር የደላላውን ID እና የብሩን መጠን በ callback_data እናሳልፋለን
         markup.add(
             types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"wd_approve_{uid}_{amount}"),
             types.InlineKeyboardButton("❌ ሰርዝ", callback_data=f"wd_reject_{uid}_{amount}")
         )
 
-        admin_text = (f"💸 **አዲስ የገንዘብ ማውጫ ጥያቄ**\n\n"
+        # 🟢 2. መልዕክቱን እናዘጋጃለን
+        admin_info = (f"💸 **አዲስ የገንዘብ ማውጫ ጥያቄ**\n\n"
                       f"👤 ስም፦ {r_name}\n"
-                      f"🆔 ID፦ `{uid}`\n"
                       f"💰 መጠን፦ **{amount:,.2f} ETB**\n"
-                      f"🏦 ቀሪ ሂሳብ፦ {balance:,.2f} ETB")
-        
-        # ለአድሚን መላክ (የአድሚን ግሩፕ ወይም ID ካለህ እሱን ተጠቀም)
-        notify_admins(admin_text, reply_markup=markup) 
+                      f"🆔 ID፦ `{uid}`")
 
-        bot.send_message(message.chat.id, f"✅ የ {amount} ብር ጥያቄ ለአድሚን ተልኳል። ሲጸድቅ እናሳውቅዎታለን።")
+        # 🟢 3. አዲሱን notify_admins እንጠራለን (በተኑን ጨምረን)
+        notify_admins(admin_info, reply_markup=markup)
+
+        bot.send_message(message.chat.id, f"✅ የ {amount} ብር ጥያቄ ለአድሚን ተልኳል።")
 
     except ValueError:
         bot.send_message(message.chat.id, "❌ እባክዎ ቁጥር ብቻ ያስገቡ።")
+
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('wd_'))
