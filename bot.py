@@ -449,6 +449,61 @@ def toggle_system_lock_logic(message):
     new_status = "🔒 ዝግ (Locked)" if db['settings']['system_locked'] else "🔓 ክፍት (Open)"
     bot.send_message(message.chat.id, f"⚠️ የሲስተሙ ሁኔታ ተቀይሯል።\nአሁን ቦቱ፦ **{new_status}** ነው")
 
+def process_rider_name(message):
+    r_name = message.text.strip()
+    if r_name.startswith('/'): return start_command(message)
+    msg = bot.send_message(message.chat.id, f"📞 የ '{r_name}' **ስልክ ቁጥር** ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_rider_phone, r_name)
+
+# ሐ. ስልክ ተቀብሎ User ID ይጠይቃል
+def process_rider_phone(message, r_name):
+    r_phone = message.text.strip()
+    msg = bot.send_message(message.chat.id, f"🆔 የ '{r_name}' የቴሌግራም **User ID** ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_rider_id, r_name, r_phone)
+
+# መ. ሁሉንም መረጃ ዳታቤዝ ውስጥ ይከታል (Wallet ጨምሮ)
+def process_rider_id(message, r_name, r_phone):
+    r_id = message.text.strip()
+    if not r_id.isdigit():
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ ID ቁጥር መሆን አለበት። እንደገና ያስገቡ፦")
+        return bot.register_next_step_handler(msg, process_rider_id, r_name, r_phone)
+    
+    db = load_data()
+    if 'riders_list' not in db: db['riders_list'] = {}
+    
+    db['riders_list'][r_id] = {
+        "name": r_name,
+        "phone": r_phone,
+        "wallet": 0,           # የሰራው የኮሚሽን ሂሳብ
+        "is_online": False,
+        "status": "active",
+        "total_deliveries": 0
+    }
+    save_data(db)
+    bot.send_message(message.chat.id, f"✅ driver'{r_name}' በስልክ {r_phone} ተመዝግቧል!", reply_markup=get_admin_dashboard(message.from_user.id))
+
+def show_riders_report_logic(message):
+    db = load_data()
+    riders = db.get('riders_list', {})
+    if not riders:
+        return bot.send_message(message.chat.id, "🛵 እስካሁን የተመዘገበ ደላላ የለም።")
+
+    text = "🛵 **driver ወቅታዊ ሁኔታና ዋሌት**\n"
+    text += "━━━━━━━━━━━━━━━\n"
+    
+    for rid, rdata in riders.items():
+        status = "🟢" if rdata.get('is_online') else "🔴"
+        wallet = rdata.get('wallet', 0)
+        phone = rdata.get('phone', 'የሌለው')
+        
+        text += (f"{status} **{rdata['name']}**\n"
+                 f"📞 ስልክ፦ {phone}\n"
+                 f"💰 ዋሌት፦ **{wallet:,.2f} ETB**\n"
+                 f"🆔 ID፦ `{rid}`\n"
+                 f"------------------------\n")
+        
+    bot.send_message(message.chat.id, text, parse_mode="Markdown")
+
 
 
 
