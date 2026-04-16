@@ -335,6 +335,8 @@ def central_admin_handler(call):
     elif call.data == "admin_add_funds":
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("🏢 ለድርጅት", callback_data="add_fund_vendor"))
+
+markup.add(types.InlineKeyboardButton("➖ driver ዋሌት ቀንሥ", callback_data="admin_deduct_rider_wallet"))
         markup.add(types.InlineKeyboardButton("🛵 ለደላላ", callback_data="add_fund_rider"))
         bot.send_message(call.message.chat.id, "የማንን ሂሳብ መሙላት ይፈልጋሉ?", reply_markup=markup)
 
@@ -360,7 +362,7 @@ def central_admin_handler(call):
         bot.register_next_step_handler(msg, process_block_logic)
 
     elif call.data == "admin_deduct_rider_wallet":
-        msg = bot.send_message(call.message.chat.id, "➖ ብር የሚቀነስለትን **ደላላ ID** ያስገቡ፦")
+        msg = bot.send_message(call.message.chat.id, "🆔 ብር የሚቀነስለትን **ደላላ ID** ያስገቡ (ለምሳሌ፦ 8488592165)፦")
         bot.register_next_step_handler(msg, process_rider_deduct_id)
 
 
@@ -529,30 +531,50 @@ def handle_pending_action(call):
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "rider_withdraw_request")
-def handle_withdraw_request(call):
+def start_withdraw_flow(call):
     uid = str(call.from_user.id)
     db = load_data()
-    rider_data = db['riders_list'].get(uid, {})
-    balance = rider_data.get('wallet', 0)
+    balance = db['riders_list'][uid].get('wallet', 0)
     
     if balance <= 100:
         return bot.answer_callback_query(call.id, "❌ ዝቅተኛው የማውጫ መጠን ከ 100 ብር በላይ መሆን አለበት።", show_alert=True)
     
-    # ለአድሚን ማሳወቂያ መላክ
-    admin_msg = (f"🚀 **አዲስ የገንዘብ ማውጫ ጥያቄ**\n\n"
-                 f"👤 ስም፦ {rider_data.get('name')}\n"
-                 f"📞 ስልክ፦ {rider_data.get('phone')}\n"
-                 f"🆔 ID፦ `{uid}`\n"
-                 f"💰 መጠን፦ **{balance:,.2f} ETB**")
-    
-    # ይህ ቀድሞ የሰራነው notify_admins ፈንክሽን ነው
-    notify_admins(admin_msg)
-    
-    bot.answer_callback_query(call.id, "✅ የጥያቄ መልዕክት ለአድሚን ተልኳል!", show_alert=True)
-    bot.edit_message_text("✅ የገንዘብ ማውጫ ጥያቄዎ ለአድሚን ተልኳል። አድሚኑ ሂሳብዎን አጣርቶ በውስጥ መስመር ያነጋግርዎታል።", 
-                         call.message.chat.id, call.message.message_id)
+    msg = bot.send_message(call.message.chat.id, 
+        f"💰 የዋሌትዎ ቀሪ ሂሳብ፦ **{balance:,.2f} ETB**\n\n"
+        f"ማውጣት የሚፈልጉትን **የብር መጠን** ያስገቡ፦", parse_mode="Markdown")
+    bot.register_next_step_handler(msg, process_rider_withdraw_amount)
 
+# መጠኑን ተቀብሎ ለአድሚን መላኪያ
+def process_rider_withdraw_amount(message):
+    try:
+        amount = float(message.text.strip())
+        uid = str(message.from_user.id)
+        db = load_data()
+        balance = db['riders_list'][uid].get('wallet', 0)
+        
+        if amount < 50: # ዝቅተኛ መነሻ መወሰን ትችላለህ
+            msg = bot.send_message(message.chat.id, "❌ ትንሹ ማውጣት የሚችሉት መጠን 50 ብር ነው። እባክዎ እንደገና ያስገቡ፦")
+            return bot.register_next_step_handler(msg, process_rider_withdraw_amount)
+            
+        if amount > balance:
+            msg = bot.send_message(message.chat.id, f"❌ ስህተት፦ ዋሌትዎ ላይ ካለው {balance} ብር በላይ ማውጣት አይችሉም። እባክዎ መጠኑን ያስተካክሉ፦")
+            return bot.register_next_step_handler(msg, process_rider_withdraw_amount)
 
+        # ለአድሚን የሚላክ ማሳወቂያ
+        r_name = db['riders_list'][uid].get('name', 'ደላላ')
+        admin_text = (f"💸 **አዲስ የገንዘብ ማውጫ ጥያቄ**\n"
+                      f"━━━━━━━━━━━━━━━\n"
+                      f"👤 ስም፦ {r_name}\n"
+                      f"🆔 ID፦ `{uid}`\n"
+                      f"💰 የጠየቀው መጠን፦ **{amount:,.2f} ETB**\n"
+                      f"💵 አጠቃላይ ዋሌቱ፦ {balance:,.2f} ETB")
+        
+        notify_admins(admin_text)
+        bot.send_message(message.chat.id, f"✅ የ {amount} ብር ማውጫ ጥያቄዎ ለአድሚን ደርሷል።")
+        
+    except ValueError:
+        msg = bot.send_message(message.chat.id, "❌ እባክዎ መጠኑን በቁጥር ብቻ ያስገቡ፦")
+        bot.register_next_step_handler(msg, process_rider_withdraw_amount)
 
 
 @bot.callback_query_handler(func=lambda call: call.data in ["add_fund_vendor", "add_fund_rider"])
