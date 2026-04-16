@@ -347,8 +347,9 @@ def central_admin_handler(call):
         bot.register_next_step_handler(msg, add_category_logic)
         
     elif call.data == "admin_set_commission":
-        msg = bot.send_message(call.message.chat.id, "⚙️ አዲሱን የኮሚሽን መጠን በቁጥር ብቻ ያስገቡ (ለምሳሌ 5)፦")
-        bot.register_next_step_handler(msg, save_new_commission)
+        msg = bot.send_message(call.message.chat.id, "🏢 **የሻጭ (Vendor) ኮሚሽን** በፐርሰንት ያስገቡ (ለምሳሌ 5 ወይም 10)፦")
+        bot.register_next_step_handler(msg, process_vendor_comm_step)
+
         
     elif call.data == "admin_block_manager":
         msg = bot.send_message(call.message.chat.id, "🚫 ለማገድ/ለመፍቀድ የፈለጉትን User ID ያስገቡ፦")
@@ -681,29 +682,57 @@ def set_commission_choice(message):
     markup.add(types.InlineKeyboardButton("🛵 የደላላ ክፍያ (ETB)", callback_data="set_rider_fee"))
     bot.send_message(message.chat.id, "የትኛውን ዋጋ መተመን ይፈልጋሉ?", reply_markup=markup)
 
-# የሻጭ ኮሚሽን (በፐርሰንት)
-def save_vendor_commission(message):
-    try:
-        rate = float(message.text.strip())
-        db = load_data()
-        if 'settings' not in db: db['settings'] = {}
-        db['settings']['vendor_commission_percent'] = rate
-        save_data(db)
-        bot.send_message(message.chat.id, f"✅ የሻጭ ኮሚሽን ወደ **{rate}%** ተቀይሯል።")
-    except:
-        bot.send_message(message.chat.id, "❌ ስህተት ቁጥር ብቻ ያስገቡ።")
 
-# የደላላ ክፍያ (ቋሚ ብር - 0 ወይም 5 ወይም የፈለጉትን)
-def save_rider_fixed_fee(message):
+# ሀ. መጀመሪያ የሻጩን ይቀበላል
+def process_vendor_comm_step(message):
     try:
-        fee = float(message.text.strip())
+        v_rate = float(message.text.strip())
+        # የደላላውን ክፍያ ለመጠየቅ ወደ ቀጣይ ደረጃ ያልፋል
+        msg = bot.send_message(message.chat.id, f"✅ የሻጭ ኮሚሽን {v_rate}% ተይዟል።\n\n🛵 አሁን ደግሞ **የደላላውን የአገልግሎት ክፍያ** በብር ያስገቡ (ለምሳሌ 0 ወይም 5)፦")
+        bot.register_next_step_handler(msg, process_rider_fee_step, v_rate)
+    except:
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ፦")
+        bot.register_next_step_handler(msg, process_vendor_comm_step)
+
+# ለ. ከዚያ የደላላውን ተቀብሎ ሁለቱንም በአንድ ላይ ሴቭ ያደርጋል
+def process_rider_fee_step(message, v_rate):
+    try:
+        r_fee = float(message.text.strip())
         db = load_data()
         if 'settings' not in db: db['settings'] = {}
-        db['settings']['rider_fixed_fee'] = fee
+        
+        # ሁለቱንም ዳታቤዝ ውስጥ ማስቀመጥ
+        db['settings']['vendor_commission_percent'] = v_rate
+        db['settings']['rider_fixed_fee'] = r_fee
         save_data(db)
-        bot.send_message(message.chat.id, f"✅ የደላላ የአገልግሎት ክፍያ ወደ **{fee} ETB** ተቀይሯል።")
+        
+        text = (f"✅ **ዋጋዎች በትክክል ተመዝግበዋል!**\n\n"
+                f"🏢 የሻጭ ኮሚሽን፦ {v_rate}%\n"
+                f"🛵 የደላላ ክፍያ፦ {r_fee} ETB")
+        bot.send_message(message.chat.id, text, reply_markup=get_admin_dashboard(message.from_user.id))
     except:
-        bot.send_message(message.chat.id, "❌ ስህተት ቁጥር ብቻ ያስገቡ።")
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ፦")
+        bot.register_next_step_handler(msg, process_rider_fee_step, v_rate)
+
+def apply_wallet_deduction(rider_id, vendor_id, item_price):
+    db = load_data()
+    
+    # 1. ከሻጩ የሚወሰደው (%)
+    v_rate = db.get('settings', {}).get('vendor_commission_percent', 5)
+    vendor_cut = (item_price * v_rate) / 100
+    db['vendors_list'][vendor_id]['deposit_balance'] -= vendor_cut
+
+    # 2. ከደላላው የሚወሰደው (ቋሚ ብር)
+    r_fee = db.get('settings', {}).get('rider_fixed_fee', 0)
+    # ጠቅላላ ተቀናሽ = የዕቃው ዋጋ + ያንተ ቋሚ ክፍያ
+    rider_total_deduct = item_price + r_fee
+    db['riders_list'][rider_id]['wallet'] -= rider_total_deduct
+    
+    # 3. የአድሚን ትርፍ
+    db['total_profit'] = db.get('total_profit', 0) + (vendor_cut + r_fee)
+    
+    save_data(db)
+
 
 #የአጋር ድርጅቶች ዝርዝር
 def show_vendors_list_logic(message):
