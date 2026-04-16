@@ -542,6 +542,121 @@ def show_riders_report_logic(message):
         
     bot.send_message(message.chat.id, text, parse_mode="Markdown")
 
+#Set Commission
+def save_new_commission(message):
+    try:
+        new_rate = float(message.text.strip())
+        db = load_data()
+        if 'settings' not in db: db['settings'] = {}
+        db['settings']['commission_rate'] = new_rate
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ የኮሚሽን መጠን ወደ **{new_rate}%** ተቀይሯል!", reply_markup=get_admin_dashboard(message.from_user.id))
+    except ValueError:
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ (ለምሳሌ 5)፦")
+        bot.register_next_step_handler(msg, save_new_commission)
+
+#የኮሚሽን መጠን መቀየሪያ
+def save_new_commission(message):
+    try:
+        new_rate = float(message.text.strip())
+        db = load_data()
+        if 'settings' not in db: db['settings'] = {}
+        db['settings']['commission_rate'] = new_rate
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ የኮሚሽን መጠን ወደ **{new_rate}%** ተቀይሯል!", reply_markup=get_admin_dashboard(message.from_user.id))
+    except ValueError:
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ (ለምሳሌ 5)፦")
+        bot.register_next_step_handler(msg, save_new_commission)
+
+#የአጋር ድርጅቶች ዝርዝር
+def show_vendors_list_logic(message):
+    db = load_data()
+    vendors = db.get("vendors_list", {})
+    if not vendors:
+        return bot.send_message(message.chat.id, "🏢 እስካሁን የተመዘገበ ድርጅት የለም።")
+    
+    text = "🏢 **የአጋር ድርጅቶች ዝርዝር**\n\n"
+    for vid, vdata in vendors.items():
+        text += (f"🔹 **{vdata['name']}**\n"
+                 f"🆔 ID: `{vid}` | 📍 {vdata.get('address', 'አድራሻ የለም')}\n"
+                 f"💰 ሽያጭ: {vdata.get('total_sales', 0)} ETB\n"
+                 f"------------------------\n")
+    bot.send_message(message.chat.id, text, parse_mode="Markdown")
+
+#ድርጅቶችን/ደላላዎችን ማገጃ
+def process_block_logic(message):
+    target_id = message.text.strip()
+    db = load_data()
+    found = False
+    for cat in ['vendors_list', 'riders_list']:
+        if target_id in db.get(cat, {}):
+            status = db[cat][target_id].get('status', 'active')
+            new_status = 'blocked' if status != 'blocked' else 'active'
+            db[cat][target_id]['status'] = new_status
+            found = True; save_data(db)
+            bot.send_message(message.chat.id, f"✅ የ ID {target_id} ሁኔታ ወደ **{new_status}** ተቀይሯል።")
+            break
+    if not found: bot.send_message(message.chat.id, "❌ ይህ ID አልተገኘም።")
+
+#ቀጥታ ትዕዛዞች እና ቅሬታዎች
+def view_live_orders(message):
+    bot.send_message(message.chat.id, "📑 በአሁኑ ሰዓት ንቁ ትዕዛዞች የሉም (ከዳታቤዝ ጋር ገና ይገናኛል)።")
+
+def view_disputes(call):
+    bot.answer_callback_query(call.id, "ምንም ቅሬታ የለም", show_alert=True)
+
+#የቅሬታዎች መከታተያ
+def view_disputes(call):
+    db = load_data()
+    disputes = db.get("disputes", {})
+    if not disputes:
+        return bot.answer_callback_query(call.id, "✅ ምንም አይነት ቅሬታ የለም።", show_alert=True)
+    
+    text = "❗ **የደንበኞች ቅሬታ ዝርዝር**\n\n"
+    for d_id, d_data in disputes.items():
+        text += f"🆔 ትዕዛዝ: #{d_data['order_id']}\n👤 ደንበኛ: {d_data['user_name']}\n📝 ቅሬታ: {d_data['issue']}\n---\n"
+    bot.send_message(call.message.chat.id, text)
+
+#የደንበኞች ግምገማ
+def view_reviews(call):
+    db = load_data()
+    reviews = db.get("reviews", [])
+    if not reviews:
+        return bot.answer_callback_query(call.id, "⭐ እስካሁን የተሰጠ አስተያየት የለም።", show_alert=True)
+    
+    text = "⭐ **የቅርብ ጊዜ አስተያየቶች**\n\n"
+    for r in reviews[-5:]: # የመጨረሻዎቹን 5 ብቻ
+        text += f"🏢 {r['vendor_name']} ➡️ {r['stars']}⭐\n💬 {r['comment']}\n---\n"
+    bot.send_message(call.message.chat.id, text)
+
+#የተጣራ ትርፍ ክትትል
+def view_total_profit(call):
+    db = load_data()
+    profit = db.get("total_profit", 0)
+    rate = db.get('settings', {}).get('commission_rate', 5)
+    
+    text = (f"💰 **የቦቱ ትርፍ ሪፖርት**\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"📈 የኮሚሽን መጠን: {rate}%\n"
+            f"💵 ጠቅላላ የተጣራ ትርፍ: **{profit:,.2f} ETB**\n"
+            f"━━━━━━━━━━━━━━━")
+    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+#ዝቅተኛ የዋስትና ሂሳብ
+def view_low_balances(call):
+    db = load_data()
+    vendors = db.get("vendors_list", {})
+    low_limit = 200 # ከ 200 በታች ሲሆን እንዲያሳውቅ
+    
+    low_list = [f"⚠️ {v['name']} (ቀሪ: {v['deposit_balance']} ETB)" 
+                for v in vendors.values() if v.get('deposit_balance', 0) < low_limit]
+    
+    if not low_list:
+        return bot.answer_callback_query(call.id, "✅ ሁሉም ድርጅቶች በቂ ዋስትና አላቸው።", show_alert=True)
+    
+    text = "🚨 **የዋስትና ሂሳባቸው ዝቅተኛ የሆኑ ድርጅቶች**\n\n" + "\n".join(low_list)
+    bot.send_message(call.message.chat.id, text)
+
 
 
 
