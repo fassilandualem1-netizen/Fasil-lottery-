@@ -490,27 +490,22 @@ def central_vendor_handler(call):
     if call.data == "vendor_add_item":
         msg = bot.send_message(call.message.chat.id, "📝 የዕቃውን **ስም** ያስገቡ (ለምሳሌ፦ በርገር)፦")
         bot.register_next_step_handler(msg, process_item_name)
-    
-        elif call.data == "vendor_wallet":
+
+    elif call.data == "vendor_wallet":
         db = load_data()
         v_id = str(call.from_user.id)
         vendor = db['vendors_list'].get(v_id, {})
         
         balance = vendor.get('balance', 0)
         total_sold = vendor.get('total_sold', 0)
-        commission_rate = db['settings'].get('vendor_commission_p', 10) # ከአድሚን ሴቲንግ የሚመጣ
+        commission_rate = db['settings'].get('vendor_commission_p', 10)
 
         wallet_text = (f"💰 **የድርጅትዎ የሂሳብ መዝገብ**\n\n"
-                       f"💵 ወቅታዊ ቀሪ ሂሳብ፦ `{balance} ETB`\n"
-                       f"📊 አጠቃላይ የሸጡት፦ `{total_sold} ETB`\n"
-                       f"⚙️ የሲስተም ኮሚሽን፦ `{commission_rate}%` \n\n"
-                       f"⚠️ ማሳሰቢያ፦ ሂሳብዎን ለማውጣት የአድሚን ፈቃድ ያስፈልጋል።")
+                       f"💵 ቀሪ ሂሳብ፦ `{balance} ETB`\n"
+                       f"📊 አጠቃላይ ሽያጭ፦ `{total_sold} ETB`\n"
+                       f"⚙️ ኮሚሽን፦ `{commission_rate}%` ")
         
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("🏦 ብር ለማውጣት ጠይቅ", callback_data="vendor_withdraw_req"))
-        
-        bot.send_message(call.message.chat.id, wallet_text, reply_markup=markup, parse_mode="Markdown")
-
+        bot.send_message(call.message.chat.id, wallet_text, parse_mode="Markdown")
 
 
         elif call.data == "vendor_list_items":
