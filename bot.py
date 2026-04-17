@@ -558,39 +558,39 @@ def central_vendor_handler(call):
 # ይህንን central_admin_handler ባለበት ወይም አዲስ Callback Handler ጋር ጨምረው
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('edit_item_', 'delete_item_', 'confirm_del_')))
 def handle_item_management(call):
-    data_parts = call.data.split("_")
-    # ለውጧ እዚህ ጋር ናት: መጨመር አለብህ
-    action = data_parts 
-    item_id = data_parts[-1] 
-    user_id = str(call.from_user.id)
-
     db = load_data()
+    user_id = str(call.from_user.id)
+    
+    # ዳታውን በትክክል መበለት
+    if call.data.startswith("edit_item_"):
+        item_id = call.data.replace("edit_item_", "")
+        bot.answer_callback_query(call.id)
+        msg = bot.send_message(call.message.chat.id, "🔢 አዲሱን ዋጋ ያስገቡ (ለምሳሌ፦ 250)፦")
+        bot.register_next_step_handler(msg, update_item_price_logic, item_id)
 
-    if action == "delete": # አሁን 'delete' መሆኑን ማረጋገጥ ይችላል
+    elif call.data.startswith("delete_item_"):
+        item_id = call.data.replace("delete_item_", "")
         markup = types.InlineKeyboardMarkup()
-        yes_btn = types.InlineKeyboardButton("✅ አዎ አጥፋው", callback_data=f"confirm_del_{item_id}")
-        no_btn = types.InlineKeyboardButton("❌ ተመለስ", callback_data="vendor_list_items")
-        markup.add(yes_btn, no_btn)
-
+        markup.add(
+            types.InlineKeyboardButton("✅ አዎ አጥፋው", callback_data=f"confirm_del_{item_id}"),
+            types.InlineKeyboardButton("❌ ተመለስ", callback_data="vendor_list_items")
+        )
         bot.answer_callback_query(call.id)
         try:
             bot.edit_message_caption("⚠️ ይህንን ዕቃ ለመሰረዝ እርግጠኛ ነዎት?", call.message.chat.id, call.message.message_id, reply_markup=markup)
         except:
             bot.edit_message_text("⚠️ ይህንን ዕቃ ለመሰረዝ እርግጠኛ ነዎት?", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
-    elif action == "confirm": # አሁን 'confirm' መሆኑን ያውቃል
-        if user_id in db.get('vendors_list', {}) and item_id in db['vendors_list'][user_id].get('items', {}):
+    elif call.data.startswith("confirm_del_"):
+        item_id = call.data.replace("confirm_del_", "")
+        if user_id in db['vendors_list'] and item_id in db['vendors_list'][user_id]['items']:
             del db['vendors_list'][user_id]['items'][item_id]
             save_data(db)
             bot.answer_callback_query(call.id, "✅ ዕቃው ተሰርዟል!", show_alert=True)
             bot.delete_message(call.message.chat.id, call.message.message_id)
         else:
-            bot.answer_callback_query(call.id, "❌ ዕቃው አልተገኘም።", show_alert=True)
+            bot.answer_callback_query(call.id, "❌ ዕቃው አልተገኘም!", show_alert=True)
 
-    elif action == "edit": # አሁን 'edit' መሆኑን ይረዳል
-        bot.answer_callback_query(call.id)
-        msg = bot.send_message(call.message.chat.id, "🔢 አዲሱን ዋጋ ያስገቡ (ለምሳሌ፦ 250)፦")
-        bot.register_next_step_handler(msg, update_item_price_logic, item_id)
 
 # --- 1. የደላላው ማዕከላዊ ትራፊክ (Callback Handler) ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('rider_'))
@@ -1621,38 +1621,32 @@ def update_item_price_logic(message, item_id):
 
 
 def show_my_items(message):
-    user_id = str(message.chat.id)
     db = load_data()
-    
-    vendor_info = db.get('vendors_list', {}).get(user_id, {})
-    items = vendor_info.get('items', {}) 
-    
-    if not items:
-        return bot.send_message(user_id, "📭 እስካሁን የጸደቀ ዕቃ የለዎትም።")
+    v_id = str(message.chat.id)
+    # የቬንደሩን ዳታ ፈልግ
+    vendor_data = db.get('vendors_list', {}).get(v_id, {})
+    items = vendor_data.get('items', {}) # Dictionary መሆኑን ልብ በል
 
-    bot.send_message(user_id, "📋 **የእርስዎ ዕቃዎች ዝርዝር፦**")
+    if not items:
+        bot.send_message(message.chat.id, "📦 እስካሁን ምንም ዕቃ የለዎትም።")
+        return
+
+    bot.send_message(message.chat.id, "📂 **የእርስዎ ዕቃዎች ዝርዝር፦**")
     
-    for item_id, item_info in items.items():
-        markup = types.InlineKeyboardMarkup(row_width=2)
+    # items አሁን Dictionary ስለሆነ በ .items() እናነባለን
+    for item_id, item in items.items():
+        text = f"🍎 ዕቃ፦ {item['name']}\n💰 ዋጋ፦ {item['price']} ETB\n📁 ምድብ፦ {item['category']}"
         
-        # callback_data ስሞች በትክክል ከ handler ጋር እንዲመሳሰሉ ተደርገዋል
-        edit_btn = types.InlineKeyboardButton("📝 ዋጋ ቀይር", callback_data=f"edit_item_{item_id}")
-        del_btn = types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"delete_item_{item_id}")
-        markup.add(edit_btn, del_btn)
-        
-        text = (
-            f"🍎 **ዕቃ፦** {item_info.get('name')}\n"
-            f"💰 **ዋጋ፦** {item_info.get('price')} ETB\n"
-            f"📁 **ምድብ፦** {item_info.get('category')}"
+        markup = types.InlineKeyboardMarkup()
+        markup.add(
+            types.InlineKeyboardButton("✏️ ዋጋ ቀይር", callback_data=f"edit_item_{item_id}"),
+            types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"delete_item_{item_id}")
         )
         
-        if item_info.get('photo'):
-            try:
-                bot.send_photo(user_id, item_info['photo'], caption=text, reply_markup=markup, parse_mode="Markdown")
-            except:
-                bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
+        if item.get('photo'):
+            bot.send_photo(message.chat.id, item['photo'], caption=text, reply_markup=markup)
         else:
-            bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
+            bot.send_message(message.chat.id, text, reply_markup=markup)
 
 
 
