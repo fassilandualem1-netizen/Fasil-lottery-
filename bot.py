@@ -1489,8 +1489,10 @@ def process_rider_deduct_amount(message, r_id):
 
 import uuid
 
-# 1. የዕቃ ስም ሲቀበል ወደ ምድብ ምርጫ ይመራል
+# 1. የዕቃ ስም መቀበያ
 def process_item_name(message):
+    if message.text == "/start": return start_cmd(message)
+    
     item_name = message.text.strip()
     db = load_data()
     categories = db.get('categories', [])
@@ -1503,25 +1505,34 @@ def process_item_name(message):
         markup.add(cat)
     
     msg = bot.send_message(message.chat.id, f"📁 የ **'{item_name}'** ምድብ ይምረጡ፦", reply_markup=markup)
-    # ቀጣይ እርምጃ፦ ምድብ መቀበል
     bot.register_next_step_handler(msg, process_item_category, item_name)
 
-# 2. ምድብ ሲመረጥ ወደ ዋጋ መጠየቅ ይመራል
+# 2. ምድብ መቀበያ
 def process_item_category(message, item_name):
     if message.text == "/start": return start_cmd(message)
+    
     category = message.text.strip()
-    msg = bot.send_message(message.chat.id, f"💰 የ **'{item_name}'** ዋጋ በብር ያስገቡ፦")
+    # ቀጣይ ዋጋ እንዲያስገባ መጠየቅ
+    msg = bot.send_message(message.chat.id, f"💰 የ **'{item_name}'** ዋጋ በብር ያስገቡ፦", reply_markup=types.ReplyKeyboardRemove())
     bot.register_next_step_handler(msg, process_item_price, item_name, category)
 
+# 3. ዋጋ መቀበያ (ከነ ስህተት ማረሚያው)
 def process_item_price(message, item_name, category):
     if message.text == "/start": return start_cmd(message)
+    
     try:
+        # ዋጋውን ወደ ቁጥር መቀየር
         price = float(message.text.strip())
         msg = bot.send_message(message.chat.id, f"📸 የ **'{item_name}'** ፎቶ ይላኩ፦")
         bot.register_next_step_handler(msg, process_item_photo, item_name, category, price)
     except ValueError:
-        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ፦")
-        bot.register_next_step_handler(msg, process_item_price, item_name, category) bot.register_next_step_handler(msg, process_item_price, item_name, category)
+        # ቁጥር ካልሆነ ድጋሚ እንዲያስገባ መጠየቅ
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ (ለምሳሌ፦ 150)፦")
+        bot.register_next_step_handler(msg, process_item_price, item_name, category)
+
+# 4. ፎቶ መቀበያ እና ለአድሚን መላኪያ (ይህ ክፍል ባለፈው በሰጠሁህ ይቀጥላል)
+
+        
 
 # 4. ፎቶውን ተቀብሎ በጊዜያዊነት ያከማቻል
 def process_item_photo(message, item_name, category, price):
