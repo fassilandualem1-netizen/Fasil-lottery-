@@ -368,12 +368,11 @@ def central_admin_handler(call):
     elif call.data == "admin_profit_track":
         view_total_profit(call)
 
-        # --- አድሚኑ እቃ ሲያጸድቅ (Approve) ---
+            # --- አድሚኑ እቃ ሲያጸድቅ (Approve) ---
     elif call.data.startswith("approve_item_"):
         item_id = call.data.split("_")
         db = load_data()
         
-        # 'pending_items' መዝገብ (Dict) መሆኑን ቼክ እናደርጋለን
         if item_id in db.get('pending_items', {}):
             item = db['pending_items'].pop(item_id) # ከፔንዲንግ ማውጣት
             v_id = item['vendor_id']
@@ -387,21 +386,20 @@ def central_admin_handler(call):
                     "name": item['item_name'],
                     "price": item['price'],
                     "category": item['category'],
-                    "photo": item['photo'] # ፎቶውም አብሮ እንዲቀመጥ
+                    "photo": item['photo']
                 })
-                
                 save_data(db)
                 
-                # የአድሚኑን ሜሴጅ ማስተካከያ
-                bot.edit_message_caption(caption=call.message.caption + "\n\n✅ **ተቀባይነት አግኝቷል!**", 
+                # የአድሚኑን መልዕክት መቀየር (Approve መደረጉን እንዲያሳይ)
+                bot.edit_message_caption(caption=f"✅ **ጸድቋል!**\n\n🍎 ዕቃ፦ {item['item_name']}\n🏢 ድርጅት፦ {db['vendors_list'][v_id].get('name')}", 
                                          chat_id=call.message.chat.id, 
                                          message_id=call.message.message_id)
                 
                 # ለድርጅቱ ማሳወቅ
-                try: bot.send_message(v_id, f"🎉 ደስ የሚል ዜና! ያስገቡት ዕቃ '{item['item_name']}' በአድሚን ጸድቋል።")
+                try: bot.send_message(v_id, f"🎉 እንኳን ደስ አለዎት! **'{item['item_name']}'** በአድሚን ጸድቋል።")
                 except: pass
         else:
-            bot.answer_callback_query(call.id, "❌ ስህተት፦ ይህ እቃ ቀድሞ ተሰርዟል ወይም አልተገኘም።")
+            bot.answer_callback_query(call.id, "❌ ይህ እቃ ቀድሞ ተሰርዟል ወይም አልተገኘም።")
 
     # --- አድሚኑ እቃ ውድቅ ሲያደርግ (Reject) ---
     elif call.data.startswith("reject_item_"):
@@ -412,12 +410,13 @@ def central_admin_handler(call):
             item = db['pending_items'].pop(item_id)
             save_data(db)
             
-            bot.edit_message_caption(caption=call.message.caption + "\n\n❌ **ውድቅ ተደርጓል!**", 
+            bot.edit_message_caption(caption=f"❌ **ውድቅ ተደርጓል!**\n\n🍎 ዕቃ፦ {item['item_name']}", 
                                      chat_id=call.message.chat.id, 
                                      message_id=call.message.message_id)
             
-            try: bot.send_message(item['vendor_id'], f"⚠️ ይቅርታ፣ ያስገቡት ዕቃ '{item['item_name']}' በአድሚን ውድቅ ተደርጓል።")
+            try: bot.send_message(item['vendor_id'], f"⚠️ ይቅርታ፣ ያስገቡት ዕቃ '{item['item_name']}' ውድቅ ተደርጓል።")
             except: pass
+
 
 
     
