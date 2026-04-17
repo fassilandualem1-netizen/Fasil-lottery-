@@ -23,13 +23,16 @@ def run_flask():
     # በ Render ላይ ስራ እንዲጀምር host እና port በትክክል መሰጠት አለባቸው
     app.run(host='0.0.0.0', port=PORT)
 
-# --- 2. ዳታቤዝ ተግባራት ---
-# 1. ዳታቤዝ ማውረጃ (Redis ተጠቅሞ)
+import redis
+import json
+
 def load_data():
+    # መሠረታዊ የዳታቤዝ አወቃቀር (Default Structure)
     default_db = {
         "riders_list": {},     
-        "vendors_list": {}, # የግድ {} መሆን አለበት
+        "vendors_list": {}, 
         "orders": {},          
+        "carts": {},           # ለደንበኞች ቅርጫት የግድ ያስፈልጋል
         "pending_items": {},   
         "categories": [],      
         "total_profit": 0,     
@@ -47,19 +50,26 @@ def load_data():
         raw = redis.get("bdf_delivery_db")
         if raw: 
             loaded_db = json.loads(raw)
-            # የቆየ ዳታ ሊስት ከሆነ ወደ ዲክሽነሪ ቀይረው (ለደህንነት)
-            if not isinstance(loaded_db.get('vendors_list'), dict):
-                loaded_db['vendors_list'] = {}
             
+            # ዳታው ዝርዝር (list) ሳይሆን ዲክሽነሪ (dict) መሆኑን ማረጋገጫ
+            if not isinstance(loaded_db, dict):
+                loaded_db = default_db
+
+            # አዳዲስ ቁልፎች (keys) በቆየው ዳታቤዝ ውስጥ ከሌሉ እንዲጨመሩ
             for key, value in default_db.items():
                 if key not in loaded_db:
                     loaded_db[key] = value
+            
+            # vendors_list ሁሌም dict መሆኑን ማረጋገጥ
+            if not isinstance(loaded_db.get('vendors_list'), dict):
+                loaded_db['vendors_list'] = {}
+                
             return loaded_db
+            
         return default_db
     except Exception as e:
         print(f"❌ Database Load Error: {e}")
-        return default_db # ስህተት ሲፈጠር default_db መመለስ ይሻላል
- 
+        return default_db
 
 
         # Error ቢመጣ እንኳን ቦቱ እንዳይቆም መሠረታዊ መዋቅሩን እንላክ
