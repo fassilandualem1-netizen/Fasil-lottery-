@@ -1496,7 +1496,9 @@ def process_rider_deduct_amount(message, r_id):
 
 
 
-# ደረጃ 1፡ ምድብ (Category) ማስመረጥ
+import uuid
+
+# 1. የዕቃ ስም ሲቀበል ወደ ምድብ ምርጫ ይመራል
 def process_item_name(message):
     item_name = message.text.strip()
     db = load_data()
@@ -1505,94 +1507,105 @@ def process_item_name(message):
     if not categories:
         return bot.send_message(message.chat.id, "❌ አድሚኑ መጀመሪያ የምድብ ዝርዝር (Categories) መፍጠር አለበት።")
 
-    # ምድቦቹን በበተን መልክ እናሳያለን
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     for cat in categories:
         markup.add(cat)
     
     msg = bot.send_message(message.chat.id, f"📁 የ **'{item_name}'** ምድብ ይምረጡ፦", reply_markup=markup)
+    # ቀጣይ እርምጃ፦ ምድብ መቀበል
     bot.register_next_step_handler(msg, process_item_category, item_name)
 
-# ደረጃ 2፡ ዋጋ መጠየቅ
+# 2. ምድብ ሲመረጥ ወደ ዋጋ መጠየቅ ይመራል
 def process_item_category(message, item_name):
     category = message.text.strip()
     msg = bot.send_message(message.chat.id, f"💰 የ **'{item_name}'** ዋጋ በብር ያስገቡ፦", reply_markup=types.ReplyKeyboardRemove())
+    # ቀጣይ እርምጃ፦ ዋጋ መቀበል
     bot.register_next_step_handler(msg, process_item_price, item_name, category)
 
-# ደረጃ 3፡ ፎቶ መጠየቅ
+# 3. ዋጋ ሲቀበል ወደ ፎቶ መጠየቅ ይመራል
 def process_item_price(message, item_name, category):
     try:
-        price = float(message.text.strip())
+        price_text = message.text.strip()
+        price = float(price_text)
         msg = bot.send_message(message.chat.id, f"📸 የ **'{item_name}'** ፎቶ ይላኩ፦")
+        # ቀጣይ እርምጃ፦ ፎቶ መቀበል
         bot.register_next_step_handler(msg, process_item_photo, item_name, category, price)
     except ValueError:
         msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ፦")
         bot.register_next_step_handler(msg, process_item_price, item_name, category)
 
-
-import uuid
-
+# 4. ፎቶውን ተቀብሎ በጊዜያዊነት ያከማቻል
 def process_item_photo(message, item_name, category, price):
-    """የዕቃውን ፎቶ ተቀብሎ ለቁጥጥር የሚልክ ፈንክሽን"""
-    
-    # 1. ተጠቃሚው ፎቶ መላኩን ማረጋገጥ
+    # ፎቶ መሆኑን ማረጋገጥ
     if message.content_type != 'photo':
-        msg = bot.send_message(message.chat.id, f"❌ እባክዎ የ '{item_name}' ፎቶ ይላኩ፦")
+        msg = bot.send_message(message.chat.id, "⚠️ እባክዎ የዕቃውን ፎቶ ይላኩ (ጽሁፍ አይቀበልም)፦")
         bot.register_next_step_handler(msg, process_item_photo, item_name, category, price)
         return
 
-    # 2. የድርጅቱን ስም ከዳታቤዝ ማውጣት
-    db = load_data()
-    v_id = str(message.from_user.id)
-    v_name = db.get('vendors_list', {}).get(v_id, {}).get('name', 'ያልታወቀ ድርጅት')
+    try:
+        db = load_data()
+        v_id = str(message.from_user.id)
+        # የቬንደሩን ስም ከዳታቤዝ ፈልጎ ማውጣት
+        v_name = db.get('vendors_list', {}).get(v_id, {}).get('name', 'ያልታወቀ ድርጅት')
 
-    # 3. ለዕቃው ልዩ መለያ (ID) መፍጠር
-    temp_id = str(uuid.uuid4())[:8]
-    
-    item_data = {
-        "vendor_name": v_name,
-        "vendor_id": message.chat.id,
-        "item_name": item_name, 
-        "price": price,
-        "category": category,
-        "photo": message.photo[-1].file_id # ትልቁን ፎቶ መውሰድ
-    }
-    
-    # 4. ዳታውን በጊዜያዊነት (pending) ማስቀመጥ
-    if "pending_items" not in db:
-        db["pending_items"] = {}
-    
-    db["pending_items"][temp_id] = item_data
-    save_data(db)
-    
-    # 5. መጨረሻ ላይ ለአድሚን መላኪያውን መጥራት
-    process_item_finish(message, item_data, temp_id)
+        # ለዕቃው ልዩ መለያ ID መፍጠር (String መሆኑን እናረጋግጥ)
+        temp_id = str(uuid.uuid4())[:8]
+        
+        item_data = {
+            "vendor_name": v_name,
+            "vendor_id": message.chat.id,
+            "item_name": item_name, 
+            "price": price,
+            "category": category,
+            "photo": message.photo[-1].file_id 
+        }
+        
+        # ዳታውን በpending_items ውስጥ ማስቀመጥ
+        if "pending_items" not in db:
+            db["pending_items"] = {}
+            
+        db["pending_items"][temp_id] = item_data
+        save_data(db)
+        
+        # ለአድሚን መላክ
+        process_item_finish(message, item_data, temp_id)
+        
+    except Exception as e:
+        print(f"Photo processing error: {e}")
+        bot.send_message(message.chat.id, "❌ ፎቶውን ስንመዘግብ ስህተት ተፈጥሯል።")
 
+# 5. ለአድሚን በፎቶ እና በበተን መልክ ይልካል
 def process_item_finish(message, item_data, temp_id):
     markup = types.InlineKeyboardMarkup(row_width=2)
+    # Callback data አወቃቀር በትክክል መሆኑን አረጋግጥ
     btn_approve = types.InlineKeyboardButton("✅ እቀበላለሁ", callback_data=f"approve_item_{temp_id}")
     btn_reject = types.InlineKeyboardButton("❌ አልቀበልም", callback_data=f"reject_item_{temp_id}")
     markup.add(btn_approve, btn_reject)
 
     admin_text = (
-        "🆕 **አዲስ የዕቃ ማጽደቂያ ጥያቄ**\n\n"
+        "🆕 **አዲስ የዕቃ ማጽደቂያ ጥያቄ**\n"
+        "━━━━━━━━━━━━━━━\n"
         f"🏢 ድርጅት፦ {item_data['vendor_name']}\n"
         f"🍎 ዕቃ፦ {item_data['item_name']}\n"
         f"💰 ዋጋ፦ {item_data['price']} ETB\n"
         f"📁 ምድብ፦ {item_data['category']}"
     )
 
-    # ✅ ማስተካከያ፦ በጽሁፍ ፋንታ በፎቶ መልክ ለአድሚን መላክ
-    # ማሳሰቢያ፦ ADMIN_CHAT_ID አድሚኑ የሚቀበልበት የቻት ID ነው
-    bot.send_photo(
-        chat_id=ADMIN_CHAT_ID, 
-        photo=item_data['photo'], 
-        caption=admin_text, 
-        reply_markup=markup,
-        parse_mode="Markdown"
-    )
-    
-    bot.send_message(message.chat.id, "✅ ዕቃው ለቁጥጥር ተልኳል!")
+    # ለአድሚን በፎቶ መልክ መላክ
+    # ማሳሰቢያ፦ ADMIN_CHAT_ID በትክክል መገለጽ አለበት
+    try:
+        bot.send_photo(
+            chat_id=ADMIN_CHAT_ID, 
+            photo=item_data['photo'], 
+            caption=admin_text, 
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
+        bot.send_message(message.chat.id, "✅ ዕቃው ለቁጥጥር ተልኳል! አድሚን ሲያጸድቀው ማሳወቂያ ይደርስዎታል።")
+    except Exception as e:
+        print(f"Notify Admin Error: {e}")
+        bot.send_message(message.chat.id, "⚠️ መረጃው ተመዝግቧል ግን ለአድሚን መላክ አልተቻለም።")
+
 
 
 
