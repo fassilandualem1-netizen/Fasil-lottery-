@@ -968,6 +968,9 @@ def process_order_final(message):
     db = load_data()
     user_cart = db.get('carts', {}).get(user_id, {})
     
+    if not user_cart:
+        return bot.send_message(message.chat.id, "🛒 ቅርጫትዎ ባዶ ነው!")
+
     # ልዩ የትዕዛዝ መለያ ቁጥር ማመንጨት (Order ID)
     order_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
     
@@ -978,9 +981,8 @@ def process_order_final(message):
     else:
         address = message.text
 
-    # ትዕዛዙን በየድርጅቱ (Vendor) መከፋፈል (ምክንያቱም ደንበኛው ከተለያየ ቦታ አዞ ሊሆን ይችላል)
+    # ትዕዛዙን በየድርጅቱ (Vendor) መከፋፈል
     vendors_to_notify = {}
-    full_order_summary = ""
     total_price = 0
 
     for i_id, i_info in user_cart.items():
@@ -990,18 +992,24 @@ def process_order_final(message):
         vendors_to_notify[v_id].append(f"• {i_info['name']} ({i_info['qty']} ፍሬ)")
         total_price += i_info['price'] * i_info['qty']
 
-    # 1. ለሻጮቹ (Vendors) መረጃ መላክ
+    # 1. ለሻጮቹ (Vendors) መረጃ መላክ (ከነ በተኑ)
     for v_id, items in vendors_to_notify.items():
-        vendor_msg = (f"🔔 **አዲስ ትዕዛዝ መጥቷል!**\n\n"
+        vendor_msg = (f"🔔 <b>አዲስ ትዕዛዝ መጥቷል!</b>\n\n"
                       f"🆔 ትዕዛዝ ቁጥር: #{order_id}\n"
-                      f"📝 ዝርዝር:\n" + "\n".join(items) + "\n"
+                      f"📝 ዝርዝር:\n" + "\n".join(items) + "\n\n"
                       f"📍 አድራሻ: {address}\n"
-                      f"📞 የደንበኛ ስልክ: {message.from_user.id}") # እዚህ ጋር በምዝገባ ወቅት የያዝከውን ስልክ ብትጠቀም ይመረጣል
+                      f"📞 የደንበኛ ID: {user_id}")
+        
+        # የሻጭ መቀበያ በተኖች እዚህ ጋር መግባት አለባቸው
+        markup = types.InlineKeyboardMarkup()
+        accept_btn = types.InlineKeyboardButton("✅ ትዕዛዙን ተቀበል", callback_data=f"v_accept_{order_id}_{user_id}")
+        reject_btn = types.InlineKeyboardButton("❌ ሰርዝ", callback_data=f"v_reject_{order_id}_{user_id}")
+        markup.add(accept_btn, reject_btn)
         
         try:
-            bot.send_message(v_id, vendor_msg)
-        except:
-            print(f"ለድርጅት {v_id} መልዕክት መላክ አልተቻለም።")
+            bot.send_message(v_id, vendor_msg, reply_markup=markup, parse_mode="HTML")
+        except Exception as e:
+            print(f"ለድርጅት {v_id} መላክ አልተቻለም: {e}")
 
     # 2. ትዕዛዙን በዳታቤዝ 'orders' ውስጥ መመዝገብ
     if 'orders' not in db: db['orders'] = {}
@@ -1024,40 +1032,6 @@ def process_order_final(message):
                      f"💰 አጠቃላይ ዋጋ፦ `{total_price} ETB` + ሰርቪስ\n"
                      f"⏳ ድርጅቱ ትዕዛዙን ሲቀበል እናሳውቅዎታለን።", 
                      reply_markup=get_customer_dashboard(), parse_mode="Markdown")
-
-
-
-
-# ይህንን ከላይ በሰራነው process_order_final ውስጥ ለሻጩ (v_id) ከሚላከው መልዕክት ጋር አያይዘው
-markup = types.InlineKeyboardMarkup()
-accept_btn = types.InlineKeyboardButton("✅ ትዕዛዙን ተቀበል", callback_data=f"v_accept_{order_id}_{user_id}")
-reject_btn = types.InlineKeyboardButton("❌ ሰርዝ", callback_data=f"v_reject_{order_id}_{user_id}")
-markup.add(accept_btn, reject_btn)
-
-bot.send_message(v_id, vendor_msg, reply_markup=markup, parse_mode="HTML")
-
-
-
-
-
-@bot.message_handler(func=lambda message: message.text == "📋 የትዕዛዝ ታሪክ")
-def show_order_history(message):
-    user_id = str(message.from_user.id)
-    db = load_data()
-    all_orders = db.get('orders', {})
-    
-    # የዚህ ደንበኛ ትዕዛዞችን ብቻ መለየት
-    my_orders = {k: v for k, v in all_orders.items() if v['user_id'] == user_id}
-
-    if not my_orders:
-        return bot.send_message(message.chat.id, "እስካሁን ያዘዙት ትዕዛዝ የለም።")
-
-    history_text = "📜 **የትዕዛዝዎ ታሪክ፦**\n\n"
-    for o_id, o_data in list(my_orders.items())[-5:]: # የመጨረሻዎቹን 5 ትዕዛዞች ለማሳየት
-        history_text += f"🆔 ቁጥር፦ `#{o_id}`\n💰 ዋጋ፦ {o_data['total']} ETB\n📊 ሁኔታ፦ {o_data['status']}\n\n"
-
-    bot.send_message(message.chat.id, history_text, parse_mode="Markdown")
-
 
 
 
