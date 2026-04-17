@@ -662,51 +662,6 @@ def show_rider_wallet(call):
 
 
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith(('approve_item_', 'reject_item_')))
-def handle_item_approval(call):
-    try:
-        data_parts = call.data.split('_')
-        
-        # ✅ ማስተካከያ፡ indices እና ገብተዋል
-        action = data_parts  # 'approve' ወይም 'reject'
-        item_id = data_parts # የእቃው ID
-
-        db = load_data()
-
-        if item_id not in db.get('pending_items', {}):
-            bot.answer_callback_query(call.id, "❌ ስህተት፦ እቃው አልተገኘም!", show_alert=True)
-            return
-
-        item = db['pending_items'].pop(item_id)
-        v_id = str(item['vendor_id'])
-
-        if action == "approve":
-            if v_id not in db.get('vendors_list', {}):
-                if 'vendors_list' not in db: db['vendors_list'] = {}
-                db['vendors_list'][v_id] = {'name': 'Unknown', 'items': []}
-            
-            if 'items' not in db['vendors_list'][v_id]:
-                db['vendors_list'][v_id]['items'] = []
-
-            db['vendors_list'][v_id]['items'].append({
-                "name": item['item_name'],
-                "price": item['price'],
-                "category": item['category'],
-                "photo": item['photo']
-            })
-            save_data(db)
-            bot.edit_message_caption(caption=f"✅ **ጸድቋል!**\n🍎 ዕቃ፦ {item['item_name']}", 
-                                     chat_id=call.message.chat.id, 
-                                     message_id=call.message.message_id)
-            
-        elif action == "reject":
-            save_data(db)
-            bot.edit_message_caption(caption=f"❌ **ውድቅ ተደርጓል!**\n🍎 ዕቃ፦ {item['item_name']}", 
-                                     chat_id=call.message.chat.id, 
-                                     message_id=call.message.message_id)
-
-    except Exception as e:
-        bot.answer_callback_query(call.id, f"❌ Error: {str(e)}", show_alert=True)
 
 
 
@@ -886,6 +841,68 @@ def handle_withdraw_decision(call):
         bot.send_message(r_id, f"⚠️ ይቅርታ፣ የ {amount} ብር የማውጣት ጥያቄዎ በአድሚን ውድቅ ተደርጓል።")
 
     bot.answer_callback_query(call.id)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith(('approve_item_', 'reject_item_')))
+def handle_item_approval(call):
+    try:
+        data_parts = call.data.split('_')
+        
+        # ✅ ማስተካከያ 1፡ ድርጊቱን መለየት (approve ወይም reject)
+        action = data_parts  
+        
+        # ✅ ማስተካከያ 2፡ IDውን መለየት (ከዝርዝሩ ውስጥ 3ኛው ላይ ነው ያለው)
+        item_id = data_parts 
+
+        db = load_data()
+
+        # ዳታው መኖሩን ቼክ ማድረግ
+        if item_id not in db.get('pending_items', {}):
+            bot.answer_callback_query(call.id, "❌ ስህተት፦ እቃው አልተገኘም!", show_alert=True)
+            return
+
+        item = db['pending_items'].pop(item_id)
+        v_id = str(item['vendor_id'])
+
+        if action == "approve":
+            # የቬንደር ዳታ መኖሩን ማረጋገጥ
+            if v_id not in db.get('vendors_list', {}):
+                db['vendors_list'][v_id] = {'name': item['vendor_name'], 'items': []}
+            
+            if 'items' not in db['vendors_list'][v_id]:
+                db['vendors_list'][v_id]['items'] = []
+
+            # ዕቃውን ወደ ቬንደሩ ዝርዝር መጨመር
+            db['vendors_list'][v_id]['items'].append({
+                "name": item['item_name'],
+                "price": item['price'],
+                "category": item['category'],
+                "photo": item['photo']
+            })
+            save_data(db)
+            bot.edit_message_caption(
+                caption=f"✅ **በተሳካ ሁኔታ ጸድቋል!**\n🍎 ዕቃ፦ {item['item_name']}\n🏢 ድርጅት፦ {item['vendor_name']}", 
+                chat_id=call.message.chat.id, 
+                message_id=call.message.message_id
+            )
+            # ለባለቤቱ ማሳወቅ
+            try: bot.send_message(v_id, f"🎉 እንኳን ደስ አለዎት! **'{item['item_name']}'** በአድሚን ጸድቋል።")
+            except: pass
+            
+        elif action == "reject":
+            save_data(db)
+            bot.edit_message_caption(
+                caption=f"❌ **ውድቅ ተደርጓል!**\n🍎 ዕቃ፦ {item['item_name']}", 
+                chat_id=call.message.chat.id, 
+                message_id=call.message.message_id
+            )
+            # ለባለቤቱ ማሳወቅ
+            try: bot.send_message(v_id, f"⚠️ ይቅርታ፣ ያስገቡት ዕቃ '{item['item_name']}' ውድቅ ተደርጓል።")
+            except: pass
+
+    except Exception as e:
+        print(f"Approval Error: {e}")
+        bot.answer_callback_query(call.id, f"❌ ስህተት ተፈጥሯል", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data in ["add_fund_vendor", "add_fund_rider"])
 def fund_selection_handler(call):
@@ -1488,58 +1505,70 @@ def process_item_price(message, item_name, category):
         msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ፦")
         bot.register_next_step_handler(msg, process_item_price, item_name, category)
 
-import uuid # ለዕቃው ልዩ መለያ (ID) ለመፍጠር
 
-# 1. የድርጅት ባለቤት የዕቃውን ፎቶ ሲልክ የሚቀበል ፈንክሽን
-@bot.message_handler(content_types=['photo'], func=lambda message: True)
-def handle_item_photo(message):
-    # እዚህ ጋር ለሙከራ ያህል ዝም ብለን ዳታ እንሙላ (በእውነተኛ ኮድህ ከ user_data የምታገኘው ነው)
-    temp_id = str(uuid.uuid4())[:8] # አጭር ID መፍጠር
+import uuid
+
+def process_item_photo(message, item_name, category, price):
+    """የዕቃውን ፎቶ ተቀብሎ ለቁጥጥር የሚልክ ፈንክሽን"""
+    
+    # 1. ተጠቃሚው ፎቶ መላኩን ማረጋገጥ
+    if message.content_type != 'photo':
+        msg = bot.send_message(message.chat.id, f"❌ እባክዎ የ '{item_name}' ፎቶ ይላኩ፦")
+        bot.register_next_step_handler(msg, process_item_photo, item_name, category, price)
+        return
+
+    # 2. የድርጅቱን ስም ከዳታቤዝ ማውጣት
+    db = load_data()
+    v_id = str(message.from_user.id)
+    v_name = db.get('vendors_list', {}).get(v_id, {}).get('name', 'ያልታወቀ ድርጅት')
+
+    # 3. ለዕቃው ልዩ መለያ (ID) መፍጠር
+    temp_id = str(uuid.uuid4())[:8]
     
     item_data = {
-        "vendor_name": "የድርጅቱ ስም", # ይህን ከዳታቤዝ አውጣ
+        "vendor_name": v_name,
         "vendor_id": message.chat.id,
-        "item_name": "የምግቡ ስም", 
-        "price": 150,
-        "category": "ምግብ",
-        "photo": message.photo[-1].file_id
+        "item_name": item_name, 
+        "price": price,
+        "category": category,
+        "photo": message.photo[-1].file_id # ትልቁን ፎቶ መውሰድ
     }
     
-    # 2. ዳታውን በጊዜያዊነት ዳታቤዝ ውስጥ ማስቀመጥ
-    db = load_data()
+    # 4. ዳታውን በጊዜያዊነት (pending) ማስቀመጥ
     if "pending_items" not in db:
         db["pending_items"] = {}
     
     db["pending_items"][temp_id] = item_data
     save_data(db)
     
-    # 3. አሁን ያንተን አዲሱን ፈንክሽን እንጥራለን
+    # 5. መጨረሻ ላይ ለአድሚን መላኪያውን መጥራት
     process_item_finish(message, item_data, temp_id)
 
-# ✅ የጠየቅከው ፈንክሽን በአግባቡ ተስተካክሎ፡
 def process_item_finish(message, item_data, temp_id):
-    """ዕቃው ተመዝግቦ ሲያልቅ ለአድሚን መላኪያ"""
+    """ለአድሚኖች በተን ያለው ማሳወቂያ መላኪያ"""
     markup = types.InlineKeyboardMarkup(row_width=2)
     
-    # እዚህ ጋር temp_id String መሆኑን እናረጋግጥ (ከሊስት ስህተት ለመዳን)
+    # callback_data ላይ index ሳይሆን temp_id መጠቀማችን ከስህተት ያድነናል
     btn_approve = types.InlineKeyboardButton("✅ እቀበላለሁ", callback_data=f"approve_item_{temp_id}")
     btn_reject = types.InlineKeyboardButton("❌ አልቀበልም", callback_data=f"reject_item_{temp_id}")
-    
     markup.add(btn_approve, btn_reject)
 
     admin_text = (
-        "🆕 **አዲስ የዕቃ ማጽደቂያ ጥያቄ**\n\n"
+        "🆕 **አዲስ የዕቃ ማጽደቂያ ጥያቄ**\n"
+        "━━━━━━━━━━━━━━━\n"
         f"🏢 ድርጅት፦ {item_data['vendor_name']}\n"
         f"🍎 ዕቃ፦ {item_data['item_name']}\n"
         f"💰 ዋጋ፦ {item_data['price']} ETB\n"
         f"📁 ምድብ፦ {item_data['category']}"
     )
 
-    # ያንተን notify_admins ፈንክሽን በመጠቀም ለአድሚኖች መላክ
+    # ለአድሚኖች መላክ
     notify_admins(admin_text, reply_markup=markup)
     
     # ለድርጅቱ ባለቤት ማረጋገጫ መስጠት
-    bot.send_message(message.chat.id, "✅ ዕቃው ለቁጥጥር ተልኳል! አድሚን ሲያጸድቀው ይነግርዎታል።")
+    bot.send_message(message.chat.id, "✅ ዕቃው ለቁጥጥር ተልኳል! አድሚን ሲያጸድቀው ይነግርዎታል።", 
+                     reply_markup=get_vendor_dashboard(message.from_user.id))
+
 
 
 
