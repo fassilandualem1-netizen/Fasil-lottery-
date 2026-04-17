@@ -1469,12 +1469,12 @@ def process_item_photo(message, item_name, category, price):
         
         db = load_data()
         
-        # 🟢 ለውጥ 1፡ 'pending_items' እንደ Dictionary (መዝገብ) እንዲጠቀም ማስተካከል
-        if 'pending_items' not in db or isinstance(db['pending_items'], list): 
+        # 🟢 እርግጠኛ ለመሆን Dictionary መሆኑን ቼክ እናደርጋለን
+        if 'pending_items' not in db or not isinstance(db['pending_items'], dict): 
             db['pending_items'] = {}
         
-        # የእቃው መለያ ቁጥር (በሰዓቱ ሚሊሰከንድ መጠቀም ይቻላል ወይም በቁጥር)
-        item_id = str(len(db['pending_items']) + 1)
+        # 🆔 ሰከንድን በመጠቀም ልዩ ID እንፈጥራለን (አይደገምም)
+        item_id = str(int(time.time()))
         
         new_item = {
             "vendor_id": v_id,
@@ -1488,10 +1488,10 @@ def process_item_photo(message, item_name, category, price):
         db['pending_items'][item_id] = new_item
         save_data(db)
 
-        # 1. ለድርጅቱ ማሳወቅ
+        # ለድርጅቱ ማሳወቅ
         bot.send_message(message.chat.id, "✅ ዕቃው ለፈቃድ ወደ አድሚን ተልኳል።")
 
-        # 2. ለአድሚን (ለአንተ) መላክ
+        # ለአድሚን (ለአንተ) መላክ
         markup = types.InlineKeyboardMarkup()
         markup.add(
             types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"approve_item_{item_id}"),
@@ -1503,17 +1503,14 @@ def process_item_photo(message, item_name, category, price):
                      f"🍎 ዕቃ፦ {item_name}\n"
                      f"💰 ዋጋ፦ {price} ETB")
 
-        # ለአድሚን መላክ
         for admin_id in ADMIN_IDS:
             try:
                 bot.send_photo(admin_id, photo_id, caption=admin_msg, reply_markup=markup, parse_mode="Markdown")
             except Exception as e:
-                print(f"ለአድሚን {admin_id} ሲላክ ስህተት፦ {e}")
+                print(f"Admin Error: {e}")
 
     except Exception as e:
-        print(f"❌ Error in process_item_photo: {e}")
-        bot.send_message(message.chat.id, f"❌ ስህተት ተከስቷል፦ {e}")
-
+        bot.send_message(message.chat.id, f"❌ ስህተት፦ {e}")
 
 
 
