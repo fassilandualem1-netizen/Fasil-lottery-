@@ -410,75 +410,29 @@ def central_admin_handler(call):
     elif call.data == "admin_profit_track":
         view_total_profit(call)
 
+    # 3. የአጽድቅ/ሰርዝ ሎጂክ (ስህተቱ የነበረበት ቦታ)
     elif call.data.startswith("approve_item_"):
         try:
-            # ✅ ማስተካከያ፡ ዳታውን በትክክል መበተን
-            data_parts = call.data.split("_")
-item_id = data_parts[-1] # የመጨረሻውን ቁራጭ (ID) ብቻ ይወስዳል
-            
-            db = load_data()
-            pending = db.get('pending_items', {})
-
-            if item_id in pending:
-                item = pending.pop(item_id)
-                v_id = str(item['vendor_id'])
-                
-                if 'vendors_list' not in db: db['vendors_list'] = {}
-                if v_id not in db['vendors_list']:
-                    db['vendors_list'][v_id] = {'name': 'Unknown Vendor', 'items': []}
-                
-                if 'items' not in db['vendors_list'][v_id]:
-                    db['vendors_list'][v_id]['items'] = []
-                
-                db['vendors_list'][v_id]['items'].append({
-                    "name": item['item_name'],
-                    "price": item['price'],
-                    "category": item['category'],
-                    "photo": item['photo']
-                })
-                
-                save_data(db)
-                
-                bot.edit_message_caption(
-                    caption=f"✅ **በተሳካ ሁኔታ ጸድቋል!**\n\n🍎 ዕቃ፦ {item['item_name']}\n🏢 ድርጅት፦ {db['vendors_list'][v_id].get('name')}",
-                    chat_id=call.message.chat.id,
-                    message_id=call.message.message_id
-                )
-                
-                try: bot.send_message(v_id, f"🎉 እንኳን ደስ አለዎት! **'{item['item_name']}'** በአድሚን ጸድቋል።")
-                except: pass
-            else:
-                bot.answer_callback_query(call.id, "❌ ይህ እቃ አልተገኘም!", show_alert=True)
-                
+            item_id = call.data.split("_")[-1]
+            # ወደ ትክክለኛው approve_item ፈንክሽን እንልከዋለን
+            # እዚህ ጋር call-ን በቀጥታ ማለፍ ይቻላል
+            approve_item(call) 
         except Exception as e:
-            # ⚠️ ይህ 'except' ብሎክ ነው የጎደለው
-            bot.answer_callback_query(call.id, f"❌ ስህተት፦ {str(e)}", show_alert=True)
-
+            bot.answer_callback_query(call.id, f"Error: {e}")
 
     elif call.data.startswith("reject_item_"):
         try:
-            # ✅ ማስተካከያ፡ እዚህም ተጨምሯል
-            data_parts = call.data.split("_")
-            item_id = data_parts 
-            
+            item_id = call.data.split("_")[-1]
+            # ውድቅ የማድረጊያ ሎጂክ
             db = load_data()
-            pending = db.get('pending_items', {})
-
-            if item_id in pending:
-                item = pending.pop(item_id)
+            if item_id in db.get('pending_items', {}):
+                db['pending_items'].pop(item_id)
                 save_data(db)
-
-                bot.edit_message_caption(caption=f"❌ **ውድቅ ተደርጓል!**\n\n🍎 ዕቃ፦ {item['item_name']}", 
-                                         chat_id=call.message.chat.id, 
-                                         message_id=call.message.message_id)
-
-                try: bot.send_message(item['vendor_id'], f"⚠️ ይቅርታ፣ ያስገቡት ዕቃ '{item['item_name']}' ውድቅ ተደርጓል።")
-                except: pass
+                bot.edit_message_caption("❌ ውድቅ ተደርጓል!", call.message.chat.id, call.message.message_id)
             else:
-                bot.answer_callback_query(call.id, "❌ እቃው አልተገኘም!")
+                bot.answer_callback_query(call.id, "ዕቃው አልተገኘም")
         except Exception as e:
-            bot.answer_callback_query(call.id, f"❌ ስህተት፦ {str(e)}")
-
+            bot.answer_callback_query(call.id, f"Error: {e}")
 
     elif call.data == "admin_set_commission":
         start_commission_setting(call) # አዲሱን ሰንሰለት ይጀምራል
