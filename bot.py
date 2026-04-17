@@ -937,27 +937,46 @@ def start_checkout(call):
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('v_accept_'))
-def vendor_accept_order(call):
-    _, _, order_id, customer_id = call.data.split('_')
-    
-    # የትዕዛዙን ሁኔታ በዳታቤዝ መቀየር
+def vendor_accept_handler(call):
+    order_id = call.data.replace("v_accept_", "")
     db = load_data()
-    if order_id in db.get('orders', {}):
-        db['orders'][order_id]['status'] = "Accepted (በዝግጅት ላይ)"
-        save_data(db)
-        
-        # 1. ለሻጩ ማረጋገጫ
-        bot.edit_message_text(f"✅ ትዕዛዝ #{order_id} ተቀብለዋል። እባክዎ ማዘጋጀት ይጀምሩ።", 
-                              call.message.chat.id, call.message.message_id)
-        
-        # 2. ለደንበኛው ማሳወቅ
-        try:
-            bot.send_message(customer_id, f"🔔 **መልካም ዜና!**\n\nትዕዛዝ ቁጥር `#{order_id}` በሻጩ ተቀባይነት አግኝቷል። አሁን በዝግጅት ላይ ነው።")
-        except:
-            pass
-    else:
-        bot.answer_callback_query(call.id, "⚠️ ትዕዛዙ አልተገኘም!")
+    
+    if order_id not in db.get('orders', {}):
+        return bot.answer_callback_query(call.id, "❌ ትዕዛዙ አልተገኘም!")
 
+    order_data = db['orders'][order_id]
+    
+    # ሁኔታውን ማዘመን
+    db['orders'][order_id]['status'] = "Accepted by Vendor"
+    save_data(db)
+
+    # 1. ለቬንደሩ ማሳወቅ
+    bot.edit_message_text(f"✅ ትዕዛዝ #{order_id} ተቀብለዋል። መረጃው ለደላላ ተላልፏል።", 
+                          call.message.chat.id, call.message.message_id)
+    
+    # 2. ለደላላው (Driver) መረጃውን ማስተላለፍ
+    riders = db.get('riders_list', {})
+    
+    # የርቀት ስሌት እዚህ ጋር ማካተት ትችላለህ
+    msg_for_driver = (f"🛵 **አዲስ የዲሊቨሪ ትዕዛዝ!**\n"
+                      f"━━━━━━━━━━━━━━\n"
+                      f"🆔 ትዕዛዝ፦ #{order_id}\n"
+                      f"📍 አድራሻ፦ {order_data.get('address')}\n"
+                      f"💰 ጠቅላላ፦ {order_data.get('total')} ETB\n"
+                      f"━━━━━━━━━━━━━━")
+    
+    rider_markup = types.InlineKeyboardMarkup()
+    rider_markup.add(types.InlineKeyboardButton("✅ ስራውን ውሰድ", callback_data=f"r_take_{order_id}"))
+
+    # Online ለሆኑ ደላላዎች ብቻ መላክ
+    for r_id, r_info in riders.items():
+        if r_info.get('status') == "Active":
+            try:
+                bot.send_message(r_id, msg_for_driver, reply_markup=rider_markup)
+            except:
+                continue
+
+    bot.answer_callback_query(call.id, "ትዕዛዙ ተረጋግጧል!")
 
 
 
