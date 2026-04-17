@@ -568,6 +568,36 @@ def central_vendor_handler(call):
                                           reply_markup=get_vendor_dashboard(v_id))
 
 
+# ይህንን central_admin_handler ባለበት ወይም አዲስ Callback Handler ጋር ጨምረው
+@bot.callback_query_handler(func=lambda call: call.data.startswith(('edit_item_', 'delete_item_', 'confirm_del_')))
+def handle_item_management(call):
+    data_parts = call.data.split("_")
+    action = data_parts
+    item_id = data_parts[-1]
+    
+    db = load_data()
+
+    if action == "delete": # ለመሰረዝ ሲጫን
+        markup = types.InlineKeyboardMarkup()
+        yes_btn = types.InlineKeyboardButton("✅ አዎ አጥፋው", callback_data=f"confirm_del_{item_id}")
+        no_btn = types.InlineKeyboardButton("❌ ተመለስ", callback_data="cancel_action")
+        markup.add(yes_btn, no_btn)
+        bot.edit_message_caption("⚠️ ይህንን ዕቃ ለመሰረዝ እርግጠኛ ነዎት?", call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+    elif action == "confirm": # ማረጋገጫውን ሲጫን
+        if item_id in db.get('items', {}):
+            del db['items'][item_id]
+            save_data(db)
+            bot.answer_callback_query(call.id, "✅ ዕቃው ተሰርዟል!")
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+        else:
+            bot.answer_callback_query(call.id, "❌ ዕቃው አልተገኘም")
+
+    elif action == "edit": # ለማስተካከያ (ለምሳሌ ዋጋ ለመቀየር)
+        msg = bot.send_message(call.message.chat.id, "🔢 አዲሱን ዋጋ ያስገቡ (ለመተው 'cancel' ይበሉ)፦")
+        bot.register_next_step_handler(msg, lambda m: update_item_price(m, item_id))
+
+
 # --- 1. የደላላው ማዕከላዊ ትራፊክ (Callback Handler) ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('rider_'))
 def central_rider_handler(call):
@@ -1575,6 +1605,56 @@ def process_item_finish(message, item_data, temp_id):
         bot.send_message(message.chat.id, "⚠️ መረጃው ተመዝግቧል ግን ለአድሚን መላክ አልተቻለም።")
     
     print("--- 🕵️ DEBUG: END --- \n")
+
+def update_item_price(message, item_id):
+    if message.text.lower() == 'cancel':
+        bot.send_message(message.chat.id, "❌ አልተቀየረም።")
+        return
+
+    try:
+        new_price = float(message.text)
+        db = load_data()
+        if item_id in db['items']:
+            db['items'][item_id]['price'] = new_price
+            save_data(db)
+            bot.send_message(message.chat.id, f"✅ የዕቃው ዋጋ ወደ {new_price} ተቀይሯል!")
+    except ValueError:
+        bot.send_message(message.chat.id, "❌ እባክዎ ትክክለኛ ቁጥር ያስገቡ።")
+
+
+def show_my_items(message):
+    user_id = str(message.chat.id)
+    db = load_data()
+    items = db.get('items', {})
+    
+    found_any = False
+    
+    for item_id, item_info in items.items():
+        # የባለቤቱ መሆኑን ቼክ እናደርጋለን
+        if str(item_info.get('owner_id')) == user_id:
+            found_any = True
+            
+            # ለእያንዳንዱ ዕቃ የራሱ ማስተካከያ በተኖች
+            markup = types.InlineKeyboardMarkup(row_width=2)
+            edit_btn = types.InlineKeyboardButton("📝 አስተካክል", callback_data=f"edit_item_{item_id}")
+            delete_btn = types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"delete_item_{item_id}")
+            markup.add(edit_btn, delete_btn)
+            
+            text = (
+                f"📦 **የዕቃ ስም፦** {item_info.get('name')}\n"
+                f"💰 **ዋጋ፦** {item_info.get('price')} ETB\n"
+                f"📁 **ምድብ፦** {item_info.get('category', 'ያልተገለጸ')}\n"
+                f"✅ **ሁኔታ፦** {item_info.get('status', 'Active')}"
+            )
+            
+            # ዕቃው ፎቶ ካለው ከፎቶው ጋር ይላካል
+            if item_info.get('photo_id'):
+                bot.send_photo(user_id, item_info['photo_id'], caption=text, reply_markup=markup, parse_mode="Markdown")
+            else:
+                bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
+
+    if not found_any:
+        bot.send_message(user_id, "📭 እስካሁን ያስመዘገቡት ዕቃ የለም።")
 
 
 
