@@ -520,6 +520,8 @@ def central_vendor_handler(call):
         bot.send_message(call.message.chat.id, wallet_text, parse_mode="Markdown")
 
     elif call.data == "vendor_list_items":
+        show_my_items(call.message) # call.message መሆኑን እርግጠኛ ሁን
+
         db = load_data()
         v_id = str(call.from_user.id)
         items = db['vendors_list'].get(v_id, {}).get('items', [])
@@ -1628,33 +1630,37 @@ def show_my_items(message):
     user_id = str(message.chat.id)
     db = load_data()
     
-    # በኮድህ መሠረት ዕቃዎቹ ያሉት እዚህ ውስጥ ነው
-    vendor_data = db.get('vendors_list', {}).get(user_id, {})
-    items = vendor_data.get('items', {}) 
+    # በኮድህ መዋቅር መሠረት ዕቃዎቹ ያሉት እዚህ ውስጥ ነው
+    vendor_info = db.get('vendors_list', {}).get(user_id, {})
+    items = vendor_info.get('items', {}) 
     
-    if not items:
+    if not items or not isinstance(items, dict):
         return bot.send_message(user_id, "📭 እስካሁን የጸደቀ ወይም የተመዘገበ ዕቃ የለዎትም።")
 
+    bot.send_message(user_id, "📦 **የእርስዎ የጸደቁ ዕቃዎች ዝርዝር፦**")
+    
     for item_id, item_info in items.items():
         markup = types.InlineKeyboardMarkup(row_width=2)
-        # item_id ለ callback_data እንዲያገለግል እናረጋግጣለን
         clean_id = str(item_id)
         
-        edit_btn = types.InlineKeyboardButton("📝 አስተካክል", callback_data=f"edit_item_{clean_id}")
+        edit_btn = types.InlineKeyboardButton("📝 ዋጋ ቀይር", callback_data=f"edit_item_{clean_id}")
         delete_btn = types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"delete_item_{clean_id}")
         markup.add(edit_btn, delete_btn)
         
         text = (
-            f"📦 **የዕቃ ስም፦** {item_info.get('name')}\n"
+            f"🍎 **የዕቃ ስም፦** {item_info.get('name')}\n"
             f"💰 **ዋጋ፦** {item_info.get('price')} ETB\n"
-            f"📁 **ምድብ፦** {item_info.get('category', 'ያልተገለጸ')}"
+            f"📁 **ምድብ፦** {item_info.get('category', 'ያልተጠቀሰ')}"
         )
         
-        # ፎቶ ካለው ከፎቶው ጋር እንዲላክ
         if item_info.get('photo'):
-            bot.send_photo(user_id, item_info['photo'], caption=text, reply_markup=markup, parse_mode="Markdown")
+            try:
+                bot.send_photo(user_id, item_info['photo'], caption=text, reply_markup=markup, parse_mode="Markdown")
+            except:
+                bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
         else:
             bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
+
 
 
 
