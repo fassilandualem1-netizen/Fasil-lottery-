@@ -572,8 +572,9 @@ def central_vendor_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('edit_item_', 'delete_item_', 'confirm_del_')))
 def handle_item_management(call):
     data_parts = call.data.split("_")
-    action = data_parts
+    action = data_parts # edit ወይም delete ወይም confirm
     item_id = data_parts[-1]
+    user_id = str(call.from_user.id)
     
     db = load_data()
 
@@ -582,21 +583,22 @@ def handle_item_management(call):
         yes_btn = types.InlineKeyboardButton("✅ አዎ አጥፋው", callback_data=f"confirm_del_{item_id}")
         no_btn = types.InlineKeyboardButton("❌ ተመለስ", callback_data="cancel_action")
         markup.add(yes_btn, no_btn)
-        bot.edit_message_caption("⚠️ ይህንን ዕቃ ለመሰረዝ እርግጠኛ ነዎት?", call.message.chat.id, call.message.message_id, reply_markup=markup)
+        # ጽሁፉን መቀየር (ካፕሽን ካለው)
+        try:
+            bot.edit_message_caption("⚠️ ይህንን ዕቃ ለመሰረዝ እርግጠኛ ነዎት?", call.message.chat.id, call.message.message_id, reply_markup=markup)
+        except:
+            bot.edit_message_text("⚠️ ይህንን ዕቃ ለመሰረዝ እርግጠኛ ነዎት?", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
     elif action == "confirm": # ማረጋገጫውን ሲጫን
-        if item_id in db.get('items', {}):
-            del db['items'][item_id]
+        if user_id in db.get('vendors_list', {}) and item_id in db['vendors_list'][user_id].get('items', {}):
+            del db['vendors_list'][user_id]['items'][item_id]
             save_data(db)
             bot.answer_callback_query(call.id, "✅ ዕቃው ተሰርዟል!")
             bot.delete_message(call.message.chat.id, call.message.message_id)
-        else:
-            bot.answer_callback_query(call.id, "❌ ዕቃው አልተገኘም")
 
-    elif action == "edit": # ለማስተካከያ (ለምሳሌ ዋጋ ለመቀየር)
+    elif action == "edit": # ለማስተካከያ
         msg = bot.send_message(call.message.chat.id, "🔢 አዲሱን ዋጋ ያስገቡ (ለመተው 'cancel' ይበሉ)፦")
         bot.register_next_step_handler(msg, lambda m: update_item_price(m, item_id))
-
 
 # --- 1. የደላላው ማዕከላዊ ትራፊክ (Callback Handler) ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('rider_'))
@@ -1623,35 +1625,37 @@ def update_item_price(message, item_id):
 
 
 def show_my_items(message):
-    user_id = str(message.chat.id) # የላኪው ID
+    user_id = str(message.chat.id)
     db = load_data()
-    items = db.get('items', {})
     
-    found_any = False
+    # በኮድህ መሠረት ዕቃዎቹ ያሉት እዚህ ውስጥ ነው
+    vendor_data = db.get('vendors_list', {}).get(user_id, {})
+    items = vendor_data.get('items', {}) 
     
+    if not items:
+        return bot.send_message(user_id, "📭 እስካሁን የጸደቀ ወይም የተመዘገበ ዕቃ የለዎትም።")
+
     for item_id, item_info in items.items():
-        # የባለቤቱን መለያ በትክክል መፈተሽ
-        owner_id = str(item_info.get('owner_id'))
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        # item_id ለ callback_data እንዲያገለግል እናረጋግጣለን
+        clean_id = str(item_id)
         
-        if owner_id == user_id:
-            found_any = True
-            markup = types.InlineKeyboardMarkup(row_width=2)
-            # እዚህ ጋር item_id ስትሪንግ መሆኑን እናረጋግጣለን
-            clean_id = str(item_id)
-            
-            edit_btn = types.InlineKeyboardButton("📝 አስተካክል", callback_data=f"edit_item_{clean_id}")
-            delete_btn = types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"delete_item_{clean_id}")
-            markup.add(edit_btn, delete_btn)
-            
-            text = (
-                f"📦 **የዕቃ ስም፦** {item_info.get('name')}\n"
-                f"💰 **ዋጋ፦** {item_info.get('price')} ETB\n"
-                f"✅ **ሁኔታ፦** {item_info.get('status', 'Active')}"
-            )
+        edit_btn = types.InlineKeyboardButton("📝 አስተካክል", callback_data=f"edit_item_{clean_id}")
+        delete_btn = types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"delete_item_{clean_id}")
+        markup.add(edit_btn, delete_btn)
+        
+        text = (
+            f"📦 **የዕቃ ስም፦** {item_info.get('name')}\n"
+            f"💰 **ዋጋ፦** {item_info.get('price')} ETB\n"
+            f"📁 **ምድብ፦** {item_info.get('category', 'ያልተገለጸ')}"
+        )
+        
+        # ፎቶ ካለው ከፎቶው ጋር እንዲላክ
+        if item_info.get('photo'):
+            bot.send_photo(user_id, item_info['photo'], caption=text, reply_markup=markup, parse_mode="Markdown")
+        else:
             bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
 
-    if not found_any:
-        bot.send_message(user_id, "📭 እስካሁን የጸደቀ ወይም የተመዘገበ ዕቃ የለዎትም።")
 
 
 
