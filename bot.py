@@ -1517,22 +1517,20 @@ def process_item_name(message):
 
 # 2. ምድብ ሲመረጥ ወደ ዋጋ መጠየቅ ይመራል
 def process_item_category(message, item_name):
+    if message.text == "/start": return start_cmd(message)
     category = message.text.strip()
-    msg = bot.send_message(message.chat.id, f"💰 የ **'{item_name}'** ዋጋ በብር ያስገቡ፦", reply_markup=types.ReplyKeyboardRemove())
-    # ቀጣይ እርምጃ፦ ዋጋ መቀበል
+    msg = bot.send_message(message.chat.id, f"💰 የ **'{item_name}'** ዋጋ በብር ያስገቡ፦")
     bot.register_next_step_handler(msg, process_item_price, item_name, category)
 
-# 3. ዋጋ ሲቀበል ወደ ፎቶ መጠየቅ ይመራል
 def process_item_price(message, item_name, category):
+    if message.text == "/start": return start_cmd(message)
     try:
-        price_text = message.text.strip()
-        price = float(price_text)
+        price = float(message.text.strip())
         msg = bot.send_message(message.chat.id, f"📸 የ **'{item_name}'** ፎቶ ይላኩ፦")
-        # ቀጣይ እርምጃ፦ ፎቶ መቀበል
         bot.register_next_step_handler(msg, process_item_photo, item_name, category, price)
     except ValueError:
         msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ፦")
-        bot.register_next_step_handler(msg, process_item_price, item_name, category)
+        bot.register_next_step_handler(msg, process_item_price, item_name, category) bot.register_next_step_handler(msg, process_item_price, item_name, category)
 
 # 4. ፎቶውን ተቀብሎ በጊዜያዊነት ያከማቻል
 def process_item_photo(message, item_name, category, price):
