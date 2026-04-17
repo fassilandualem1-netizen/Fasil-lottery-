@@ -573,8 +573,21 @@ def vendor_accept_order(call):
     bot.edit_message_text(f"✅ ትዕዛዝ #{order_id} ተቀብለዋል። እቃውን ማዘጋጀት ይጀምሩ።", 
                           call.message.chat.id, call.message.message_id)
 
+
+
+
     # 3. ለሁሉም ደላላዎች (Drivers) ማሳወቂያ መላክ (ዋናው ክፍል ይህ ነው!)
-    notify_drivers_about_new_order(order_id, order)
+def send_order_to_vendor(vendor_id, order_id, order_details):
+    markup = types.InlineKeyboardMarkup()
+    # ⚠️ እዚህ ጋር 'v_accept_' መሆኑን በደንብ እይ
+    btn_accept = types.InlineKeyboardButton("✅ ትዕዛዝ ተቀበል", callback_data=f"v_accept_{order_id}")
+    btn_reject = types.InlineKeyboardButton("❌ አትቀበል", callback_data=f"v_reject_{order_id}")
+    markup.add(btn_accept, btn_reject)
+
+    text = f"🔔 **አዲስ ትዕዛዝ መጥቷል!**\n\n🆔 ትዕዛዝ ቁጥር፦ #{order_id}\n{order_details}"
+    bot.send_message(vendor_id, text, reply_markup=markup, parse_mode="Markdown")
+    
+
 
 
 
