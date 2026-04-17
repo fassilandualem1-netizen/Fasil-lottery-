@@ -952,37 +952,69 @@ def start_checkout(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith('v_accept_'))
 def vendor_accept_order(call):
     try:
-        # 🔍 ስህተቱ የነበረው እዚህ ጋ ነው፦ ዳታውን በትክክል መበለት
-        # ዳታው የሚመጣው "v_accept_{order_id}" ተብሎ ነው
+        # 1. order_id ማውጣት (ከ v_accept_123)
         data = call.data.split('_')
-        order_id = data # ከ v_accept_ በኋላ ያለው order_id ነው
+        order_id = data[-1] 
         
         db = load_data()
-        order = db.get('orders', {}).get(order_id)
+        
+        if order_id not in db.get('orders', {}):
+            return bot.answer_callback_query(call.id, "❌ ትዕዛዙ አልተገኘም!", show_alert=True)
 
-        if not order:
-            return bot.answer_callback_query(call.id, "❌ ትዕዛዙ በዳታቤዝ ውስጥ አልተገኘም!")
+        order_data = db['orders'][order_id]
 
-        # 1. የትዕዛዙን ሁኔታ መቀየር
+        # 2. ሁኔታውን ማዘመን
         db['orders'][order_id]['status'] = "Accepted by Vendor"
         save_data(db)
 
-        # 2. ለሻጩ (Vendor) ማረጋገጫ መስጠት
+        # 3. ለቬንደሩ በተኑን መቀየር (ይህ "Accept" መስራቱን ያረጋግጣል)
         bot.edit_message_text(
-            f"✅ ትዕዛዝ #{order_id} ተቀብለዋል። እቃውን ማዘጋጀት ይጀምሩ። መረጃው ለደላላ ተላልፏል!", 
-            call.message.chat.id, 
-            call.message.message_id
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=f"✅ ትዕዛዝ #{order_id} ተቀብለዋል። ለደላላዎች መረጃ ተልኳል!"
         )
-
-        # 3. ለሁሉም ደላላዎች (Drivers) ማሳወቂያ መላክ
-        # ይህ ፈንክሽን ከታች መኖሩን አረጋግጥ
-        notify_drivers_about_new_order(order_id, order)
         
-        bot.answer_callback_query(call.id, "ትዕዛዙ ተረጋግጧል")
+        # 4. ወደ ድርቨር መላኪያ (ይህ ነው ዋናው ክፍል)
+        # ⚠️ እዚህ ጋር Try/Except ውስጥ የከተትኩት ድርቨር መላክ ላይ ስህተት ቢኖር እንኳን አክሴፕት እንዳይበላሽ ነው
+        try:
+            notify_drivers_about_new_order(order_id, order_data)
+        except Exception as e:
+            print(f"❌ Driver Notification Error: {e}")
+            bot.send_message(call.message.chat.id, "⚠️ ትዕዛዙ ተቀብለዋል፣ ነገር ግን ለደላላዎች ማሳወቂያ መላክ ላይ ችግር ተፈጥሯል።")
+
+        bot.answer_callback_query(call.id, "ተረክበዋል!")
 
     except Exception as e:
-        print(f"❌ Vendor Accept Error: {e}")
+        print(f"❌ General Accept Error: {e}")
         bot.answer_callback_query(call.id, "ስህተት ተፈጥሯል!")
+
+
+def notify_drivers_about_new_order(order_id, order_data):
+    db = load_data()
+    riders = db.get('riders_list', {})
+    
+    # ለደላላው የሚታይ ዝርዝር
+    msg_text = (f"🛵 **አዲስ የዲሊቨሪ ትዕዛዝ!**\n"
+                f"━━━━━━━━━━━━━━\n"
+                f"🆔 ትዕዛዝ፦ #{order_id}\n"
+                f"📍 አድራሻ፦ {order_data.get('address', 'ያልተጠቀሰ')}\n"
+                f"💰 ጠቅላላ፦ {order_data.get('total', 0)} ETB\n"
+                f"━━━━━━━━━━━━━━")
+    
+    markup = types.InlineKeyboardMarkup()
+    # ደላላው ስራውን ለመቀበል የሚጫነው በተን
+    markup.add(types.InlineKeyboardButton("✅ ስራውን ውሰድ", callback_data=f"r_take_{order_id}"))
+
+    sent_count = 0
+    for r_id, r_info in riders.items():
+        # ሁኔታቸው 'Active' ለሆኑ ብቻ
+        if r_info.get('status') == "Active":
+            try:
+                bot.send_message(r_id, msg_text, reply_markup=markup, parse_mode="Markdown")
+                sent_count += 1
+            except:
+                continue
+    print(f"📢 ማሳወቂያ ለ {sent_count} ደላላዎች ተልኳል።")
 
 
 
@@ -2431,32 +2463,6 @@ def show_my_items(message):
         else:
             bot.send_message(message.chat.id, text, reply_markup=markup)
 
-
-
-def notify_drivers_about_new_order(order_id, order_data):
-    db = load_data()
-    riders = db.get('riders_list', {})
-    
-    # ለደላላው የሚላክ ዝርዝር
-    msg_text = (f"🛵 **አዲስ የዲሊቨሪ ትዕዛዝ!**\n"
-                f"━━━━━━━━━━━━━━\n"
-                f"🆔 ትዕዛዝ ቁጥር፦ #{order_id}\n"
-                f"🛍 እቃዎች፦ {order_data.get('items_list', 'ዝርዝር የለም')}\n"
-                f"📍 አድራሻ፦ {order_data.get('address', 'ያልታወቀ')}\n"
-                f"💰 ጠቅላላ ክፍያ፦ {order_data.get('total', 0)} ETB\n"
-                f"━━━━━━━━━━━━━━")
-    
-    markup = types.InlineKeyboardMarkup()
-    # r_take_ መሆኑን አረጋግጥ (ከ rider_take_order ጋር እንዲዛመድ)
-    markup.add(types.InlineKeyboardButton("✅ ትዕዛዙን ተቀበል", callback_data=f"r_take_{order_id}"))
-
-    # Online (Active) ለሆኑ ደላላዎች ብቻ መላክ
-    for r_id, r_info in riders.items():
-        if r_info.get('status') == "Active":
-            try:
-                bot.send_message(r_id, msg_text, reply_markup=markup, parse_mode="Markdown")
-            except Exception as e:
-                print(f"ለደላላ {r_id} መላክ አልተቻለም፦ {e}")
 
 
 
