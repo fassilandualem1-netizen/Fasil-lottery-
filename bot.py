@@ -392,7 +392,8 @@ def central_admin_handler(call):
         try:
             # ✅ ማስተካከያ፡ ተጨምሯል (IDዋን ብቻ ለመውሰድ)
             data_parts = call.data.split("_")
-            item_id = data_parts 
+item_id = data_parts # 0=approve, 1=item, 2=ID
+ 
             
             db = load_data()
             pending = db.get('pending_items', {})
