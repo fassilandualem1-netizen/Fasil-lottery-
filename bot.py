@@ -952,9 +952,12 @@ def start_checkout(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith('v_accept_'))
 def vendor_accept_order(call):
     try:
-        # 1. order_id ማውጣት (ከ v_accept_123)
+        # ዳታውን እንበልጥ (v_accept_ORDERID_USERID)
         data = call.data.split('_')
-        order_id = data[-1] 
+        
+        # ኢንዴክሱን በትክክል እንቁጠር
+        # 0: v, 1: accept, 2: order_id, 3: user_id
+        order_id = data 
         
         db = load_data()
         
@@ -963,30 +966,28 @@ def vendor_accept_order(call):
 
         order_data = db['orders'][order_id]
 
-        # 2. ሁኔታውን ማዘመን
+        # 1. ሁኔታውን ማዘመን
         db['orders'][order_id]['status'] = "Accepted by Vendor"
         save_data(db)
 
-        # 3. ለቬንደሩ በተኑን መቀየር (ይህ "Accept" መስራቱን ያረጋግጣል)
+        # 2. ለሻጩ ማረጋገጫ መስጠት
         bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=f"✅ ትዕዛዝ #{order_id} ተቀብለዋል። ለደላላዎች መረጃ ተልኳል!"
+            f"✅ ትዕዛዝ #{order_id} ተቀብለዋል። ለደላላዎች መረጃ ተልኳል!", 
+            call.message.chat.id, 
+            call.message.message_id
         )
-        
-        # 4. ወደ ድርቨር መላኪያ (ይህ ነው ዋናው ክፍል)
-        # ⚠️ እዚህ ጋር Try/Except ውስጥ የከተትኩት ድርቨር መላክ ላይ ስህተት ቢኖር እንኳን አክሴፕት እንዳይበላሽ ነው
+
+        # 3. ለደላላዎች መላክ (ይህ የግድ መሰራት አለበት)
         try:
             notify_drivers_about_new_order(order_id, order_data)
         except Exception as e:
-            print(f"❌ Driver Notification Error: {e}")
-            bot.send_message(call.message.chat.id, "⚠️ ትዕዛዙ ተቀብለዋል፣ ነገር ግን ለደላላዎች ማሳወቂያ መላክ ላይ ችግር ተፈጥሯል።")
+            print(f"Driver Notification Error: {e}")
 
-        bot.answer_callback_query(call.id, "ተረክበዋል!")
+        bot.answer_callback_query(call.id, "ተረክበዋል")
 
     except Exception as e:
-        print(f"❌ General Accept Error: {e}")
-        bot.answer_callback_query(call.id, "ስህተት ተፈጥሯል!")
+        print(f"❌ Accept Logic Error: {e}")
+        bot.answer_callback_query(call.id, "ስህተት ተፈጥሯል")
 
 
 def notify_drivers_about_new_order(order_id, order_data):
