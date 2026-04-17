@@ -574,33 +574,33 @@ def central_vendor_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('edit_item_', 'delete_item_', 'confirm_del_')))
 def handle_item_management(call):
     data_parts = call.data.split("_")
-    action = data_parts # edit ወይም delete ወይም confirm
-    item_id = data_parts[-1]
+    action = data_parts # edit ወይም delete
+    item_id = data_parts[-1] # የዕቃው ID
     user_id = str(call.from_user.id)
     
     db = load_data()
 
-    if action == "delete": # ለመሰረዝ ሲጫን
+    if action == "delete": # ለመሰረዝ ሲጫን ማረጋገጫ ይጠይቃል
         markup = types.InlineKeyboardMarkup()
         yes_btn = types.InlineKeyboardButton("✅ አዎ አጥፋው", callback_data=f"confirm_del_{item_id}")
-        no_btn = types.InlineKeyboardButton("❌ ተመለስ", callback_data="cancel_action")
+        no_btn = types.InlineKeyboardButton("❌ ተመለስ", callback_data="vendor_list_items")
         markup.add(yes_btn, no_btn)
-        # ጽሁፉን መቀየር (ካፕሽን ካለው)
+        
         try:
             bot.edit_message_caption("⚠️ ይህንን ዕቃ ለመሰረዝ እርግጠኛ ነዎት?", call.message.chat.id, call.message.message_id, reply_markup=markup)
         except:
             bot.edit_message_text("⚠️ ይህንን ዕቃ ለመሰረዝ እርግጠኛ ነዎት?", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
-    elif action == "confirm": # ማረጋገጫውን ሲጫን
+    elif action == "confirm": # አዎ ሲባል ከዳታቤዝ ያጠፋል
         if user_id in db.get('vendors_list', {}) and item_id in db['vendors_list'][user_id].get('items', {}):
             del db['vendors_list'][user_id]['items'][item_id]
             save_data(db)
-            bot.answer_callback_query(call.id, "✅ ዕቃው ተሰርዟል!")
+            bot.answer_callback_query(call.id, "✅ ዕቃው ተሰርዟል!", show_alert=True)
             bot.delete_message(call.message.chat.id, call.message.message_id)
 
-    elif action == "edit": # ለማስተካከያ
-        msg = bot.send_message(call.message.chat.id, "🔢 አዲሱን ዋጋ ያስገቡ (ለመተው 'cancel' ይበሉ)፦")
-        bot.register_next_step_handler(msg, lambda m: update_item_price(m, item_id))
+    elif action == "edit": # ዋጋ ቀይር ሲባል
+        msg = bot.send_message(call.message.chat.id, "🔢 አዲሱን ዋጋ ያስገቡ (ለምሳሌ፦ 250)፦")
+        bot.register_next_step_handler(msg, update_item_price_logic, item_id)
 
 # --- 1. የደላላው ማዕከላዊ ትራፊክ (Callback Handler) ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('rider_'))
@@ -1610,47 +1610,50 @@ def process_item_finish(message, item_data, temp_id):
     
     print("--- 🕵️ DEBUG: END --- \n")
 
-def update_item_price(message, item_id):
-    if message.text.lower() == 'cancel':
-        bot.send_message(message.chat.id, "❌ አልተቀየረም።")
-        return
-
+def update_item_price_logic(message, item_id):
+    user_id = str(message.from_user.id)
     try:
-        new_price = float(message.text)
+        new_price = float(message.text.strip())
         db = load_data()
-        if item_id in db['items']:
-            db['items'][item_id]['price'] = new_price
+        
+        if user_id in db.get('vendors_list', {}) and item_id in db['vendors_list'][user_id].get('items', {}):
+            db['vendors_list'][user_id]['items'][item_id]['price'] = new_price
             save_data(db)
-            bot.send_message(message.chat.id, f"✅ የዕቃው ዋጋ ወደ {new_price} ተቀይሯል!")
+            
+            bot.send_message(message.chat.id, f"✅ ዋጋው በትክክል ተቀይሯል! አዲሱ ዋጋ፦ **{new_price} ETB**", parse_mode="Markdown")
+            # ወደ ዝርዝሩ እንዲመለስ
+            show_my_items(message)
+        else:
+            bot.send_message(message.chat.id, "❌ ስህተት፦ ዕቃው አልተገኘም።")
     except ValueError:
-        bot.send_message(message.chat.id, "❌ እባክዎ ትክክለኛ ቁጥር ያስገቡ።")
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ፦")
+        bot.register_next_step_handler(msg, update_item_price_logic, item_id)
 
 
 def show_my_items(message):
     user_id = str(message.chat.id)
     db = load_data()
     
-    # በኮድህ መዋቅር መሠረት ዕቃዎቹ ያሉት እዚህ ውስጥ ነው
     vendor_info = db.get('vendors_list', {}).get(user_id, {})
     items = vendor_info.get('items', {}) 
     
-    if not items or not isinstance(items, dict):
+    if not items:
         return bot.send_message(user_id, "📭 እስካሁን የጸደቀ ወይም የተመዘገበ ዕቃ የለዎትም።")
 
-    bot.send_message(user_id, "📦 **የእርስዎ የጸደቁ ዕቃዎች ዝርዝር፦**")
-    
+    # '📂 የጫኗቸው ዕቃዎች ዝርዝር' የሚለው እዚህ ጋር ተወግዷል
     for item_id, item_info in items.items():
         markup = types.InlineKeyboardMarkup(row_width=2)
         clean_id = str(item_id)
         
-        edit_btn = types.InlineKeyboardButton("📝 ዋጋ ቀይር", callback_data=f"edit_item_{clean_id}")
+        # በተኖቹ ከ callback_data ጋር ተገናኝተዋል
+        edit_btn = types.InlineKeyboardButton("✏️ ዋጋ ቀይር", callback_data=f"edit_item_{clean_id}")
         delete_btn = types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"delete_item_{clean_id}")
         markup.add(edit_btn, delete_btn)
         
         text = (
-            f"🍎 **የዕቃ ስም፦** {item_info.get('name')}\n"
+            f"🍎 **ዕቃ፦** {item_info.get('name')}\n"
             f"💰 **ዋጋ፦** {item_info.get('price')} ETB\n"
-            f"📁 **ምድብ፦** {item_info.get('category', 'ያልተጠቀሰ')}"
+            f"📁 **ምድብ፦** {item_info.get('category')}"
         )
         
         if item_info.get('photo'):
@@ -1660,9 +1663,6 @@ def show_my_items(message):
                 bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
         else:
             bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
-
-
-
 
 
 
