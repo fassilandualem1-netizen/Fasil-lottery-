@@ -262,12 +262,42 @@ def get_customer_dashboard():
     markup.add(btn_profile, btn_support)
     return markup
 
+def get_rider_dashboard():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    btn_orders = types.KeyboardButton("🛵 አዲስ ትዕዛዞች")
+    btn_tasks = types.KeyboardButton("📋 የዛሬ ስራዎቼ")
+    btn_earnings = types.KeyboardButton("💰 ገቢ")
+    btn_status = types.KeyboardButton("🟢 ሁኔታዬ (Online/Offline)")
+    
+    markup.add(btn_orders)
+    markup.add(btn_tasks, btn_earnings)
+    markup.add(btn_status)
+    return markup
+
 
 # 1. መጀመሪያ ይህ መኖሩን አረጋግጥ
 def get_main_menu():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     markup.add("🏢 አጋር ድርጅቶች", "📦 ትዕዛዞች", "📊 ሪፖርት", "⚙️ ሲስተም")
     return markup
+
+
+def show_rider_menu(message):
+    user_id = str(message.from_user.id)
+    db = load_data()
+    rider_info = db.get('riders_list', {}).get(user_id, {})
+    
+    # የደላላው ሁኔታ (Online/Offline)
+    status_icon = "🟢" if rider_info.get('status') == "Active" else "🔴"
+    rider_name = rider_info.get('name', "ደላላ")
+
+    welcome_msg = (f"👋 ሰላም {rider_name}!\n"
+                   f"የአሁኑ ሁኔታዎ፦ {status_icon} {rider_info.get('status', 'Active')}\n\n"
+                   f"ከታች ያሉትን በተኖች በመጠቀም ስራዎችን ማስተዳደር ይችላሉ።")
+
+    # get_rider_dashboard() ቀደም ብለን የሰራነው ነው
+    bot.send_message(message.chat.id, welcome_msg, reply_markup=get_rider_dashboard())
+
 
 @bot.message_handler(commands=['start'])
 def start_command(message):
@@ -680,6 +710,122 @@ def show_items_by_category(call):
 
 
 
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('r_take_'))
+def rider_take_order(call):
+    order_id = call.data.replace("r_take_", "")
+    rider_id = str(call.from_user.id)
+    db = load_data()
+    
+    # ትዕዛዙ በዳታቤዝ ውስጥ መኖሩን ማረጋገጥ
+    if order_id not in db.get('orders', {}):
+        return bot.answer_callback_query(call.id, "⚠️ ይቅርታ፣ ይህ ትዕዛዝ አልተገኘም!", show_alert=True)
+    
+    order_data = db['orders'][order_id]
+    
+    # ትዕዛዙ አስቀድሞ ተወስዶ ከሆነ መፈተሽ
+    if order_data.get('rider_id'):
+        return bot.answer_callback_query(call.id, "⚠️ ይህ ትዕዛዝ በሌላ ደላላ ተወስዷል!", show_alert=True)
+
+    # ትዕዛዙን ለደላላው መመደብ
+    db['orders'][order_id]['rider_id'] = rider_id
+    db['orders'][order_id]['status'] = "Rider Assigned (ደላላ ተመድቧል)"
+    save_data(db)
+
+    # 1. ለደላላው ማረጋገጫ መስጠት
+    bot.edit_message_text(f"✅ ትዕዛዝ #{order_id} ተረክበዋል። መልካም ስራ!", 
+                          call.message.chat.id, call.message.message_id)
+    
+    # 2. ለደላላው የደንበኛውን መረጃ መላክ
+    customer_id = order_data['user_id']
+    address = order_data['address']
+    
+    details = (f"📍 **የማድረሻ ዝርዝር (# {order_id})**\n"
+               f"━━━━━━━━━━━━━━\n"
+               f"👤 **ደንበኛ፦** {customer_id}\n"
+               f"🗺 **አድራሻ፦** {address}\n"
+               f"━━━━━━━━━━━━━━")
+    
+    # ሁኔታውን ለማዘመን የሚሆኑ በተኖች
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("📍 መነሻ ላይ ነኝ", callback_data=f"r_atvendor_{order_id}"))
+    markup.add(types.InlineKeyboardButton("🚴 በመጓዝ ላይ", callback_data=f"r_ontheway_{order_id}"))
+    markup.add(types.InlineKeyboardButton("✅ ደርሻለሁ (Delivered)", callback_data=f"r_delivered_{order_id}"))
+    
+    bot.send_message(rider_id, details, reply_markup=markup, parse_mode="Markdown")
+
+    # 3. ለደንበኛው ማሳወቅ
+    try:
+        bot.send_message(customer_id, f"🛵 **ትዕዛዝዎ ተረክቧል!**\n\nደላላው {call.from_user.first_name} ትዕዛዝዎን ለማድረስ ጉዞ ጀምሯል።")
+    except:
+        pass
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('r_delivered_'))
+def rider_order_delivered(call):
+    order_id = call.data.replace("r_delivered_", "")
+    rider_id = str(call.from_user.id)
+    db = load_data()
+    
+    if order_id not in db.get('orders', {}):
+        return bot.answer_callback_query(call.id, "⚠️ ትዕዛዙ አልተገኘም!")
+
+    order_data = db['orders'][order_id]
+    
+    # ትዕዛዙ ቀድሞ ተጠናቆ ከሆነ ለመፈተሽ
+    if order_data.get('status') == "Completed":
+        return bot.answer_callback_query(call.id, "✅ ይህ ትዕዛዝ አስቀድሞ ተጠናቋል!")
+
+    # 1. የክፍያ ስሌት (ከቅድሙ ጋር ተመሳሳይ መሆን አለበት)
+    # ማሳሰቢያ፡ እዚህ ጋር ርቀቱ አስቀድሞ ተሰልቶ በ order_data ውስጥ ቢቀመጥ ይመረጣል
+    # ለጊዜው በቤዝ ፊው እናሰላው (ወይም በ order_data ውስጥ የተቀመጠ ካለ እሱን እንውሰድ)
+    
+    delivery_fee = order_data.get('delivery_fee', 50) # ትዕዛዙ ሲፈጠር የተቀመጠ ዋጋ ካለ
+    rider_share = delivery_fee * 0.8 # 80% ለደላላው
+    
+    # 2. የደላላውን ገቢ ማሳደግ
+    if 'riders_list' in db and rider_id in db['riders_list']:
+        if 'earnings' not in db['riders_list'][rider_id]:
+            db['riders_list'][rider_id]['earnings'] = 0
+        
+        db['riders_list'][rider_id]['earnings'] += rider_share
+        db['riders_list'][rider_id]['total_deliveries'] = db['riders_list'][rider_id].get('total_deliveries', 0) + 1
+    
+    # 3. የትዕዛዝ ሁኔታን መቀየር
+    db['orders'][order_id]['status'] = "Completed"
+    db['orders'][order_id]['completed_at'] = time.strftime("%Y-%m-%d %H:%M:%S")
+    
+    save_data(db)
+
+    # 4. ለደላላው መልዕክት መላክ
+    bot.edit_message_text(f"✅ ትዕዛዝ #{order_id} በተሳካ ሁኔታ ደርሷል!\n💰 ገቢዎ፦ {rider_share} ETB በሂሳብዎ ላይ ተደምሯል።", 
+                          call.message.chat.id, call.message.message_id)
+
+    # 5. ለደንበኛው ማሳወቅ
+    customer_id = order_data['user_id']
+    try:
+        completion_text = (f"🥳 **ትዕዛዝዎ ደርሷል!**\n\n"
+                           f"ጥቅሉን ስለተቀበሉ እናመሰግናለን። በB.D.F Delivery አገልግሎት እንደተደሰቱ ተስፋ እናደርጋለን! 🙏")
+        bot.send_message(customer_id, completion_text, parse_mode="Markdown")
+    except:
+        pass
+
+    # 6. ለአድሚን ማሳወቅ (አማራጭ)
+    for admin_id in ADMIN_IDS:
+        try:
+            bot.send_message(admin_id, f"📢 **ትዕዛዝ ተጠናቀቀ!**\n🆔 #{order_id}\n🛵 ደላላ፦ {call.from_user.first_name}\n💵 ለደላላ የተከፈለ፦ {rider_share} ETB")
+        except:
+            pass
+
+
+
+
+
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith('addcart_'))
 def add_to_cart_logic(call):
     # ዳታውን መበተን (item_id እና vendor_id)
@@ -946,6 +1092,85 @@ def order_history(message):
         history_msg += f"🆔 `#{o_id}` | 💰 {total} ETB\n📊 **ሁኔታ፦** {status}\n────────────────\n"
         
     bot.send_message(message.chat.id, history_msg, parse_mode="Markdown")
+
+
+@bot.message_handler(func=lambda message: message.text == "💰 ገቢ")
+def show_rider_earnings(message):
+    rider_id = str(message.from_user.id)
+    db = load_data()
+    
+    # ደላላው በዝርዝሩ ውስጥ መኖሩን ማረጋገጥ
+    rider_info = db.get('riders_list', {}).get(rider_id)
+    
+    if not rider_info:
+        return bot.send_message(message.chat.id, "❌ ይቅርታ፣ እርስዎ እንደ ደላላ አልተመዘገቡም።")
+
+    earnings = rider_info.get('earnings', 0)
+    total_tasks = rider_info.get('total_deliveries', 0)
+    
+    text = (f"💰 **የእርስዎ የገቢ መግለጫ**\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"💵 **ጠቅላላ ገቢ፦** {earnings} ETB\n"
+            f"📦 **ያከናወኑት ስራ፦** {total_tasks} ትዕዛዞች\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"<i>ማሳሰቢያ፦ ክፍያ የሚፈጸመው በአስተዳዳሪው በኩል ነው።</i>")
+    
+    bot.send_message(message.chat.id, text, parse_mode="HTML")
+
+
+@bot.message_handler(func=lambda message: message.text == "🟢 ሁኔታዬ (Online/Offline)")
+def toggle_status(message):
+    rider_id = str(message.from_user.id)
+    db = load_data()
+    
+    if rider_id not in db.get('riders_list', {}):
+        return
+        
+    current_status = db['riders_list'][rider_id].get('status', 'Active')
+    
+    if current_status == "Active":
+        db['riders_list'][rider_id]['status'] = "Offline"
+        new_status = "🔴 ከመስመር ውጭ (Offline)"
+    else:
+        db['riders_list'][rider_id]['status'] = "Active"
+        new_status = "🟢 መስመር ላይ (Online)"
+    
+    save_data(db)
+    bot.send_message(message.chat.id, f"የእርስዎ ሁኔታ ወደ {new_status} ተቀይሯል።")
+
+
+@bot.message_handler(func=lambda message: message.text == "📋 የዛሬ ስራዎቼ")
+def show_active_tasks(message):
+    rider_id = str(message.from_user.id)
+    db = load_data()
+    orders = db.get('orders', {})
+    
+    active_tasks = []
+    for o_id, o_data in orders.items():
+        if str(o_data.get('rider_id')) == rider_id and o_data.get('status') != "Completed":
+            active_tasks.append(f"🆔 #{o_id} - {o_data['status']}")
+            
+    if not active_tasks:
+        return bot.send_message(message.chat.id, "📭 በአሁኑ ሰዓት የጀመሩት ስራ የለም።")
+    
+    text = "📋 **አሁን በእጅዎ ያሉ ስራዎች፦**\n\n" + "\n".join(active_tasks)
+    bot.send_message(message.chat.id, text)
+
+
+
+
+@bot.message_handler(func=lambda message: message.text == "🛵 አዲስ ትዕዛዞች")
+def check_new_orders(message):
+    db = load_data()
+    orders = db.get('orders', {})
+    
+    # ገና ያልተያዙ ትዕዛዞች (Rider የሌላቸው)
+    available_orders = [o_id for o_id, o_data in orders.items() if not o_data.get('rider_id') and o_data.get('status') == "Accepted by Vendor"]
+    
+    if not available_orders:
+        return bot.send_message(message.chat.id, "😴 በአሁኑ ሰዓት አዲስ ትዕዛዝ የለም።")
+    
+    bot.send_message(message.chat.id, f"🔔 በአሁኑ ሰዓት {len(available_orders)} ትዕዛዞች አሉ። ማሳወቂያዎችን ይጠብቁ።")
 
 
 
