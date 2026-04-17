@@ -574,32 +574,39 @@ def central_vendor_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('edit_item_', 'delete_item_', 'confirm_del_')))
 def handle_item_management(call):
     data_parts = call.data.split("_")
-    action = data_parts # edit ወይም delete
-    item_id = data_parts[-1] # የዕቃው ID
+    # ዳታው እንዲህ ነው የሚመጣው: ['edit', 'item', 'id'] ወይም ['confirm', 'del', 'id']
+    action = data_parts 
+    item_id = data_parts[-1] 
     user_id = str(call.from_user.id)
     
     db = load_data()
 
-    if action == "delete": # ለመሰረዝ ሲጫን ማረጋገጫ ይጠይቃል
+    if action == "delete":
         markup = types.InlineKeyboardMarkup()
         yes_btn = types.InlineKeyboardButton("✅ አዎ አጥፋው", callback_data=f"confirm_del_{item_id}")
         no_btn = types.InlineKeyboardButton("❌ ተመለስ", callback_data="vendor_list_items")
         markup.add(yes_btn, no_btn)
         
+        bot.answer_callback_query(call.id)
+        # ፎቶ ከሆነ caption-ኑን ካልሆነ text-ቱን ይቀይራል
         try:
             bot.edit_message_caption("⚠️ ይህንን ዕቃ ለመሰረዝ እርግጠኛ ነዎት?", call.message.chat.id, call.message.message_id, reply_markup=markup)
         except:
             bot.edit_message_text("⚠️ ይህንን ዕቃ ለመሰረዝ እርግጠኛ ነዎት?", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
-    elif action == "confirm": # አዎ ሲባል ከዳታቤዝ ያጠፋል
+    elif action == "confirm":
         if user_id in db.get('vendors_list', {}) and item_id in db['vendors_list'][user_id].get('items', {}):
             del db['vendors_list'][user_id]['items'][item_id]
             save_data(db)
             bot.answer_callback_query(call.id, "✅ ዕቃው ተሰርዟል!", show_alert=True)
             bot.delete_message(call.message.chat.id, call.message.message_id)
+        else:
+            bot.answer_callback_query(call.id, "❌ ዕቃው አልተገኘም።", show_alert=True)
 
-    elif action == "edit": # ዋጋ ቀይር ሲባል
+    elif action == "edit":
+        bot.answer_callback_query(call.id)
         msg = bot.send_message(call.message.chat.id, "🔢 አዲሱን ዋጋ ያስገቡ (ለምሳሌ፦ 250)፦")
+        # ወደ ዋጋ መቀየሪያ ሎጂክ ይልከዋል
         bot.register_next_step_handler(msg, update_item_price_logic, item_id)
 
 # --- 1. የደላላው ማዕከላዊ ትራፊክ (Callback Handler) ---
@@ -1638,17 +1645,17 @@ def show_my_items(message):
     items = vendor_info.get('items', {}) 
     
     if not items:
-        return bot.send_message(user_id, "📭 እስካሁን የጸደቀ ወይም የተመዘገበ ዕቃ የለዎትም።")
+        return bot.send_message(user_id, "📭 እስካሁን የጸደቀ ዕቃ የለዎትም።")
 
-    # '📂 የጫኗቸው ዕቃዎች ዝርዝር' የሚለው እዚህ ጋር ተወግዷል
+    bot.send_message(user_id, "📋 **የእርስዎ ዕቃዎች ዝርዝር፦**")
+    
     for item_id, item_info in items.items():
         markup = types.InlineKeyboardMarkup(row_width=2)
-        clean_id = str(item_id)
         
-        # በተኖቹ ከ callback_data ጋር ተገናኝተዋል
-        edit_btn = types.InlineKeyboardButton("✏️ ዋጋ ቀይር", callback_data=f"edit_item_{clean_id}")
-        delete_btn = types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"delete_item_{clean_id}")
-        markup.add(edit_btn, delete_btn)
+        # callback_data ስሞች በትክክል ከ handler ጋር እንዲመሳሰሉ ተደርገዋል
+        edit_btn = types.InlineKeyboardButton("📝 ዋጋ ቀይር", callback_data=f"edit_item_{item_id}")
+        del_btn = types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"delete_item_{item_id}")
+        markup.add(edit_btn, del_btn)
         
         text = (
             f"🍎 **ዕቃ፦** {item_info.get('name')}\n"
@@ -1663,6 +1670,7 @@ def show_my_items(message):
                 bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
         else:
             bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
+
 
 
 
