@@ -269,15 +269,25 @@ def start_command(message):
         if uid_str in db.get('riders_list', {}):
             return show_rider_menu(message)
 
-                # 4. ለደንበኞች
-        welcome_text = f"Welcome {message.from_user.first_name} to BDF Delivery! 👋\nYour ID: `{user_id}`"
-        bot.send_message(user_id, welcome_text, reply_markup=get_main_menu(), parse_mode="Markdown")
+                    # ... (የአድሚን እና የቬንደር ቼክ እንደተጠበቀ ሆኖ) ...
 
-    except Exception as e:
-        # እነዚህ መስመሮች አሁን በትክክል ገባ ብለዋል
-        error_msg = f"❌ Error: {str(e)}"
-        print(error_msg)
-        bot.send_message(message.chat.id, error_msg)
+    # 4. ለደንበኞች (ምዝገባ ካልጨረሱ ስልክ ይጠይቃል)
+    db = load_data()
+    customers = db.get('customers', {})
+
+    if user_id not in customers:
+        # ገና ያልተመዘገበ አዲስ ደንበኛ
+        markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+        markup.add(types.KeyboardButton("📲 ስልክ ቁጥርዎን ያጋሩ", request_contact=True))
+        
+        welcome_text = (f"እንኳን ወደ **BDF Delivery** በደህና መጡ {message.from_user.first_name}! 👋\n\n"
+                        f"ትዕዛዝ ለመጀመር መጀመሪያ ስልክ ቁጥርዎን ማጋራት አለብዎት።")
+        bot.send_message(user_id, welcome_text, reply_markup=markup, parse_mode="Markdown")
+    else:
+        # ቀድሞ የተመዘገበ ደንበኛ
+        welcome_text = f"እንኳን ደህና መጡ {message.from_user.first_name}! 👋\n\nምን ማዘዝ ይፈልጋሉ?"
+        bot.send_message(user_id, welcome_text, reply_markup=get_customer_dashboard(), parse_mode="Markdown")
+
 
 @bot.message_handler(commands=['admin'])
 def show_admin_panel(message):
@@ -718,6 +728,47 @@ def handle_item_approval(call):
 
     bot.answer_callback_query(call.id, "ተፈጽሟል!")
 
+
+
+# ስልክ ቁጥር ሲላክ
+@bot.message_handler(content_types=['contact'])
+def handle_customer_contact(message):
+    user_id = str(message.from_user.id)
+    db = load_data()
+    
+    if 'customers' not in db: db['customers'] = {}
+    
+    # ስልኩን መመዝገብ
+    db['customers'][user_id] = {
+        "phone": message.contact.phone_number,
+        "name": message.from_user.first_name,
+        "location": None
+    }
+    save_data(db)
+    
+    # ቀጥሎ ሎኬሽን ይጠይቃል
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+    markup.add(types.KeyboardButton("📍 አሁን ያሉበትን ቦታ ይላኩ", request_location=True))
+    
+    bot.send_message(message.chat.id, "✅ ስልክዎ ተመዝግቧል። አሁን ደግሞ እቃው የሚመጣበትን ቦታ (Location) ይላኩ፦", reply_markup=markup)
+
+# ሎኬሽን ሲላክ
+@bot.message_handler(content_types=['location'])
+def handle_customer_location(message):
+    user_id = str(message.from_user.id)
+    db = load_data()
+    
+    if user_id in db.get('customers', {}):
+        # ሎኬሽኑን ሴቭ ማድረግ
+        db['customers'][user_id]['location'] = {
+            "latitude": message.location.latitude,
+            "longitude": message.location.longitude
+        }
+        save_data(db)
+        
+        # ምዝገባ ተጠናቀቀ - ወደ ዳሽቦርድ
+        bot.send_message(message.chat.id, "🎉 ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል!", reply_markup=types.ReplyKeyboardRemove())
+        bot.send_message(message.chat.id, "አሁን ማዘዝ ይችላሉ፦", reply_markup=get_customer_dashboard())
 
 
 
