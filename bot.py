@@ -385,26 +385,31 @@ def central_admin_handler(call):
     elif call.data == "admin_profit_track":
         view_total_profit(call)
 
-                # --- አድሚኑ እቃ ሲያጸድቅ (Approve) ---
-    if call.data.startswith("approve_item_"):
+    elif call.data.startswith("approve_item_"):
         try:
-            # IDውን ከ callback_data ነጥለን እናወጣለን
-            item_id = call.data.split("_") 
-            db = load_data()
+            # 1. ID ማውጣት
+            data_parts = call.data.split("_")
+            item_id = data_parts 
             
+            db = load_data()
             pending = db.get('pending_items', {})
 
             if item_id in pending:
-                item = pending.pop(item_id) # ከፔንዲንግ እናወጣዋለን
+                item = pending.pop(item_id)
                 v_id = str(item['vendor_id'])
                 
-                # ወደ ቬንደሩ የእቃ ዝርዝር እንጨምራለን
+                # 2. 'vendors_list' መኖሩን ማረጋገጥ (ካልተገኘ ባዶ መዝገብ ይፈጥራል)
+                if 'vendors_list' not in db:
+                    db['vendors_list'] = {}
+                
                 if v_id not in db['vendors_list']:
-                    db['vendors_list'][v_id] = {'items': []}
+                    # ድርጅቱ በስህተት ከጠፋ ስሙን 'Unknown' አድርጎ ዝርዝሩን ይከፍታል
+                    db['vendors_list'][v_id] = {'name': 'Unknown Vendor', 'items': []}
                 
                 if 'items' not in db['vendors_list'][v_id]:
                     db['vendors_list'][v_id]['items'] = []
                 
+                # 3. እቃውን መጨመር
                 db['vendors_list'][v_id]['items'].append({
                     "name": item['item_name'],
                     "price": item['price'],
@@ -412,23 +417,29 @@ def central_admin_handler(call):
                     "photo": item['photo']
                 })
                 
-                save_data(db) # ዳታቤዙን እናስቀምጣለን
+                save_data(db)
                 
-                # አድሚኑ ጋር ያለውን መልዕክት እናዘምነዋለን
+                # 4. ስክሪኑ ላይ ያለውን ጽሁፍ መቀየር
                 bot.edit_message_caption(
-                    caption=f"✅ **እቃው ጸድቋል!**\n\n🍎 እቃ፦ {item['item_name']}\n🏢 ድርጅት፦ {db['vendors_list'][v_id].get('name', 'ያልታወቀ')}",
+                    caption=f"✅ **በተሳካ ሁኔታ ጸድቋል!**\n\n🍎 ዕቃ፦ {item['item_name']}\n🏢 ድርጅት፦ {db['vendors_list'][v_id].get('name')}",
                     chat_id=call.message.chat.id,
                     message_id=call.message.message_id
                 )
                 
                 # ለድርጅቱ ማሳወቅ
-                bot.send_message(v_id, f"🎉 እንኳን ደስ አለዎት! '{item['item_name']}' በአድሚን ጸድቋል።")
+                try:
+                    bot.send_message(v_id, f"🎉 እንኳን ደስ አለዎት! **'{item['item_name']}'** በአድሚን ጸድቋል።")
+                except:
+                    pass
             else:
-                bot.answer_callback_query(call.id, "❌ ስህተት፡ እቃው በፔንዲንግ ዝርዝር ውስጥ የለም!", show_alert=True)
+                bot.answer_callback_query(call.id, "❌ ይህ እቃ ቀድሞ ተሰርዟል ወይም አልተገኘም።", show_alert=True)
                 
         except Exception as e:
-            print(f"Approve Error: {e}")
-            bot.answer_callback_query(call.id, "❌ ሲያጸድቅ ስህተት ተፈጠረ።")
+            # ስህተቱ ምን እንደሆነ በትክክል ቴሌግራም ላይ ያሳየናል
+            error_text = f"❌ ስህተት ተፈጠረ፦ {str(e)}"
+            bot.answer_callback_query(call.id, error_text, show_alert=True)
+            print(f"DEBUG ERROR: {e}")
+
 
 
     # --- አድሚኑ እቃ ውድቅ ሲያደርግ (Reject) ---
