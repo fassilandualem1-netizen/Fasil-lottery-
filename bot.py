@@ -551,6 +551,33 @@ def central_admin_handler(call):
     bot.answer_callback_query(call.id)
 
 
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('v_accept_'))
+def vendor_accept_order(call):
+    # ውሂቡን መበለጥ (v_accept_{order_id}_{user_id})
+    data = call.data.split('_')
+    order_id = data
+    user_id = data
+    
+    db = load_data()
+    order = db.get('orders', {}).get(order_id)
+    
+    if not order:
+        return bot.answer_callback_query(call.id, "ትዕዛዙ አልተገኘም!")
+
+    # 1. የትዕዛዙን ሁኔታ መቀየር
+    db['orders'][order_id]['status'] = "Accepted by Vendor"
+    save_data(db)
+
+    # 2. ለሻጩ ማረጋገጫ መስጠት (በፎቶው ላይ እንዳለው)
+    bot.edit_message_text(f"✅ ትዕዛዝ #{order_id} ተቀብለዋል። እቃውን ማዘጋጀት ይጀምሩ።", 
+                          call.message.chat.id, call.message.message_id)
+
+    # 3. ለሁሉም ደላላዎች (Drivers) ማሳወቂያ መላክ (ዋናው ክፍል ይህ ነው!)
+    notify_drivers_about_new_order(order_id, order)
+
+
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith('vendor_'))
 def central_vendor_handler(call):
     # ማንኛውንም የቆየ ስራ ያጸዳል
@@ -2379,6 +2406,34 @@ def show_my_items(message):
             bot.send_photo(message.chat.id, item['photo'], caption=text, reply_markup=markup)
         else:
             bot.send_message(message.chat.id, text, reply_markup=markup)
+
+
+
+def notify_drivers_about_new_order(order_id, order_data):
+    db = load_data()
+    riders = db.get('riders_list', {})
+    
+    # የዲሊቨሪ ዋጋውንና ርቀቱን እዚህ ጋር እናስላ (ወይም ቋሚ ዋጋ ካለህ)
+    delivery_fee = order_data.get('total', 0) * 0.1 # ለምሳሌ 10% ከሆነ
+    
+    msg_text = (f"🛵 **አዲስ የዲሊቨሪ ትዕዛዝ!**\n"
+                f"━━━━━━━━━━━━━━\n"
+                f"🆔 ትዕዛዝ ቁጥር፦ #{order_id}\n"
+                f"💰 ጠቅላላ ክፍያ፦ {order_data.get('total')} ETB\n"
+                f"📍 አድራሻ፦ {order_data.get('address')}\n"
+                f"━━━━━━━━━━━━━━")
+    
+    markup = types.InlineKeyboardMarkup()
+    # ቀደም ብለን የሰራነው የመረከቢያ logic (r_take_)
+    markup.add(types.InlineKeyboardButton("✅ ትዕዛዙን ተቀበል", callback_data=f"r_take_{order_id}"))
+
+    for r_id, r_info in riders.items():
+        # ደላላው "Active" (Online) ከሆነ ብቻ ይላክለት
+        if r_info.get('status') == "Active":
+            try:
+                bot.send_message(r_id, msg_text, reply_markup=markup)
+            except:
+                continue
 
 
 
