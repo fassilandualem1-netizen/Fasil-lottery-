@@ -925,6 +925,62 @@ def show_customer_categories(message):
 
 
 
+@bot.message_handler(func=lambda message: message.text == "📋 የትዕዛዝ ታሪክ")
+def order_history(message):
+    user_id = str(message.from_user.id)
+    db = load_data()
+    all_orders = db.get('orders', {})
+    
+    # የዚህን ደንበኛ ትዕዛዞች ብቻ መለየት
+    user_orders = {o_id: o_data for o_id, o_data in all_orders.items() if str(o_data.get('user_id')) == user_id}
+    
+    if not user_orders:
+        return bot.send_message(message.chat.id, "📭 እስካሁን ምንም ያዘዙት ትዕዛዝ የለም።")
+
+    history_msg = "📜 **የቅርብ ጊዜ ትዕዛዞችዎ፦**\n\n"
+    # የመጨረሻዎቹን 5 ትዕዛዞች ብቻ ለማሳየት
+    for o_id in list(user_orders.keys())[-5:]:
+        order = user_orders[o_id]
+        status = order.get('status', 'በጥበቃ ላይ')
+        total = order.get('total', 0)
+        history_msg += f"🆔 `#{o_id}` | 💰 {total} ETB\n📊 **ሁኔታ፦** {status}\n────────────────\n"
+        
+    bot.send_message(message.chat.id, history_msg, parse_mode="Markdown")
+
+
+
+
+
+@bot.message_handler(func=lambda message: message.text == "📞 ድጋፍ")
+def support_handler(message):
+    support_text = ("👋 **እንኳን ወደ ድጋፍ ሰጪ ማዕከል በደህና መጡ!**\n\n"
+                    "ማንኛውም ጥያቄ ወይም ቅሬታ ካለዎት ከታች ይጻፉልን። "
+                    "የእኛ ባለሙያዎች መልዕክትዎን አይተው ምላሽ ይሰጡዎታል።")
+    
+    msg = bot.send_message(message.chat.id, support_text)
+    bot.register_next_step_handler(msg, forward_to_admin)
+
+def forward_to_admin(message):
+    if message.text in ["🛍 ዕቃዎችን እዘዝ", "🛒 የእኔ ቅርጫት", "📋 የትዕዛዝ ታሪክ", "👤 መገለጫዬ/Profile", "📞 ድጋፍ"]:
+        return # ደንበኛው ሌላ በተን ከተጫነ ስራውን እንዲያቆም
+
+    admin_msg = (f"⚠️ **አዲስ የድጋፍ ጥያቄ!**\n\n"
+                 f"👤 ከ፦ {message.from_user.first_name} (`{message.from_user.id}`)\n"
+                 f"💬 መልዕክት፦ {message.text}")
+    
+    # ለሁሉም አድሚኖች መላክ
+    for admin_id in ADMIN_IDS:
+        try:
+            bot.send_message(admin_id, admin_msg)
+        except:
+            pass
+            
+    bot.send_message(message.chat.id, "✅ መልዕክትዎ ደርሶናል። በቅርቡ ምላሽ እንሰጥዎታለን።")
+
+
+
+
+
 @bot.message_handler(func=lambda message: message.text == "🛒 የእኔ ቅርጫት")
 def show_my_cart(message):
     user_id = str(message.from_user.id)
@@ -1727,6 +1783,10 @@ def view_total_profit(call):
             f"• የደንበኛ አገልግሎት ክፍያ፦ {c_fee} ETB")
     
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, parse_mode="Markdown")
+
+
+
+
 
 
 def complete_order_logic(order_id):
