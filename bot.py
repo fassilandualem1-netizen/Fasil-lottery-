@@ -271,23 +271,26 @@ def start_command(message):
 
                     # ... (የአድሚን እና የቬንደር ቼክ እንደተጠበቀ ሆኖ) ...
 
-    # 4. ለደንበኞች (ምዝገባ ካልጨረሱ ስልክ ይጠይቃል)
-    db = load_data()
-    customers = db.get('customers', {})
+    # 4. ለደንበኞች (ከላይ ያሉት ካልሆኑ እንደ ደንበኛ ይታያሉ)
+        customers = db.get('customers', {})
 
-    if user_id not in customers:
-        # ገና ያልተመዘገበ አዲስ ደንበኛ
-        markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
-        markup.add(types.KeyboardButton("📲 ስልክ ቁጥርዎን ያጋሩ", request_contact=True))
-        
-        welcome_text = (f"እንኳን ወደ **BDF Delivery** በደህና መጡ {message.from_user.first_name}! 👋\n\n"
-                        f"ትዕዛዝ ለመጀመር መጀመሪያ ስልክ ቁጥርዎን ማጋራት አለብዎት።")
-        bot.send_message(user_id, welcome_text, reply_markup=markup, parse_mode="Markdown")
-    else:
-        # ቀድሞ የተመዘገበ ደንበኛ
-        welcome_text = f"እንኳን ደህና መጡ {message.from_user.first_name}! 👋\n\nምን ማዘዝ ይፈልጋሉ?"
-        bot.send_message(user_id, welcome_text, reply_markup=get_customer_dashboard(), parse_mode="Markdown")
+        if user_id not in customers:
+            # ገና ያልተመዘገበ አዲስ ደንበኛ
+            markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+            markup.add(types.KeyboardButton("📲 ስልክ ቁጥርዎን ያጋሩ", request_contact=True))
+            
+            welcome_text = (f"እንኳን ወደ **BDF Delivery** በደህና መጡ {message.from_user.first_name}! 👋\n\n"
+                            f"ትዕዛዝ ለመጀመር መጀመሪያ ስልክ ቁጥርዎን ማጋራት አለብዎት።")
+            bot.send_message(user_id, welcome_text, reply_markup=markup, parse_mode="Markdown")
+        else:
+            # ቀድሞ የተመዘገበ ደንበኛ
+            welcome_text = f"እንኳን ደህና መጡ {message.from_user.first_name}! 👋\n\nምን ማዘዝ ይፈልጋሉ?"
+            bot.send_message(user_id, welcome_text, reply_markup=get_customer_dashboard(), parse_mode="Markdown")
 
+    except Exception as e:
+        # ይህ ካልነበረ ነው ስህተት የሚሰጠው
+        print(f"❌ Start Error: {e}")
+        bot.send_message(message.chat.id, "ይቅርታ፣ ስህተት ተፈጥሯል። እባክዎ ጥቂት ቆይተው ይሞክሩ።")
 
 @bot.message_handler(commands=['admin'])
 def show_admin_panel(message):
