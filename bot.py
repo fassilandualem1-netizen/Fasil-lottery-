@@ -321,6 +321,20 @@ def show_admin_panel(message):
         bot.send_message(message.chat.id, "❌ ፈቃድ የለዎትም።")
 
 
+@bot.message_handler(commands=['reset_pending'])
+def reset_pending_data(message):
+    # አድሚን መሆንህን ቼክ ለማድረግ (አማራጭ)
+    # if str(message.chat.id) != "የአንተ_ID": return
+    
+    try:
+        db = load_data()
+        db['pending_items'] = {} 
+        save_data(db)
+        bot.reply_to(message, "✅ የቆዩ እና የተበላሹ 'pending_items' ዳታዎች በሙሉ ጸድተዋል! አሁን አዲስ ዕቃ መመዝገብ ትችላለህ።")
+    except Exception as e:
+        bot.reply_to(message, f"❌ ስህተት፦ {str(e)}")
+
+
 @bot.message_handler(func=lambda message: message.text and message.text.startswith('/'))
 def interrupt_handler(message):
     # ማንኛውም ኮማንድ ሲመጣ የቆየውን Next Step ይሰርዛል
@@ -859,15 +873,10 @@ def handle_item_approval(call):
     try:
         data_parts = call.data.split('_')
         
-        # ✅ ማስተካከያ 1፡ 'approve' ወይም 'reject' መሆኑን መለየት
-        action = data_parts  
-        
-        # ✅ ማስተካከያ 2፡ IDውን መለየት (index 2 ላይ ነው ያለው)
-        item_id = data_parts 
+        # ✅ ማስተካከያ፡ index ቁጥሮቹን በትክክል መጠቀም
+        action = data_parts  # 'approve' ወይም 'reject'
+        item_id = data_parts # 3ኛው ቦታ ላይ ያለውን ID ብቻ ይወስዳል
 
-        db = load_data()
-
-        # ዳታው በ pending_items ውስጥ መኖሩን ቼክ ማድረግ
         if item_id not in db.get('pending_items', {}):
             bot.answer_callback_query(call.id, "❌ ስህተት፦ እቃው አልተገኘም!", show_alert=True)
             return
@@ -1560,30 +1569,30 @@ def process_item_photo(message, item_name, category, price):
     process_item_finish(message, item_data, temp_id)
 
 def process_item_finish(message, item_data, temp_id):
-    """ለአድሚኖች በተን ያለው ማሳወቂያ መላኪያ"""
     markup = types.InlineKeyboardMarkup(row_width=2)
-    
-    # callback_data ላይ index ሳይሆን temp_id መጠቀማችን ከስህተት ያድነናል
     btn_approve = types.InlineKeyboardButton("✅ እቀበላለሁ", callback_data=f"approve_item_{temp_id}")
     btn_reject = types.InlineKeyboardButton("❌ አልቀበልም", callback_data=f"reject_item_{temp_id}")
     markup.add(btn_approve, btn_reject)
 
     admin_text = (
-        "🆕 **አዲስ የዕቃ ማጽደቂያ ጥያቄ**\n"
-        "━━━━━━━━━━━━━━━\n"
+        "🆕 **አዲስ የዕቃ ማጽደቂያ ጥያቄ**\n\n"
         f"🏢 ድርጅት፦ {item_data['vendor_name']}\n"
         f"🍎 ዕቃ፦ {item_data['item_name']}\n"
         f"💰 ዋጋ፦ {item_data['price']} ETB\n"
         f"📁 ምድብ፦ {item_data['category']}"
     )
 
-    # ለአድሚኖች መላክ
-    notify_admins(admin_text, reply_markup=markup)
+    # ✅ ማስተካከያ፦ በጽሁፍ ፋንታ በፎቶ መልክ ለአድሚን መላክ
+    # ማሳሰቢያ፦ ADMIN_CHAT_ID አድሚኑ የሚቀበልበት የቻት ID ነው
+    bot.send_photo(
+        chat_id=ADMIN_CHAT_ID, 
+        photo=item_data['photo'], 
+        caption=admin_text, 
+        reply_markup=markup,
+        parse_mode="Markdown"
+    )
     
-    # ለድርጅቱ ባለቤት ማረጋገጫ መስጠት
-    bot.send_message(message.chat.id, "✅ ዕቃው ለቁጥጥር ተልኳል! አድሚን ሲያጸድቀው ይነግርዎታል።", 
-                     reply_markup=get_vendor_dashboard(message.from_user.id))
-
+    bot.send_message(message.chat.id, "✅ ዕቃው ለቁጥጥር ተልኳል!")
 
 
 
