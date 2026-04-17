@@ -1488,60 +1488,58 @@ def process_item_price(message, item_name, category):
         msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ፦")
         bot.register_next_step_handler(msg, process_item_price, item_name, category)
 
-# ደረጃ 4፡ ፎቶውን ተቀብሎ ዳታቤዝ ውስጥ መመዝገብ እና ለአድሚን መላክ
-def process_item_photo(message, item_name, category, price):
-    try:
-        if message.content_type != 'photo':
-            msg = bot.send_message(message.chat.id, "❌ እባክዎ ፎቶ ብቻ ይላኩ፦")
-            return bot.register_next_step_handler(msg, process_item_photo, item_name, category, price)
+import uuid # ለዕቃው ልዩ መለያ (ID) ለመፍጠር
 
-        photo_id = message.photo[-1].file_id 
-        v_id = str(message.from_user.id)
-        
-        db = load_data()
-        
-        # 🟢 እርግጠኛ ለመሆን Dictionary መሆኑን ቼክ እናደርጋለን
-        if 'pending_items' not in db or not isinstance(db['pending_items'], dict): 
-            db['pending_items'] = {}
-        
-        # 🆔 ሰከንድን በመጠቀም ልዩ ID እንፈጥራለን (አይደገምም)
-        item_id = str(int(time.time()))
-        
-        new_item = {
-            "vendor_id": v_id,
-            "item_name": item_name,
-            "category": category,
-            "price": price,
-            "photo": photo_id,
-            "status": "pending"
-        }
-        
-        db['pending_items'][item_id] = new_item
-        save_data(db)
+# 1. የድርጅት ባለቤት የዕቃውን ፎቶ ሲልክ የሚቀበል ፈንክሽን
+@bot.message_handler(content_types=['photo'], func=lambda message: True)
+def handle_item_photo(message):
+    # እዚህ ጋር ለሙከራ ያህል ዝም ብለን ዳታ እንሙላ (በእውነተኛ ኮድህ ከ user_data የምታገኘው ነው)
+    temp_id = str(uuid.uuid4())[:8] # አጭር ID መፍጠር
+    
+    item_data = {
+        "vendor_name": "የድርጅቱ ስም", # ይህን ከዳታቤዝ አውጣ
+        "vendor_id": message.chat.id,
+        "item_name": "የምግቡ ስም", 
+        "price": 150,
+        "category": "ምግብ",
+        "photo": message.photo[-1].file_id
+    }
+    
+    # 2. ዳታውን በጊዜያዊነት ዳታቤዝ ውስጥ ማስቀመጥ
+    db = load_data()
+    if "pending_items" not in db:
+        db["pending_items"] = {}
+    
+    db["pending_items"][temp_id] = item_data
+    save_data(db)
+    
+    # 3. አሁን ያንተን አዲሱን ፈንክሽን እንጥራለን
+    process_item_finish(message, item_data, temp_id)
 
-        # ለድርጅቱ ማሳወቅ
-        bot.send_message(message.chat.id, "✅ ዕቃው ለፈቃድ ወደ አድሚን ተልኳል።")
+# ✅ የጠየቅከው ፈንክሽን በአግባቡ ተስተካክሎ፡
+def process_item_finish(message, item_data, temp_id):
+    """ዕቃው ተመዝግቦ ሲያልቅ ለአድሚን መላኪያ"""
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    
+    # እዚህ ጋር temp_id String መሆኑን እናረጋግጥ (ከሊስት ስህተት ለመዳን)
+    btn_approve = types.InlineKeyboardButton("✅ እቀበላለሁ", callback_data=f"approve_item_{temp_id}")
+    btn_reject = types.InlineKeyboardButton("❌ አልቀበልም", callback_data=f"reject_item_{temp_id}")
+    
+    markup.add(btn_approve, btn_reject)
 
-        # ለአድሚን (ለአንተ) መላክ
-        markup = types.InlineKeyboardMarkup()
-        markup.add(
-            types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"approve_item_{item_id}"),
-            types.InlineKeyboardButton("❌ ሰርዝ", callback_data=f"reject_item_{item_id}")
-        )
+    admin_text = (
+        "🆕 **አዲስ የዕቃ ማጽደቂያ ጥያቄ**\n\n"
+        f"🏢 ድርጅት፦ {item_data['vendor_name']}\n"
+        f"🍎 ዕቃ፦ {item_data['item_name']}\n"
+        f"💰 ዋጋ፦ {item_data['price']} ETB\n"
+        f"📁 ምድብ፦ {item_data['category']}"
+    )
 
-        admin_msg = (f"🆕 **አዲስ የዕቃ ማጽደቂያ ጥያቄ**\n\n"
-                     f"🏢 ድርጅት፦ {db['vendors_list'].get(v_id, {}).get('name', 'ያልታወቀ')}\n"
-                     f"🍎 ዕቃ፦ {item_name}\n"
-                     f"💰 ዋጋ፦ {price} ETB")
-
-        for admin_id in ADMIN_IDS:
-            try:
-                bot.send_photo(admin_id, photo_id, caption=admin_msg, reply_markup=markup, parse_mode="Markdown")
-            except Exception as e:
-                print(f"Admin Error: {e}")
-
-    except Exception as e:
-        bot.send_message(message.chat.id, f"❌ ስህተት፦ {e}")
+    # ያንተን notify_admins ፈንክሽን በመጠቀም ለአድሚኖች መላክ
+    notify_admins(admin_text, reply_markup=markup)
+    
+    # ለድርጅቱ ባለቤት ማረጋገጫ መስጠት
+    bot.send_message(message.chat.id, "✅ ዕቃው ለቁጥጥር ተልኳል! አድሚን ሲያጸድቀው ይነግርዎታል።")
 
 
 
