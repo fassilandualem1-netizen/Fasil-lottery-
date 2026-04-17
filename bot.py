@@ -665,26 +665,33 @@ def show_rider_wallet(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('approve_item_') or call.data.startswith('reject_item_'))
 def handle_item_approval(call):
-    # 1. መረጃውን መበለል (Split)
-    data_parts = call.data.split('_')
-    action = data_parts # approve ወይም reject
-    item_id = data_parts # የእቃው ID
-    
-    db = load_data()
-    
-    if item_id not in db.get('pending_items', {}):
-        bot.answer_callback_query(call.id, "❌ ስህተት፦ ይህ እቃ ቀድሞ ተሰርዟል ወይም አልተገኘም።")
-        return
+    try:
+        # 1. መረጃውን መበለል (Indices ተጨምረዋል)
+        data_parts = call.data.split('_')
+        action = data_parts  # 'approve' ወይም 'reject'
+        item_id = data_parts # የእቃው ID (በ 'item' እና በ ID መካከል ያለው)
 
-    item = db['pending_items'].pop(item_id)
-    v_id = item['vendor_id']
+        db = load_data()
 
-    if action == "approve":
-        # ወደ ድርጅቱ ዝርዝር መደመር
-        if v_id in db['vendors_list']:
+        # እቃው መኖሩን ቼክ ማድረግ
+        if item_id not in db.get('pending_items', {}):
+            bot.answer_callback_query(call.id, "❌ ስህተት፦ ይህ እቃ ቀድሞ ተሰርዟል ወይም አልተገኘም።", show_alert=True)
+            return
+
+        # እቃውን ከፔንዲንግ ማውጣት
+        item = db['pending_items'].pop(item_id)
+        v_id = str(item['vendor_id'])
+
+        if action == "approve":
+            # 2. ወደ ድርጅቱ ዝርዝር መደመር
+            if v_id not in db.get('vendors_list', {}):
+                # ድርጅቱ በሆነ ምክንያት ከሌለ ባዶ ቦታ መፍጠር
+                if 'vendors_list' not in db: db['vendors_list'] = {}
+                db['vendors_list'][v_id] = {'name': 'Unknown', 'items': []}
+            
             if 'items' not in db['vendors_list'][v_id]:
                 db['vendors_list'][v_id]['items'] = []
-            
+
             db['vendors_list'][v_id]['items'].append({
                 "name": item['item_name'],
                 "price": item['price'],
@@ -692,74 +699,29 @@ def handle_item_approval(call):
                 "photo": item['photo']
             })
             save_data(db)
-            
-            bot.edit_message_caption(caption=call.message.caption + "\n\n✅ **ጸድቋል!**", 
+
+            # መልዕክቱን መቀየር
+            bot.edit_message_caption(caption=f"✅ **ጸድቋል!**\n🍎 ዕቃ፦ {item['item_name']}", 
                                      chat_id=call.message.chat.id, 
                                      message_id=call.message.message_id)
-            
-            bot.send_message(v_id, f"🎉 እቃዎ **'{item['item_name']}'** ጸድቋል!")
-            
-    elif action == "reject":
-        save_data(db)
-        bot.edit_message_caption(caption=call.message.caption + "\n\n❌ **ውድቅ ተደርጓል!**", 
-                                 chat_id=call.message.chat.id, 
-                                 message_id=call.message.message_id)
-        
-        bot.send_message(v_id, f"⚠️ ይቅርታ፣ እቃዎ **'{item['item_name']}'** ውድቅ ተደርጓል።")
 
-    bot.answer_callback_query(call.id, "ተፈጽሟል!")
+            try: bot.send_message(v_id, f"🎉 እቃዎ **'{item['item_name']}'** ጸድቋል!")
+            except: pass
 
-
-
-
-
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('approve_item_') or call.data.startswith('reject_item_'))
-def handle_item_approval(call):
-    # 1. መረጃውን መበለል (Split)
-    data_parts = call.data.split('_')
-    action = data_parts # approve ወይም reject
-    item_id = data_parts # የእቃው ID
-    
-    db = load_data()
-    
-    if item_id not in db.get('pending_items', {}):
-        bot.answer_callback_query(call.id, "❌ ስህተት፦ ይህ እቃ ቀድሞ ተሰርዟል ወይም አልተገኘም።")
-        return
-
-    item = db['pending_items'].pop(item_id)
-    v_id = item['vendor_id']
-
-    if action == "approve":
-        # ወደ ድርጅቱ ዝርዝር መደመር
-        if v_id in db['vendors_list']:
-            if 'items' not in db['vendors_list'][v_id]:
-                db['vendors_list'][v_id]['items'] = []
-            
-            db['vendors_list'][v_id]['items'].append({
-                "name": item['item_name'],
-                "price": item['price'],
-                "category": item['category'],
-                "photo": item['photo']
-            })
+        elif action == "reject":
             save_data(db)
-            
-            bot.edit_message_caption(caption=call.message.caption + "\n\n✅ **ጸድቋል!**", 
+            bot.edit_message_caption(caption=f"❌ **ውድቅ ተደርጓል!**\n🍎 ዕቃ፦ {item['item_name']}", 
                                      chat_id=call.message.chat.id, 
                                      message_id=call.message.message_id)
-            
-            bot.send_message(v_id, f"🎉 እቃዎ **'{item['item_name']}'** ጸድቋል!")
-            
-    elif action == "reject":
-        save_data(db)
-        bot.edit_message_caption(caption=call.message.caption + "\n\n❌ **ውድቅ ተደርጓል!**", 
-                                 chat_id=call.message.chat.id, 
-                                 message_id=call.message.message_id)
-        
-        bot.send_message(v_id, f"⚠️ ይቅርታ፣ እቃዎ **'{item['item_name']}'** ውድቅ ተደርጓል።")
 
-    bot.answer_callback_query(call.id, "ተፈጽሟል!")
+            try: bot.send_message(v_id, f"⚠️ ይቅርታ፣ እቃዎ **'{item['item_name']}'** ውድቅ ተደርጓል።")
+            except: pass
 
+        bot.answer_callback_query(call.id, "ተፈጽሟል!")
+
+    except Exception as e:
+        print(f"Approval Error: {e}")
+        bot.answer_callback_query(call.id, f"❌ ስህተት፦ {str(e)}", show_alert=True)
 
 
 # ስልክ ቁጥር ሲላክ
