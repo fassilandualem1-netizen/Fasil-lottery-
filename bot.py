@@ -871,43 +871,31 @@ def handle_withdraw_decision(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("approve_item_"))
 def approve_item(call):
     try:
-        # 🔍 DEBUG 1: የመጣውን ሙሉ ዳታ ማየት
-        print(f"--- DEBUG START ---")
-        print(f"Full Callback Data: '{call.data}'")
-
-        # IDውን መለየት
+        # 1. IDውን መለየት
         item_id = call.data.split("approve_item_")[-1]
-        print(f"Extracted Item ID: '{item_id}'")
-
         db = load_data()
         
-        # 🔍 DEBUG 2: ዳታቤዝ ውስጥ ዕቃው መኖሩን ቼክ ማድረግ
-        pending_keys = list(db.get('pending_items', {}).keys())
-        print(f"Available Pending IDs in DB: {pending_keys}")
-
-        if item_id not in db.get('pending_items', {}):
-            print(f"❌ ERROR: ID '{item_id}' not found in pending_items!")
-            bot.answer_callback_query(call.id, "❌ ዕቃው በዳታቤዝ ውስጥ አልተገኘም!", show_alert=True)
+        # 2. ዕቃው በጠባቂነት መኖሩን ማረጋገጥ
+        if 'pending_items' not in db or item_id not in db['pending_items']:
+            bot.answer_callback_query(call.id, "❌ ዕቃው አልተገኘም ወይም ቀድሞ ጸድቋል!", show_alert=True)
             return
 
+        # ዕቃውን ማውጣት
         item_data = db['pending_items'].pop(item_id)
         v_id = str(item_data['vendor_id'])
-        print(f"Processing Vendor ID: {v_id}")
 
-        # 🔍 DEBUG 3: የቬንደሩን ዳታ መዋቅር ቼክ ማድረግ
-        if 'vendors_list' not in db: db['vendors_list'] = {}
-        if v_id not in db['vendors_list']:
-            db['vendors_list'][v_id] = {'name': item_data.get('vendor_name'), 'items': {}}
+        # 3. የቬንደር ዝርዝር መዋቅርን ማስተካከል (ስህተቱን የሚገድለው ይሄ ነው)
+        if 'vendors_list' not in db: 
+            db['vendors_list'] = {}
         
-        current_items = db['vendors_list'][v_id].get('items')
-        print(f"Current items type for vendor: {type(current_items)}")
+        # ቬንደሩ ከሌለ ወይም 'items' ዝርዝር (list) ሆኖ ከተገኘ ወደ dictionary ቀይረው
+        if v_id not in db['vendors_list'] or not isinstance(db['vendors_list'][v_id].get('items'), dict):
+            db['vendors_list'][v_id] = {
+                'name': item_data.get('vendor_name', 'Shop'), 
+                'items': {} # እዚህ ጋር ነው ስህተቱ የሚታረመው
+            }
 
-        # የወሳኙ ስህተት መከላከያ
-        if not isinstance(current_items, dict):
-            print("⚠️ WARNING: Vendor items was a list, forcing to dictionary!")
-            db['vendors_list'][v_id]['items'] = {}
-
-        # ዕቃውን መመዝገብ
+        # 4. ዕቃውን መመዝገብ
         db['vendors_list'][v_id]['items'][item_id] = {
             "name": item_data['item_name'],
             "price": item_data['price'],
@@ -916,24 +904,23 @@ def approve_item(call):
         }
 
         save_data(db)
-        print(f"✅ SUCCESS: Item '{item_id}' approved and saved.")
-        print(f"--- DEBUG END ---")
 
+        # አድሚኑ ጋር ያለውን መልዕክት ማዘመን
         bot.edit_message_caption(
             caption=f"✅ **በተሳካ ሁኔታ ጸድቋል!**\n🍎 ዕቃ፦ {item_data['item_name']}",
             chat_id=call.message.chat.id,
             message_id=call.message.message_id
         )
-        bot.send_message(v_id, f"🎉 ዕቃዎ '{item_data['item_name']}' ጸድቋል!")
+
+        # ለቬንደሩ ማሳወቅ
+        try:
+            bot.send_message(v_id, f"🎉 እንኳን ደስ አለዎት! **'{item_data['item_name']}'** ጸድቆ ለሽያጭ ቀርቧል።")
+        except:
+            pass
 
     except Exception as e:
-        # 🔍 DEBUG ERROR: ማንኛውንም ስህተት በዝርዝር ማተም
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"‼️ CRITICAL ERROR:\n{error_details}")
-        bot.answer_callback_query(call.id, f"❌ ስህተት ተፈጥሯል! Terminal ላይ ያለውን Log ይዩ።", show_alert=True)
-
-
+        print(f"Approve Fix Error: {e}")
+        bot.answer_callback_query(call.id, f"⚠️ ስህተት፦ {str(e)}", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data in ["add_fund_vendor", "add_fund_rider"])
 def fund_selection_handler(call):
