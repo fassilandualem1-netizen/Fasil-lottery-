@@ -1591,9 +1591,18 @@ def process_item_photo(message, item_name, category, price):
         bot.send_message(message.chat.id, "❌ ፎቶውን ስንመዘግብ ስህተት ተፈጥሯል።")
 
 # 5. ለአድሚን በፎቶ እና በበተን መልክ ይልካል
+import traceback
+
 def process_item_finish(message, item_data, temp_id):
+    print("\n--- 🕵️ DEBUG: STARTING ADMIN NOTIFICATION ---")
+    
+    # 1. መረጃዎቹ በትክክል መኖራቸውን ቼክ እናድርግ
+    photo_id = item_data.get('photo')
+    print(f"DEBUG: Photo ID to be sent: {photo_id}")
+    print(f"DEBUG: Temp ID: {temp_id}")
+
     markup = types.InlineKeyboardMarkup(row_width=2)
-    # ማጽደቂያ እና ውድቅ ማድረጊያ በተኖች
+    # Callback data ርዝመቱ ከ 64 bytes መብለጥ የለበትም
     btn_approve = types.InlineKeyboardButton("✅ እቀበላለሁ", callback_data=f"approve_item_{temp_id}")
     btn_reject = types.InlineKeyboardButton("❌ አልቀበልም", callback_data=f"reject_item_{temp_id}")
     markup.add(btn_approve, btn_reject)
@@ -1601,30 +1610,40 @@ def process_item_finish(message, item_data, temp_id):
     admin_text = (
         "🆕 **አዲስ የዕቃ ማጽደቂያ ጥያቄ**\n"
         "━━━━━━━━━━━━━━━\n"
-        f"🏢 ድርጅት፦ {item_data['vendor_name']}\n"
-        f"🍎 ዕቃ፦ {item_data['item_name']}\n"
-        f"💰 ዋጋ፦ {item_data['price']} ETB\n"
-        f"📁 ምድብ፦ {item_data['category']}"
+        f"🏢 ድርጅት፦ {item_data.get('vendor_name', 'ያልታወቀ')}\n"
+        f"🍎 ዕቃ፦ {item_data.get('item_name', 'ያልታወቀ')}\n"
+        f"💰 ዋጋ፦ {item_data.get('price', 0)} ETB\n"
+        f"📁 ምድብ፦ {item_data.get('category', 'ያልታወቀ')}"
     )
 
+    target_admin = 8488592165 
+
     try:
-        # በአዲሱ ID (8488592165) መላክ
-        target_admin = 8488592165 
-        
-        bot.send_photo(
-            chat_id=target_admin, 
-            photo=item_data['photo'], 
-            caption=admin_text, 
-            reply_markup=markup,
-            parse_mode="Markdown"
-        )
-        
-        # ለቬንደሩ የተላከ መሆኑን ማረጋገጫ መስጠት
-        bot.send_message(message.chat.id, "✅ ዕቃው ለቁጥጥር ተልኳል! አድሚን ሲያጸድቀው ማሳወቂያ ይደርስዎታል።")
-        
+        # 2. ፎቶውን ለመላክ መሞከር
+        if photo_id:
+            bot.send_photo(
+                chat_id=target_admin, 
+                photo=photo_id, 
+                caption=admin_text, 
+                reply_markup=markup,
+                parse_mode="Markdown"
+            )
+            print("✅ DEBUG: Photo sent successfully!")
+        else:
+            print("⚠️ DEBUG: Photo ID is missing! Sending text only.")
+            bot.send_message(target_admin, f"⚠️ ፎቶው አልተገኘም!\n\n{admin_text}", reply_markup=markup)
+
+        bot.send_message(message.chat.id, "✅ ዕቃው ለቁጥጥር ተልኳል!")
+
     except Exception as e:
-        print(f"Admin Notification Error: {e}")
-        bot.send_message(message.chat.id, "⚠️ መረጃው ተመዝግቧል ግን ለአድሚን መላክ አልተቻለም። እባክዎ ጥቂት ቆይተው ይሞክሩ።")
+        # 3. ስህተቱን በዝርዝር ማውጣት
+        print("❌ DEBUG: CRITICAL ERROR IN SENDING TO ADMIN!")
+        print(traceback.format_exc()) # ይህ መስመር ስህተቱ የቱ ጋር እንደሆነ ይነግረናል
+        
+        bot.send_message(message.chat.id, "⚠️ መረጃው ተመዝግቧል ግን ለአድሚን መላክ አልተቻለም።")
+    
+    print("--- 🕵️ DEBUG: END --- \n")
+
 
 
 if __name__ == "__main__":
