@@ -26,10 +26,9 @@ def run_flask():
 # --- 2. ዳታቤዝ ተግባራት ---
 # 1. ዳታቤዝ ማውረጃ (Redis ተጠቅሞ)
 def load_data():
-    # መሠረታዊ የዳታቤዝ መዋቅር (Default Structure)
     default_db = {
         "riders_list": {},     
-        "vendors_list": {},    
+        "vendors_list": {}, # የግድ {} መሆን አለበት
         "orders": {},          
         "pending_items": {},   
         "categories": [],      
@@ -48,21 +47,19 @@ def load_data():
         raw = redis.get("bdf_delivery_db")
         if raw: 
             loaded_db = json.loads(raw)
-            # አዳዲስ ቁልፎች (Keys) ከተጨመሩ ከ default_db ጋር ማዋሃድ (Merge)
-            # ይህ አሰራር ዳታቤዝህ አፕዴት ሲሆን ቦቱ እንዳይቆም ይረዳል
+            # የቆየ ዳታ ሊስት ከሆነ ወደ ዲክሽነሪ ቀይረው (ለደህንነት)
+            if not isinstance(loaded_db.get('vendors_list'), dict):
+                loaded_db['vendors_list'] = {}
+            
             for key, value in default_db.items():
                 if key not in loaded_db:
                     loaded_db[key] = value
             return loaded_db
-
-        # ዳታቤዙ መጀመሪያውኑ ባዶ ከሆነ
         return default_db
-
     except Exception as e:
         print(f"❌ Database Load Error: {e}")
-        # ዳታቤዝ መጫን ካልቻለ "raise e" ማድረጉ ይሻላል። 
-        # ምክንያቱም ባዶ ዳታ ከመለሰ የቆየውን ዳታ በባዶ ሊተካብህ (Overwrite ሊያደርግ) ይችላል።
-        raise e 
+        return default_db # ስህተት ሲፈጠር default_db መመለስ ይሻላል
+ 
 
 
         # Error ቢመጣ እንኳን ቦቱ እንዳይቆም መሠረታዊ መዋቅሩን እንላክ
@@ -871,31 +868,28 @@ def handle_withdraw_decision(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("approve_item_"))
 def approve_item(call):
     try:
-        # 1. IDውን መለየት
         item_id = call.data.split("approve_item_")[-1]
         db = load_data()
         
-        # 2. ዕቃው በጠባቂነት መኖሩን ማረጋገጥ
-        if 'pending_items' not in db or item_id not in db['pending_items']:
-            bot.answer_callback_query(call.id, "❌ ዕቃው አልተገኘም ወይም ቀድሞ ጸድቋል!", show_alert=True)
+        if item_id not in db.get('pending_items', {}):
+            bot.answer_callback_query(call.id, "❌ ዕቃው አልተገኘም!", show_alert=True)
             return
 
-        # ዕቃውን ማውጣት
         item_data = db['pending_items'].pop(item_id)
         v_id = str(item_data['vendor_id'])
 
-        # 3. የቬንደር ዝርዝር መዋቅርን ማስተካከል (ስህተቱን የሚገድለው ይሄ ነው)
-        if 'vendors_list' not in db: 
-            db['vendors_list'] = {}
+        # ⚠️ ማስተካከያ፡ ቬንደሩ በዲክሽነሪ መልክ መፈጠሩን ማረጋገጥ
+        if 'vendors_list' not in db: db['vendors_list'] = {}
         
-        # ቬንደሩ ከሌለ ወይም 'items' ዝርዝር (list) ሆኖ ከተገኘ ወደ dictionary ቀይረው
-        if v_id not in db['vendors_list'] or not isinstance(db['vendors_list'][v_id].get('items'), dict):
-            db['vendors_list'][v_id] = {
-                'name': item_data.get('vendor_name', 'Shop'), 
-                'items': {} # እዚህ ጋር ነው ስህተቱ የሚታረመው
-            }
+        # ቬንደሩ ከሌለ ወይም ዳታው ሊስት ከሆነ አዲስ ዲክሽነሪ ፍጠር
+        if v_id not in db['vendors_list'] or not isinstance(db['vendors_list'][v_id], dict):
+            db['vendors_list'][v_id] = {'name': item_data.get('vendor_name', 'Shop'), 'items': {}}
+        
+        # 'items' በዲክሽነሪ መሆኑን አረጋግጥ
+        if 'items' not in db['vendors_list'][v_id] or not isinstance(db['vendors_list'][v_id]['items'], dict):
+            db['vendors_list'][v_id]['items'] = {}
 
-        # 4. ዕቃውን መመዝገብ
+        # ዕቃውን መመዝገብ
         db['vendors_list'][v_id]['items'][item_id] = {
             "name": item_data['item_name'],
             "price": item_data['price'],
@@ -904,22 +898,12 @@ def approve_item(call):
         }
 
         save_data(db)
-
-        # አድሚኑ ጋር ያለውን መልዕክት ማዘመን
-        bot.edit_message_caption(
-            caption=f"✅ **በተሳካ ሁኔታ ጸድቋል!**\n🍎 ዕቃ፦ {item_data['item_name']}",
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id
-        )
-
-        # ለቬንደሩ ማሳወቅ
-        try:
-            bot.send_message(v_id, f"🎉 እንኳን ደስ አለዎት! **'{item_data['item_name']}'** ጸድቆ ለሽያጭ ቀርቧል።")
-        except:
-            pass
+        bot.edit_message_caption(caption=f"✅ ጸድቋል፦ {item_data['item_name']}", 
+                                 chat_id=call.message.chat.id, message_id=call.message.message_id)
+        bot.send_message(v_id, f"🎉 ዕቃዎ '{item_data['item_name']}' ጸድቋል!")
 
     except Exception as e:
-        print(f"Approve Fix Error: {e}")
+        print(f"Approve Error: {e}")
         bot.answer_callback_query(call.id, f"⚠️ ስህተት፦ {str(e)}", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data in ["add_fund_vendor", "add_fund_rider"])
