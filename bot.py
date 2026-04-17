@@ -754,53 +754,40 @@ def show_items_by_category(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('r_take_'))
 def rider_take_order(call):
-    order_id = call.data.replace("r_take_", "")
-    rider_id = str(call.from_user.id)
-    db = load_data()
-    
-    # ትዕዛዙ በዳታቤዝ ውስጥ መኖሩን ማረጋገጥ
-    if order_id not in db.get('orders', {}):
-        return bot.answer_callback_query(call.id, "⚠️ ይቅርታ፣ ይህ ትዕዛዝ አልተገኘም!", show_alert=True)
-    
-    order_data = db['orders'][order_id]
-    
-    # ትዕዛዙ አስቀድሞ ተወስዶ ከሆነ መፈተሽ
-    if order_data.get('rider_id'):
-        return bot.answer_callback_query(call.id, "⚠️ ይህ ትዕዛዝ በሌላ ደላላ ተወስዷል!", show_alert=True)
-
-    # ትዕዛዙን ለደላላው መመደብ
-    db['orders'][order_id]['rider_id'] = rider_id
-    db['orders'][order_id]['status'] = "Rider Assigned (ደላላ ተመድቧል)"
-    save_data(db)
-
-    # 1. ለደላላው ማረጋገጫ መስጠት
-    bot.edit_message_text(f"✅ ትዕዛዝ #{order_id} ተረክበዋል። መልካም ስራ!", 
-                          call.message.chat.id, call.message.message_id)
-    
-    # 2. ለደላላው የደንበኛውን መረጃ መላክ
-    customer_id = order_data['user_id']
-    address = order_data['address']
-    
-    details = (f"📍 **የማድረሻ ዝርዝር (# {order_id})**\n"
-               f"━━━━━━━━━━━━━━\n"
-               f"👤 **ደንበኛ፦** {customer_id}\n"
-               f"🗺 **አድራሻ፦** {address}\n"
-               f"━━━━━━━━━━━━━━")
-    
-    # ሁኔታውን ለማዘመን የሚሆኑ በተኖች
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("📍 መነሻ ላይ ነኝ", callback_data=f"r_atvendor_{order_id}"))
-    markup.add(types.InlineKeyboardButton("🚴 በመጓዝ ላይ", callback_data=f"r_ontheway_{order_id}"))
-    markup.add(types.InlineKeyboardButton("✅ ደርሻለሁ (Delivered)", callback_data=f"r_delivered_{order_id}"))
-    
-    bot.send_message(rider_id, details, reply_markup=markup, parse_mode="Markdown")
-
-    # 3. ለደንበኛው ማሳወቅ
     try:
-        bot.send_message(customer_id, f"🛵 **ትዕዛዝዎ ተረክቧል!**\n\nደላላው {call.from_user.first_name} ትዕዛዝዎን ለማድረስ ጉዞ ጀምሯል።")
-    except:
-        pass
+        order_id = call.data.split('_')[-1]
+        rider_id = str(call.from_user.id) # የደላላው ID
+        db = load_data()
 
+        order = db.get('orders', {}).get(order_id)
+        if not order:
+            return bot.answer_callback_query(call.id, "❌ ትዕዛዙ አልተገኘም!", show_alert=True)
+
+        # ትዕዛዙ አስቀድሞ ተወስዶ ከሆነ ቼክ ማድረግ
+        if order.get('rider_id'):
+            return bot.answer_callback_query(call.id, "⚠️ ይቅርታ፣ ይህ ትዕዛዝ በሌላ ደላላ ተወስዷል።", show_alert=True)
+
+        # 1. ትዕዛዙን ለደላላው መመደብ (Assign)
+        db['orders'][order_id]['rider_id'] = rider_id
+        db['orders'][order_id]['status'] = "Driver Accepted (በጉዞ ላይ)"
+        save_data(db)
+
+        # 2. ለደላላው መልስ መስጠት
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=f"✅ ትዕዛዝ #{order_id} ተረክበዋል። ወደ ቬንደሩ አምርተው እቃውን ይቀበሉ!"
+        )
+
+        # 3. ለደንበኛው ማሳወቅ
+        customer_id = order['user_id']
+        bot.send_message(customer_id, f"🛵 ደላላ ትዕዛዝዎን ተረክቧል! (ትዕዛዝ #{order_id})")
+
+        bot.answer_callback_query(call.id, "ስራውን ተረክበዋል")
+
+    except Exception as e:
+        print(f"Rider Take Error: {e}")
+        bot.answer_callback_query(call.id, "ስህተት ተፈጥሯል")
 
 
 
@@ -947,48 +934,35 @@ def start_checkout(call):
     bot.register_next_step_handler(msg, process_order_final)
 
 
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('v_accept_'))
-def vendor_accept_order(call):
+@bot.callback_query_handler(func=lambda call: call.data.startswith('v_reject_'))
+def vendor_reject_order(call):
     try:
-        # ዳታውን እንበልጥ (v_accept_ORDERID_USERID)
+        # data=v, data=reject, data=order_id
         data = call.data.split('_')
-        
-        # ⚠️ ማስተካከያ፦ order_id ዝርዝሩ ውስጥ 2ኛው ኢንዴክስ ላይ ነው ያለው
-        # v = 0, accept = 1, order_id = 2, user_id = 3
         order_id = data 
         
         db = load_data()
         
-        # ትዕዛዙ መኖሩን ቼክ እናድርግ
         if order_id not in db.get('orders', {}):
-            print(f"❌ DEBUG: ትዕዛዝ {order_id} በዳታቤዝ ውስጥ የለም!")
-            return bot.answer_callback_query(call.id, f"❌ ትዕዛዝ #{order_id} አልተገኘም!", show_alert=True)
+            return bot.answer_callback_query(call.id, "ትዕዛዙ አልተገኘም")
 
-        order_data = db['orders'][order_id]
-
-        # 1. ሁኔታውን ማዘመን
-        db['orders'][order_id]['status'] = "Accepted by Vendor"
+        # 1. ሁኔታውን መቀየር
+        db['orders'][order_id]['status'] = "Cancelled by Vendor (እቃ የለም)"
         save_data(db)
 
-        # 2. ለሻጩ ማረጋገጫ መስጠት (በተኑን በጽሁፍ መቀየር)
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=f"✅ ትዕዛዝ #{order_id} ተቀብለዋል። ለደላላዎች መረጃ ተልኳል!"
-        )
+        # 2. ለቬንደሩ ማሳወቅ
+        bot.edit_message_text(f"❌ ትዕዛዝ #{order_id} ተሰርዟል።", 
+                              call.message.chat.id, call.message.message_id)
 
-        # 3. ለደላላዎች መላክ (ይህ ክፍል ክፍል 3 ላይ የምትልከው ነው)
-        try:
-            notify_drivers_about_new_order(order_id, order_data)
-        except Exception as e:
-            print(f"❌ Driver Notification Error: {e}")
+        # 3. ለደንበኛው ማሳወቅ
+        customer_id = db['orders'][order_id]['user_id']
+        bot.send_message(customer_id, f"⚠️ ይቅርታ፣ በትዕዛዝ ቁጥር #{order_id} ውስጥ ያዘዙት እቃ ስለሌለ ትዕዛዙ ተሰርዟል።")
 
-        bot.answer_callback_query(call.id, "ትዕዛዙ ተረጋግጧል!")
+        bot.answer_callback_query(call.id, "ትዕዛዙ ተሰርዟል")
 
     except Exception as e:
-        print(f"❌ Accept Logic Error: {e}")
-        bot.answer_callback_query(call.id, "ስህተት ተፈጥሯል")
+        print(f"Vendor Reject Error: {e}")
+
 
 
 def notify_drivers_about_new_order(order_id, order_data):
@@ -1388,7 +1362,6 @@ def show_my_cart(message):
 
 import random
 import string
-
 def process_order_final(message):
     if message.text == "❌ ተመለስ":
         return bot.send_message(message.chat.id, "ትዕዛዙ ተሰርዟል።", reply_markup=get_customer_dashboard())
@@ -1400,67 +1373,52 @@ def process_order_final(message):
     if not user_cart:
         return bot.send_message(message.chat.id, "🛒 ቅርጫትዎ ባዶ ነው!")
 
-    # ልዩ የትዕዛዝ መለያ ቁጥር ማመንጨት (Order ID)
     order_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
     
-    # የአድራሻ መረጃ መያዝ
-    address = ""
-    if message.location:
-        address = f"Lat: {message.location.latitude}, Long: {message.location.longitude} (📍 ሎኬሽን)"
-    else:
-        address = message.text
+    address = f"Lat: {message.location.latitude}, Long: {message.location.longitude}" if message.location else message.text
 
-    # ትዕዛዙን በየድርጅቱ (Vendor) መከፋፈል
     vendors_to_notify = {}
     total_price = 0
-
     for i_id, i_info in user_cart.items():
         v_id = i_info['vendor_id']
-        if v_id not in vendors_to_notify:
-            vendors_to_notify[v_id] = []
+        if v_id not in vendors_to_notify: vendors_to_notify[v_id] = []
         vendors_to_notify[v_id].append(f"• {i_info['name']} ({i_info['qty']} ፍሬ)")
         total_price += i_info['price'] * i_info['qty']
 
-    # 1. ለሻጮቹ (Vendors) መረጃ መላክ (ከነ በተኑ)
+    # --- 1. ለቬንደሮች ለማሳወቂያ ብቻ መላክ ---
     for v_id, items in vendors_to_notify.items():
-        vendor_msg = (f"🔔 <b>አዲስ ትዕዛዝ መጥቷል!</b>\n\n"
-                      f"🆔 ትዕዛዝ ቁጥር: #{order_id}\n"
-                      f"📝 ዝርዝር:\n" + "\n".join(items) + "\n\n"
-                      f"📍 አድራሻ: {address}\n"
-                      f"📞 የደንበኛ ID: {user_id}")
+        vendor_msg = (f"🔔 <b>አዲስ ትዕዛዝ መጥቷል!</b>\n\n🆔 #{order_id}\n"
+                      f"📝 ዝርዝር:\n" + "\n".join(items) + f"\n\n📍 አድራሻ: {address}")
         
-        # የሻጭ መቀበያ በተኖች እዚህ ጋር መግባት አለባቸው
         markup = types.InlineKeyboardMarkup()
-        accept_btn = types.InlineKeyboardButton("✅ ትዕዛዙን ተቀበል", callback_data=f"v_accept_{order_id}_{user_id}")
-        reject_btn = types.InlineKeyboardButton("❌ ሰርዝ", callback_data=f"v_reject_{order_id}_{user_id}")
-        markup.add(accept_btn, reject_btn)
+        # እዚህ ጋር ቬንደሩ እቃ የሌለው ከሆነ ብቻ እንዲሰርዘው እናደርጋለን
+        markup.add(types.InlineKeyboardButton("❌ እቃ የለም (ሰርዝ)", callback_data=f"v_reject_{order_id}"))
         
         try:
             bot.send_message(v_id, vendor_msg, reply_markup=markup, parse_mode="HTML")
-        except Exception as e:
-            print(f"ለድርጅት {v_id} መላክ አልተቻለም: {e}")
+        except: pass
 
-    # 2. ትዕዛዙን በዳታቤዝ 'orders' ውስጥ መመዝገብ
+    # --- 2. ትዕዛዙን በዳታቤዝ መመዝገብ ---
     if 'orders' not in db: db['orders'] = {}
     db['orders'][order_id] = {
         "user_id": user_id,
         "items": user_cart,
         "address": address,
-        "status": "Pending (በጥበቃ ላይ)",
-        "total": total_price
+        "status": "Searching for Driver", # ሁኔታውን ቀየርነው
+        "total": total_price,
+        "rider_id": None # ገና አልተያዘም
     }
     
-    # 3. የደንበኛውን ቅርጫት ማጽዳት
     db['carts'][user_id] = {}
     save_data(db)
 
-    # 4. ለደንበኛው ማረጋገጫ መላክ
-    bot.send_message(message.chat.id, 
-                     f"🎉 **ትዕዛዝዎ በተሳካ ሁኔታ ተልኳል!**\n\n"
-                     f"🆔 የትዕዛዝ ቁጥር፦ `#{order_id}`\n"
-                     f"💰 አጠቃላይ ዋጋ፦ `{total_price} ETB` + ሰርቪስ\n"
-                     f"⏳ ድርጅቱ ትዕዛዙን ሲቀበል እናሳውቅዎታለን።", 
-                     reply_markup=get_customer_dashboard(), parse_mode="Markdown")
+    # --- 3. 🚀 ወዲያውኑ ለደላላዎች መላክ (አዲሱ ሎጂክ) ---
+    notify_drivers_about_new_order(order_id, db['orders'][order_id])
+
+    # --- 4. ለደንበኛው ማረጋገጫ ---
+    bot.send_message(message.chat.id, f"🎉 ትዕዛዝዎ ተልኳል! ደላላ ሲረከብ እናሳውቅዎታለን።\n🆔 #{order_id}", 
+                     reply_markup=get_customer_dashboard())
+
 
 
 
