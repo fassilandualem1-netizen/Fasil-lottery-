@@ -531,12 +531,25 @@ def central_vendor_handler(call):
         db = load_data()
         v_id = str(call.from_user.id)
         v_info = db['vendors_list'].get(v_id, {})
+        
+        # የRating መረጃን ከዳታቤዝ እናምጣ (ከሌለ 0 ይሁን)
+        rating = v_info.get('rating', 0.0)
+        total_reviews = v_info.get('total_reviews', 0)
+        
+        # ለኮከብ ማሳያ (ለምሳሌ 4 ኮከብ ከሆነ ⭐⭐⭐⭐)
+        star_icons = "⭐" * int(rating) if rating > 0 else "ገና አልተገመገመም"
+        
         profile_text = (f"🏢 **የድርጅት መረጃ**\n\n"
                         f"📝 ስም፦ `{v_info.get('name', 'ያልተጠቀሰ')}`\n"
                         f"🆔 መለያ ቁጥር (ID)፦ `{v_id}`\n"
                         f"📍 ስልክ፦ `{v_info.get('phone', 'ያልተጠቀሰ')}`\n"
+                        f"🌟 ደረጃ፦ {star_icons} `({rating})` \n"
+                        f"👥 ጠቅላላ ግምገማ፦ `{total_reviews} ሰዎች` \n"
                         f"✅ ሁኔታ፦ `ንቁ (Active)`")
+        
+        bot.answer_callback_query(call.id)
         bot.send_message(call.message.chat.id, profile_text, parse_mode="Markdown")
+
 
     elif call.data == "vendor_view_orders":
         bot.send_message(call.message.chat.id, "📋 **የተላኩ ትዕዛዞች**\n\nአዲስ ትዕዛዝ ሲኖር እዚህ ጋር ይዘረዘራሉ...")
@@ -1076,6 +1089,24 @@ def show_full_stats_logic(message):
             f"━━━━━━━━━━━━━━━")
     
     bot.send_message(message.chat.id, text, parse_mode="Markdown")
+
+
+def update_vendor_rating(vendor_id, new_star):
+    db = load_data()
+    vendor = db['vendors_list'][str(vendor_id)]
+    
+    current_rating = vendor.get('rating', 0.0)
+    total_reviews = vendor.get('total_reviews', 0)
+    
+    # አዲሱን አማካይ ማስላት (Average formula)
+    # አዲስ አማካይ = ((የድሮ አማካይ * የድሮ ብዛት) + አዲስ ኮከብ) / (የድሮ ብዛት + 1)
+    new_rating = ((current_rating * total_reviews) + new_star) / (total_reviews + 1)
+    
+    vendor['rating'] = round(new_rating, 1) # እስከ አንድ ዲጂት (ለምሳሌ 4.5)
+    vendor['total_reviews'] = total_reviews + 1
+    
+    save_data(db)
+
 
 
 def show_admin_categories(message):
