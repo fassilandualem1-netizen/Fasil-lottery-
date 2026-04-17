@@ -520,27 +520,12 @@ def central_vendor_handler(call):
         bot.send_message(call.message.chat.id, wallet_text, parse_mode="Markdown")
 
     elif call.data == "vendor_list_items":
-        show_my_items(call.message) # call.message መሆኑን እርግጠኛ ሁን
+        bot.answer_callback_query(call.id)
+        show_my_items(call.message)
 
-        db = load_data()
-        v_id = str(call.from_user.id)
-        items = db['vendors_list'].get(v_id, {}).get('items', [])
+    elif call.data.startswith(('edit_item_', 'delete_item_', 'confirm_del_')):
+        handle_item_management(call)
 
-        if not items:
-            return bot.answer_callback_query(call.id, "📦 እስካሁን ምንም ዕቃ አልመዘገቡም።", show_alert=True)
-
-        bot.send_message(call.message.chat.id, "📂 **የጫኗቸው ዕቃዎች ዝርዝር፦**")
-        for i, item in enumerate(items):
-            text = f"🍎 ዕቃ፦ {item['name']}\n💰 ዋጋ፦ {item['price']} ETB\n📁 ምድብ፦ {item['category']}"
-            markup = types.InlineKeyboardMarkup()
-            markup.add(
-                types.InlineKeyboardButton("✏️ ዋጋ ቀይር", callback_data=f"v_edit_p_{i}"),
-                types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"v_del_i_{i}")
-            )
-            if 'photo' in item:
-                bot.send_photo(call.message.chat.id, item['photo'], caption=text, reply_markup=markup)
-            else:
-                bot.send_message(call.message.chat.id, text, reply_markup=markup)
 
     elif call.data == "vendor_profile":
         db = load_data()
