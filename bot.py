@@ -917,6 +917,56 @@ def fund_selection_handler(call):
         bot.register_next_step_handler(msg, process_rider_fund_id) # አዲሱ ፈንክሽን
 
 
+# 🏢 የድርጅቱን ID መቀበያ
+def process_fund_id(message):
+    v_id = message.text.strip()
+    # ኮማንድ ከሆነ ወደ መጀመሪያ ይመልሰው
+    if v_id.startswith('/'): return start_command(message)
+    
+    db = load_data()
+    # IDው በvendors_list ውስጥ መኖሩን ቼክ ማድረግ
+    if v_id not in db.get('vendors_list', {}):
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ ይህ የድርጅት ID አልተገኘም። እባክዎ በትክክል ያስገቡ፦")
+        return bot.register_next_step_handler(msg, process_fund_id)
+    
+    v_name = db['vendors_list'][v_id].get('name', 'ድርጅት')
+    msg = bot.send_message(message.chat.id, f"💰 ለ **'{v_name}'** የሚሞላውን የብር መጠን ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_vendor_fund_amount, v_id, v_name)
+
+# 💰 የብሩን መጠን ተቀብሎ ዳታቤዝ ላይ መመዝገቢያ
+def process_vendor_fund_amount(message, v_id, v_name):
+    try:
+        amount = float(message.text.strip())
+        if amount <= 0: raise ValueError
+        
+        db = load_data()
+        
+        # 'balance' የሚለውን ኪይ ተጠቅመን እንደምርበታለን
+        current_balance = db['vendors_list'][v_id].get('balance', 0)
+        db['vendors_list'][v_id]['balance'] = current_balance + amount
+        
+        # ለክትትል እንዲመች deposit_balance ላይም እንጨምረው (ካለህ)
+        db['vendors_list'][v_id]['deposit_balance'] = db['vendors_list'][v_id].get('deposit_balance', 0) + amount
+        
+        save_data(db)
+        
+        bot.send_message(message.chat.id, 
+                         f"✅ **በተሳካ ሁኔታ ተሞልቷል!**\n\n"
+                         f"🏢 ድርጅት፦ {v_name}\n"
+                         f"💵 የተሞላው መጠን፦ {amount} ETB\n"
+                         f"💰 አሁን ያለው ቀሪ ሂሳብ፦ {current_balance + amount} ETB", 
+                         reply_markup=get_admin_dashboard(message.from_user.id))
+        
+        # ለድርጅቱ (Vendor) ማሳወቂያ መላክ
+        try:
+            bot.send_message(v_id, f"🔔 **የሂሳብ መሙያ ማሳወቂያ**\n\nበአድሚን በኩል `{amount} ETB` ሂሳብዎ ላይ ተጨምሯል።\n💰 የአሁኑ ቀሪ ሂሳብዎ፦ `{current_balance + amount} ETB` ነው")
+        except:
+            pass
+
+    except ValueError:
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ትክክለኛ የብር መጠን በቁጥር ብቻ ያስገቡ፦")
+        bot.register_next_step_handler(msg, process_vendor_fund_amount, v_id, v_name)
+
 # ሀ. የደላላውን ID መቀበያ
 def process_rider_fund_id(message):
     r_id = message.text.strip()
