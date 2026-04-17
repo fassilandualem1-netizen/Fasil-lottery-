@@ -859,15 +859,15 @@ def handle_item_approval(call):
     try:
         data_parts = call.data.split('_')
         
-        # ✅ ማስተካከያ 1፡ ድርጊቱን መለየት (approve ወይም reject)
+        # ✅ ማስተካከያ 1፡ 'approve' ወይም 'reject' መሆኑን መለየት
         action = data_parts  
         
-        # ✅ ማስተካከያ 2፡ IDውን መለየት (ከዝርዝሩ ውስጥ 3ኛው ላይ ነው ያለው)
+        # ✅ ማስተካከያ 2፡ IDውን መለየት (index 2 ላይ ነው ያለው)
         item_id = data_parts 
 
         db = load_data()
 
-        # ዳታው መኖሩን ቼክ ማድረግ
+        # ዳታው በ pending_items ውስጥ መኖሩን ቼክ ማድረግ
         if item_id not in db.get('pending_items', {}):
             bot.answer_callback_query(call.id, "❌ ስህተት፦ እቃው አልተገኘም!", show_alert=True)
             return
@@ -876,9 +876,11 @@ def handle_item_approval(call):
         v_id = str(item['vendor_id'])
 
         if action == "approve":
-            # የቬንደር ዳታ መኖሩን ማረጋገጥ
-            if v_id not in db.get('vendors_list', {}):
-                db['vendors_list'][v_id] = {'name': item['vendor_name'], 'items': []}
+            # የቬንደር ዝርዝር መኖሩን ማረጋገጥ
+            if 'vendors_list' not in db: db['vendors_list'] = {}
+            
+            if v_id not in db['vendors_list']:
+                db['vendors_list'][v_id] = {'name': item.get('vendor_name', 'Unknown'), 'items': []}
             
             if 'items' not in db['vendors_list'][v_id]:
                 db['vendors_list'][v_id]['items'] = []
@@ -891,8 +893,9 @@ def handle_item_approval(call):
                 "photo": item['photo']
             })
             save_data(db)
+            
             bot.edit_message_caption(
-                caption=f"✅ **በተሳካ ሁኔታ ጸድቋል!**\n🍎 ዕቃ፦ {item['item_name']}\n🏢 ድርጅት፦ {item['vendor_name']}", 
+                caption=f"✅ **በተሳካ ሁኔታ ጸድቋል!**\n🍎 ዕቃ፦ {item['item_name']}\n🏢 ድርጅት፦ {item.get('vendor_name')}", 
                 chat_id=call.message.chat.id, 
                 message_id=call.message.message_id
             )
@@ -914,6 +917,7 @@ def handle_item_approval(call):
     except Exception as e:
         print(f"Approval Error: {e}")
         bot.answer_callback_query(call.id, f"❌ ስህተት ተፈጥሯል", show_alert=True)
+
 
 @bot.callback_query_handler(func=lambda call: call.data in ["add_fund_vendor", "add_fund_rider"])
 def fund_selection_handler(call):
