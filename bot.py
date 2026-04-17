@@ -390,10 +390,9 @@ def central_admin_handler(call):
 
     elif call.data.startswith("approve_item_"):
         try:
-            # ✅ ማስተካከያ፡ ተጨምሯል (IDዋን ብቻ ለመውሰድ)
+            # ✅ ማስተካከያ፡ ዳታውን በትክክል መበተን
             data_parts = call.data.split("_")
-item_id = data_parts # 0=approve, 1=item, 2=ID
- 
+            item_id = data_parts # 0=approve, 1=item, 2=ID
             
             db = load_data()
             pending = db.get('pending_items', {})
@@ -430,7 +429,9 @@ item_id = data_parts # 0=approve, 1=item, 2=ID
                 bot.answer_callback_query(call.id, "❌ ይህ እቃ አልተገኘም!", show_alert=True)
                 
         except Exception as e:
+            # ⚠️ ይህ 'except' ብሎክ ነው የጎደለው
             bot.answer_callback_query(call.id, f"❌ ስህተት፦ {str(e)}", show_alert=True)
+
 
     elif call.data.startswith("reject_item_"):
         try:
