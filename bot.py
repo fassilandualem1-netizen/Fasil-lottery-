@@ -1577,7 +1577,7 @@ def process_item_photo(message, item_name, category, price):
 # 5. ለአድሚን በፎቶ እና በበተን መልክ ይልካል
 def process_item_finish(message, item_data, temp_id):
     markup = types.InlineKeyboardMarkup(row_width=2)
-    # Callback data አወቃቀር በትክክል መሆኑን አረጋግጥ
+    # ማጽደቂያ እና ውድቅ ማድረጊያ በተኖች
     btn_approve = types.InlineKeyboardButton("✅ እቀበላለሁ", callback_data=f"approve_item_{temp_id}")
     btn_reject = types.InlineKeyboardButton("❌ አልቀበልም", callback_data=f"reject_item_{temp_id}")
     markup.add(btn_approve, btn_reject)
@@ -1591,22 +1591,24 @@ def process_item_finish(message, item_data, temp_id):
         f"📁 ምድብ፦ {item_data['category']}"
     )
 
-    # ለአድሚን በፎቶ መልክ መላክ
-    # ማሳሰቢያ፦ ADMIN_CHAT_ID በትክክል መገለጽ አለበት
     try:
+        # በአዲሱ ID (8488592165) መላክ
+        target_admin = 8488592165 
+        
         bot.send_photo(
-            chat_id=ADMIN_CHAT_ID, 
+            chat_id=target_admin, 
             photo=item_data['photo'], 
             caption=admin_text, 
             reply_markup=markup,
             parse_mode="Markdown"
         )
+        
+        # ለቬንደሩ የተላከ መሆኑን ማረጋገጫ መስጠት
         bot.send_message(message.chat.id, "✅ ዕቃው ለቁጥጥር ተልኳል! አድሚን ሲያጸድቀው ማሳወቂያ ይደርስዎታል።")
+        
     except Exception as e:
-        print(f"Notify Admin Error: {e}")
-        bot.send_message(message.chat.id, "⚠️ መረጃው ተመዝግቧል ግን ለአድሚን መላክ አልተቻለም።")
-
-
+        print(f"Admin Notification Error: {e}")
+        bot.send_message(message.chat.id, "⚠️ መረጃው ተመዝግቧል ግን ለአድሚን መላክ አልተቻለም። እባክዎ ጥቂት ቆይተው ይሞክሩ።")
 
 
 if __name__ == "__main__":
