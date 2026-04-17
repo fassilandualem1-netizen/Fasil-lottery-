@@ -23,6 +23,15 @@ def run_flask():
     # በ Render ላይ ስራ እንዲጀምር host እና port በትክክል መሰጠት አለባቸው
     app.run(host='0.0.0.0', port=PORT)
 
+CHANNEL_ID = -1003962139457
+
+def backup_db_to_channel():
+    try:
+        with open('database.json', 'rb') as f:
+            bot.send_document(CHANNEL_ID, f, caption=f"🔄 የዳታቤዝ ባካፕ\n📅 ቀን፦ {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+            print("📢 ዳታቤዝ ወደ ቻናል ተልኳል።")
+    except Exception as e:
+        print(f"❌ ባካፕ ሲደረግ ስህተት ተፈጠረ፦ {e}")
 
 import json
 
