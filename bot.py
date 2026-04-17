@@ -334,9 +334,10 @@ def interrupt_handler(message):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('admin_', 'switch_', 'approve_', 'reject_')))
 def central_admin_handler(call):
+    # 🔍 ይሄ ነው Debugging ኮዱ! 
+    print(f"🔔 DEBUG: የተቀበለው ዳታ -> {call.data}")
+    
     user_id = call.from_user.id
-print(f"LOG: Callback received -> {call.data}")
-
     bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
     # ማንኛውንም የቆየ ግቤት (input) ያጸዳል
     bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
