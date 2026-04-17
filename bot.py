@@ -319,9 +319,10 @@ def interrupt_handler(message):
 
 
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('admin_') or call.data.startswith('switch_'))
+@bot.callback_query_handler(func=lambda call: call.data.startswith(('admin_', 'switch_', 'approve_', 'reject_')))
 def central_admin_handler(call):
     user_id = call.from_user.id
+    bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
     # ማንኛውንም የቆየ ግቤት (input) ያጸዳል
     bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
 
@@ -369,19 +370,19 @@ def central_admin_handler(call):
         view_total_profit(call)
 
             # --- አድሚኑ እቃ ሲያጸድቅ (Approve) ---
-    elif call.data.startswith("approve_item_"):
-        item_id = call.data.split("_")
+    if call.data.startswith("approve_item_"):
+        # 🟢 ማስተካከያ፡ ተጨምሯል IDውን ብቻ ለመውሰድ
+        item_id = call.data.split("_") 
         db = load_data()
-        
+
         if item_id in db.get('pending_items', {}):
-            item = db['pending_items'].pop(item_id) # ከፔንዲንግ ማውጣት
+            item = db['pending_items'].pop(item_id)
             v_id = item['vendor_id']
-            
-            # ወደ ድርጅቱ የእቃዎች ዝርዝር መጨመር
+
             if v_id in db['vendors_list']:
                 if 'items' not in db['vendors_list'][v_id]:
                     db['vendors_list'][v_id]['items'] = []
-                
+
                 db['vendors_list'][v_id]['items'].append({
                     "name": item['item_name'],
                     "price": item['price'],
@@ -389,13 +390,11 @@ def central_admin_handler(call):
                     "photo": item['photo']
                 })
                 save_data(db)
-                
-                # የአድሚኑን መልዕክት መቀየር (Approve መደረጉን እንዲያሳይ)
+
                 bot.edit_message_caption(caption=f"✅ **ጸድቋል!**\n\n🍎 ዕቃ፦ {item['item_name']}\n🏢 ድርጅት፦ {db['vendors_list'][v_id].get('name')}", 
                                          chat_id=call.message.chat.id, 
                                          message_id=call.message.message_id)
-                
-                # ለድርጅቱ ማሳወቅ
+
                 try: bot.send_message(v_id, f"🎉 እንኳን ደስ አለዎት! **'{item['item_name']}'** በአድሚን ጸድቋል።")
                 except: pass
         else:
@@ -403,23 +402,20 @@ def central_admin_handler(call):
 
     # --- አድሚኑ እቃ ውድቅ ሲያደርግ (Reject) ---
     elif call.data.startswith("reject_item_"):
+        # 🟢 ማስተካከያ፡ ተጨምሯል
         item_id = call.data.split("_")
         db = load_data()
-        
+
         if item_id in db.get('pending_items', {}):
             item = db['pending_items'].pop(item_id)
             save_data(db)
-            
+
             bot.edit_message_caption(caption=f"❌ **ውድቅ ተደርጓል!**\n\n🍎 ዕቃ፦ {item['item_name']}", 
                                      chat_id=call.message.chat.id, 
                                      message_id=call.message.message_id)
-            
-            try: bot.send_message(item['vendor_id'], f"⚠️ ይቅርታ፣ ያስገቡት ዕቃ '{item['item_name']}' ውድቅ ተደርጓል።")
+
+            try: bot.send_message(item['vendor_id'], f"⚠️ ይቅርታ፣ ያስገቡት ዕቃ '{item['item_name']}' በአድሚን ውድቅ ተደርጓል።")
             except: pass
-
-
-
-    
   
     elif call.data == "admin_set_commission":
         start_commission_setting(call) # አዲሱን ሰንሰለት ይጀምራል
