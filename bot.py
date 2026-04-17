@@ -978,6 +978,47 @@ def forward_to_admin(message):
     bot.send_message(message.chat.id, "✅ መልዕክትዎ ደርሶናል። በቅርቡ ምላሽ እንሰጥዎታለን።")
 
 
+@bot.message_handler(func=lambda message: message.text == "👤 መገለጫዬ/Profile")
+def show_user_profile(message):
+    user_id = str(message.from_user.id)
+    db = load_data()
+    
+    # በዳታቤዝ ውስጥ የተጠቃሚውን መረጃ መፈለግ
+    user_info = None
+    if 'user_list' in db:
+        # በሊስት ውስጥ ያለን ተጠቃሚ በ ID መፈለግ
+        for user in db['user_list']:
+            if str(user.get('id')) == user_id:
+                user_info = user
+                break
+    
+    # መሠረታዊ መረጃዎች ከቴሌግራም መገለጫ
+    first_name = message.from_user.first_name
+    last_name = message.from_user.last_name if message.from_user.last_name else ""
+    username = f"@{message.from_user.username}" if message.from_user.username else "የለዎትም"
+    
+    # በዳታቤዝ ውስጥ ስልክ ቁጥር ካለ
+    phone = user_info.get('phone', "ያልተመዘገበ") if user_info else "ያልተመዘገበ"
+    role = user_info.get('role', "ደንበኛ") if user_info else "ደንበኛ"
+
+    profile_text = (
+        f"👤 <b>የእርስዎ መገለጫ (Profile)</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"📝 <b>ሙሉ ስም፦</b> {first_name} {last_name}\n"
+        f"📞 <b>ስልክ ቁጥር፦</b> <code>{phone}</code>\n"
+        f"🔗 <b>Username፦</b> {username}\n"
+        f"🆔 <b>የእርስዎ ID፦</b> <code>{user_id}</code>\n"
+        f"🎭 <b>የአካውንት አይነት፦</b> {role}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"<i>መረጃዎን ለመቀየር ከታች ያለውን በተን ይጠቀሙ።</i>"
+    )
+    
+    markup = types.InlineKeyboardMarkup()
+    btn_update = types.InlineKeyboardButton("📱 ስልክ ቁጥር ቀይር/አድስ", callback_data="update_phone")
+    markup.add(btn_update)
+    
+    bot.send_message(message.chat.id, profile_text, reply_markup=markup, parse_mode="HTML")
+
 
 
 
