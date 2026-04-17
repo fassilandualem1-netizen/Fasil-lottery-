@@ -414,7 +414,7 @@ def central_admin_handler(call):
         try:
             # ✅ ማስተካከያ፡ ዳታውን በትክክል መበተን
             data_parts = call.data.split("_")
-            item_id = data_parts # 0=approve, 1=item, 2=ID
+item_id = data_parts[-1] # የመጨረሻውን ቁራጭ (ID) ብቻ ይወስዳል
             
             db = load_data()
             pending = db.get('pending_items', {})
@@ -868,6 +868,7 @@ def handle_withdraw_decision(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("approve_item_"))
 def approve_item(call):
     try:
+        # 1. ID ማውጣት
         item_id = call.data.split("approve_item_")[-1]
         db = load_data()
         
@@ -875,21 +876,22 @@ def approve_item(call):
             bot.answer_callback_query(call.id, "❌ ዕቃው አልተገኘም!", show_alert=True)
             return
 
+        # 2. ዳታውን ማዘጋጀት
         item_data = db['pending_items'].pop(item_id)
         v_id = str(item_data['vendor_id'])
 
-        # ⚠️ ማስተካከያ፡ ቬንደሩ በዲክሽነሪ መልክ መፈጠሩን ማረጋገጥ
+        # 3. የቬንደር መዋቅር ማረጋገጥ (ይህ ነው ዋናው መከላከያ)
         if 'vendors_list' not in db: db['vendors_list'] = {}
         
-        # ቬንደሩ ከሌለ ወይም ዳታው ሊስት ከሆነ አዲስ ዲክሽነሪ ፍጠር
+        # ቬንደሩ ከሌለ ወይም ዳታው Dictionary ካልሆነ (ሊስት ከሆነ) አዲስ ፍጠር
         if v_id not in db['vendors_list'] or not isinstance(db['vendors_list'][v_id], dict):
             db['vendors_list'][v_id] = {'name': item_data.get('vendor_name', 'Shop'), 'items': {}}
         
-        # 'items' በዲክሽነሪ መሆኑን አረጋግጥ
+        # 'items' የግድ Dictionary መሆን አለበት (አንተ ኮድህ ላይ .append ትል ነበር፣ እሱ ስህተት ነው)
         if 'items' not in db['vendors_list'][v_id] or not isinstance(db['vendors_list'][v_id]['items'], dict):
             db['vendors_list'][v_id]['items'] = {}
 
-        # ዕቃውን መመዝገብ
+        # 4. ዕቃውን በ Dictionary ቁልፍ (ID) መመዝገብ
         db['vendors_list'][v_id]['items'][item_id] = {
             "name": item_data['item_name'],
             "price": item_data['price'],
@@ -898,12 +900,17 @@ def approve_item(call):
         }
 
         save_data(db)
-        bot.edit_message_caption(caption=f"✅ ጸድቋል፦ {item_data['item_name']}", 
-                                 chat_id=call.message.chat.id, message_id=call.message.message_id)
-        bot.send_message(v_id, f"🎉 ዕቃዎ '{item_data['item_name']}' ጸድቋል!")
+        
+        # 5. መልዕክት ማደስ
+        bot.edit_message_caption(
+            caption=f"✅ ጸድቋል፦ {item_data['item_name']}\n🏢 ድርጅት፦ {item_data.get('vendor_name')}", 
+            chat_id=call.message.chat.id, 
+            message_id=call.message.message_id
+        )
+        bot.send_message(v_id, f"🎉 ዕቃዎ '{item_data['item_name']}' በአድሚን ጸድቋል!")
 
     except Exception as e:
-        print(f"Approve Error: {e}")
+        print(f"❌ Approve Fix Error: {e}")
         bot.answer_callback_query(call.id, f"⚠️ ስህተት፦ {str(e)}", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data in ["add_fund_vendor", "add_fund_rider"])
