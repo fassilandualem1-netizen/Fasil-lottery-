@@ -868,64 +868,55 @@ def handle_withdraw_decision(call):
     bot.answer_callback_query(call.id)
 
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith(('approve_item_', 'reject_item_')))
-def handle_item_approval(call):
+@bot.callback_query_handler(func=lambda call: call.data.startswith("approve_item_"))
+def approve_item(call):
     try:
-        data_parts = call.data.split('_')
+        # 1. IDውን በትክክል መለየት (approve_item_ ከሚለው በኋላ ያለውን)
+        item_id = call.data.replace("approve_item_", "")
         
-        # ✅ ማስተካከያ፡ index ቁጥሮቹን በትክክል መጠቀም
-        action = data_parts  # 'approve' ወይም 'reject'
-        item_id = data_parts # 3ኛው ቦታ ላይ ያለውን ID ብቻ ይወስዳል
-
+        db = load_data()
+        
+        # 2. ዕቃው በጠባቂነት (pending) መኖሩን ማረጋገጥ
         if item_id not in db.get('pending_items', {}):
-            bot.answer_callback_query(call.id, "❌ ስህተት፦ እቃው አልተገኘም!", show_alert=True)
+            bot.answer_callback_query(call.id, "❌ ስህተት፦ ይህ ዕቃ አልተገኘም!", show_alert=True)
             return
 
-        item = db['pending_items'].pop(item_id)
-        v_id = str(item['vendor_id'])
+        # ዕቃውን ማውጣት
+        item_data = db['pending_items'].pop(item_id)
+        v_id = str(item_data['vendor_id'])
+        
+        # 3. የቬንደሩን ዳታ መዋቅር ማስተካከል (Dictionary መጠቀም ይመከራል)
+        if v_id not in db['vendors_list']:
+            db['vendors_list'][v_id] = {'name': item_data.get('vendor_name', 'Unknown'), 'items': {}}
+        
+        # 'items' ሊስት ከሆነ ወደ ዲክሽነሪ መቀየር (ስህተቱን ለመከላከል)
+        if isinstance(db['vendors_list'][v_id].get('items'), list):
+            db['vendors_list'][v_id]['items'] = {}
 
-        if action == "approve":
-            # የቬንደር ዝርዝር መኖሩን ማረጋገጥ
-            if 'vendors_list' not in db: db['vendors_list'] = {}
-            
-            if v_id not in db['vendors_list']:
-                db['vendors_list'][v_id] = {'name': item.get('vendor_name', 'Unknown'), 'items': []}
-            
-            if 'items' not in db['vendors_list'][v_id]:
-                db['vendors_list'][v_id]['items'] = []
-
-            # ዕቃውን ወደ ቬንደሩ ዝርዝር መጨመር
-            db['vendors_list'][v_id]['items'].append({
-                "name": item['item_name'],
-                "price": item['price'],
-                "category": item['category'],
-                "photo": item['photo']
-            })
-            save_data(db)
-            
-            bot.edit_message_caption(
-                caption=f"✅ **በተሳካ ሁኔታ ጸድቋል!**\n🍎 ዕቃ፦ {item['item_name']}\n🏢 ድርጅት፦ {item.get('vendor_name')}", 
-                chat_id=call.message.chat.id, 
-                message_id=call.message.message_id
-            )
-            # ለባለቤቱ ማሳወቅ
-            try: bot.send_message(v_id, f"🎉 እንኳን ደስ አለዎት! **'{item['item_name']}'** በአድሚን ጸድቋል።")
-            except: pass
-            
-        elif action == "reject":
-            save_data(db)
-            bot.edit_message_caption(
-                caption=f"❌ **ውድቅ ተደርጓል!**\n🍎 ዕቃ፦ {item['item_name']}", 
-                chat_id=call.message.chat.id, 
-                message_id=call.message.message_id
-            )
-            # ለባለቤቱ ማሳወቅ
-            try: bot.send_message(v_id, f"⚠️ ይቅርታ፣ ያስገቡት ዕቃ '{item['item_name']}' ውድቅ ተደርጓል።")
-            except: pass
+        # ዕቃውን ወደ ቬንደሩ ዝርዝር መጨመር
+        db['vendors_list'][v_id]['items'][item_id] = {
+            "name": item_data['item_name'],
+            "price": item_data['price'],
+            "category": item_data['category'],
+            "photo": item_data['photo']
+        }
+        
+        # 4. ሴቭ ማድረግ
+        save_data(db)
+        
+        # አድሚኑ ጋር ያለውን መልዕክት ማዘመን
+        bot.edit_message_caption(
+            caption=f"✅ **በተሳካ ሁኔታ ጸድቋል!**\n🍎 ዕቃ፦ {item_data['item_name']}",
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id
+        )
+        
+        # ለቬንደሩ ማሳወቅ
+        bot.send_message(v_id, f"🎉 እንኳን ደስ አለዎት! **'{item_data['item_name']}'** በአድሚን ጸድቆ ለሽያጭ ቀርቧል።")
 
     except Exception as e:
-        print(f"Approval Error: {e}")
-        bot.answer_callback_query(call.id, f"❌ ስህተት ተፈጥሯል", show_alert=True)
+        print(f"Approve Error: {e}")
+        bot.answer_callback_query(call.id, "❌ ስህተት ተፈጥሯል!", show_alert=True)
 
 
 @bot.callback_query_handler(func=lambda call: call.data in ["add_fund_vendor", "add_fund_rider"])
