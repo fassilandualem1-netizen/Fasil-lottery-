@@ -26,33 +26,44 @@ def run_flask():
 # --- 2. ዳታቤዝ ተግባራት ---
 # 1. ዳታቤዝ ማውረጃ (Redis ተጠቅሞ)
 def load_data():
+    # መሠረታዊ የዳታቤዝ መዋቅር (Default Structure)
+    default_db = {
+        "riders_list": {},     
+        "vendors_list": {},    
+        "orders": {},          
+        "pending_items": {},   
+        "categories": [],      
+        "total_profit": 0,     
+        "user_list": [],       
+        "settings": {
+            "vendor_commission_p": 10,
+            "rider_fixed_fee": 30,
+            "customer_service_fee": 15,
+            "base_delivery": 50,
+            "system_locked": False 
+        }
+    }
+
     try:
         raw = redis.get("bdf_delivery_db")
         if raw: 
-            return json.loads(raw)
+            loaded_db = json.loads(raw)
+            # አዳዲስ ቁልፎች (Keys) ከተጨመሩ ከ default_db ጋር ማዋሃድ (Merge)
+            # ይህ አሰራር ዳታቤዝህ አፕዴት ሲሆን ቦቱ እንዳይቆም ይረዳል
+            for key, value in default_db.items():
+                if key not in loaded_db:
+                    loaded_db[key] = value
+            return loaded_db
 
-        # መዋቅሩ ለመጀመሪያ ጊዜ ሲከፈት ብቻ
-        return {
-            "riders_list": {},     
-            "vendors_list": {},    
-            "orders": {},          
-            "pending_items": {},   
-            "categories": [],      
-            "total_profit": 0,     
-            "user_list": [],       
-            "settings": {
-                "vendor_commission_p": 10,
-                "rider_fixed_fee": 30,
-                "customer_service_fee": 15,
-                "base_delivery": 50,
-                "system_locked": False 
-            }
-        }
+        # ዳታቤዙ መጀመሪያውኑ ባዶ ከሆነ
+        return default_db
+
     except Exception as e:
         print(f"❌ Database Load Error: {e}")
-        # ⚠️ ወሳኝ፡ እዚህ ጋር መመለስ ያለበት ቀድሞ የተጫነ ዳታ መሆን አለበት እንጂ 
-        # ባዶ መዋቅር መሆን የለበትም። ለጊዜው ቦቱ እንዳይቆም መሠረታዊ መዋቅር እንላክ፡
-        raise e # ወይም ቦቱ እንዲቆም ማድረግ ይሻላል ዳታ እንዳይጠፋ
+        # ዳታቤዝ መጫን ካልቻለ "raise e" ማድረጉ ይሻላል። 
+        # ምክንያቱም ባዶ ዳታ ከመለሰ የቆየውን ዳታ በባዶ ሊተካብህ (Overwrite ሊያደርግ) ይችላል።
+        raise e 
+
 
         # Error ቢመጣ እንኳን ቦቱ እንዳይቆም መሠረታዊ መዋቅሩን እንላክ
         return {
