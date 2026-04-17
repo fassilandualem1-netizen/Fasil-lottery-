@@ -387,9 +387,9 @@ def central_admin_handler(call):
 
     elif call.data.startswith("approve_item_"):
         try:
-            # 1. ID ማውጣት (ትክክለኛው መንገድ መጨመር ነው)
+            # ✅ ማስተካከያ፡ ተጨምሯል (IDዋን ብቻ ለመውሰድ)
             data_parts = call.data.split("_")
-            item_id = data_parts  # <--- ይሄ ነው ወሳኙ ማስተካከያ!
+            item_id = data_parts 
             
             db = load_data()
             pending = db.get('pending_items', {})
@@ -430,7 +430,7 @@ def central_admin_handler(call):
 
     elif call.data.startswith("reject_item_"):
         try:
-            # 🟢 እዚህ ጋም የግድ ያስፈልጋል
+            # ✅ ማስተካከያ፡ እዚህም ተጨምሯል
             data_parts = call.data.split("_")
             item_id = data_parts 
             
@@ -451,6 +451,7 @@ def central_admin_handler(call):
                 bot.answer_callback_query(call.id, "❌ እቃው አልተገኘም!")
         except Exception as e:
             bot.answer_callback_query(call.id, f"❌ ስህተት፦ {str(e)}")
+
 
     elif call.data == "admin_set_commission":
         start_commission_setting(call) # አዲሱን ሰንሰለት ይጀምራል
@@ -656,19 +657,17 @@ def show_rider_wallet(call):
 
 
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('approve_item_') or call.data.startswith('reject_item_'))
+@bot.callback_query_handler(func=lambda call: call.data.startswith(('approve_item_', 'reject_item_')))
 def handle_item_approval(call):
     try:
-        # 1. መረጃውን መበለል (Indices የግድ ያስፈልጋሉ)
         data_parts = call.data.split('_')
         
-        # ስህተቱ የነበረው እዚህ ጋ ነው - እና መኖር አለባቸው
-        action = data_parts  # 'approve' ወይም 'reject' መሆኑን ይለያል
-        item_id = data_parts # የእቃውን ID ቁጥር ብቻ ይወስዳል
+        # ✅ ማስተካከያ፡ indices እና ገብተዋል
+        action = data_parts  # 'approve' ወይም 'reject'
+        item_id = data_parts # የእቃው ID
 
         db = load_data()
 
-        # 2. እቃው በፔንዲንግ ዝርዝር ውስጥ መኖሩን ማረጋገጥ
         if item_id not in db.get('pending_items', {}):
             bot.answer_callback_query(call.id, "❌ ስህተት፦ እቃው አልተገኘም!", show_alert=True)
             return
@@ -677,7 +676,6 @@ def handle_item_approval(call):
         v_id = str(item['vendor_id'])
 
         if action == "approve":
-            # ድርጅቱ መኖሩን ማረጋገጥ
             if v_id not in db.get('vendors_list', {}):
                 if 'vendors_list' not in db: db['vendors_list'] = {}
                 db['vendors_list'][v_id] = {'name': 'Unknown', 'items': []}
@@ -685,7 +683,6 @@ def handle_item_approval(call):
             if 'items' not in db['vendors_list'][v_id]:
                 db['vendors_list'][v_id]['items'] = []
 
-            # እቃውን ወደ ድርጅቱ ዝርዝር መጨመር
             db['vendors_list'][v_id]['items'].append({
                 "name": item['item_name'],
                 "price": item['price'],
@@ -693,26 +690,19 @@ def handle_item_approval(call):
                 "photo": item['photo']
             })
             save_data(db)
-
             bot.edit_message_caption(caption=f"✅ **ጸድቋል!**\n🍎 ዕቃ፦ {item['item_name']}", 
                                      chat_id=call.message.chat.id, 
                                      message_id=call.message.message_id)
             
-            try: bot.send_message(v_id, f"🎉 እቃዎ **'{item['item_name']}'** ጸድቋል!")
-            except: pass
-
         elif action == "reject":
             save_data(db)
             bot.edit_message_caption(caption=f"❌ **ውድቅ ተደርጓል!**\n🍎 ዕቃ፦ {item['item_name']}", 
                                      chat_id=call.message.chat.id, 
                                      message_id=call.message.message_id)
-            
-            try: bot.send_message(v_id, f"⚠️ እቃዎ **'{item['item_name']}'** ውድቅ ተደርጓል።")
-            except: pass
 
     except Exception as e:
-        # ማንኛውም ስህተት ቢመጣ እዚህ ጋ ያሳውቀናል
         bot.answer_callback_query(call.id, f"❌ Error: {str(e)}", show_alert=True)
+
 
 
 # ስልክ ቁጥር ሲላክ
