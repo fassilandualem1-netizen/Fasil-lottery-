@@ -31,26 +31,29 @@ def load_data():
         if raw: 
             return json.loads(raw)
 
-        # መዋቅሩን ለሁሉም ተዋናዮች (Vendor, Driver, Customer) እንዲመች አድርገን መጀመር
-        initial_data = {
+        # መዋቅሩ ለመጀመሪያ ጊዜ ሲከፈት ብቻ
+        return {
             "riders_list": {},     
             "vendors_list": {},    
             "orders": {},          
             "pending_items": {},   
             "categories": [],      
             "total_profit": 0,     
-            "user_list": [],       # ሁሉንም ተጠቃሚዎች ለማስታወቂያ መያዣ
+            "user_list": [],       
             "settings": {
-                "vendor_commission_p": 10,   # ከድርጅቱ ሽያጭ የሚቀነስ (%)
-                "rider_fixed_fee": 30,       # ለደላላው የሚከፈል ቋሚ ክፍያ (ETB)
-                "customer_service_fee": 15,  # ከደንበኛው የሚወሰድ አገልግሎት ክፍያ (ETB)
-                "base_delivery": 50,         # የመነሻ መላኪያ ዋጋ
+                "vendor_commission_p": 10,
+                "rider_fixed_fee": 30,
+                "customer_service_fee": 15,
+                "base_delivery": 50,
                 "system_locked": False 
             }
         }
-        return initial_data
     except Exception as e:
         print(f"❌ Database Load Error: {e}")
+        # ⚠️ ወሳኝ፡ እዚህ ጋር መመለስ ያለበት ቀድሞ የተጫነ ዳታ መሆን አለበት እንጂ 
+        # ባዶ መዋቅር መሆን የለበትም። ለጊዜው ቦቱ እንዳይቆም መሠረታዊ መዋቅር እንላክ፡
+        raise e # ወይም ቦቱ እንዲቆም ማድረግ ይሻላል ዳታ እንዳይጠፋ
+
         # Error ቢመጣ እንኳን ቦቱ እንዳይቆም መሠረታዊ መዋቅሩን እንላክ
         return {
             "riders_list": {}, 
