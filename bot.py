@@ -559,27 +559,26 @@ def central_vendor_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('edit_item_', 'delete_item_', 'confirm_del_')))
 def handle_item_management(call):
     data_parts = call.data.split("_")
-    # ዳታው እንዲህ ነው የሚመጣው: ['edit', 'item', 'id'] ወይም ['confirm', 'del', 'id']
+    # ለውጧ እዚህ ጋር ናት: መጨመር አለብህ
     action = data_parts 
     item_id = data_parts[-1] 
     user_id = str(call.from_user.id)
-    
+
     db = load_data()
 
-    if action == "delete":
+    if action == "delete": # አሁን 'delete' መሆኑን ማረጋገጥ ይችላል
         markup = types.InlineKeyboardMarkup()
         yes_btn = types.InlineKeyboardButton("✅ አዎ አጥፋው", callback_data=f"confirm_del_{item_id}")
         no_btn = types.InlineKeyboardButton("❌ ተመለስ", callback_data="vendor_list_items")
         markup.add(yes_btn, no_btn)
-        
+
         bot.answer_callback_query(call.id)
-        # ፎቶ ከሆነ caption-ኑን ካልሆነ text-ቱን ይቀይራል
         try:
             bot.edit_message_caption("⚠️ ይህንን ዕቃ ለመሰረዝ እርግጠኛ ነዎት?", call.message.chat.id, call.message.message_id, reply_markup=markup)
         except:
             bot.edit_message_text("⚠️ ይህንን ዕቃ ለመሰረዝ እርግጠኛ ነዎት?", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
-    elif action == "confirm":
+    elif action == "confirm": # አሁን 'confirm' መሆኑን ያውቃል
         if user_id in db.get('vendors_list', {}) and item_id in db['vendors_list'][user_id].get('items', {}):
             del db['vendors_list'][user_id]['items'][item_id]
             save_data(db)
@@ -588,10 +587,9 @@ def handle_item_management(call):
         else:
             bot.answer_callback_query(call.id, "❌ ዕቃው አልተገኘም።", show_alert=True)
 
-    elif action == "edit":
+    elif action == "edit": # አሁን 'edit' መሆኑን ይረዳል
         bot.answer_callback_query(call.id)
         msg = bot.send_message(call.message.chat.id, "🔢 አዲሱን ዋጋ ያስገቡ (ለምሳሌ፦ 250)፦")
-        # ወደ ዋጋ መቀየሪያ ሎጂክ ይልከዋል
         bot.register_next_step_handler(msg, update_item_price_logic, item_id)
 
 # --- 1. የደላላው ማዕከላዊ ትራፊክ (Callback Handler) ---
