@@ -1623,38 +1623,36 @@ def update_item_price(message, item_id):
 
 
 def show_my_items(message):
-    user_id = str(message.chat.id)
+    user_id = str(message.chat.id) # የላኪው ID
     db = load_data()
     items = db.get('items', {})
     
     found_any = False
     
     for item_id, item_info in items.items():
-        # የባለቤቱ መሆኑን ቼክ እናደርጋለን
-        if str(item_info.get('owner_id')) == user_id:
+        # የባለቤቱን መለያ በትክክል መፈተሽ
+        owner_id = str(item_info.get('owner_id'))
+        
+        if owner_id == user_id:
             found_any = True
-            
-            # ለእያንዳንዱ ዕቃ የራሱ ማስተካከያ በተኖች
             markup = types.InlineKeyboardMarkup(row_width=2)
-            edit_btn = types.InlineKeyboardButton("📝 አስተካክል", callback_data=f"edit_item_{item_id}")
-            delete_btn = types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"delete_item_{item_id}")
+            # እዚህ ጋር item_id ስትሪንግ መሆኑን እናረጋግጣለን
+            clean_id = str(item_id)
+            
+            edit_btn = types.InlineKeyboardButton("📝 አስተካክል", callback_data=f"edit_item_{clean_id}")
+            delete_btn = types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"delete_item_{clean_id}")
             markup.add(edit_btn, delete_btn)
             
             text = (
                 f"📦 **የዕቃ ስም፦** {item_info.get('name')}\n"
                 f"💰 **ዋጋ፦** {item_info.get('price')} ETB\n"
-                f"📁 **ምድብ፦** {item_info.get('category', 'ያልተገለጸ')}\n"
                 f"✅ **ሁኔታ፦** {item_info.get('status', 'Active')}"
             )
-            
-            # ዕቃው ፎቶ ካለው ከፎቶው ጋር ይላካል
-            if item_info.get('photo_id'):
-                bot.send_photo(user_id, item_info['photo_id'], caption=text, reply_markup=markup, parse_mode="Markdown")
-            else:
-                bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
+            bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
 
     if not found_any:
-        bot.send_message(user_id, "📭 እስካሁን ያስመዘገቡት ዕቃ የለም።")
+        bot.send_message(user_id, "📭 እስካሁን የጸደቀ ወይም የተመዘገበ ዕቃ የለዎትም።")
+
 
 
 
