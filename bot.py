@@ -486,3 +486,60 @@ def save_category(message):
 
 
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_system_lock")
+def toggle_system_lock(call):
+    db = load_data()
+    # አሁን ያለውን ሁኔታ መቀልበስ (True ከሆነ False, False ከሆነ True)
+    current_status = db['settings'].get('system_locked', False)
+    new_status = not current_status
+    db['settings']['system_locked'] = new_status
+    save_data(db)
+    
+    status_text = "🔒 ተዘግቷል (ደንበኞች ማዘዝ አይችሉም)" if new_status else "🔓 ተከፍቷል (ሲስተሙ በስራ ላይ ነው)"
+    bot.answer_callback_query(call.id, f"ሲስተሙ {status_text}")
+    
+    # በተኑ ላይ ያለውን ጽሁፍ መቀየር
+    markup = get_admin_dashboard() # ዳሽቦርዱን እንደገና መጥራት
+    bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+
+
+
+# 1. ማገጃ ሜኑ
+@bot.callback_query_handler(func=lambda call: call.data == "admin_block_manager")
+def start_block_process(call):
+    msg = bot.send_message(call.message.chat.id, "🚫 ለማገድ ወይም ለመፍቀድ የተጠቃሚውን (Rider/Vendor) ID ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_block_unblock)
+
+# 2. የማገጃ ስራውን መተግበር
+def process_block_unblock(message):
+    uid = message.text.strip()
+    db = load_data()
+    user_found = False
+    new_state = False
+
+    # በቬንደር ውስጥ መፈለግ
+    if uid in db['vendors_list']:
+        db['vendors_list'][uid]['is_active'] = not db['vendors_list'][uid].get('is_active', True)
+        new_state = db['vendors_list'][uid]['is_active']
+        user_found = True
+    # በራይደር ውስጥ መፈለግ
+    elif uid in db['riders_list']:
+        db['riders_list'][uid]['is_active'] = not db['riders_list'][uid].get('is_active', True)
+        new_state = db['riders_list'][uid]['is_active']
+        user_found = True
+
+    if user_found:
+        save_data(db)
+        status_msg = "✅ ተፈቅዶለታል (Unblocked)" if new_state else "🚫 ታግዷል (Blocked)"
+        bot.send_message(message.chat.id, f"ተጠቃሚ {uid} አሁን {status_msg} ነው።")
+        
+        # ለታገደው ሰው ማሳወቂያ መላክ
+        try:
+            notification = "🔓 አካውንትዎ በባለቤቱ ተከፍቷል።" if new_state else "🚫 አካውንትዎ ለጊዜው ታግዷል። እባክዎ አድሚኑን ያነጋግሩ።"
+            bot.send_message(uid, notification)
+        except: pass
+    else:
+        bot.send_message(message.chat.id, "❌ ተጠቃሚው በዳታቤዝ ውስጥ አልተገኘም።")
+
+
