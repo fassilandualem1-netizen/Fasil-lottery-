@@ -707,3 +707,38 @@ def view_profit_stats(call):
     bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
 
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_monitor_balance")
+def monitor_user_balances(call):
+    db = load_data()
+    vendors = db.get('vendors_list', {})
+    riders = db.get('riders_list', {})
+    
+    report = "📉 **የሂሳብ ክትትል (Balance Monitor)**\n\n"
+    
+    # 1. ችግር ያለባቸው ድርጅቶች (Deposit < 200)
+    report += "⚠️ **ትኩረት የሚሹ ድርጅቶች፦**\n"
+    v_warning = False
+    for v_id, info in vendors.items():
+        if info.get('deposit_balance', 0) < 200:
+            report += f"• {info['name']}: {info['deposit_balance']} ብር\n"
+            v_warning = True
+    if not v_warning: report += "• ሁሉም ድርጅቶች በቂ ዲፖዚት አላቸው።\n"
+    
+    report += "\n"
+    
+    # 2. ችግር ያለባቸው ራይደሮች (Wallet < 100)
+    report += "⚠️ **ትኩረት የሚሹ ራይደሮች፦**\n"
+    r_warning = False
+    for r_id, info in riders.items():
+        if info.get('wallet', 0) < 100:
+            report += f"• {info['name']}: {info['wallet']} ብር\n"
+            r_warning = True
+    if not r_warning: report += "• ሁሉም ራይደሮች በቂ ዋሌት አላቸው።\n"
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="admin_monitor_balance"))
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
+    
+    bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
