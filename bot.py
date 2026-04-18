@@ -219,7 +219,6 @@ def get_admin_dashboard(user_id):
     btn_low_credit = types.InlineKeyboardButton("⚠️ ዝቅተኛ ሂሳብ", callback_data="admin_low_credit")
 
     btn_live_orders = types.InlineKeyboardButton("📋 ቀጥታ ትዕዛዝ", callback_data="admin_live_orders")
-    btn_pending = types.InlineKeyboardButton("📦 በመጠባበቅ", callback_data="admin_pending_approvals")
     btn_add_vendor = types.InlineKeyboardButton("➕ አዲስ ድርጅት", callback_data="admin_add_vendor")
     btn_add_rider = types.InlineKeyboardButton("➕ አዲስ driver", callback_data="admin_add_rider")
     btn_vendors = types.InlineKeyboardButton("🏢 ድርጅቶች", callback_data="admin_list_vendors")
@@ -237,7 +236,7 @@ def get_admin_dashboard(user_id):
     markup.add(btn_fund, btn_balance)
     markup.add(btn_profit, btn_low_credit)
 
-    markup.add(btn_live_orders, btn_pending)
+    markup.add(btn_live_orders)
     markup.add(btn_view_cats, btn_add_cats) 
     markup.add(btn_stats) 
 
@@ -542,4 +541,68 @@ def process_block_unblock(message):
     else:
         bot.send_message(message.chat.id, "❌ ተጠቃሚው በዳታቤዝ ውስጥ አልተገኘም።")
 
+
+
+
+# 1. ማስታወቂያ ለመላክ መጠየቂያ
+@bot.callback_query_handler(func=lambda call: call.data == "admin_broadcast")
+def start_broadcast(call):
+    msg = bot.send_message(call.message.chat.id, "📢 ለሁሉም ተጠቃሚዎች የሚተላለፈውን ማስታወቂያ ይጻፉ፦\n\n(ማስታወሻ፡ መልዕክቱ ለሁሉም ተመዝጋቢዎች ይደርሳል)")
+    bot.register_next_step_handler(msg, send_broadcast_messages)
+
+# 2. መልዕክቱን መላክ
+def send_broadcast_messages(message):
+    db = load_data()
+    # በ user_list ውስጥ ያሉትን ሁሉንም UID ማግኘት
+    all_users = db.get('user_list', [])
+    
+    if not all_users:
+        return bot.send_message(message.chat.id, "⚠️ ምንም ተጠቃሚ በዳታቤዝ ውስጥ አልተገኘም።")
+
+    success_count = 0
+    fail_count = 0
+    
+    bot.send_message(message.chat.id, f"⏳ ማስታወቂያ መላክ ተጀምሯል... (ለ {len(all_users)} ሰዎች)")
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_rider_status")
+def view_riders_status(call):
+    db = load_data()
+    riders = db.get('riders_list', {})
+    
+    if not riders:
+        return bot.answer_callback_query(call.id, "⚠️ እስካሁን ምንም ራይደር አልተመዘገበም።")
+
+    report = "🛵 **የራይደሮች ሁኔታ ዝርዝር**\n\n"
+    
+    online_count = 0
+    for r_id, info in riders.items():
+        status_icon = "🟢" if info.get('status') == "online" else "🔴"
+        if info.get('status') == "online": online_count += 1
+        
+        report += f"{status_icon} **{info['name']}**\n"
+        report += f"   🆔 ID: `{r_id}`\n"
+        report += f"   💳 ዋሌት: {info['wallet']} ብር\n"
+        report += f"   🚫 ሁኔታ: {'ንቁ' if info.get('is_active') else 'የታገደ'}\n"
+        report += "------------------------\n"
+    
+    report += f"\n📊 ጠቅላላ ራይደሮች፦ {len(riders)}\n✅ አሁን በስራ ላይ፦ {online_count}"
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="admin_rider_status"))
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
+
+    bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+    for user_id in all_users:
+        try:
+            # አድሚኑ የላከውን አይነት መልዕክት (ጽሁፍ፣ ፎቶ...) ለሁሉም ማስተላለፍ
+            bot.copy_message(user_id, message.chat.id, message.message_id)
+            success_count += 1
+            time.sleep(0.05) # ቴሌግራም እንዳያግደን ትንሽ ፍጥነት መቀነስ
+        except:
+            fail_count += 1
+            
+    bot.send_message(message.chat.id, f"✅ ማስታወቂያ ተልኮ ተጠናቋል።\n\n🔹 የደረሳቸው፦ {success_count}\n🔸 ያልደረሳቸው፦ {fail_count}")
 
