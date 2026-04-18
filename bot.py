@@ -253,14 +253,37 @@ def get_main_menu():
     return markup
 
 
+
+
 @bot.message_handler(commands=['start'])
 def start_command(message):
     try:
         user_id = message.from_user.id
         uid_str = str(user_id)
-        bot.clear_step_handler_by_chat_id(chat_id=user_id) 
-
         db = load_data()
+        
+        # ተጠቃሚውን በ user_list ውስጥ መመዝገብ (ለማስታወቂያ እንዲመች)
+        if user_id not in db.get('user_list', []):
+            db['user_list'].append(user_id)
+            save_data(db)
+
+        # 1. አድሚን ከሆነ
+        if user_id in ADMIN_IDS:
+            markup = get_admin_dashboard(user_id)
+            bot.send_message(user_id, "👋 ሰላም ጌታዬ! ወደ አድሚን ዳሽቦርድ እንኳን ደህና መጡ።", reply_markup=markup)
+        
+        # 2. ቬንደር ከሆነ
+        elif uid_str in db.get('vendors_list', {}):
+            show_vendor_dashboard(message) # ይህን ፈንክሽን ቀጥሎ እንሰራዋለን
+            
+        # 3. ተራ ደንበኛ
+        else:
+            bot.send_message(user_id, "እንኳን ደህና መጡ! ምን ማዘዝ ይፈልጋሉ?")
+            
+    except Exception as e:
+        print(f"Start Error: {e}")
+
+
 
 
 
@@ -921,3 +944,23 @@ def perform_database_reset(message):
         bot.send_message(message.chat.id, "❌ የተሳሳተ ሚስጥራዊ ቁልፍ! ማጽዳቱ ተሰርዟል።")
 
 
+
+
+
+
+if __name__ == "__main__":
+    # 1. የ Flask ሰርቨርን በ Background ያስነሳል
+    threading.Thread(target=run_flask, daemon=True).start()
+    
+    # 2. የቆየ ግንኙነትን ያጸዳል
+    bot.remove_webhook()
+    time.sleep(1) # ለደህንነት 1 ሰከንድ መጠበቅ
+    
+    # 3. ቦቱን ያስነሳል
+    print(f"🚀 ቦቱ በ Port {PORT} ላይ ስራ ጀምሯል...")
+    while True:
+        try:
+            bot.polling(none_stop=True, interval=1, timeout=60)
+        except Exception as e:
+            print(f"⚠️ ስህተት፦ {e}")
+            time.sleep(5)
