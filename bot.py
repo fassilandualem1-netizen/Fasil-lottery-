@@ -268,6 +268,23 @@ def accept_order(rider_id, order_id):
 
 
 
+def calculate_manual_order_total(item_price, db_settings):
+    # 1. የማድረሻ ክፍያ (Base Delivery)
+    delivery_fee = db_settings.get('base_delivery', 50)
+    
+    # 2. የቦቱ ኮሚሽን ከእቃው ዋጋ ላይ (ለምሳሌ 5%)
+    # ማሳሰቢያ፡ ይህ ቬንደሩ የሚከፍለው ኮሚሽን ነው
+    vendor_comm_p = db_settings.get('vendor_commission_p', 5)
+    vendor_commission = item_price * (vendor_comm_p / 100)
+    
+    # 3. ለደንበኛው የሚነገረው ጠቅላላ ዋጋ
+    # ደንበኛው የሚከፍለው = የእቃ ዋጋ + የማድረሻ ክፍያ
+    total_to_customer = item_price + delivery_fee
+    
+    return total_to_customer, vendor_commission
+
+
+
 def cancel_and_refund_order(order_id):
     with db_lock:
         db = load_data()
@@ -420,6 +437,37 @@ def back_to_admin(call):
         bot.answer_callback_query(call.id, "❌ ወደ ዋናው ገጽ መመለስ አልተቻለም።")
 
 
+
+
+
+@bot.message_handler(func=lambda message: message.reply_to_message and "አዲስ የጽሁፍ ትዕዛዝ" in message.reply_to_message.text)
+def handle_vendor_price_reply(message):
+    try:
+        item_price = float(message.text.strip())
+        db = load_data()
+        
+        # ሂሳቡን ስራ
+        delivery_fee = db['settings']['base_delivery']
+        total_price = item_price + delivery_fee
+        
+        # ለደንበኛው ማረጋገጫ ላክ
+        markup = types.InlineKeyboardMarkup()
+        markup.add(
+            types.InlineKeyboardButton("✅ እሺ እዘዝ", callback_data=f"confirm_order_{item_price}"),
+            types.InlineKeyboardButton("❌ ይቅር", callback_data="cancel_order")
+        )
+        
+        customer_msg = (
+            f"🛒 **የድርጅቱ ምላሽ ደርሷል**\n\n"
+            f"📦 የእቃ ዋጋ፦ {item_price} ETB\n"
+            f"🛵 ማድረሻ፦ {delivery_fee} ETB\n"
+            f"💰 **ጠቅላላ ድምር፦ {total_price} ETB**\n\n"
+            f"ትዕዛዙ ይፈጸም?"
+        )
+        bot.send_message(customer_id, customer_msg, reply_markup=markup)
+        
+    except ValueError:
+        bot.reply_to(message, "⚠️ እባክዎ ዋጋውን በቁጥር ብቻ ይላኩ (ምሳሌ፦ 500)")
 
 
 
