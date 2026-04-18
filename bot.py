@@ -255,22 +255,26 @@ def get_main_menu():
 
 
 
-@bot.message_handler(commands=['start', 'admin'])
-def start_command(message):
+@bot.callback_query_handler(func=lambda call: call.data == "admin_main_menu")
+def back_to_admin(call):
     try:
-        user_id = message.from_user.id
-        bot.clear_step_handler_by_chat_id(chat_id=user_id)
+        user_id = call.from_user.id
+        # የአድሚን ዳሽቦርድ ማርካፕን እንጠራለን
+        markup = get_admin_dashboard(user_id)
         
-        db = load_data()
-
-        if user_id in ADMIN_IDS:
-            markup = get_admin_dashboard(user_id)
-            bot.send_message(user_id, "👋 ሰላም ጌታዬ! ወደ አድሚን ዳሽቦርድ ተመልሰዋል።", reply_markup=markup)
-        else:
-            bot.send_message(user_id, "👋 እንኳን ደህና መጡ! ምን ማዘዝ ይፈልጋሉ?")
-            
+        # የነበረውን መልዕክት ወደ ዋናው ዳሽቦርድ ይቀይረዋል
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text="👋 ሰላም ጌታዬ! ወደ አድሚን ዳሽቦርድ ተመልሰዋል።\nከታች ካሉት አማራጮች አንዱን ይምረጡ፦",
+            reply_markup=markup
+        )
+        # በተኑ ሲነካ የሚመጣውን 'Loading' ምልክት ያጠፋል
+        bot.answer_callback_query(call.id)
+        
     except Exception as e:
-        print(f"Start Error: {e}")
+        print(f"Back to Admin Error: {e}")
+        bot.answer_callback_query(call.id, "❌ ወደ ዋናው ገጽ መመለስ አልተቻለም።")
 
 
 
