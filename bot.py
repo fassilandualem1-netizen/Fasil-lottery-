@@ -606,3 +606,34 @@ def view_riders_status(call):
             
     bot.send_message(message.chat.id, f"✅ ማስታወቂያ ተልኮ ተጠናቋል።\n\n🔹 የደረሳቸው፦ {success_count}\n🔸 ያልደረሳቸው፦ {fail_count}")
 
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_list_vendors")
+def view_all_vendors(call):
+    db = load_data()
+    vendors = db.get('vendors_list', {})
+    
+    if not vendors:
+        return bot.answer_callback_query(call.id, "⚠️ እስካሁን ምንም ድርጅት አልተመዘገበም።")
+
+    report = "🏢 **የተመዘገቡ ድርጅቶች ዝርዝር**\n\n"
+    
+    for v_id, info in vendors.items():
+        status_icon = "✅" if info.get('is_active', True) else "🚫"
+        
+        report += f"{status_icon} **{info['name']}** ({info.get('category', 'ያልተገለጸ')})\n"
+        report += f"   🆔 ID: `{v_id}`\n"
+        report += f"   💰 ዲፖዚት: {info.get('deposit_balance', 0)} ብር\n"
+        report += f"   📊 የአድሚን ትርፍ: {info.get('service_fee_total', 0)} ብር\n"
+        report += "------------------------\n"
+    
+    markup = types.InlineKeyboardMarkup()
+    # ድርጅቶቹን አንድ በአንድ ለማየት ወይም ለማስተካከል 
+    # ወደፊት እዚህ ጋር ተጨማሪ በተኖች መጨመር ይቻላል
+    markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="admin_list_vendors"))
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
+
+    bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
