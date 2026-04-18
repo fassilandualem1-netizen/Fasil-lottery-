@@ -261,43 +261,48 @@ def get_admin_dashboard(user_id):
 
 
 def get_vendor_dashboard(vendor_id):
+    # መጀመሪያ ዳታቤዙን እናነባለን
     db = load_data()
-    # የቬንደሩን መረጃ ማግኘት
-    vendor_data = db['vendors_list'].get(str(vendor_id), {})
+    v_id_str = str(vendor_id)
     
-    if not vendor_data:
-        return "❌ የድርጅት መረጃ አልተገኘም። እባክዎ መጀመሪያ ይመዝገቡ።", None
-
-    # መረጃዎችን መሰብሰብ
-    wallet_balance = vendor_data.get('wallet', 0.0)
-    items_count = len(vendor_data.get('items', {}))
-    vendor_name = vendor_data.get('name', "ድርጅት")
-    is_verified = "✅ የተረጋገጠ" if vendor_data.get('verified') else "⚠️ ያልተረጋገጠ"
-
-    # የተጠቃሚ በይነገጽ (Inline Buttons)
+    # የድርጅቱን መረጃ እናገኛለን፣ ከሌለ default True (ክፍት) እንሰጠዋለን
+    vendor_info = db.get('vendors_list', {}).get(v_id_str, {})
+    is_open = vendor_info.get('is_open', True) 
+    
     markup = types.InlineKeyboardMarkup(row_width=2)
-    
-    markup.add(
-        types.InlineKeyboardButton("➕ አዲስ ዕቃ ጨምር", callback_data="vendor_add_item"),
-        types.InlineKeyboardButton(f"📦 የኔ ዕቃዎች ({items_count})", callback_data="vendor_list_items")
-    )
-    markup.add(
-        types.InlineKeyboardButton("📋 ትዕዛዞች", callback_data="vendor_view_orders"),
-        types.InlineKeyboardButton(f"💰 ዋሌት ({wallet_balance} ETB)", callback_data="vendor_wallet")
-    )
-    markup.add(
-        types.InlineKeyboardButton("🏢 የድርጅት መረጃ", callback_data="vendor_profile")
-    )
 
-    text = (f"🏢 **{vendor_name} - ዳሽቦርድ**\n"
-            f"━━━━━━━━━━━━━━━\n"
-            f"ሁኔታ፦ {is_verified}\n"
-            f"💰 ቀሪ ሂሳብ፦ `{wallet_balance} ETB`\n"
-            f"📦 ጠቅላላ ዕቃዎች፦ `{items_count}`\n"
-            f"━━━━━━━━━━━━━━━\n"
-            f"እባክዎ የሚፈልጉትን ተግባር ይምረጡ፦")
-            
-    return text, markup
+    # 🟢/🔴 የሁኔታ መግለጫ በተን (Toggle Button)
+    status_text = "🟢 ክፍት ነኝ (Open)" if is_open else "🔴 ዝግ ነኝ (Closed)"
+    btn_status = types.InlineKeyboardButton(status_text, callback_data="vendor_toggle_status")
+    
+    btn_add_item = types.InlineKeyboardButton("➕ አዲስ ዕቃ ጨምር", callback_data="vendor_add_item")
+    btn_my_items = types.InlineKeyboardButton("📦 የኔ ዕቃዎች", callback_data="vendor_list_items")
+    btn_orders = types.InlineKeyboardButton("📋 ትዕዛዞች", callback_data="vendor_view_orders")
+    btn_wallet = types.InlineKeyboardButton("💰 ዋሌት", callback_data="vendor_wallet")
+    btn_profile = types.InlineKeyboardButton("🏢 የድርጅት መረጃ", callback_data="vendor_profile")
+
+    # አደራጃጀቱ፦ መጀመሪያ ሁኔታው ለብቻው፣ ቀጥሎ ሌሎቹ
+    markup.add(btn_status)
+    markup.add(btn_add_item, btn_my_items)
+    markup.add(btn_orders, btn_wallet)
+    markup.add(btn_profile)
+
+    return markup
+
+
+def get_customer_dashboard():
+    # ከታች የሚቀመጡ ዋና ዋና በተኖች
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    btn_order = types.KeyboardButton("🛍 ዕቃዎችን እዘዝ")
+    btn_cart = types.KeyboardButton("🛒 የእኔ ቅርጫት")
+    btn_history = types.KeyboardButton("📋 የትዕዛዝ ታሪክ")
+    btn_profile = types.KeyboardButton("👤 መገለጫዬ/Profile")
+    btn_support = types.KeyboardButton("📞 ድጋፍ")
+    
+    markup.add(btn_order)
+    markup.add(btn_cart, btn_history)
+    markup.add(btn_profile, btn_support)
+    return markup
 
 
 # 1. መጀመሪያ ይህ መኖሩን አረጋግጥ
