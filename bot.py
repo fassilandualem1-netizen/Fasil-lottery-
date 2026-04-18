@@ -23,156 +23,6 @@ def run_flask():
     # በ Render ላይ ስራ እንዲጀምር host እና port በትክክል መሰጠት አለባቸው
     app.run(host='0.0.0.0', port=PORT)
 
-CHANNEL_ID = -1003962139457
-
-def backup_db_to_channel():
-    try:
-        with open('database.json', 'rb') as f:
-            bot.send_document(CHANNEL_ID, f, caption=f"🔄 የዳታቤዝ ባካፕ\n📅 ቀን፦ {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-            print("📢 ዳታቤዝ ወደ ቻናል ተልኳል።")
-    except Exception as e:
-        print(f"❌ ባካፕ ሲደረግ ስህተት ተፈጠረ፦ {e}")
-
-import json
-
-def load_data():
-    # መሠረታዊ የዳታቤዝ አወቃቀር (Default Structure)
-    default_db = {
-        "riders_list": {},     
-        "vendors_list": {}, 
-        "orders": {},          
-        "carts": {},           # ለደንበኞች ቅርጫት የግድ ያስፈልጋል
-        "pending_items": {},   
-        "categories": [],      
-        "total_profit": 0,     
-        "user_list": [],       
-        "settings": {
-            "vendor_commission_p": 10,
-            "rider_fixed_fee": 30,
-            "customer_service_fee": 15,
-            "base_delivery": 50,
-            "system_locked": False 
-        }
-    }
-
-    try:
-        raw = redis.get("bdf_delivery_db")
-        if raw: 
-            loaded_db = json.loads(raw)
-
-            # ዳታው ዝርዝር (list) ሳይሆን ዲክሽነሪ (dict) መሆኑን ማረጋገጫ
-            if not isinstance(loaded_db, dict):
-                loaded_db = default_db
-
-            # አዳዲስ ቁልፎች (keys) በቆየው ዳታቤዝ ውስጥ ከሌሉ እንዲጨመሩ
-            for key, value in default_db.items():
-                if key not in loaded_db:
-                    loaded_db[key] = value
-
-            # vendors_list ሁሌም dict መሆኑን ማረጋገጥ
-            if not isinstance(loaded_db.get('vendors_list'), dict):
-                loaded_db['vendors_list'] = {}
-
-            return loaded_db
-
-        return default_db
-    except Exception as e:
-        print(f"❌ Database Load Error: {e}")
-        return default_db
-
-
-        # Error ቢመጣ እንኳን ቦቱ እንዳይቆም መሠረታዊ መዋቅሩን እንላክ
-        return {
-            "riders_list": {}, 
-            "vendors_list": {}, 
-            "orders": {}, 
-            "categories": [], 
-            "settings": {"vendor_commission_p": 10, "rider_fixed_fee": 30, "customer_service_fee": 15}
-        }
-
-def save_data(db):
-    try:
-        # ዳታውን ወደ Redis መላኪያ
-        redis.set("bdf_delivery_db", json.dumps(db))
-    except Exception as e:
-        print(f"❌ Database Save Error: {e}")
-
-
-# 2. አድሚን መሆኑን ማረጋገጫ (Check Admin)
-def check_admin(message):
-    if message.from_user.id not in ADMIN_IDS:
-        bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
-        return False
-    return True
-
-
-
-# 5. የርቀት ስሌት (Distance)
-def calculate_distance(lat1, lon1, lat2, lon2):
-    R = 6371000 # በሜትር
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2-lat1)
-    dlambda = math.radians(lon2-lon1)
-
-    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    return R * c
-
-def process_automatic_settlement(order_id):
-    db = load_data()
-    order = db['orders'].get(order_id)
-
-    v_id = str(order['vendor_id'])
-    r_id = str(order['rider_id'])
-
-    p = float(order['item_total'])   # የዕቃ ዋጋ
-    d = float(order['delivery_fee']) # የማድረሻ ክፍያ
-
-    # 📌 ኮሚሽን ተመኖች
-    v_comm = p * 0.05  # 5% ከድርጅት
-    r_comm = d * 0.10  # 10% ከደላላ ማድረሻ
-
-    # 💳 የቬንደር ቅነሳ (Vendor Deduction)
-    # አድሚኑ ቀድሞ ብር ስለሰጠው፡ (የእቃ ዋጋ + የቦት ኮሚሽን) ይቀነሳል
-    db['vendors_list'][v_id]['wallet'] -= (p + v_comm)
-
-    # 💳 የደላላ ቅነሳ (Driver Deduction)
-    # ደላላው ከደንበኛው p+d ስለሚሰበስብ፡ (የእቃ ዋጋ + የቦት ኮሚሽን) ይቀነሳል
-    db['riders_list'][r_id]['wallet'] -= (p + r_comm)
-
-    # ትዕዛዙን መዝጋት
-    db['orders'][order_id]['status'] = "Completed"
-    save_data(db)
-
-    # 📢 ማሳወቂያዎች
-    bot.send_message(v_id, f"✅ ትዕዛዝ #{order_id} ተጠናቋል። ከዋሌትዎ {p + v_comm} ETB ተቀንሷል።")
-    bot.send_message(r_id, f"🏁 ማድረስ ተጠናቋል። ከደንበኛው {p + d} ETB ተቀብለዋል። ሂሳብዎ ተቀናናሽ ተደርጓል።")
-
-Import telebot
-from telebot import types
-import os, json, math, threading, time
-from flask import Flask
-from upstash_redis import Redis
-
-# --- 1. ውቅረት ---
-TOKEN = "8663228906:AAFsTC0fKqAVEWMi7rk59iSdfVD-1vlJA0Y"
-REDIS_URL = "https://nice-kitten-98436.upstash.io"
-REDIS_TOKEN = "gQAAAAAAAYCEAAIncDEyMWMyNjczNmZiNjM0NzlkODI4MmUyODAyZGIxNDI5N3AxOTg0MzY"
-ADMIN_IDS = [5690096145, 7072611117,8488592165]
-PORT = int(os.getenv("PORT", 8080)) # Render የራሱን Port እዚህ ይሰጥሃል
-
-bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
-redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
-app = Flask(__name__) # ስሙን 'app' ብንለው ይሻላል
-
-@app.route('/')
-def index():
-    return "BDF Bot is running!"
-
-def run_flask():
-    # በ Render ላይ ስራ እንዲጀምር host እና port በትክክል መሰጠት አለባቸው
-    app.run(host='0.0.0.0', port=PORT)
-
 import json
 from datetime import datetime
 import threading
@@ -225,7 +75,6 @@ def save_data(db):
     except Exception as e:
         print(f"❌ Database Save Error: {e}")
 
-# --- ዋናው የሂሳብ ሎጂክ (Settlement Logic) ---
 
 def process_order_settlement(order_id):
     """
@@ -286,13 +135,16 @@ def backup_db_to_channel():
         print(f"❌ Backup Error: {e}")
 
 
-
 # 2. አድሚን መሆኑን ማረጋገጫ (Check Admin)
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
         bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
         return False
     return True
+
+
+
+
 
 import math
 
