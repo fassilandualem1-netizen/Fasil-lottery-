@@ -280,30 +280,34 @@ def start_command(message):
 
 # 1. የራይደር ምዝገባ መጀመሪያ
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_rider")
+def start_add_rider(call):
+    msg = bot.send_message(call.message.chat.id, "🆔 የራይደሩን (Driver) Telegram User ID ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_rider_id)
+
 def process_rider_id(message):
-    rider_id = message.text.strip()
-    if not rider_id.isdigit():
-        msg = bot.send_message(message.chat.id, "❌ ስህተት፡ ID ቁጥር መሆን አለበት። ድጋሚ ያስገቡ፦")
+    r_id = message.text.strip()
+    if not r_id.isdigit():
+        msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ ID ቁጥር መሆን አለበት። ድጋሚ ያስገቡ፦")
         return bot.register_next_step_handler(msg, process_rider_id)
-
-    # ስሙን ለመጠየቅ
-    msg = bot.send_message(message.chat.id, "👤 የራይደሩን ሙሉ ስም ያስገቡ፦")
-    bot.register_next_step_handler(msg, lambda m: save_new_rider(m, rider_id))
-
-def save_new_rider(message, rider_id):
-    name = message.text.strip()
-    data = load_data()
     
-    # አዲሱን ራይደር ዳታቤዝ ውስጥ መጨመር
-    data['riders_list'][rider_id] = {
+    msg = bot.send_message(message.chat.id, "👤 የራይደሩን ሙሉ ስም ያስገቡ፦")
+    bot.register_next_step_handler(msg, lambda m: save_new_rider(m, r_id))
+
+def save_new_rider(message, r_id):
+    name = message.text.strip()
+    db = load_data()
+    
+    if 'riders_list' not in db: db['riders_list'] = {}
+    
+    db['riders_list'][r_id] = {
         "name": name,
         "wallet": 0,
         "status": "offline",
         "is_active": True
     }
-    
-    save_data(data)
-    bot.send_message(message.chat.id, f"✅ ራይደር {name} (ID: {rider_id}) በትክክል ተመዝግቧል!")
+    save_data(db)
+    bot.send_message(message.chat.id, f"✅ ራይደር '{name}' በትክክል ተመዝግቧል!")
+
 
 
 
@@ -410,43 +414,50 @@ def process_balance_update(message):
 # መጀመሪያ ID ለመቀበል
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_vendor")
 def start_add_vendor(call):
-    msg = bot.send_message(call.message.chat.id, "🆔 የድርጅቱን ባለቤት Telegram User ID ያስገቡ፦")
-    bot.register_next_step_handler(msg, process_vendor_id)
+    db = load_data()
+    categories = db.get('categories', [])
+    
+    if not categories:
+        return bot.answer_callback_query(call.id, "⚠️ ድርጅት ከመመዝገብዎ በፊት መጀመሪያ 'አዲስ ምድብ' (Category) ይፍጠሩ!", show_alert=True)
+    
+    # የምድብ ምርጫ በተኖች
+    markup = types.InlineKeyboardMarkup()
+    for cat in categories:
+        markup.add(types.InlineKeyboardButton(cat, callback_data=f"select_cat_for_vendor:{cat}"))
+    
+    bot.edit_message_text("📂 ለድርጅቱ ምድብ ይምረጡ፦", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
-# ID ቁጥር መሆኑን አረጋግጦ ስም መጠየቅ
-def process_vendor_id(message):
+# ምድብ ከተመረጠ በኋላ ID መጠየቂያ
+@bot.callback_query_handler(func=lambda call: call.data.startswith("select_cat_for_vendor:"))
+def get_id_after_cat(call):
+    cat_name = call.data.split(":")
+    msg = bot.send_message(call.message.chat.id, f"🆔 የ[{cat_name}] ባለቤት Telegram ID ያስገቡ፦")
+    bot.register_next_step_handler(msg, lambda m: process_vendor_id(m, cat_name))
+
+def process_vendor_id(message, cat_name):
     v_id = message.text.strip()
-    
     if not v_id.isdigit():
-        msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ ID ቁጥር መሆን አለበት። እባክዎ በትክክል ያስገቡ፦")
-        return bot.register_next_step_handler(msg, process_vendor_id)
+        msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ ID ቁጥር መሆን አለበት። ድጋሚ ያስገቡ፦")
+        return bot.register_next_step_handler(msg, lambda m: process_vendor_id(m, cat_name))
     
-    msg = bot.send_message(message.chat.id, "🏢 የድርጅቱን (የሱቁን) ስም ያስገቡ፦")
-    bot.register_next_step_handler(msg, lambda m: save_new_vendor(m, v_id))
+    msg = bot.send_message(message.chat.id, "🏢 የድርጅቱን ስም ያስገቡ፦")
+    bot.register_next_step_handler(msg, lambda m: save_new_vendor(m, v_id, cat_name))
 
-# ዳታቤዝ ውስጥ ሴቭ ማድረጊያ
-def save_new_vendor(message, v_id):
-    vendor_name = message.text.strip()
+def save_new_vendor(message, v_id, cat_name):
+    v_name = message.text.strip()
     db = load_data()
     
-    # በሪሴት ምክንያት vendors_list ከጠፋ መፍጠር
-    if 'vendors_list' not in db:
-        db['vendors_list'] = {}
-        
-    # አዲሱን ድርጅት መመዝገብ
-    db['vendors_list'][v_id] = {
-        "name": vendor_name,
-        "deposit_balance": 0,    # መጀመሪያ ሲመዘገብ 0 ብር
-        "items": {},            # እቃዎች ገና አልተመዘገቡም
-        "is_active": True,
-        "registered_date": str(message.date)
-    }
+    if 'vendors_list' not in db: db['vendors_list'] = {}
     
+    db['vendors_list'][v_id] = {
+        "name": v_name,
+        "category": cat_name, # አሁን ምድቡ እዚህ ይገባል
+        "deposit_balance": 0,
+        "items": {},
+        "is_active": True
+    }
     save_data(db)
-    bot.send_message(message.chat.id, f"✅ ድርጅት '{vendor_name}' (ID: {v_id}) በትክክል ተመዝግቧል!")
-
-
-
+    bot.send_message(message.chat.id, f"✅ ድርጅት '{v_name}' በምድብ '{cat_name}' ተመዝግቧል!")
 
 
 
