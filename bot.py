@@ -485,6 +485,53 @@ def save_category(message):
 
 
 
+# 1. 'ምድቦች ማሳያ' - ያሉትን ምድቦች ዝርዝር ያሳያል
+@bot.callback_query_handler(func=lambda call: call.data == "admin_view_categories")
+def view_all_categories(call):
+    db = load_data()
+    cats = db.get('categories', [])
+    
+    text = "📁 **የተመዘገቡ የምድብ አይነቶች**\n\n"
+    if not cats:
+        text += "ገና ምንም ምድብ አልተመዘገበም። እባክዎ አዲስ ምድብ ይጨምሩ።"
+    else:
+        for i, cat in enumerate(cats, 1):
+            text += f"{i}. {cat}\n"
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("➕ አዲስ ምድብ ጨምር", callback_data="admin_manage_cats"))
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
+    
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+# 2. 'አዲስ ምድብ' - ስም መቀበያ
+@bot.callback_query_handler(func=lambda call: call.data == "admin_manage_cats")
+def ask_new_cat_name(call):
+    msg = bot.send_message(call.message.chat.id, "✏️ ለመጨመር የሚፈልጉትን የምድብ ስም ይጻፉ፦\n(ለምሳሌ፦ 🍔 ምግብ ቤት ወይም 💊 መድኃኒት ቤት)")
+    bot.register_next_step_handler(msg, save_category_logic)
+
+# 3. ምድቡን ዳታቤዝ ላይ ማስቀመጥ
+def save_category_logic(message):
+    new_cat = message.text.strip()
+    db = load_data()
+    
+    if 'categories' not in db:
+        db['categories'] = []
+        
+    if new_cat in db['categories']:
+        bot.send_message(message.chat.id, f"⚠️ '{new_cat}' ቀደም ብሎ ተመዝግቧል።")
+    else:
+        db['categories'].append(new_cat)
+        save_data(db)
+        bot.send_message(message.chat.id, f"✅ ምድብ '{new_cat}' በተሳካ ሁኔታ ተመዝግቧል።")
+    
+    # ተመልሶ ወደ ምድብ ማሳያ እንዲሄድ ማድረግ ይቻላል
+
+
+
+
+
+
 @bot.callback_query_handler(func=lambda call: call.data == "admin_system_lock")
 def toggle_system_lock(call):
     db = load_data()
