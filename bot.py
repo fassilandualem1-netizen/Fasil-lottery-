@@ -1490,6 +1490,25 @@ def view_live_orders(message):
     bot.send_message(message.chat.id, text, parse_mode="Markdown")
 
 
+def view_reviews(call):
+    db = load_data()
+    # ቅሬታ ሳይሆን 'reviews' የሚለውን ዳታ እናነባለን
+    reviews = db.get("reviews", {}) 
+    
+    if not reviews:
+        return bot.answer_callback_query(call.id, "📊 እስካሁን ምንም ግምገማ አልተሰጠም።", show_alert=True)
+    
+    text = "🌟 **የአገልግሎት ግምገማዎች**\n\n"
+    for r_id, r_data in reviews.items():
+        stars = "⭐" * int(r_data.get('rating', 0))
+        text += (f"👤 **ደንበኛ:** {r_data.get('user_name')}\n"
+                f"📝 **አስተያየት:** {r_data.get('comment')}\n"
+                f"📉 **ውጤት:** {stars}\n"
+                f"━━━━━━━━━━━━━━━\n")
+    
+    bot.send_message(call.message.chat.id, text)
+
+
 #የቅሬታዎች መከታተያ
 def view_disputes(call):
     db = load_data()
@@ -1578,29 +1597,6 @@ def view_low_balances(call):
     text = "🚨 **የዋስትና ሂሳባቸው ዝቅተኛ የሆኑ ድርጅቶች**\n\n" + "\n".join(low_list)
     bot.send_message(call.message.chat.id, text)
 
-#በመጠባበቅ ላይ ያሉ
-def view_pending_items(call):
-    db = load_data()
-    pending = db.get('pending_items', [])
-    
-    if not pending:
-        return bot.answer_callback_query(call.id, "✅ በመጠባበቅ ላይ ያለ አዲስ ዕቃ የለም።", show_alert=True)
-    
-    bot.send_message(call.message.chat.id, "📦 **ጸደቃ የሚጠብቁ ዕቃዎች ዝርዝር፦**")
-    
-    for index, item in enumerate(pending):
-        markup = types.InlineKeyboardMarkup()
-        # እያንዳንዱን እቃ በ index ቁጥሩ እንለየዋለን
-        btn_approve = types.InlineKeyboardButton("✅ አጽድቅ", callback_data=f"approve_{index}")
-        btn_reject = types.InlineKeyboardButton("❌ ሰርዝ", callback_data=f"reject_{index}")
-        markup.add(btn_approve, btn_reject)
-        
-        text = (f"🏢 ድርጅት፦ {item['vendor_name']}\n"
-                f"🍎 ዕቃ፦ {item['item_name']}\n"
-                f"💰 ዋጋ፦ {item['price']} ETB\n"
-                f"📁 ምድብ፦ {item['category']}")
-        
-        bot.send_message(call.message.chat.id, text, reply_markup=markup)
 
 
 # ይህ ለምሳሌ ያህል ነው - እቃ መመዝገቢያህ መጨረሻ ላይ እንዲህ አድርገው
