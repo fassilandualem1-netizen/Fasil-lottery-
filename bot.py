@@ -76,11 +76,10 @@ def save_data(db):
         print(f"❌ Database Save Error: {e}")
 
 
+
+
+
 def process_order_settlement(order_id):
-    """
-    ትዕዛዝ ሲጠናቀቅ በሁለቱም ወገን (Vendor & Rider) ዋሌት ላይ 
-    የሂሳብ ማወራረጃ የሚሰራ ዋና ፈንክሽን።
-    """
     with db_lock:
         db = load_data()
         order = db['orders'].get(str(order_id))
@@ -88,34 +87,24 @@ def process_order_settlement(order_id):
         if not order or order.get('status') == "Completed":
             return False
 
-        v_id = str(order['vendor_id'])
         r_id = str(order['rider_id'])
-        
-        # የሂሳብ ስሌት
-        item_price = float(order['item_total'])   # የእቃ ዋጋ
-        delivery_fee = float(order['delivery_fee']) # የማድረሻ ክፍያ
-        
-        # የኮሚሽን ስሌት (ከ Settings የሚወሰድ)
-        v_comm = item_price * (db['settings']['vendor_commission_p'] / 100)
-        r_comm = delivery_fee * (db['settings']['rider_commission_p'] / 100)
+        held_amount = order.get('held_amount', 0)
 
-        # 1. የቬንደር ዲፖዚት ቅነሳ (አድሚኑ አስቀድሞ ስለከፈለለት)
-        if v_id in db['vendors_list']:
-            db['vendors_list'][v_id]['deposit_balance'] -= item_price
-            db['vendors_list'][v_id]['wallet'] -= v_comm  # የቦቱ ኮሚሽን
-
-        # 2. የራይደር ዋሌት ቅነሳ (ራይደሩ ለደንበኛው አድርሶ ካሽ ስለሚሰበስብ)
+        # 1. ከራይደሩ የ Hold ዝርዝር ላይ ብሩን ማጽዳት
         if r_id in db['riders_list']:
-            # ከራይደሩ 'የእቃው ዋጋ + የቦቱ ኮሚሽን' ይቀነሳል
-            db['riders_list'][r_id]['wallet'] -= (item_price + r_comm)
+            db['riders_list'][r_id]['on_hold_balance'] -= held_amount
+            # ብሩ አስቀድሞ ከ wallet ላይ ተቀንሷል፣ ስለዚህ እዚህ ሌላ ቅነሳ አያስፈልግም!
 
-        # 3. የአድሚን ትርፍ መመዝገቢያ
-        db['total_profit'] += (v_comm + r_comm)
+        # 2. የቬንደር እና የአድሚን ትርፍ ስሌት (ካለህበት ኮድ ላይ ማስቀጠል)
+        # ... (የቬንደር ዲፖዚት ቅነሳ እና የአድሚን ትርፍ መመዝገብ)
         
-        # ትዕዛዙን መዝጋት
         order['status'] = "Completed"
         save_data(db)
         return True
+
+
+
+
 
 def backup_db_to_channel():
     """የሪዲዝ ዳታቤዝን ፋይል አድርጎ ወደ ቴሌግራም ቻናል ይልካል"""
@@ -169,27 +158,52 @@ def calculate_distance(lat1, lon1, lat2, lon2):
         return -1
 
 
+
 def accept_order(rider_id, order_id):
     db = load_data()
-    order = db['orders'].get(order_id)
-    item_price = order['item_total']
-    bot_commission = item_price * (db['settings']['rider_commission_p'] / 100)
+    order = db['orders'].get(str(order_id))
     
-    required_balance = item_price + bot_commission
-    rider_balance = db['riders_list'][str(rider_id)].get('wallet', 0)
+    # ራይደሩ መክፈል ያለበት (የእቃ ዋጋ + የቦቱ ኮሚሽን)
+    item_price = order['item_total']
+    # ከ settings ትክክለኛውን key መጠቀማችንን እናረጋግጥ
+    bot_comm_p = db['settings'].get('rider_commission_p', 10) 
+    bot_commission = item_price * (bot_comm_p / 100)
+    
+    total_to_hold = item_price + bot_commission
+    rider_wallet = db['riders_list'][str(rider_id)].get('wallet', 0)
 
-    if rider_balance >= required_balance:
-        # ትዕዛዙን እንዲቀበል ፍቀድለት
+    if rider_wallet >= total_to_hold:
         order['rider_id'] = rider_id
         order['status'] = "Accepted"
+        order['held_amount'] = total_to_hold # በትዕዛዙ ላይ መጠኑን መመዝገብ
         
-        # ሂሳቡን ከራይደሩ ዋሌት ላይ 'Hold' አድርገው ወይም ቀንስ
-        db['riders_list'][str(rider_id)]['wallet'] -= required_balance
+        # ብሩን 'Hold' ማድረግ
+        db['riders_list'][str(rider_id)]['wallet'] -= total_to_hold
+        db['riders_list'][str(rider_id)]['on_hold_balance'] += total_to_hold
+        
         save_data(db)
-        
-        bot.send_message(rider_id, f"✅ ትዕዛዙን ተቀብለዋል። ከዋሌትዎ {required_balance} ETB ተቀንሷል።")
+        bot.send_message(rider_id, f"✅ ትዕዛዙን ተቀብለዋል። {total_to_hold} ETB በጊዜያዊነት ታግዷል።")
     else:
-        bot.send_message(rider_id, f"❌ በቂ የዋሌት ባላንስ የለዎትም። ቢያንስ {required_balance} ETB ያስፈልጋል።")
+        bot.send_message(rider_id, "❌ በቂ ባላንስ የለዎትም።")
+
+
+
+def cancel_order(order_id):
+    db = load_data()
+    order = db['orders'].get(str(order_id))
+    r_id = str(order.get('rider_id'))
+    held_amount = order.get('held_amount', 0)
+
+    if r_id in db['riders_list'] and held_amount > 0:
+        db['riders_list'][r_id]['wallet'] += held_amount # ብሩን መመለስ
+        db['riders_list'][r_id]['on_hold_balance'] -= held_amount
+        order['status'] = "Cancelled"
+        save_data(db)
+        bot.send_message(r_id, f"⚠️ ትዕዛዝ ተሰርዟል። የታገደው {held_amount} ብር ወደ ዋሌትዎ ተመልሷል።")
+ 
+
+
+
 
 
 
@@ -794,25 +808,47 @@ def start_commission_settings(call):
 # 2. የተቀበሉትን ቁጥሮች ዳታቤዝ ላይ ማስቀመጥ
 def save_commissions(message):
     try:
+        # 1. ጽሁፉን በኮማ መከፋፈል
         parts = message.text.split(",")
+        
+        # 2. በትክክል 3 ቁጥሮች መኖራቸውን ማረጋገጥ
         if len(parts) != 3:
-            raise ValueError
+            raise ValueError("ሶስት ቁጥሮች ያስፈልጋሉ")
             
-        v_comm = float(parts.strip()) # ፐርሰንት
-        r_comm = float(parts.strip()) # ቋሚ ብር
-        c_comm = float(parts.strip()) # ቋሚ ብር
+        # 3. እያንዳንዱን ክፍል ነጥሎ ማውጣትና ወደ ቁጥር መቀየር (strip እዚህ ጋር ነው የሚሰራው)
+        v_comm = float(parts.strip()) 
+        r_comm = float(parts.strip()) 
+        c_comm = float(parts.strip()) 
         
         db = load_data()
-        db['settings']['vendor_commission_percent'] = v_comm
-        db['settings']['rider_service_fee'] = r_comm
+        
+        # 4. የ Key ስሞችን አንድ አይነት ማድረግ (ከ process_order_settlement ጋር እንዲሄድ)
+        db['settings']['vendor_commission_p'] = v_comm
+        db['settings']['rider_commission_p'] = r_comm
         db['settings']['customer_service_fee'] = c_comm
+        
         save_data(db)
         
-        bot.send_message(message.chat.id, f"✅ ኮሚሽን በተሳካ ሁኔታ ተቀይሯል!\n\n🏢 ድርጅት፦ {v_comm}%\n🛵 ራይደር፦ {r_comm} ብር\n👤 ደንበኛ፦ {c_comm} ብር")
+        response = (
+            f"✅ **ኮሚሽን በተሳካ ሁኔታ ተቀይሯል!**\n\n"
+            f"🏢 ድርጅት (Vendor)፦ `{v_comm}%` ከእቃ ዋጋ\n"
+            f"🛵 ራይደር (Rider)፦ `{r_comm}%` ከማድረሻ ክፍያ\n"
+            f"👤 ደንበኛ (Service Fee)፦ `{c_comm}` ብር"
+        )
+        bot.send_message(message.chat.id, response, parse_mode="Markdown")
         
-    except:
-        msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ እባክዎ በትክክል ያስገቡ (ለምሳሌ፦ 2, 10, 5)፦")
+    except (ValueError, IndexError):
+        msg = bot.send_message(
+            message.chat.id, 
+            "⚠️ **ስህተት፦** እባክዎ በትክክል ያስገቡ።\n"
+            "ለምሳሌ፦ `5, 10, 20` (ኮማ መጠቀሙን አይርሱ)"
+        )
+        # ስህተት ከሰሩ ደግመው እንዲሞክሩ እድል ይሰጣል
         bot.register_next_step_handler(msg, save_commissions)
+
+
+
+
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_profit_track")
