@@ -860,38 +860,51 @@ def view_live_orders(call):
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_full_stats")
-def view_business_analytics(call):
+def show_enhanced_analytics(call):
     db = load_data()
     vendors = db.get('vendors_list', {})
     riders = db.get('riders_list', {})
-    stats = db.get('stats', {})
+    orders = db.get('orders', {})
     
-    # ለሪፖርቱ የሚሆኑ መረጃዎችን ማሰባሰብ
-    total_users = len(db.get('user_list', []))
-    active_vendors = sum(1 for v in vendors.values() if v.get('is_active'))
+    # የሂሳብ ስሌቶች
+    total_vendor_deposit = sum(v.get('deposit_balance', 0) for v in vendors.values())
+    total_rider_wallet = sum(r.get('wallet', 0) for r in riders.values())
+    system_profit = db.get('total_profit', 0)
+
+    report = "📊 **ጥልቅ የቢዝነስ ትንታኔ (Full Analytics)**\n"
+    report += "━━━━━━━━━━━━━━━━━━━━\n\n"
+
+    # 🏢 የድርጅቶች ሁኔታ (Vendors)
+    report += "🏢 **የድርጅቶች ሁኔታ (Vendors)**\n"
+    report += f"• ጠቅላላ ድርጅቶች፦ `{len(vendors)}` \n"
+    report += f"• አጠቃላይ ዲፖዚት፦ `{total_vendor_deposit}` ብር\n"
+    report += "------------------------\n\n"
+
+    # 🛵 የራይደሮች ሁኔታ (Drivers)
+    report += "🛵 **የራይደሮች ሁኔታ (Drivers)**\n"
+    report += f"• ጠቅላላ ራይደሮች፦ `{len(riders)}` \n"
+    report += f"• አጠቃላይ ዋሌት፦ `{total_rider_wallet}` ብር\n"
     online_riders = sum(1 for r in riders.values() if r.get('status') == 'online')
-    
-    report = "📈 **ጥልቅ የቢዝነስ ሪፖርት (Full Analytics)**\n\n"
-    
-    report += "👥 **የተጠቃሚዎች ሁኔታ**\n"
-    report += f"• ጠቅላላ የቦቱ ተጠቃሚዎች፦ {total_users}\n"
-    report += f"• ንቁ ድርጅቶች፦ {active_vendors}\n"
-    report += f"• አሁን ኦንላይን ያሉ ራይደሮች፦ {online_riders}\n\n"
-    
-    report += "📦 **የትዕዛዝ ስታቲስቲክስ**\n"
-    report += f"• የተሳኩ ትዕዛዞች፦ {stats.get('total_orders', 0)}\n"
-    # ወደፊት እዚህ ጋር 'የተሰረዙ' የሚል መጨመር ይቻላል
-    
-    report += "\n🏆 **ምርጥ አፈጻጸም**\n"
-    # እዚህ ጋር ዳታቤዝህ ውስጥ ካስቀመጥከው 'Top Vendor' ማምጣት ይቻላል
-    report += "• ብዙ ትዕዛዝ ያስተናገዱ ድርጅቶችና ራይደሮችን እዚህ ጋር ማየት ይቻላል።\n"
+    report += f"• አሁን በስራ ላይ (Online)፦ `{online_riders}`\n"
+    report += "------------------------\n\n"
+
+    # 💰 የገንዘብ እና የትዕዛዝ ሁኔታ
+    report += "💰 **ፋይናንስ እና ትዕዛዞች**\n"
+    report += f"• የተሳኩ ትዕዛዞች፦ `{len(orders)}` \n"
+    report += f"• አጠቃላይ የሲስተም ትርፍ፦ `{system_profit}` ብር 💵\n"
+    report += "━━━━━━━━━━━━━━━━━━━━\n\n"
+
+    # 🏆 ምርጥ አፈጻጸም (Top Performers)
+    report += "🏆 **ምርጥ አፈጻጸም**\n"
+    # እዚህ ጋር ብዙ ትዕዛዝ ያላቸውን በቀጣይ በLogic መጨመር ይቻላል
+    report += "• ምርጥ ድርጅት፦ _ገና አልተለየም_\n"
+    report += "• ንቁ ራይደር፦ _ገና አልተለየም_\n"
 
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🔄 ሪፖርት አድስ", callback_data="admin_full_stats"))
-    markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
-    
-    bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="admin_full_stats"))
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ዋናው ሜኑ", callback_data="admin_main_menu"))
 
+    bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
 
 
