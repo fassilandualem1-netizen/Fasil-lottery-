@@ -146,6 +146,25 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 
 
 
+def get_final_delivery_fee(distance_meters, settings):
+    distance_km = distance_meters / 1000
+    base_fee = settings.get('base_delivery', 50) # መነሻ 50 ብር
+    
+    # ለምሳሌ ከ 2 ኪሎ ሜትር በላይ ለሆነ ለእያንዳንዱ 1 ኪሜ 15 ብር ቢታሰብ
+    if distance_km > 2:
+        extra_km = distance_km - 2
+        extra_fee = extra_km * 15
+        total_fee = base_fee + extra_fee
+    else:
+        total_fee = base_fee
+        
+    return round(total_fee, 2)
+
+
+
+
+
+
 def process_order_settlement(order_id):
     with db_lock:
         db = load_data()
@@ -406,6 +425,59 @@ def get_admin_dashboard(user_id):
     except Exception as e:
         print(f"Error building dashboard: {e}")
         return None
+
+
+
+
+
+
+
+def get_vendor_main_menu(vendor_id):
+    db = load_data()
+    vendor = db['vendors_list'].get(str(vendor_id))
+    
+    if not vendor:
+        return "❌ ይቅርታ፣ ይህ ድርጅት በሲስተሙ ውስጥ አልተመዘገበም።", None
+
+    # 📍 ደረጃ 1፡ ሎኬሽን መኖሩን ማረጋገጥ (ለዴሊቨሪ ክፍያ ስሌት ወሳኝ ነው)
+    if not vendor.get('location'):
+        markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+        btn_loc = types.KeyboardButton("📍 የድርጅቱን መገኛ ቦታ ላክ", request_location=True)
+        markup.add(btn_loc)
+        return "እንኳን ደህና መጡ! ድርጅትዎን ለመጨረስ መጀመሪያ ያሉበትን ቦታ (Location) መላክ አለብዎት።", markup
+
+    # 🟢 ደረጃ 2፡ ሎኬሽን ካለው ሙሉ ዳሽቦርድ ማሳየት
+    is_open = vendor.get('shop_open', True)
+    status_text = "🟢 ድርጅቱ ክፍት ነው" if is_open else "🔴 ድርጅቱ ዝግ ነው"
+    
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    
+    # ዋና ዋና በተኖች
+    btn_orders = types.InlineKeyboardButton("📋 ወቅታዊ ትዕዛዞች", callback_data="v_active_orders")
+    btn_items = types.InlineKeyboardButton("📦 የእኔ እቃዎች", callback_data="v_manage_items")
+    btn_wallet = types.InlineKeyboardButton("💰 የሂሳብ ሁኔታ", callback_data="v_wallet")
+    btn_history = types.InlineKeyboardButton("📊 የሽያጭ ታሪክ", callback_data="v_history")
+    btn_status = types.InlineKeyboardButton(status_text, callback_data="v_toggle_shop")
+    btn_exit = types.InlineKeyboardButton("⬅️ ውጣ", callback_data="main_menu")
+    
+    # አቀማመጥ
+    markup.add(btn_orders)
+    markup.add(btn_items, btn_wallet)
+    markup.add(btn_history, btn_status)
+    markup.add(btn_exit)
+    
+    msg = (f"🏢 **የድርጅት ዳሽቦርድ፦ {vendor['name']}**\n"
+           f"━━━━━━━━━━━━━━━━━━━━\n"
+           f"💰 ባላንስ፦ {vendor['deposit_balance']} ETB\n"
+           f"📍 ቦታ፦ ተመዝግቧል ✅\n"
+           f"━━━━━━━━━━━━━━━━━━━━\n"
+           f"ምን ማድረግ ይፈልጋሉ?")
+    
+    return msg, markup
+
+
+
+
 
 def get_main_menu():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
