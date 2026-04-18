@@ -1943,25 +1943,6 @@ def process_rider_deduct_id(message):
     msg = bot.send_message(message.chat.id, f"👤 ደላላ፦ {r_name}\n💰 አሁኑ ዋሌት፦ {curr_balance} ETB\n\nከዋሌቱ ላይ **የሚቀነሰውን መጠን** ያስገቡ (ሙሉውን ከሆነ {curr_balance})፦")
     bot.register_next_step_handler(msg, process_rider_deduct_amount, r_id)
 
-def process_rider_deduct_amount(message, r_id):
-    try:
-        amount = float(message.text.strip())
-        db = load_data()
-        db['riders_list'][r_id]['wallet'] -= amount # ዋሌቱን መቀነስ
-        save_data(db)
-        
-        bot.send_message(message.chat.id, f"✅ ተሳክቷል! ከ {r_id} ዋሌት ላይ {amount} ETB ተቀንሷል።")
-        bot.send_message(r_id, f"💸 **የክፍያ ማሳወቂያ**\n\nየጠየቁት {amount} ETB ተከፍሎዎ ከዋሌትዎ ላይ ተቀንሷል። ስለሰሩ እናመሰግናለን!")
-    except:
-        bot.send_message(message.chat.id, "❌ ስህተት ተፈጥሯል።")
-
-
-
-
-
-
-
-
 
 
 if __name__ == "__main__":
