@@ -742,3 +742,34 @@ def monitor_user_balances(call):
     markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
     
     bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_live_orders")
+def view_live_orders(call):
+    db = load_data()
+    # በዳታቤዝህ ውስጥ 'active_orders' የሚል ሊስት መኖር አለበት
+    orders = db.get('active_orders', {})
+    
+    if not orders:
+        return bot.answer_callback_query(call.id, "📭 አሁን ላይ ምንም ቀጥታ ትዕዛዝ የለም።")
+
+    report = "📋 **የቀጥታ ትዕዛዞች ክትትል**\n\n"
+    
+    for order_id, info in orders.items():
+        status = info.get('status', 'Pending')
+        status_icon = "⏳" if status == "Pending" else "🛵" if status == "On Way" else "📦"
+        
+        report += f"{status_icon} **ትዕዛዝ ID፦** `{order_id}`\n"
+        report += f"🏢 **ድርጅት፦** {info['vendor_name']}\n"
+        report += f"🛵 **ራይደር፦** {info.get('rider_name', 'ገና አልተያዘም')}\n"
+        report += f"📍 **ሁኔታ፦** {status}\n"
+        report += f"💰 **ጠቅላላ ዋጋ፦** {info['total_price']} ብር\n"
+        report += "------------------------\n"
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="admin_live_orders"))
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
+    
+    bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
