@@ -637,3 +637,45 @@ def view_all_vendors(call):
 
     bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
+
+
+
+# 1. የኮሚሽን ማስተካከያ መጀመሪያ
+@bot.callback_query_handler(func=lambda call: call.data == "admin_set_commission")
+def start_commission_settings(call):
+    text = "⚙️ **የኮሚሽን ማስተካከያ**\n\n"
+    text += "እባክዎ ሦስቱን የኮሚሽን መጠኖች በኮማ በመለየት ያስገቡ፦\n\n"
+    text += "1. የድርጅት ፐርሰንት (ለምሳሌ: 2)\n"
+    text += "2. የራይደር ኮሚሽን (ለምሳሌ: 10)\n"
+    text += "3. የደንበኛ ሰርቪስ ፊ (ለምሳሌ: 5)\n\n"
+    text += "ቅርጸት፦ `2, 10, 5`"
+    
+    msg = bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+    bot.register_next_step_handler(msg, save_commissions)
+
+# 2. የተቀበሉትን ቁጥሮች ዳታቤዝ ላይ ማስቀመጥ
+def save_commissions(message):
+    try:
+        parts = message.text.split(",")
+        if len(parts) != 3:
+            raise ValueError
+            
+        v_comm = float(parts.strip()) # ፐርሰንት
+        r_comm = float(parts.strip()) # ቋሚ ብር
+        c_comm = float(parts.strip()) # ቋሚ ብር
+        
+        db = load_data()
+        db['settings']['vendor_commission_percent'] = v_comm
+        db['settings']['rider_service_fee'] = r_comm
+        db['settings']['customer_service_fee'] = c_comm
+        save_data(db)
+        
+        bot.send_message(message.chat.id, f"✅ ኮሚሽን በተሳካ ሁኔታ ተቀይሯል!\n\n🏢 ድርጅት፦ {v_comm}%\n🛵 ራይደር፦ {r_comm} ብር\n👤 ደንበኛ፦ {c_comm} ብር")
+        
+    except:
+        msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ እባክዎ በትክክል ያስገቡ (ለምሳሌ፦ 2, 10, 5)፦")
+        bot.register_next_step_handler(msg, save_commissions)
+
+
+
+
