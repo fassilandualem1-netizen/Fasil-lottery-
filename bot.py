@@ -512,6 +512,108 @@ def back_to_admin(call):
 
 
 
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('v_set_price_'))
+def start_set_price(call):
+    order_id = call.data.replace('v_set_price_', '')
+    msg = bot.send_message(call.message.chat.id, "እባክዎ ለዚህ ትዕዛዝ ጠቅላላ የእቃ ዋጋ ብቻ ይጻፉ፦\n(ለምሳሌ፦ 450)")
+    bot.register_next_step_handler(msg, process_vendor_price, order_id)
+
+def process_vendor_price(message, order_id):
+    v_id = str(message.chat.id)
+    try:
+        price = float(message.text.strip())
+        db = load_data()
+        
+        # ዋጋውን በኦርደሩ ውስጥ መመዝገብ
+        db['orders'][order_id]['item_price'] = price
+        db['orders'][order_id]['status'] = 'Waiting for Customer'
+        save_data(db)
+        
+        # ለደንበኛው ኖቲፊኬሽን የሚልክ ተግባር እዚህ ይጠራል (ቀደም ብለን የሰራነው ሎጅክ)
+        notify_customer_for_approval(order_id, price)
+        
+        bot.send_message(v_id, f"✅ የ {price} ብር ዋጋ ለደንበኛው ተልኳል። ደንበኛው ሲያረጋግጥ ለራይደሮች ጥሪ ይተላለፋል።")
+        
+    except ValueError:
+        bot.send_message(v_id, "❌ ስህተት! እባክዎ ቁጥር ብቻ ያስገቡ።")
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('v_view_order_'))
+def view_order_details(call):
+    order_id = call.data.replace('v_view_order_', '')
+    v_id = str(call.message.chat.id)
+    db = load_data()
+    order = db['orders'].get(order_id)
+    
+    if not order:
+        bot.answer_callback_query(call.id, "❌ ትዕዛዙ አልተገኘም")
+        return
+
+    text = (f"🆔 **ትዕዛዝ ቁጥር፦ #{order_id[-5:]}**\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 ደንበኛ፦ {order.get('customer_name', 'ያልታወቀ')}\n"
+            f"📦 እቃዎች፦ {order.get('items_summary', 'በጽሁፍ የታዘዘ')}\n"
+            f"📊 ሁኔታ፦ {order.get('status')}\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n")
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    
+    # 📝 የጽሁፍ ትዕዛዝ ከሆነ እና ዋጋ ገና ካልተሞላ
+    if order.get('is_manual') and order.get('item_price', 0) == 0:
+        text += "⚠️ ይህ ትዕዛዝ ዋጋ አልተሞላለትም። እባክዎ ዋጋ ይሙሉ፦"
+        btn_set_price = types.InlineKeyboardButton("💰 ዋጋ ሙላ", callback_data=f"v_set_price_{order_id}")
+        markup.add(btn_set_price)
+    
+    btn_cancel = types.InlineKeyboardButton("❌ ትዕዛዝ ሰርዝ", callback_data=f"v_cancel_order_{order_id}")
+    btn_back = types.InlineKeyboardButton("⬅️ ተመለስ", callback_data="v_active_orders")
+    
+    markup.add(btn_cancel, btn_back)
+    bot.edit_message_text(text, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "v_active_orders")
+def vendor_active_orders(call):
+    v_id = str(call.message.chat.id)
+    db = load_data()
+    
+    # ለዚህ ድርጅት ብቻ የሆኑ እና 'Completed' ወይም 'Cancelled' ያልሆኑ ትዕዛዞችን መፈለግ
+    active_orders = [oid for oid, info in db['orders'].items() 
+                     if str(info.get('vendor_id')) == v_id and info.get('status') not in ['Completed', 'Cancelled']]
+
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    
+    if not active_orders:
+        text = "📋 **ወቅታዊ ትዕዛዞች**\n\nበአሁኑ ሰዓት ምንም አዲስ ትዕዛዝ የለም።"
+        markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data="v_dashboard"))
+        bot.edit_message_text(text, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+        return
+
+    text = f"📋 **በሂደት ላይ ያሉ {len(active_orders)} ትዕዛዞች**\n\n"
+    
+    for order_id in active_orders:
+        order = db['orders'][order_id]
+        status = order.get('status', 'Pending')
+        
+        # የትዕዛዝ አይነትን መለየት (በጽሁፍ ወይስ ካርት)
+        order_type = "📝 በጽሁፍ" if order.get('is_manual') else "🛒 ከመዝገብ"
+        
+        btn_text = f"🆔 #{order_id[-5:]} | {order_type} | 🟢 {status}"
+        # እያንዳንዱን ትዕዛዝ ዝርዝር ለማየት
+        markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"v_view_order_{order_id}"))
+
+    markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data="v_dashboard"))
+    bot.edit_message_text(text, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+
 @bot.message_handler(func=lambda message: message.reply_to_message and "አዲስ የጽሁፍ ትዕዛዝ" in message.reply_to_message.text)
 def handle_vendor_price_reply(message):
     try:
@@ -540,6 +642,27 @@ def handle_vendor_price_reply(message):
         
     except ValueError:
         bot.reply_to(message, "⚠️ እባክዎ ዋጋውን በቁጥር ብቻ ይላኩ (ምሳሌ፦ 500)")
+
+
+
+
+
+@bot.message_handler(content_types=['location'])
+def handle_vendor_location(message):
+    v_id = str(message.chat.id)
+    db = load_data()
+    
+    if v_id in db['vendors_list']:
+        db['vendors_list'][v_id]['location'] = {
+            "lat": message.location.latitude,
+            "lon": message.location.longitude
+        }
+        save_data(db)
+        
+        msg, markup = get_vendor_main_menu(v_id)
+        bot.send_message(v_id, "✅ የድርጅቱ ቦታ በትክክል ተመዝግቧል!", reply_markup=types.ReplyKeyboardRemove())
+        bot.send_message(v_id, msg, reply_markup=markup)
+
 
 
 
