@@ -792,41 +792,46 @@ def monitor_all_balances(call):
         vendors = db.get('vendors_list', {})
         riders = db.get('riders_list', {})
         
-        report = "📉 **አጠቃላይ የባላንስ ክትትል ሪፖርት**\n\n"
+        report = "📉 **የፋይናንስ ክትትል መቆጣጠሪያ**\n"
+        report += "━━━━━━━━━━━━━━━━━━━━\n\n"
         
-        # 🏢 የድርጅቶች ሁኔታ
-        report += "🏢 **የድርጅቶች ዲፖዚት፦**\n"
+        # 🏢 የድርጅቶች የዲፖዚት ሁኔታ
+        report += "🏢 **የድርጅቶች ባላንስ (Vendors)**\n"
         if not vendors:
-            report += "_ምንም የተመዘገበ ድርጅት የለም_\n"
-        for v_id, info in vendors.items():
-            report += f"• {info['name']}: `{info.get('deposit_balance', 0)}` ብር\n"
+            report += "_👉 እስካሁን ምንም ድርጅት አልተመዘገበም_\n"
+        else:
+            for v_id, info in vendors.items():
+                cat = info.get('category', 'ያልተገለጸ')
+                bal = info.get('deposit_balance', 0)
+                # ባላንሱ 0 ከሆነ ቀይ ምልክት፣ ከፍ ያለ ከሆነ አረንጓዴ እንዲያሳይ
+                status_dot = "🔴" if bal <= 0 else "🟢"
+                report += f"{status_dot} **{info['name']}** ({cat})\n"
+                report += f"    └─ 💰 ባላንስ፦ `{bal}` ብር\n"
         
-        report += "\n"
+        report += "\n" + "─" * 20 + "\n\n"
         
-        # 🛵 የራይደሮች ሁኔታ
-        report += "🛵 **የራይደሮች ዋሌት፦**\n"
+        # 🛵 የራይደሮች ዋሌት ሁኔታ
+        report += "🛵 **የራይደሮች ባላንስ (Drivers)**\n"
         if not riders:
-            report += "_ምንም የተመዘገበ ራይደር የለም_\n"
-        for r_id, info in riders.items():
-            report += f"• {info['name']}: `{info.get('wallet', 0)}` ብር\n"
+            report += "_👉 እስካሁን ምንም ራይደር አልተመዘገበም_\n"
+        else:
+            for r_id, info in riders.items():
+                w_bal = info.get('wallet', 0)
+                r_status = "🟢" if w_bal > 0 else "⚪"
+                report += f"{r_status} **{info['name']}**\n"
+                report += f"    └─ 💳 ዋሌት፦ `{w_bal}` ብር\n"
 
-        # ወደ ኋላ መመለሻ በተን
+        report += "\n━━━━━━━━━━━━━━━━━━━━\n"
+        report += f"📊 **አጠቃላይ በሲስተሙ ያለው ገንዘብ፦** `{sum(v.get('deposit_balance', 0) for v in vendors.values()) + sum(r.get('wallet', 0) for r in riders.values())}` ብር"
+
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("🔙 ወደ ዋናው ሜኑ", callback_data="admin_main_menu"))
         
-        # መልዕክቱን ማደስ (Edit)
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=report,
-            reply_markup=markup,
-            parse_mode="Markdown"
-        )
+        bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
         
     except Exception as e:
-        print(f"Monitor Balance Error: {e}")
-        bot.answer_callback_query(call.id, "❌ መረጃውን ለማምጣት ስህተት አጋጥሟል።")
-
+        print(f"Balance Monitor Error: {e}")
+        bot.answer_callback_query(call.id, "❌ መረጃውን ማምጣት አልተቻለም።")
 
 
 
