@@ -216,7 +216,7 @@ def get_admin_dashboard(user_id):
     btn_fund = types.InlineKeyboardButton("💳 ብር መሙያ", callback_data="admin_add_funds")
     btn_balance = types.InlineKeyboardButton("📉 ክትትል", callback_data="admin_monitor_balance")
     btn_profit = types.InlineKeyboardButton("💰 ትርፍ", callback_data="admin_profit_track")
-    btn_low_credit = types.InlineKeyboardButton("⚠️ ዝቅተኛ ሂሳብ", callback_data="admin_low_credit")
+    btn_low_credit = types.InlineKeyboardButton("reset", callback_data="admin_system_reset")
 
     btn_live_orders = types.InlineKeyboardButton("📋 ቀጥታ ትዕዛዝ", callback_data="admin_live_orders")
     btn_add_vendor = types.InlineKeyboardButton("➕ አዲስ ድርጅት", callback_data="admin_add_vendor")
@@ -234,7 +234,7 @@ def get_admin_dashboard(user_id):
     markup.add(btn_broadcast) # ይህ ለብቻው ሰፋ ብሎ እንዲታይ (ወይም ከፈለግክ ሌላ ጨምርበት)
 
     markup.add(btn_fund, btn_balance)
-    markup.add(btn_profit, btn_low_credit)
+    markup.add(btn_profit, btn_system_reset)
 
     markup.add(btn_live_orders)
     markup.add(btn_view_cats, btn_add_cats) 
@@ -909,6 +909,7 @@ def view_business_analytics(call):
 
 
 # 1. ዳግም ማስጀመሪያ መጀመሪያ - ማስጠንቀቂያ
+# 1. ዳግም ማስጀመሪያ መጀመሪያ - ማስጠንቀቂያ
 @bot.callback_query_handler(func=lambda call: call.data == "admin_system_reset")
 def confirm_reset_request(call):
     markup = types.InlineKeyboardMarkup()
@@ -924,7 +925,7 @@ def confirm_reset_request(call):
     
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
-# 2. ሚስጥራዊ ኮድ መጠየቅ (ለበለጠ ጥንቃቄ)
+# 2. ሚስጥራዊ ኮድ መጠየቅ
 @bot.callback_query_handler(func=lambda call: call.data == "admin_final_reset_confirm")
 def ask_secret_code(call):
     msg = bot.send_message(call.message.chat.id, "🔐 ለማጽዳት ሚስጥራዊ ቁልፉን ያስገቡ (ለምሳሌ፦ `RESET123`)፦")
@@ -932,30 +933,26 @@ def ask_secret_code(call):
 
 # 3. ዳታቤዙን ማጽዳት
 def perform_database_reset(message):
-    secret_code = "RESET123" # ይህንን ኮድ መቀየር ትችላለህ
+    secret_code = "RESET123" # ይህንን ኮድ ለጥንቃቄ መቀየር ትችላለህ
     
     if message.text.strip() == secret_code:
         # ዳታቤዙን ወደ መጀመሪያው ሁኔታ መመለስ
         new_db = {
-            "vendors_list": {},
             "riders_list": {},
+            "vendors_list": {},
+            "orders": {},
+            "carts": {},
             "categories": [],
-            "user_list": [message.chat.id], # የአድሚኑን ID ብቻ እናስቀር
-            "stats": {
-                "total_vendor_comm": 0.0,
-                "total_rider_comm": 0.0,
-                "total_customer_comm": 0.0,
-                "total_orders": 0
-            },
+            "total_profit": 0,
+            "user_list": [message.chat.id],
             "settings": {
-                "system_locked": False,
-                "vendor_commission_percent": 2.0,
-                "rider_service_fee": 10.0,
-                "customer_service_fee": 5.0
+                "vendor_commission_p": 5,
+                "rider_commission_p": 10,
+                "system_locked": False 
             }
         }
         save_data(new_db)
-        bot.send_message(message.chat.id, "✅ ሲስተሙ ሙሉ በሙሉ ጸድቷል! አሁን እንደ አዲስ መጀመር ይችላሉ።")
+        bot.send_message(message.chat.id, "✅ ሲስተሙ ሙሉ በሙሉ ጸድቷል!")
     else:
         bot.send_message(message.chat.id, "❌ የተሳሳተ ሚስጥራዊ ቁልፍ! ማጽዳቱ ተሰርዟል።")
 
