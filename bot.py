@@ -677,5 +677,33 @@ def save_commissions(message):
         bot.register_next_step_handler(msg, save_commissions)
 
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_profit_track")
+def view_profit_stats(call):
+    db = load_data()
+    
+    # በዳታቤዝህ ውስጥ 'stats' የሚል ክፍል መኖር አለበት
+    stats = db.get('stats', {
+        'total_vendor_comm': 0.0,
+        'total_rider_comm': 0.0,
+        'total_customer_comm': 0.0,
+        'total_orders': 0
+    })
+    
+    total_net_profit = stats['total_vendor_comm'] + stats['total_rider_comm'] + stats['total_customer_comm']
+    
+    report = "💰 **የትርፍ እና የሽያጭ ሪፖርት**\n\n"
+    report += f"📊 **አጠቃላይ ትርፍ፦ {total_net_profit:,.2f} ብር**\n"
+    report += "--------------------------------\n"
+    report += f"🏢 ከድርጅቶች ኮሚሽን፦ {stats['total_vendor_comm']:,.2f} ብር\n"
+    report += f"🛵 ከራይደሮች አገልግሎት፦ {stats['total_rider_comm']:,.2f} ብር\n"
+    report += f"👤 ከደንበኞች ሰርቪስ ፊ፦ {stats['total_customer_comm']:,.2f} ብር\n"
+    report += "--------------------------------\n"
+    report += f"📦 ጠቅላላ የተጠናቀቁ ትዕዛዞች፦ {stats['total_orders']} ትዕዛዝ\n"
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🔄 ሪፖርት አድስ", callback_data="admin_profit_track"))
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
+    
+    bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
 
