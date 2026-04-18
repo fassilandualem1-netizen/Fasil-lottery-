@@ -205,47 +205,47 @@ def check_admin(message):
 
 
 def get_admin_dashboard(user_id):
-    db = load_data()
-    markup = types.InlineKeyboardMarkup(row_width=2)
+    try:
+        db = load_data()
+        markup = types.InlineKeyboardMarkup(row_width=2)
 
-    # --- በተኖቹን መፍጠር ---
-    
-  
-    btn_broadcast = types.InlineKeyboardButton("📢 ማስታወቂያ", callback_data="admin_broadcast")
+        # --- በተኖቹን መፍጠር ---
+        btn_broadcast = types.InlineKeyboardButton("📢 ማስታወቂያ", callback_data="admin_broadcast")
+        btn_fund = types.InlineKeyboardButton("💳 ብር መሙያ", callback_data="admin_add_funds")
+        btn_balance = types.InlineKeyboardButton("📉 ክትትል", callback_data="admin_monitor_balance")
+        btn_profit = types.InlineKeyboardButton("💰 ትርፍ", callback_data="admin_profit_track")
+        
+        # ስሙን እዚህ አስተካክለነዋል (ከታች ከምንጨምረው ጋር አንድ እንዲሆን)
+        btn_system_reset = types.InlineKeyboardButton("🗑 Reset System", callback_data="admin_system_reset")
 
-    btn_fund = types.InlineKeyboardButton("💳 ብር መሙያ", callback_data="admin_add_funds")
-    btn_balance = types.InlineKeyboardButton("📉 ክትትል", callback_data="admin_monitor_balance")
-    btn_profit = types.InlineKeyboardButton("💰 ትርፍ", callback_data="admin_profit_track")
-    btn_low_credit = types.InlineKeyboardButton("reset", callback_data="admin_system_reset")
+        btn_live_orders = types.InlineKeyboardButton("📋 ቀጥታ ትዕዛዝ", callback_data="admin_live_orders")
+        btn_add_vendor = types.InlineKeyboardButton("➕ አዲስ ድርጅት", callback_data="admin_add_vendor")
+        btn_add_rider = types.InlineKeyboardButton("➕ አዲስ driver", callback_data="admin_add_rider")
+        btn_vendors = types.InlineKeyboardButton("🏢 ድርጅቶች", callback_data="admin_list_vendors")
+        btn_view_cats = types.InlineKeyboardButton("📁 ምድቦች ማሳያ", callback_data="admin_view_categories")
+        btn_add_cats = types.InlineKeyboardButton("➕ አዲስ ምድብ", callback_data="admin_manage_cats")
+        btn_riders = types.InlineKeyboardButton("🛵 driver", callback_data="admin_rider_status")
+        btn_set_commission = types.InlineKeyboardButton("⚙️ ኮሚሽን", callback_data="admin_set_commission")
+        btn_block = types.InlineKeyboardButton("🚫 አግድ/ፍቀድ", callback_data="admin_block_manager")
+        btn_lock = types.InlineKeyboardButton("🔒 ሲስተም ዝጋ", callback_data="admin_system_lock")
+        btn_stats = types.InlineKeyboardButton("📈 ሪፖርት", callback_data="admin_full_stats")
 
-    btn_live_orders = types.InlineKeyboardButton("📋 ቀጥታ ትዕዛዝ", callback_data="admin_live_orders")
-    btn_add_vendor = types.InlineKeyboardButton("➕ አዲስ ድርጅት", callback_data="admin_add_vendor")
-    btn_add_rider = types.InlineKeyboardButton("➕ አዲስ driver", callback_data="admin_add_rider")
-    btn_vendors = types.InlineKeyboardButton("🏢 ድርጅቶች", callback_data="admin_list_vendors")
-    btn_view_cats = types.InlineKeyboardButton("📁 ምድቦች ማሳያ", callback_data="admin_view_categories")
-    btn_add_cats = types.InlineKeyboardButton("➕ አዲስ ምድብ", callback_data="admin_manage_cats")
-    btn_riders = types.InlineKeyboardButton("🛵 driver", callback_data="admin_rider_status")
-    btn_set_commission = types.InlineKeyboardButton("⚙️ ኮሚሽን", callback_data="admin_set_commission")
-    btn_block = types.InlineKeyboardButton("🚫 አግድ/ፍቀድ", callback_data="admin_block_manager")
-    btn_lock = types.InlineKeyboardButton("🔒 ሲስተም ዝጋ", callback_data="admin_system_lock")
-    btn_stats = types.InlineKeyboardButton("📈 ሪፖርት", callback_data="admin_full_stats")
+        # --- ወደ Markup መጨመር ---
+        markup.add(btn_broadcast)
+        markup.add(btn_fund, btn_balance)
+        markup.add(btn_profit, btn_system_reset) # እዚህ ጋር ስሙ ተስተካክሏል
+        markup.add(btn_live_orders)
+        markup.add(btn_view_cats, btn_add_cats) 
+        markup.add(btn_stats) 
+        markup.add(btn_add_vendor, btn_add_rider)
+        markup.add(btn_vendors, btn_riders)
+        markup.add(btn_set_commission, btn_block)
+        markup.add(btn_lock)
 
-    # --- ወደ Markup መጨመር (በሁለት ረድፍ) ---
-    markup.add(btn_broadcast) # ይህ ለብቻው ሰፋ ብሎ እንዲታይ (ወይም ከፈለግክ ሌላ ጨምርበት)
-
-    markup.add(btn_fund, btn_balance)
-    markup.add(btn_profit, btn_system_reset)
-
-    markup.add(btn_live_orders)
-    markup.add(btn_view_cats, btn_add_cats) 
-    markup.add(btn_stats) 
-
-    markup.add(btn_add_vendor, btn_add_rider)
-    markup.add(btn_vendors, btn_riders)
-    markup.add(btn_set_commission, btn_block)
-    markup.add(btn_lock) # መዝጊያው ለብቻው ሰፋ ብሎ ለጥንቃቄ
-
-    return markup
+        return markup
+    except Exception as e:
+        print(f"Error building dashboard: {e}")
+        return None
 
 def get_main_menu():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
