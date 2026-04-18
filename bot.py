@@ -384,11 +384,18 @@ def process_balance_update(message):
         except:
             pass # ተጠቃሚው ቦቱን ካቆመው ስህተት እንዳይሰጥ
             
+        
         del temp_topup_data[admin_id]
         
     except ValueError:
         msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ እባክዎ በትክክል ቁጥር ያስገቡ (ለምሳሌ፦ 500 ወይም -200)፦")
         bot.register_next_step_handler(msg, process_balance_update)
+    
+    except Exception as e:
+        # ማንኛውም ሌላ ስህተት ቢፈጠር ሲስተሙ እንዳይቆም ይረዳል
+        print(f"Error in balance update: {e}")
+        bot.send_message(message.chat.id, "❌ የቴክኒክ ስህተት አጋጥሟል። እባክዎ እንደገና ይሞክሩ።")
+
 
 
 
