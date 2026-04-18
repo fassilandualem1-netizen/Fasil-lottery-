@@ -135,16 +135,6 @@ def backup_db_to_channel():
         print(f"❌ Backup Error: {e}")
 
 
-# 2. አድሚን መሆኑን ማረጋገጫ (Check Admin)
-def check_admin(message):
-    if message.from_user.id not in ADMIN_IDS:
-        bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
-        return False
-    return True
-
-
-
-
 
 import math
 
@@ -202,6 +192,18 @@ def accept_order(rider_id, order_id):
         bot.send_message(rider_id, f"❌ በቂ የዋሌት ባላንስ የለዎትም። ቢያንስ {required_balance} ETB ያስፈልጋል።")
 
 
+
+def check_admin(message):
+    if message.from_user.id not in ADMIN_IDS:
+        bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
+        return False
+    return True
+
+
+
+
+
+
 def get_admin_dashboard(user_id):
     db = load_data()
     markup = types.InlineKeyboardMarkup(row_width=2)
@@ -230,7 +232,6 @@ def get_admin_dashboard(user_id):
     btn_stats = types.InlineKeyboardButton("📈 ሪፖርት", callback_data="admin_full_stats")
 
     # --- ወደ Markup መጨመር (በሁለት ረድፍ) ---
-    markup.add(btn_dispute, btn_reviews)
     markup.add(btn_broadcast) # ይህ ለብቻው ሰፋ ብሎ እንዲታይ (ወይም ከፈለግክ ሌላ ጨምርበት)
 
     markup.add(btn_fund, btn_balance)
