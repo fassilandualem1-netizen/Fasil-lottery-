@@ -280,38 +280,30 @@ def start_command(message):
 
 # 1. የራይደር ምዝገባ መጀመሪያ
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_rider")
-def start_rider_reg(call):
-    msg = bot.send_message(call.message.chat.id, "🆔 የራይደሩን Telegram User ID ያስገቡ፦")
-    bot.register_next_step_handler(msg, process_rider_id)
-
-# 2. ID ተቀብሎ ስም መጠየቅ
 def process_rider_id(message):
-    r_id = message.text.strip()
-    if not r_id.isdigit():
-        msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ ID ቁጥር መሆን አለበት። እባክዎ እንደገና ያስገቡ፦")
+    rider_id = message.text.strip()
+    if not rider_id.isdigit():
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፡ ID ቁጥር መሆን አለበት። ድጋሚ ያስገቡ፦")
         return bot.register_next_step_handler(msg, process_rider_id)
-    
-    temp_vendor_data[message.chat.id] = {'u_id': r_id} # ለጊዜው እዚህ እናስቀምጠው
-    msg = bot.send_message(message.chat.id, "🛵 የራይደሩን ሙሉ ስም ያስገቡ፦")
-    bot.register_next_step_handler(msg, save_rider_final)
 
-# 3. ስም ተቀብሎ መመዝገብ
-def save_rider_final(message):
-    r_name = message.text.strip()
-    admin_id = message.chat.id
-    r_data = temp_vendor_data.get(admin_id)
+    # ስሙን ለመጠየቅ
+    msg = bot.send_message(message.chat.id, "👤 የራይደሩን ሙሉ ስም ያስገቡ፦")
+    bot.register_next_step_handler(msg, lambda m: save_new_rider(m, rider_id))
+
+def save_new_rider(message, rider_id):
+    name = message.text.strip()
+    data = load_data()
     
-    db = load_data()
-    db['riders_list'][r_data['u_id']] = {
-        "name": r_name,
-        "wallet": 0.0,      # መጀመሪያ ባዶ ነው
-        "role": "rider",
+    # አዲሱን ራይደር ዳታቤዝ ውስጥ መጨመር
+    data['riders_list'][rider_id] = {
+        "name": name,
+        "wallet": 0,
         "status": "offline",
         "is_active": True
     }
-    save_data(db)
-    bot.send_message(admin_id, f"✅ ራይደር '{r_name}' ተመዝግቧል። አሁን በ 'ባላንስ መሙያ' በኩል ዋሌቱን መሙላት ይችላሉ።")
-    if admin_id in temp_vendor_data: del temp_vendor_data[admin_id]
+    
+    save_data(data)
+    bot.send_message(message.chat.id, f"✅ ራይደር {name} (ID: {rider_id}) በትክክል ተመዝግቧል!")
 
 
 
@@ -415,49 +407,43 @@ def process_balance_update(message):
 
 
 
-# 1. መጀመሪያ ID መጠየቅ
+# መጀመሪያ ID ለመቀበል
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_vendor")
-def start_vendor_reg(call):
+def start_add_vendor(call):
     msg = bot.send_message(call.message.chat.id, "🆔 የድርጅቱን ባለቤት Telegram User ID ያስገቡ፦")
-    bot.register_next_step_handler(msg, process_id_step)
+    bot.register_next_step_handler(msg, process_vendor_id)
 
-# 2. ስም መጠየቅ
-def process_id_step(message):
-    user_id = message.text.strip()
-    temp_vendor_data[message.chat.id] = {'u_id': user_id}
-    msg = bot.send_message(message.chat.id, "🏢 የድርጅቱን (የንግድ ቤቱን) ስም ያስገቡ፦")
-    bot.register_next_step_handler(msg, process_name_step)
+# ID ቁጥር መሆኑን አረጋግጦ ስም መጠየቅ
+def process_vendor_id(message):
+    v_id = message.text.strip()
+    
+    if not v_id.isdigit():
+        msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ ID ቁጥር መሆን አለበት። እባክዎ በትክክል ያስገቡ፦")
+        return bot.register_next_step_handler(msg, process_vendor_id)
+    
+    msg = bot.send_message(message.chat.id, "🏢 የድርጅቱን (የሱቁን) ስም ያስገቡ፦")
+    bot.register_next_step_handler(msg, lambda m: save_new_vendor(m, v_id))
 
-# 3. ምድብ መጠየቅ እና መጨረስ
-def process_name_step(message):
-    temp_vendor_data[message.chat.id]['name'] = message.text.strip()
+# ዳታቤዝ ውስጥ ሴቭ ማድረጊያ
+def save_new_vendor(message, v_id):
+    vendor_name = message.text.strip()
     db = load_data()
-    markup = types.InlineKeyboardMarkup()
     
-    for cat in db['categories']:
-        markup.add(types.InlineKeyboardButton(cat, callback_data=f"sel_cat:{cat}"))
-    
-    bot.send_message(message.chat.id, "📁 የምድብ አይነት ይምረጡ፦", reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("sel_cat:"))
-def final_vendor_reg(call):
-    category = call.data.split(":")
-    admin_id = call.message.chat.id
-    v_data = temp_vendor_data.get(admin_id)
-    
-    db = load_data()
-    db['vendors_list'][v_data['u_id']] = {
-        "name": v_data['name'],
-        "category": category,
-        "deposit_balance": 0.0, # መጀመሪያ ባዶ ነው
-        "service_fee_total": 0.0, # ድርጅቱ ለቦቱ የከፈለው ጠቅላላ ክፍያ
-        "role": "vendor",
-        "is_active": True
+    # በሪሴት ምክንያት vendors_list ከጠፋ መፍጠር
+    if 'vendors_list' not in db:
+        db['vendors_list'] = {}
+        
+    # አዲሱን ድርጅት መመዝገብ
+    db['vendors_list'][v_id] = {
+        "name": vendor_name,
+        "deposit_balance": 0,    # መጀመሪያ ሲመዘገብ 0 ብር
+        "items": {},            # እቃዎች ገና አልተመዘገቡም
+        "is_active": True,
+        "registered_date": str(message.date)
     }
+    
     save_data(db)
-    bot.send_message(admin_id, f"✅ ድርጅት '{v_data['name']}' ተመዝግቧል። አሁን በ 'ባላንስ መሙያ' በኩል ቅድመ ክፍያ መሙላት ይችላሉ።")
-
-
+    bot.send_message(message.chat.id, f"✅ ድርጅት '{vendor_name}' (ID: {v_id}) በትክክል ተመዝግቧል!")
 
 
 
