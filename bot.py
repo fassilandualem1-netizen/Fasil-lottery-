@@ -820,3 +820,97 @@ def view_live_orders(call):
     markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
     
     bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_full_stats")
+def view_business_analytics(call):
+    db = load_data()
+    vendors = db.get('vendors_list', {})
+    riders = db.get('riders_list', {})
+    stats = db.get('stats', {})
+    
+    # ለሪፖርቱ የሚሆኑ መረጃዎችን ማሰባሰብ
+    total_users = len(db.get('user_list', []))
+    active_vendors = sum(1 for v in vendors.values() if v.get('is_active'))
+    online_riders = sum(1 for r in riders.values() if r.get('status') == 'online')
+    
+    report = "📈 **ጥልቅ የቢዝነስ ሪፖርት (Full Analytics)**\n\n"
+    
+    report += "👥 **የተጠቃሚዎች ሁኔታ**\n"
+    report += f"• ጠቅላላ የቦቱ ተጠቃሚዎች፦ {total_users}\n"
+    report += f"• ንቁ ድርጅቶች፦ {active_vendors}\n"
+    report += f"• አሁን ኦንላይን ያሉ ራይደሮች፦ {online_riders}\n\n"
+    
+    report += "📦 **የትዕዛዝ ስታቲስቲክስ**\n"
+    report += f"• የተሳኩ ትዕዛዞች፦ {stats.get('total_orders', 0)}\n"
+    # ወደፊት እዚህ ጋር 'የተሰረዙ' የሚል መጨመር ይቻላል
+    
+    report += "\n🏆 **ምርጥ አፈጻጸም**\n"
+    # እዚህ ጋር ዳታቤዝህ ውስጥ ካስቀመጥከው 'Top Vendor' ማምጣት ይቻላል
+    report += "• ብዙ ትዕዛዝ ያስተናገዱ ድርጅቶችና ራይደሮችን እዚህ ጋር ማየት ይቻላል።\n"
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🔄 ሪፖርት አድስ", callback_data="admin_full_stats"))
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
+    
+    bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+
+
+# 1. ዳግም ማስጀመሪያ መጀመሪያ - ማስጠንቀቂያ
+@bot.callback_query_handler(func=lambda call: call.data == "admin_system_reset")
+def confirm_reset_request(call):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("⚠️ አዎ! ሙሉ በሙሉ አጽዳ", callback_data="admin_final_reset_confirm"))
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_main_menu"))
+    
+    text = "❗ **ጥንቃቄ፦ ሲስተም ዳግም ማስጀመር**\n\n"
+    text += "ይህንን ካደረጉ የሚከተሉት መረጃዎች በሙሉ ይጠፋሉ፦\n"
+    text += "• ሁሉም ድርጅቶች እና ራይደሮች\n"
+    text += "• የሂሳብ እና የትርፍ መዝገቦች\n"
+    text += "• የተመዘገቡ እቃዎች\n\n"
+    text += "እርግጠኛ ነዎት?"
+    
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+# 2. ሚስጥራዊ ኮድ መጠየቅ (ለበለጠ ጥንቃቄ)
+@bot.callback_query_handler(func=lambda call: call.data == "admin_final_reset_confirm")
+def ask_secret_code(call):
+    msg = bot.send_message(call.message.chat.id, "🔐 ለማጽዳት ሚስጥራዊ ቁልፉን ያስገቡ (ለምሳሌ፦ `RESET123`)፦")
+    bot.register_next_step_handler(msg, perform_database_reset)
+
+# 3. ዳታቤዙን ማጽዳት
+def perform_database_reset(message):
+    secret_code = "RESET123" # ይህንን ኮድ መቀየር ትችላለህ
+    
+    if message.text.strip() == secret_code:
+        # ዳታቤዙን ወደ መጀመሪያው ሁኔታ መመለስ
+        new_db = {
+            "vendors_list": {},
+            "riders_list": {},
+            "categories": [],
+            "user_list": [message.chat.id], # የአድሚኑን ID ብቻ እናስቀር
+            "stats": {
+                "total_vendor_comm": 0.0,
+                "total_rider_comm": 0.0,
+                "total_customer_comm": 0.0,
+                "total_orders": 0
+            },
+            "settings": {
+                "system_locked": False,
+                "vendor_commission_percent": 2.0,
+                "rider_service_fee": 10.0,
+                "customer_service_fee": 5.0
+            }
+        }
+        save_data(new_db)
+        bot.send_message(message.chat.id, "✅ ሲስተሙ ሙሉ በሙሉ ጸድቷል! አሁን እንደ አዲስ መጀመር ይችላሉ።")
+    else:
+        bot.send_message(message.chat.id, "❌ የተሳሳተ ሚስጥራዊ ቁልፍ! ማጽዳቱ ተሰርዟል።")
+
+
