@@ -250,6 +250,19 @@ def cancel_and_refund_order(order_id):
 
 
 
+def can_rider_take_more(rider_id, new_order_price):
+    db = load_data()
+    rider = db['riders_list'].get(str(rider_id))
+    
+    # ሊሰራበት የሚችለው ብር (Available Balance)
+    available_balance = rider.get('wallet', 0)
+    
+    if available_balance >= new_order_price:
+        return True
+    else:
+        return False
+
+
 
 
 
