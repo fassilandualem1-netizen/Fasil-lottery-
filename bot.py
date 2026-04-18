@@ -189,6 +189,49 @@ def process_order_settlement(order_id):
 
 
 
+def add_org_item(v_id, text_input):
+    try:
+        name, price = text_input.split(",")
+        item_id = str(int(time.time())) # ልዩ መለያ
+        db = load_data()
+        db['vendors_list'][str(v_id)]['items'][item_id] = {
+            "name": name.strip(),
+            "price": float(price.strip()),
+            "available": True
+        }
+        save_data(db)
+        return True
+    except:
+        return False
+
+
+
+
+def register_vendor_logic(v_id, name, category):
+    db = load_data()
+    db['vendors_list'][str(v_id)] = {
+        "name": name,
+        "category": category,
+        "deposit_balance": 0.0,
+        "items": {},          # እቃዎች በ "Add to Cart" መልክ እዚህ ይገባሉ
+        "sales_history": [],  # ለወደፊት ሪፖርት
+        "is_active": True,
+        "shop_open": True
+    }
+    save_data(db)
+
+
+def get_org_financials(v_id):
+    db = load_data()
+    vendor = db['vendors_list'].get(str(v_id))
+    if vendor:
+        bal = vendor['deposit_balance']
+        limit = db['settings']['vendor_negative_limit']
+        return f"🏢 ድርጅት፦ {vendor['name']}\n💰 ቀሪ ሂሳብ፦ {bal} ETB\n📉 የብድር ገደብ፦ {limit} ETB"
+    return "❌ መረጃ አልተገኘም።"
+
+
+
 def accept_order(rider_id, order_id):
     db = load_data()
     order = db['orders'].get(str(order_id))
