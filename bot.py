@@ -255,65 +255,22 @@ def get_main_menu():
 
 
 
-@bot.message_handler(commands=['start'])
+@bot.message_handler(commands=['start', 'admin'])
 def start_command(message):
     try:
         user_id = message.from_user.id
-        uid_str = str(user_id)
-        bot.clear_step_handler_by_chat_id(chat_id=user_id) 
+        bot.clear_step_handler_by_chat_id(chat_id=user_id)
+        
+        db = load_data()
 
-        db = load_data() 
-
-        # --- ተጠቃሚውን ወደ ሊስት መጨመሪያ ---
-        if "user_list" not in db: db["user_list"] = []
-        if user_id not in db["user_list"]:
-            db["user_list"].append(user_id)
-            save_data(db)
-
-        # 1. ለአድሚኖች
         if user_id in ADMIN_IDS:
-            # 💡 እዚህ ጋር ነው ስህተቱ የነበረው፦ user_id መጨመር አለበት
-            markup = get_admin_dashboard(user_id) 
-            
-            # ⚠️ ማሳሰቢያ፦ የሪደር በተኑን ቀጥታ get_admin_dashboard ውስጥ ከጨመርከው 
-            # እዚህ ጋር ድጋሚ markup.add ማድረግ አያስፈልግህም (ደራራቢ እንዳይሆን)
-            
-            return bot.send_message(user_id, "👑 **Welcome to BDF Admin Panel**", 
-                                   reply_markup=markup, parse_mode="Markdown")
-
-                # 2. ለድርጅቶች (Vendors)
-        if uid_str in db.get('vendors_list', {}):
-            v_name = db['vendors_list'][uid_str]['name']
-            # እዚህ ጋር ስሙን 'get_vendor_dashboard' አድርገው
-            return bot.send_message(user_id, f"እንኳን ደህና መጡ **{v_name}** 👋", 
-                                   reply_markup=get_vendor_dashboard(uid_str), parse_mode="Markdown")
-
-        # 3. drivers
-        if uid_str in db.get('riders_list', {}):
-            return show_rider_menu(message)
-
-                    # ... (የአድሚን እና የቬንደር ቼክ እንደተጠበቀ ሆኖ) ...
-
-    # 4. ለደንበኞች (ከላይ ያሉት ካልሆኑ እንደ ደንበኛ ይታያሉ)
-        customers = db.get('customers', {})
-
-        if user_id not in customers:
-            # ገና ያልተመዘገበ አዲስ ደንበኛ
-            markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
-            markup.add(types.KeyboardButton("📲 ስልክ ቁጥርዎን ያጋሩ", request_contact=True))
-            
-            welcome_text = (f"እንኳን ወደ **BDF Delivery** በደህና መጡ {message.from_user.first_name}! 👋\n\n"
-                            f"ትዕዛዝ ለመጀመር መጀመሪያ ስልክ ቁጥርዎን ማጋራት አለብዎት።")
-            bot.send_message(user_id, welcome_text, reply_markup=markup, parse_mode="Markdown")
+            markup = get_admin_dashboard(user_id)
+            bot.send_message(user_id, "👋 ሰላም ጌታዬ! ወደ አድሚን ዳሽቦርድ ተመልሰዋል።", reply_markup=markup)
         else:
-            # ቀድሞ የተመዘገበ ደንበኛ
-            welcome_text = f"እንኳን ደህና መጡ {message.from_user.first_name}! 👋\n\nምን ማዘዝ ይፈልጋሉ?"
-            bot.send_message(user_id, welcome_text, reply_markup=get_customer_dashboard(), parse_mode="Markdown")
-
+            bot.send_message(user_id, "👋 እንኳን ደህና መጡ! ምን ማዘዝ ይፈልጋሉ?")
+            
     except Exception as e:
-        # ይህ ካልነበረ ነው ስህተት የሚሰጠው
-        print(f"❌ Start Error: {e}")
-        bot.send_message(message.chat.id, "ይቅርታ፣ ስህተት ተፈጥሯል። እባክዎ ጥቂት ቆይተው ይሞክሩ።")
+        print(f"Start Error: {e}")
 
 
 
