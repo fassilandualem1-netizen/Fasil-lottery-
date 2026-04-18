@@ -255,33 +255,22 @@ def get_main_menu():
 
 
 
-@bot.message_handler(commands=['start'])
+@bot.message_handler(commands=['start', 'admin']) # 'admin'ንም እዚህ ይያዘው
 def start_command(message):
-    try:
-        user_id = message.from_user.id
-        uid_str = str(user_id)
-        db = load_data()
-        
-        # ተጠቃሚውን በ user_list ውስጥ መመዝገብ (ለማስታወቂያ እንዲመች)
-        if user_id not in db.get('user_list', []):
-            db['user_list'].append(user_id)
-            save_data(db)
-
-        # 1. አድሚን ከሆነ
-        if user_id in ADMIN_IDS:
-            markup = get_admin_dashboard(user_id)
-            bot.send_message(user_id, "👋 ሰላም ጌታዬ! ወደ አድሚን ዳሽቦርድ እንኳን ደህና መጡ።", reply_markup=markup)
-        
-        # 2. ቬንደር ከሆነ
-        elif uid_str in db.get('vendors_list', {}):
-            show_vendor_dashboard(message) # ይህን ፈንክሽን ቀጥሎ እንሰራዋለን
-            
-        # 3. ተራ ደንበኛ
-        else:
-            bot.send_message(user_id, "እንኳን ደህና መጡ! ምን ማዘዝ ይፈልጋሉ?")
-            
-    except Exception as e:
-        print(f"Start Error: {e}")
+    user_id = message.from_user.id
+    
+    # 🔄 መጀመሪያ ተቀርቅሮ የነበረውን Step Handler ያጠፋል
+    bot.clear_step_handler_by_chat_id(chat_id=user_id)
+    
+    db = load_data()
+    
+    # የአድሚን ቼክ
+    if user_id in ADMIN_IDS:
+        markup = get_admin_dashboard(user_id)
+        bot.send_message(user_id, "👋 ሰላም ጌታዬ! ወደ አድሚን ዳሽቦርድ ተመልሰዋል።", reply_markup=markup)
+    else:
+        # ለሌሎች ተጠቃሚዎች
+        bot.send_message(user_id, "እንኳን ደህና መጡ! ምን ማዘዝ ይፈልጋሉ?")
 
 
 
