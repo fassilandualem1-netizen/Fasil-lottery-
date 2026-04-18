@@ -275,6 +275,14 @@ def start_command(message):
 
 
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_main_menu")
+def back_to_admin(call):
+    markup = get_admin_dashboard(call.from_user.id)
+    bot.edit_message_text("👋 ወደ አድሚን ዳሽቦርድ ተመልሰዋል።", call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+
+
+
 
 
 
@@ -634,43 +642,52 @@ def send_broadcast_messages(message):
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_rider_status")
 def view_riders_status(call):
-    db = load_data()
-    riders = db.get('riders_list', {})
-    
-    if not riders:
-        return bot.answer_callback_query(call.id, "⚠️ እስካሁን ምንም ራይደር አልተመዘገበም።")
-
-    report = "🛵 **የራይደሮች ሁኔታ ዝርዝር**\n\n"
-    
-    online_count = 0
-    for r_id, info in riders.items():
-        status_icon = "🟢" if info.get('status') == "online" else "🔴"
-        if info.get('status') == "online": online_count += 1
+    try:
+        db = load_data()
+        riders = db.get('riders_list', {})
         
-        report += f"{status_icon} **{info['name']}**\n"
-        report += f"   🆔 ID: `{r_id}`\n"
-        report += f"   💳 ዋሌት: {info['wallet']} ብር\n"
-        report += f"   🚫 ሁኔታ: {'ንቁ' if info.get('is_active') else 'የታገደ'}\n"
-        report += "------------------------\n"
-    
-    report += f"\n📊 ጠቅላላ ራይደሮች፦ {len(riders)}\n✅ አሁን በስራ ላይ፦ {online_count}"
+        if not riders:
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_main_menu"))
+            return bot.edit_message_text("⚠️ እስካሁን ምንም ራይደር አልተመዘገበም።", 
+                                        call.message.chat.id, 
+                                        call.message.message_id, 
+                                        reply_markup=markup)
 
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="admin_rider_status"))
-    markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
-
-    bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-
-    for user_id in all_users:
-        try:
-            # አድሚኑ የላከውን አይነት መልዕክት (ጽሁፍ፣ ፎቶ...) ለሁሉም ማስተላለፍ
-            bot.copy_message(user_id, message.chat.id, message.message_id)
-            success_count += 1
-            time.sleep(0.05) # ቴሌግራም እንዳያግደን ትንሽ ፍጥነት መቀነስ
-        except:
-            fail_count += 1
+        report = "🛵 **የራይደሮች ሁኔታ ዝርዝር**\n\n"
+        
+        online_count = 0
+        for r_id, info in riders.items():
+            # ሁኔታውን በኢሞጂ ለማሳየት
+            status = info.get('status', 'offline')
+            is_active = info.get('is_active', True)
             
-    bot.send_message(message.chat.id, f"✅ ማስታወቂያ ተልኮ ተጠናቋል።\n\n🔹 የደረሳቸው፦ {success_count}\n🔸 ያልደረሳቸው፦ {fail_count}")
+            status_icon = "🟢" if status == "online" else "🔴"
+            if status == "online": online_count += 1
+            
+            active_icon = "✅ ንቁ" if is_active else "🚫 የታገደ"
+            
+            report += f"{status_icon} **{info['name']}**\n"
+            report += f"   🆔 ID: `{r_id}`\n"
+            report += f"   💳 ዋሌት: `{info.get('wallet', 0)}` ብር\n"
+            report += f"   🔒 ሁኔታ: {active_icon}\n"
+            report += "------------------------\n"
+        
+        report += f"\n📊 ጠቅላላ ራይደሮች፦ {len(riders)}\n✅ አሁን ኦንላይን፦ {online_count}"
+
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="admin_rider_status"))
+        markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
+
+        bot.edit_message_text(report, 
+                             call.message.chat.id, 
+                             call.message.message_id, 
+                             reply_markup=markup, 
+                             parse_mode="Markdown")
+                             
+    except Exception as e:
+        print(f"Rider Status Error: {e}")
+        bot.answer_callback_query(call.id, "❌ መረጃውን መጫን አልተቻለም።")
 
 
 
@@ -776,38 +793,48 @@ def view_profit_stats(call):
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_monitor_balance")
-def monitor_user_balances(call):
-    db = load_data()
-    vendors = db.get('vendors_list', {})
-    riders = db.get('riders_list', {})
-    
-    report = "📉 **የሂሳብ ክትትል (Balance Monitor)**\n\n"
-    
-    # 1. ችግር ያለባቸው ድርጅቶች (Deposit < 200)
-    report += "⚠️ **ትኩረት የሚሹ ድርጅቶች፦**\n"
-    v_warning = False
-    for v_id, info in vendors.items():
-        if info.get('deposit_balance', 0) < 200:
-            report += f"• {info['name']}: {info['deposit_balance']} ብር\n"
-            v_warning = True
-    if not v_warning: report += "• ሁሉም ድርጅቶች በቂ ዲፖዚት አላቸው።\n"
-    
-    report += "\n"
-    
-    # 2. ችግር ያለባቸው ራይደሮች (Wallet < 100)
-    report += "⚠️ **ትኩረት የሚሹ ራይደሮች፦**\n"
-    r_warning = False
-    for r_id, info in riders.items():
-        if info.get('wallet', 0) < 100:
-            report += f"• {info['name']}: {info['wallet']} ብር\n"
-            r_warning = True
-    if not r_warning: report += "• ሁሉም ራይደሮች በቂ ዋሌት አላቸው።\n"
+def monitor_all_balances(call):
+    try:
+        db = load_data()
+        vendors = db.get('vendors_list', {})
+        riders = db.get('riders_list', {})
+        
+        report = "📉 **አጠቃላይ የባላንስ ክትትል ሪፖርት**\n\n"
+        
+        # 🏢 የድርጅቶች ሁኔታ
+        report += "🏢 **የድርጅቶች ዲፖዚት፦**\n"
+        if not vendors:
+            report += "_ምንም የተመዘገበ ድርጅት የለም_\n"
+        for v_id, info in vendors.items():
+            report += f"• {info['name']}: `{info.get('deposit_balance', 0)}` ብር\n"
+        
+        report += "\n"
+        
+        # 🛵 የራይደሮች ሁኔታ
+        report += "🛵 **የራይደሮች ዋሌት፦**\n"
+        if not riders:
+            report += "_ምንም የተመዘገበ ራይደር የለም_\n"
+        for r_id, info in riders.items():
+            report += f"• {info['name']}: `{info.get('wallet', 0)}` ብር\n"
 
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="admin_monitor_balance"))
-    markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
-    
-    bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+        # ወደ ኋላ መመለሻ በተን
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🔙 ወደ ዋናው ሜኑ", callback_data="admin_main_menu"))
+        
+        # መልዕክቱን ማደስ (Edit)
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=report,
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
+        
+    except Exception as e:
+        print(f"Monitor Balance Error: {e}")
+        bot.answer_callback_query(call.id, "❌ መረጃውን ለማምጣት ስህተት አጋጥሟል።")
+
+
 
 
 
