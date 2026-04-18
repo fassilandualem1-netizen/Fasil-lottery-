@@ -255,30 +255,44 @@ def get_main_menu():
 
 
 
-@bot.message_handler(commands=['start', 'admin']) # 'admin'ንም እዚህ ይያዘው
+@bot.message_handler(commands=['start', 'admin'])
 def start_command(message):
-    user_id = message.from_user.id
-    
-    # 🔄 መጀመሪያ ተቀርቅሮ የነበረውን Step Handler ያጠፋል
-    bot.clear_step_handler_by_chat_id(chat_id=user_id)
-    
-    db = load_data()
-    
-    # የአድሚን ቼክ
-    if user_id in ADMIN_IDS:
-        markup = get_admin_dashboard(user_id)
-        bot.send_message(user_id, "👋 ሰላም ጌታዬ! ወደ አድሚን ዳሽቦርድ ተመልሰዋል።", reply_markup=markup)
-    else:
-        # ለሌሎች ተጠቃሚዎች
-        bot.send_message(user_id, "እንኳን ደህና መጡ! ምን ማዘዝ ይፈልጋሉ?")
+    try:
+        user_id = message.from_user.id
+        # 🔄 ተቀርቅሮ የነበረውን Step Handler ያጠፋል
+        bot.clear_step_handler_by_chat_id(chat_id=user_id)
+        
+        db = load_data()
 
-
-
+        # አድሚን መሆኑን ቼክ ማድረግ (ADMIN_IDS ውስጥ ካለ)
+        if user_id in ADMIN_IDS:
+            markup = get_admin_dashboard(user_id)
+            bot.send_message(user_id, "👋 ሰላም ጌታዬ! ወደ አድሚን ዳሽቦርድ ተመልሰዋል።", reply_markup=markup)
+        
+        # የድርጅት ባለቤት (Vendor) ከሆነ
+        elif str(user_id) in db.get('vendors_list', {}):
+            # የቬንደር ዳሽቦርድ እዚህ ጋር ይጠራል
+            bot.send_message(user_id, "🏪 እንኳን ደህና መጡ! የድርጅትዎን መረጃ እዚህ ያስተዳድሩ።")
+            
+        # ተራ ደንበኛ ከሆነ
+        else:
+            bot.send_message(user_id, "👋 እንኳን ደህና መጡ! ምን ማዘዝ ይፈልጋሉ?")
+            
+    except Exception as e:
+        print(f"Start Error: {e}")
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_main_menu")
 def back_to_admin(call):
-    markup = get_admin_dashboard(call.from_user.id)
-    bot.edit_message_text("👋 ወደ አድሚን ዳሽቦርድ ተመልሰዋል።", call.message.chat.id, call.message.message_id, reply_markup=markup)
+    try:
+        markup = get_admin_dashboard(call.from_user.id)
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text="👋 ወደ አድሚን ዳሽቦርድ ተመልሰዋል።",
+            reply_markup=markup
+        )
+    except Exception as e:
+        print(f"Callback Error: {e}")
 
 
 
