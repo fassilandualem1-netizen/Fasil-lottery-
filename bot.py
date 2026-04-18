@@ -42,8 +42,9 @@ def load_data():
         "total_profit": 0,     
         "user_list": [],       
         "settings": {
-            "vendor_commission_p": 5,    # 5% ኮሚሽን ከእቃ ዋጋ
-            "rider_commission_p": 10,   # 10% ኮሚሽን ከዴሊቨሪ ክፍያ
+            "vendor_commission_p": 5,    # ከእቃ ዋጋ 5%
+            "rider_commission_p": 10,   # ከራይደሩ ዋሌት የሚቀነስ 10%
+            "vendor_negative_limit": -1000, # ⬅️ አዲስ፦ ቬንደሩ እስከዚህ ድረስ በዕዳ መስራት ይችላል
             "rider_fixed_fee": 30,
             "base_delivery": 50,
             "system_locked": False 
@@ -55,18 +56,28 @@ def load_data():
         if raw: 
             loaded_db = json.loads(raw)
             if not isinstance(loaded_db, dict):
-                loaded_db = default_db
+                return default_db
 
-            # አዳዲስ ቁልፎች በቆየው ዳታቤዝ ውስጥ ከሌሉ እንዲጨመሩ (Merge)
+            # 🛠 አዳዲስ የ settings ቁልፎች በቆየው ዳታቤዝ ውስጥ ከሌሉ እንዲጨመሩ (Syncing)
+            if "settings" not in loaded_db:
+                loaded_db["settings"] = default_db["settings"]
+            else:
+                for key, value in default_db["settings"].items():
+                    if key not in loaded_db["settings"]:
+                        loaded_db["settings"][key] = value
+            
+            # ሌሎች ዋና ዋና ቁልፎች መኖራቸውን ማረጋገጥ
             for key, value in default_db.items():
                 if key not in loaded_db:
                     loaded_db[key] = value
+                    
             return loaded_db
 
         return default_db
     except Exception as e:
         print(f"❌ Database Load Error: {e}")
         return default_db
+
 
 def save_data(db):
     """ዳታውን ወደ Redis ያስቀምጣል"""
@@ -77,30 +88,6 @@ def save_data(db):
 
 
 
-
-
-def process_order_settlement(order_id):
-    with db_lock:
-        db = load_data()
-        order = db['orders'].get(str(order_id))
-
-        if not order or order.get('status') == "Completed":
-            return False
-
-        r_id = str(order['rider_id'])
-        held_amount = order.get('held_amount', 0)
-
-        # 1. ከራይደሩ የ Hold ዝርዝር ላይ ብሩን ማጽዳት
-        if r_id in db['riders_list']:
-            db['riders_list'][r_id]['on_hold_balance'] -= held_amount
-            # ብሩ አስቀድሞ ከ wallet ላይ ተቀንሷል፣ ስለዚህ እዚህ ሌላ ቅነሳ አያስፈልግም!
-
-        # 2. የቬንደር እና የአድሚን ትርፍ ስሌት (ካለህበት ኮድ ላይ ማስቀጠል)
-        # ... (የቬንደር ዲፖዚት ቅነሳ እና የአድሚን ትርፍ መመዝገብ)
-        
-        order['status'] = "Completed"
-        save_data(db)
-        return True
 
 
 
@@ -159,48 +146,82 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 
 
 
+def process_order_settlement(order_id):
+    with db_lock:
+        db = load_data()
+        order = db['orders'].get(str(order_id))
+
+        if not order or order.get('status') == "Completed":
+            return False
+
+        r_id = str(order.get('rider_id'))
+        v_id = str(order.get('vendor_id'))
+        item_price = float(order.get('item_total', 0))
+        held_amount = order.get('held_amount', 0)
+
+        # 1. ከራይደሩ የ Hold ዝርዝር ላይ ብሩን ማጽዳት
+        if r_id in db['riders_list']:
+            db['riders_list'][r_id]['on_hold_balance'] -= held_amount
+            # ራይደሩ አስቀድሞ ስለከፈለ (Prepaid) እዚህ ባላንስ አይቀነስም
+
+        # 2. የቬንደር ባላንስ መቀነስ (Negative እንዲሆን ይፈቀዳል)
+        if v_id in db['vendors_list']:
+            # አድሚኑ ለቬንደሩ የከፈለው 'Deposit' ላይ የእቃው ዋጋ ይቀነሳል
+            db['vendors_list'][v_id]['deposit_balance'] -= item_price
+            
+            # የቬንደር ኮሚሽን ስሌት (ከእቃው ዋጋ ላይ)
+            v_comm_p = db['settings'].get('vendor_commission_p', 5)
+            v_commission = item_price * (v_comm_p / 100)
+            
+            # ኮሚሽኑንም ከቬንደሩ እንቀንሳለን
+            db['vendors_list'][v_id]['deposit_balance'] -= v_commission
+            
+            # የአድሚን ትርፍ መመዝገብ
+            # 1. ከቬንደር የተገኘ ኮሚሽን + 2. ከራይደር የተገኘ ኮሚሽን (held_amount - item_price)
+            r_commission = held_amount - item_price
+            db['total_profit'] += (v_commission + r_commission)
+
+        order['status'] = "Completed"
+        order['settled_at'] = datetime.now().strftime('%Y-%m-%d %H:%M')
+        save_data(db)
+        return True
+
+
+
+
 def accept_order(rider_id, order_id):
     db = load_data()
     order = db['orders'].get(str(order_id))
+    v_id = str(order.get('vendor_id'))
     
-    # ራይደሩ መክፈል ያለበት (የእቃ ዋጋ + የቦቱ ኮሚሽን)
+    # የቬንደር የብድር ገደብ ፍተሻ
+    v_bal = db['vendors_list'].get(v_id, {}).get('deposit_balance', 0)
+    v_limit = db['settings'].get('vendor_negative_limit', -1000) # ካልተገኘ -1000 default
+    
+    if v_bal <= v_limit:
+        bot.send_message(rider_id, "❌ ይቅርታ፣ የዚህ ድርጅት የሂሳብ ዝውውር ለጊዜው ተቋርጧል።")
+        return
+
     item_price = order['item_total']
-    # ከ settings ትክክለኛውን key መጠቀማችንን እናረጋግጥ
     bot_comm_p = db['settings'].get('rider_commission_p', 10) 
     bot_commission = item_price * (bot_comm_p / 100)
-    
     total_to_hold = item_price + bot_commission
+    
     rider_wallet = db['riders_list'][str(rider_id)].get('wallet', 0)
 
     if rider_wallet >= total_to_hold:
         order['rider_id'] = rider_id
         order['status'] = "Accepted"
-        order['held_amount'] = total_to_hold # በትዕዛዙ ላይ መጠኑን መመዝገብ
+        order['held_amount'] = total_to_hold
         
-        # ብሩን 'Hold' ማድረግ
         db['riders_list'][str(rider_id)]['wallet'] -= total_to_hold
         db['riders_list'][str(rider_id)]['on_hold_balance'] += total_to_hold
         
         save_data(db)
-        bot.send_message(rider_id, f"✅ ትዕዛዙን ተቀብለዋል። {total_to_hold} ETB በጊዜያዊነት ታግዷል።")
+        bot.send_message(rider_id, f"✅ ትዕዛዙን ተቀብለዋል። {total_to_hold} ETB ታግዷል።")
     else:
-        bot.send_message(rider_id, "❌ በቂ ባላንስ የለዎትም።")
+        bot.send_message(rider_id, f"❌ በቂ ባላንስ የለዎትም። የሚያስፈልገው፦ {total_to_hold} ETB")
 
-
-
-def cancel_order(order_id):
-    db = load_data()
-    order = db['orders'].get(str(order_id))
-    r_id = str(order.get('rider_id'))
-    held_amount = order.get('held_amount', 0)
-
-    if r_id in db['riders_list'] and held_amount > 0:
-        db['riders_list'][r_id]['wallet'] += held_amount # ብሩን መመለስ
-        db['riders_list'][r_id]['on_hold_balance'] -= held_amount
-        order['status'] = "Cancelled"
-        save_data(db)
-        bot.send_message(r_id, f"⚠️ ትዕዛዝ ተሰርዟል። የታገደው {held_amount} ብር ወደ ዋሌትዎ ተመልሷል።")
- 
 
 
 
