@@ -225,6 +225,30 @@ def accept_order(rider_id, order_id):
 
 
 
+def cancel_and_refund_order(order_id):
+    with db_lock:
+        db = load_data()
+        order = db['orders'].get(str(order_id))
+        
+        if not order or order['status'] in ["Completed", "Cancelled"]:
+            return False
+
+        r_id = str(order['rider_id'])
+        held_amount = order.get('held_amount', 0)
+
+        # 1. ለራይደሩ የታገደውን ብር መመለስ
+        if r_id in db['riders_list']:
+            db['riders_list'][r_id]['wallet'] += held_amount # ብሩ ተመለሰ
+            db['riders_list'][r_id]['on_hold_balance'] -= held_amount
+
+        # 2. የቬንደር ባላንስ ላይ ምንም አንቀንስም (ምክንያቱም ኦርደሩ አልተሳካም)
+        
+        order['status'] = "Cancelled"
+        save_data(db)
+        return True
+
+
+
 
 
 
