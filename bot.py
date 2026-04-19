@@ -457,6 +457,62 @@ def save_item_with_category(message, category):
 
 
 
+def process_vendor_quotation(message, order_id):
+    v_id = str(message.chat.id)
+    try:
+        item_price = float(message.text.strip())
+        db = load_data()
+        order = db['orders'].get(order_id)
+        
+        if not order:
+            bot.send_message(v_id, "❌ ትዕዛዙ አልተገኘም!")
+            return
+
+        # የክፍያ ስሌት
+        delivery_fee = 100  # ይህ እንደ ርቀቱ ሊቀየር ይችላል
+        service_fee = 20   # ያንተ ሰርቪስ ክፍያ
+        total_price = item_price + delivery_fee + service_fee
+
+        # በዳታቤዝ ውስጥ መመዝገብ
+        db['orders'][order_id].update({
+            "item_total": item_price,
+            "delivery_fee": delivery_fee,
+            "service_fee": service_fee,
+            "total_payable": total_price,
+            "status": "Price_Quoted"
+        })
+        save_data(db)
+
+        bot.send_message(v_id, f"✅ ዋጋው ተልኳል። ደንበኛው እስኪያጸድቅ ይጠብቁ።\nጠቅላላ፦ {total_price} ETB")
+
+        # ለደንበኛው የክፍያ ዝርዝር መላክ
+        customer_id = order['customer_id']
+        markup = types.InlineKeyboardMarkup()
+        markup.add(
+            types.InlineKeyboardButton("✅ እሺ ይምጣ", callback_data=f"c_accept_order_{order_id}"),
+            types.InlineKeyboardButton("❌ ይቅርብኝ", callback_data=f"c_decline_order_{order_id}")
+        )
+
+        detail_msg = (
+            f"🛒 **የትዕዛዝዎ ዋጋ ዝርዝር**\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"📦 የዕቃ ዋጋ፦ {item_price} ETB\n"
+            f"🛵 ማድረሻ፦ {delivery_fee} ETB\n"
+            f"⚙️ አገልግሎት፦ {service_fee} ETB\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"💰 **ጠቅላላ ድምር፦ {total_price} ETB**\n\n"
+            f"ትዕዛዙ ይረጋገጥ?"
+        )
+        bot.send_message(customer_id, detail_msg, reply_markup=markup, parse_mode="Markdown")
+
+    except ValueError:
+        sent = bot.send_message(v_id, "⚠️ ስህተት! እባክዎ ቁጥር ብቻ ያስገቡ (ምሳሌ፦ 400)፦")
+        bot.register_next_step_handler(sent, process_vendor_quotation, order_id)
+
+
+
+
+
 def get_vendor_items_menu(v_id):
     db = load_data()
     v_id_str = str(v_id)
@@ -1290,6 +1346,47 @@ def handle_vendor_location(message):
         msg, markup = get_vendor_main_menu(v_id)
         bot.send_message(v_id, "✅ የድርጅቱ ቦታ በትክክል ተመዝግቧል!", reply_markup=types.ReplyKeyboardRemove())
         bot.send_message(v_id, msg, reply_markup=markup)
+
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: True)
+def handle_custom_order_logic(call):
+    chat_id = call.message.chat.id
+    db = load_data()
+
+    # ሀ. ቬንደሩ "ዋጋ ለመጻፍ" ሲጫን
+    if call.data.startswith("v_set_price_"):
+        order_id = call.data.replace("v_set_price_", "")
+        sent = bot.send_message(chat_id, "💰 እባክዎ ለዚህ ትዕዛዝ የዕቃዎቹን ጠቅላላ ዋጋ ብቻ በቁጥር ይላኩ፦")
+        # ቬንደሩ የሚልከውን ዋጋ ለመቀበል ወደ ሚቀጥለው ፈንክሽን መውሰድ
+        bot.register_next_step_handler(sent, process_vendor_quotation, order_id)
+
+    # ለ. ደንበኛው ዋጋውን አይቶ "እሺ" (Accept) ሲል
+    elif call.data.startswith("c_accept_order_"):
+        order_id = call.data.replace("c_accept_order_", "")
+        order = db['orders'].get(order_id)
+        
+        if order:
+            db['orders'][order_id]['status'] = "Confirmed"
+            save_data(db)
+            bot.edit_message_text("✅ ትዕዛዝዎ ጸድቋል። ራይደር እየተፈለገ ነው...", chat_id, call.message.message_id)
+            
+            # ለራይደሮች ኖቲፊኬሽን መላክ (ይህ ያንተ የራይደር ፈንክሽን ነው)
+            notify_riders_about_order(order_id) 
+            # ለቬንደሩ ማሳወቅ
+            bot.send_message(order['vendor_id'], f"🔔 ትዕዛዝ #{order_id[-5:]} በደንበኛው ጸድቋል። ማዘጋጀት ይጀምሩ።")
+
+    # ሐ. ደንበኛው "ይቅርብኝ" (Decline) ሲል
+    elif call.data.startswith("c_decline_order_"):
+        order_id = call.data.replace("c_decline_order_", "")
+        bot.edit_message_text("❌ ትዕዛዙ ተሰርዟል።", chat_id, call.message.message_id)
+        # ለቬንደሩ ማሳወቅ
+        order = db['orders'].get(order_id)
+        if order:
+            bot.send_message(order['vendor_id'], f"⚠️ ትዕዛዝ #{order_id[-5:]} በደንበኛው ተሰርዟል።")
 
 
 
