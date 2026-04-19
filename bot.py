@@ -450,40 +450,33 @@ def process_photo_step_2(message, file_id):
 
 
 
-def get_item_detail_menu(v_id, item_id):
+def get_order_detail_view(order_id, v_id):
     db = load_data()
-    item = db['vendors_list'][str(v_id)]['items'].get(str(item_id))
+    order = db['orders'].get(str(order_id))
     
-    if not item: return "❌ ዕቃው አልተገኘም", None
+    text = (f"🆔 <b>ትዕዛዝ ቁጥር፦ #{order_id[-5:]}</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 ደንበኛ፦ {order.get('customer_name', 'ያልታወቀ')}\n"
+            f"📦 ዕቃዎች፦ {order.get('items_summary', 'በጽሁፍ')}\n"
+            f"💰 ዋጋ፦ {order.get('item_total', 0)} ETB\n"
+            f"📊 ሁኔታ፦ <b>{order.get('status')}</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━")
 
-    stock_status = "✅ በክምችት ላይ" if item.get('available', True) else "❌ አልቆበታል (Out of Stock)"
+    markup = types.InlineKeyboardMarkup(row_width=1)
     
-    msg = (f"📦 **የዕቃ ዝርዝር መቆጣጠሪያ**\n"
-           f"━━━━━━━━━━━━━━━━━━━━\n"
-           f"📝 **ስም፦** {item['name']}\n"
-           f"💰 **ዋጋ፦** {item['price']} ETB\n"
-           f"📊 **ሁኔታ፦** {stock_status}\n"
-           f"━━━━━━━━━━━━━━━━━━━━")
+    # በሁኔታው (Status) ላይ ተመስርቶ የሚመጡ በተኖች
+    status = order.get('status')
+    if status == "Pending":
+        markup.add(types.InlineKeyboardButton("✅ ትዕዛዝ ተቀበል", callback_data=f"v_order_accept_{order_id}"))
+    elif status == "Preparing":
+        markup.add(types.InlineKeyboardButton("👨‍🍳 ዝግጁ ነው (ራይደር ጥራ)", callback_data=f"v_order_ready_{order_id}"))
+    
+    markup.add(types.InlineKeyboardButton("❌ ትዕዛዝ ሰርዝ", callback_data=f"v_order_cancel_{order_id}"))
+    markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data="v_active_orders"))
+    
+    return text, markup
 
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    
-    # የማስተካከያ ቁልፎች
-    btn_photo = types.InlineKeyboardButton("🖼 ፎቶ ቀይር", callback_data=f"v_edit_photo_{item_id}")
-    btn_price = types.InlineKeyboardButton("💵 ዋጋ ቀይር", callback_data=f"v_edit_price_{item_id}")
-    
-    # Stock መቀያየሪያ
-    stock_text = "🔴 ወደ 'አልቋል' ቀይር" if item.get('available', True) else "🟢 ወደ 'አለ' ቀይር"
-    btn_stock = types.InlineKeyboardButton(stock_text, callback_data=f"v_toggle_stock_{item_id}")
-    
-    btn_del = types.InlineKeyboardButton("🗑 ዕቃውን ሰርዝ", callback_data=f"v_del_item_{item_id}")
-    btn_back = types.InlineKeyboardButton("⬅️ ወደ ዝርዝር ተመለስ", callback_data="v_manage_items")
 
-    markup.add(btn_photo, btn_price)
-    markup.add(btn_stock)
-    markup.add(btn_del)
-    markup.add(btn_back)
-
-    return msg, markup
 
 
 
@@ -798,6 +791,52 @@ def vendor_history_main(call):
     
     text = "📊 **የሽያጭ ታሪክ ማህደር**\n\nማየት የሚፈልጉትን የጊዜ ገደብ ይምረጡ፦"
     bot.edit_message_text(text, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('v_order_'))
+def vendor_order_logic(call):
+    v_id = str(call.message.chat.id)
+    db = load_data()
+    
+    # 1.1 ትዕዛዝ መቀበል (Accept)
+    if call.data.startswith("v_order_accept_"):
+        order_id = call.data.replace("v_order_accept_", "")
+        if order_id in db['orders']:
+            db['orders'][order_id]['status'] = "Preparing"
+            save_data(db)
+            bot.answer_callback_query(call.id, "✅ ትዕዛዙ ተቀባይነት አግኝቷል!")
+            
+            # ለደንበኛው ኖቲፊኬሽን መላክ
+            customer_id = db['orders'][order_id]['customer_id']
+            bot.send_message(customer_id, f"✅ ትዕዛዝዎ #{order_id[-5:]} በዝግጅት ላይ ነው።")
+            
+            # ገጹን ወደ 'በዝግጅት ላይ' እንዲቀየር ማዘመን
+            msg, markup = get_order_detail_view(order_id, v_id)
+            bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+
+    # 1.2 ዝግጅት አልቆ ለራይደር ጥሪ ማስተላለፍ (Ready)
+    elif call.data.startswith("v_order_ready_"):
+        order_id = call.data.replace("v_order_ready_", "")
+        db['orders'][order_id]['status'] = "Waiting for Rider"
+        save_data(db)
+        
+        bot.answer_callback_query(call.id, "🚀 ለራይደሮች ጥሪ ተላልፏል!")
+        # እዚህ ጋር ለራይደሮች ጥሪ የሚልከውን ተግባር ጥራ
+        # announce_to_riders(order_id)
+        
+        msg, markup = get_order_detail_view(order_id, v_id)
+        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+
+    # 1.3 ትዕዛዝ መሰረዝ (Cancel)
+    elif call.data.startswith("v_order_cancel_"):
+        order_id = call.data.replace("v_order_cancel_", "")
+        db['orders'][order_id]['status'] = "Cancelled"
+        save_data(db)
+        bot.answer_callback_query(call.id, "❌ ትዕዛዙ ተሰርዟል")
+        bot.edit_message_text("❌ ይህ ትዕዛዝ ተሰርዟል።", v_id, call.message.message_id)
+
 
 
 
