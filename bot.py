@@ -593,40 +593,41 @@ def get_main_menu():
 
 
 
-@bot.message_handler(commands=['start'])
-def start_command(message):
+@bot.callback_query_handler(func=lambda call: call.data in ["admin_main_menu", "v_dashboard_back"])
+def back_to_dashboards(call):
+    user_id = call.from_user.id
+    uid_str = str(user_id)
+    
     try:
-        user_id = message.from_user.id
-        uid_str = str(user_id)
-        bot.clear_step_handler_by_chat_id(chat_id=user_id) 
+        # 1. ወደ አድሚን ዳሽቦርድ ለመመለስ
+        if call.data == "admin_main_menu":
+            markup = get_admin_dashboard(user_id)
+            # ማሳሰቢያ፡ get_admin_dashboard አሁን markup ብቻ ነው የሚመልሰው
+            bot.edit_message_text(
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                text="👑 **ወደ አድሚን ዳሽቦርድ ተመልሰዋል።**",
+                reply_markup=markup,
+                parse_mode="Markdown"
+            )
 
-        db = load_data() 
-
-        # ተጠቃሚውን ወደ ሊስት መጨመሪያ
-        if "user_list" not in db: db["user_list"] = []
-        if user_id not in db["user_list"]:
-            db["user_list"].append(user_id)
-            save_data(db)
-
-        # 1. አድሚን ከሆነ
-        if user_id in ADMIN_IDS:
-            markup = get_admin_dashboard(user_id) # 👈 user_id ተጨምሯል
-            return bot.send_message(user_id, "👑 **እንኳን ደህና መጡ የBDF አድሚን!**", 
-                                   reply_markup=markup, parse_mode="Markdown")
-
-        # 2. ቬንደር ከሆነ
-        if uid_str in db.get('vendors_list', {}):
-            # ⚠️ ማስተካከያ፦ ፈንክሽኑ msg እና markup ይመልሳል
-            msg, markup = get_vendor_main_menu(uid_str) 
-            return bot.send_message(user_id, msg, reply_markup=markup, parse_mode="Markdown")
-
-        # 3. ለሌላ ተጠቃሚ
-        welcome_text = f"ሰላም {message.from_user.first_name} 👋\nየመለያ ቁጥርዎ፦ `{user_id}`"
-        bot.send_message(user_id, welcome_text, reply_markup=get_main_menu(), parse_mode="Markdown")
-
+        # 2. ወደ ቬንደር ዳሽቦርድ ለመመለስ
+        elif call.data == "v_dashboard_back":
+            msg, markup = get_vendor_main_menu(uid_str)
+            bot.edit_message_text(
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                text=msg,
+                reply_markup=markup,
+                parse_mode="Markdown"
+            )
+            
+        bot.answer_callback_query(call.id)
+        
     except Exception as e:
-        print(f"❌ Error in start_command: {e}")
-        bot.send_message(message.chat.id, f"❌ ስህተት ተፈጥሯል፦ {str(e)}")
+        print(f"Back Button Error: {e}")
+        bot.answer_callback_query(call.id, "❌ መመለስ አልተቻለም")
+
 
 @bot.message_handler(commands=['admin'])
 def show_admin_panel(message):
