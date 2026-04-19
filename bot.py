@@ -567,43 +567,47 @@ def start_command(message):
 
         db = load_data() 
 
-        # --- ተጠቃሚውን ወደ ሊስት መጨመሪያ (እዚህ ቦታ መሆኑ ወሳኝ ነው) ---
+        # ተጠቃሚውን ወደ ሊስት መጨመሪያ
         if "user_list" not in db: db["user_list"] = []
         if user_id not in db["user_list"]:
             db["user_list"].append(user_id)
             save_data(db)
-        # --------------------------------------------------------
 
+        # 1. አድሚን ከሆነ
         if user_id in ADMIN_IDS:
+            markup = get_admin_dashboard(user_id) # 👈 user_id ተጨምሯል
             return bot.send_message(user_id, "👑 **እንኳን ደህና መጡ የBDF አድሚን!**", 
-                                   reply_markup=get_admin_dashboard(), parse_mode="Markdown")
+                                   reply_markup=markup, parse_mode="Markdown")
 
+        # 2. ቬንደር ከሆነ
         if uid_str in db.get('vendors_list', {}):
-            v_name = db['vendors_list'][uid_str]['name']
-            return bot.send_message(user_id, f"እንኳን ደህና መጡ **{v_name}** 👋", 
-                                   reply_markup=get_vendor_menu(), parse_mode="Markdown")
+            # ⚠️ ማስተካከያ፦ ፈንክሽኑ msg እና markup ይመልሳል
+            msg, markup = get_vendor_main_menu(uid_str) 
+            return bot.send_message(user_id, msg, reply_markup=markup, parse_mode="Markdown")
 
+        # 3. ለሌላ ተጠቃሚ
         welcome_text = f"ሰላም {message.from_user.first_name} 👋\nየመለያ ቁጥርዎ፦ `{user_id}`"
         bot.send_message(user_id, welcome_text, reply_markup=get_main_menu(), parse_mode="Markdown")
 
     except Exception as e:
         print(f"❌ Error in start_command: {e}")
-
-
-
+        bot.send_message(message.chat.id, f"❌ ስህተት ተፈጥሯል፦ {str(e)}")
 
 @bot.message_handler(commands=['admin'])
 def show_admin_panel(message):
     bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
-    if message.from_user.id in ADMIN_IDS:
+    user_id = message.from_user.id
+    if user_id in ADMIN_IDS:
+        markup = get_admin_dashboard(user_id) # 👈 user_id ተጨምሯል
         bot.send_message(
             message.chat.id, 
             "👑 **BDF አድሚን ዳሽቦርድ**",
-            reply_markup=get_admin_dashboard(), # አሁን በላይኛው ፈንክሽን ይጠራል
+            reply_markup=markup,
             parse_mode="Markdown"
         )
     else:
         bot.send_message(message.chat.id, "❌ ፈቃድ የለዎትም።")
+
 
 
 
