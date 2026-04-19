@@ -1,4 +1,3 @@
 pyTelegramBotAPI
 flask
 upstash_redis
-pytz
