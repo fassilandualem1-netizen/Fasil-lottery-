@@ -425,6 +425,39 @@ def get_vendor_items_menu(v_id):
 
 
 
+
+def process_price_update(message, item_id):
+    v_id = str(message.chat.id)
+    try:
+        new_price = float(message.text.strip())
+        db = load_data()
+        db['vendors_list'][v_id]['items'][item_id]['price'] = new_price
+        save_data(db)
+        bot.send_message(v_id, "✅ ዋጋው ተቀይሯል!")
+        msg, markup = get_item_detail_menu(v_id, item_id)
+        bot.send_message(v_id, msg, reply_markup=markup, parse_mode="Markdown")
+    except:
+        bot.send_message(v_id, "❌ ስህተት! እባክዎ በትክክል ቁጥር ብቻ ያስገቡ።")
+
+def process_photo_update(message, item_id):
+    v_id = str(message.chat.id)
+    if message.content_type != 'photo':
+        bot.send_message(v_id, "❌ ስህተት! እባክዎ ፎቶ ብቻ ይላኩ።")
+        return
+
+    file_id = message.photo[-1].file_id # ትልቁን ፎቶ ይወስዳል
+    db = load_data()
+    db['vendors_list'][v_id]['items'][item_id]['photo'] = file_id
+    save_data(db)
+    
+    bot.send_message(v_id, "✅ ፎቶው ተመዝግቧል!")
+    msg, markup = get_item_detail_menu(v_id, item_id)
+    bot.send_photo(v_id, file_id, caption=msg, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+
 def save_new_item(message):
     v_id = str(message.chat.id)
     text = message.text
@@ -886,6 +919,81 @@ def view_order_details(call):
     
     markup.add(btn_cancel, btn_back)
     bot.edit_message_text(text, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('v_'))
+def vendor_callback_manager(call):
+    v_id = str(call.message.chat.id)
+    db = load_data()
+
+    # 1. የዕቃ ማስተዳደሪያ ዝርዝር ገጽ
+    if call.data == "v_manage_items":
+        msg, markup = get_vendor_items_menu(v_id)
+        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+    # 2. የአንድን ዕቃ ዝርዝር መቆጣጠሪያ (Edit/View)
+    elif call.data.startswith("v_view_item_"):
+        item_id = call.data.replace("v_view_item_", "")
+        msg, markup = get_item_detail_menu(v_id, item_id)
+        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+    # 3. አዲስ ዕቃ መዝገብ ማስጀመሪያ (ምርጫ ያቀርባል)
+    elif call.data == "v_add_item_start":
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        btn_text = types.InlineKeyboardButton("✍️ በጽሁፍ ብቻ", callback_data="v_reg_mode_text")
+        btn_photo = types.InlineKeyboardButton("📸 በፎቶ እና ጽሁፍ", callback_data="v_reg_mode_photo")
+        markup.add(btn_text, btn_photo)
+        markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data="v_manage_items"))
+        
+        bot.edit_message_text("📝 **ዕቃውን እንዴት መመዝገብ ይፈልጋሉ?**", 
+                              v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+    # 4. በጽሁፍ ብቻ የመመዝገቢያ መንገድ
+    elif call.data == "v_reg_mode_text":
+        sent = bot.send_message(v_id, "🔢 እባክዎ ስም እና ዋጋ በኮማ ይላኩ፦\nምሳሌ፦ `ሊፕስቲክ, 350`", parse_mode="Markdown")
+        bot.register_next_step_handler(sent, save_new_item)
+
+    # 5. በፎቶ እና ጽሁፍ የመመዝገቢያ መንገድ
+    elif call.data == "v_reg_mode_photo":
+        sent = bot.send_message(v_id, "📸 በመጀመሪያ የዕቃውን ፎቶ ይላኩ፦")
+        bot.register_next_step_handler(sent, process_photo_step_1)
+
+    # 6. የክምችት ሁኔታ መቀየሪያ (In Stock / Out of Stock)
+    elif call.data.startswith("v_toggle_stock_"):
+        item_id = call.data.replace("v_toggle_stock_", "")
+        current = db['vendors_list'][v_id]['items'][item_id].get('available', True)
+        db['vendors_list'][v_id]['items'][item_id]['available'] = not current
+        save_data(db)
+        bot.answer_callback_query(call.id, "✅ የክምችት ሁኔታ ተቀይሯል")
+        msg, markup = get_item_detail_menu(v_id, item_id)
+        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+    # 7. ዋጋ ለመቀየር (Price Edit)
+    elif call.data.startswith("v_edit_price_"):
+        item_id = call.data.replace("v_edit_price_", "")
+        sent = bot.send_message(v_id, "💰 አዲሱን ዋጋ በቁጥር ብቻ ያስገቡ፦")
+        bot.register_next_step_handler(sent, process_price_update, item_id)
+
+    # 8. ዕቃ ለመሰረዝ
+    elif call.data.startswith("v_del_item_"):
+        item_id = call.data.replace("v_del_item_", "")
+        if item_id in db['vendors_list'][v_id].get('items', {}):
+            del db['vendors_list'][v_id]['items'][item_id]
+            save_data(db)
+            bot.answer_callback_query(call.id, "✅ ዕቃው ተሰርዟል")
+            msg, markup = get_vendor_items_menu(v_id)
+            bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+    # 9. ወደ ዋናው ዳሽቦርድ መመለሻ
+    elif call.data == "v_dashboard_back":
+        msg, markup = get_vendor_main_menu(v_id)
+        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
 
 
