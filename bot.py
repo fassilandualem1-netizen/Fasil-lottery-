@@ -32,17 +32,17 @@ import time
 db_lock = threading.Lock()
 
 def load_data():
-    """ከ Redis ዳታውን ይጭናል፣ ከሌለ መሠረታዊ መዋቅር ይፈጥራል፤ የቆየ ዳታንም ያዘምናል"""
+    """ሁሉንም ዳታ በአንድ ላይ የሚያቀናጅ እና ስህተትን የሚከላከል"""
     default_db = {
         "riders_list": {},     
         "vendors_list": {}, 
         "orders": {},          
         "carts": {},           
         "categories": ["ምግብ", "መጠጥ", "ጣፋጭ"],      
-        "total_profit": 0,     
-        "user_list": [],
-        "active_orders": {},    # ለ Admin Live Orders ክትትል
-        "stats": {             # ለትርፍ እና ሽያጭ ሪፖርት
+        "total_profit": 0,
+        "active_orders": {},
+        "user_list": [],       
+        "stats": {
             "total_vendor_comm": 0.0,
             "total_rider_comm": 0.0,
             "total_customer_comm": 0.0,
@@ -60,45 +60,23 @@ def load_data():
     }
 
     try:
-        # 1. ዳታውን ከ Redis ለማንበብ መሞከር
         raw = redis.get("bdf_delivery_db")
-
         if raw: 
             db = json.loads(raw)
-            if not isinstance(db, dict):
-                db = default_db
-
-            # 2. 🔄 የ settings እና stats ቁልፎች መኖራቸውን ማረጋገጥ (Auto-Sync)
-            for key in ["settings", "stats"]:
-                if key not in db:
-                    db[key] = default_db[key]
-                else:
-                    # በውስጡ ያሉ ንዑስ ቁልፎችን (sub-keys) ቼክ ማድረግ
-                    for sub_key, sub_value in default_db[key].items():
-                        if sub_key not in db[key]:
-                            db[key][sub_key] = sub_value
-
-            # 3. ሌሎች ዋና ዋና ቁልፎች (orders, carts ወዘተ) መኖራቸውን ማረጋገጥ
+            # የጎደሉ ቁልፎችን መሙላት (Sync)
             for key, value in default_db.items():
                 if key not in db:
                     db[key] = value
-
-            # 4. 🛠 ቬንደሮችን የማዘመን (Auto-Patching) ሥራ
-            if "vendors_list" in db:
-                for v_id in db["vendors_list"]:
-                    v_data = db["vendors_list"][v_id]
-                    if "ratings" not in v_data: v_data["ratings"] = []
-                    if "shop_open" not in v_data: v_data["shop_open"] = True
-                    if "deposit_balance" not in v_data: v_data["deposit_balance"] = 0.0
-
+            
+            # ንዑስ ቁልፎችን (settings/stats) ቼክ ማድረግ
+            for sub in ["settings", "stats"]:
+                for sk, sv in default_db[sub].items():
+                    if sk not in db[sub]:
+                        db[sub][sk] = sv
             return db
-        else:
-            # Redis ባዶ ከሆነ Default-ውን መውሰድ
-            return default_db
-
+        return default_db
     except Exception as e:
         print(f"❌ Database Load Error: {e}")
-        # ስህተት ከተፈጠረ ቦቱ እንዳይቆም መሠረታዊውን ዳታ መመለስ
         return default_db
 
 
