@@ -741,8 +741,8 @@ def get_vendor_main_menu(vendor_id):
     markup = types.InlineKeyboardMarkup(row_width=2)
     
     # ዋና ዋና በተኖች
-    btn_orders = types.InlineKeyboardButton("📋 ወቅታዊ ትዕዛዞች", callback_data="v_active_orders")
-    btn_items = types.InlineKeyboardButton("📦 የእኔ እቃዎች", callback_data="v_manage_items")
+    btn_orders = types.InlineKeyboardButton("📋 ወቅታዊ ትዕዛዞች", callback_data="v_order_list")
+    btn_items = types.InlineKeyboardButton("📦 የእኔ እቃዎች", callback_data="v_item_manage")
     btn_wallet = types.InlineKeyboardButton("💰 የሂሳብ ሁኔታ", callback_data="v_wallet")
     btn_history = types.InlineKeyboardButton("📊 የሽያጭ ታሪክ", callback_data="v_history")
     btn_status = types.InlineKeyboardButton(status_text, callback_data="v_toggle_shop")
