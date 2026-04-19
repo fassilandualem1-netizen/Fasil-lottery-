@@ -1177,6 +1177,33 @@ def vendor_wallet_callback(call):
 
 
 
+@bot.callback_query_handler(func=lambda call: call.data.endswith('_back') or call.data == "main_menu")
+def handle_back_navigation(call):
+    v_id = str(call.message.chat.id)
+    
+    # ሀ. ከየትኛውም የቬንደር ክፍል ወደ ቬንደር ዳሽቦርድ ለመመለስ
+    if call.data == "v_dashboard_back":
+        msg, markup = get_vendor_main_menu(v_id)
+        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+    # ለ. ከዕቃ ዝርዝር ወደ ዕቃ ምድቦች (Categories) ለመመለስ
+    elif call.data == "v_item_manage_back":
+        msg, markup = get_vendor_item_categories(v_id)
+        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+
+    # ሐ. ከትዕዛዝ ዝርዝር ወደ ዳሽቦርድ ለመመለስ
+    elif call.data == "v_order_list_back":
+        msg, markup = get_vendor_main_menu(v_id)
+        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+    # መ. ሙሉ ለሙሉ ወደ መጀመሪያው (Start Screen) ለመመለስ
+    elif call.data == "main_menu":
+        # እዚህ ጋር ያንተን የ /start ሜኑ ፈንክሽን ጥራ
+        start_msg = "እንኳን ወደ ቦቱ በሰላም መጡ! እባክዎ ምርጫዎን ያስገቡ፦"
+        # markup = get_start_markup() 
+        bot.edit_message_text(start_msg, v_id, call.message.message_id, reply_markup=None) # እዚህ ጋር ማርክአፕህን ጨምር
+
+
 @bot.message_handler(content_types=['location'])
 def handle_vendor_location(message):
     v_id = str(message.chat.id)
