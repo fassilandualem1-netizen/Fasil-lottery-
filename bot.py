@@ -583,6 +583,77 @@ def back_to_admin(call):
 
 
 
+
+@bot.callback_query_handler(func=lambda call: call.data == "v_history")
+def vendor_history_main(call):
+    v_id = str(call.message.chat.id)
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    
+    # የሪፖርት ዓይነቶች
+    btn_today = types.InlineKeyboardButton("📅 የዛሬ ሽያጭ", callback_data="v_hist_today")
+    btn_week = types.InlineKeyboardButton("📅 የሳምንቱ ሽያጭ", callback_data="v_hist_week")
+    btn_back = types.InlineKeyboardButton("⬅️ ተመለስ", callback_data="v_dashboard")
+    
+    markup.add(btn_today, btn_week, btn_back)
+    
+    text = "📊 **የሽያጭ ታሪክ ማህደር**\n\nማየት የሚፈልጉትን የጊዜ ገደብ ይምረጡ፦"
+    bot.edit_message_text(text, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+from datetime import datetime, timedelta
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('v_hist_'))
+def show_vendor_report(call):
+    v_id = str(call.message.chat.id)
+    report_type = call.data.replace('v_hist_', '')
+    db = load_data()
+    
+    now = datetime.now()
+    orders_to_show = []
+    total_sales = 0
+    
+    # 1. ዳታውን ማጣራት (Filtering)
+    for oid, order in db['orders'].items():
+        if str(order.get('vendor_id')) != v_id or order.get('status') != 'Completed':
+            continue
+            
+        order_time = datetime.strptime(order['timestamp'], "%Y-%m-%d %H:%M:%S")
+        
+        if report_type == "today" and order_time.date() == now.date():
+            orders_to_show.append(order)
+            total_sales += order['item_price']
+        elif report_type == "week" and order_time > (now - timedelta(days=7)):
+            orders_to_show.append(order)
+            total_sales += order['item_price']
+
+    # 2. ጽሁፉን ማዘጋጀት
+    title = "📅 የዛሬ ሽያጭ" if report_type == "today" else "📅 የሳምንቱ ሽያጭ"
+    report_msg = f"📊 **{title}**\n━━━━━━━━━━━━━━━\n"
+    
+    if not orders_to_show:
+        report_msg += "_ምንም ዓይነት የተጠናቀቀ ሽያጭ የለም።_"
+    else:
+        for o in orders_to_show[-10:]: # የመጨረሻ 10ሩን ብቻ ለማሳየት
+            rider_name = o.get('rider_name', 'ያልታወቀ')
+            item_price = o['item_price']
+            report_msg += f"• **#{o['order_id'][-5:]}** | `{item_price} ETB`\n   🛵 ራይደር፦ {rider_name}\n"
+        
+        v_comm_p = db['settings'].get('vendor_commission_p', 5)
+        total_comm = total_sales * (v_comm_p / 100)
+        
+        report_msg += f"━━━━━━━━━━━━━━━\n"
+        report_msg += f"💰 **ጠቅላላ ሽያጭ፦** `{total_sales}` ETB\n"
+        report_msg += f"📉 **የቦት ኮሚሽን ({v_comm_p}%)፦** `{total_comm}` ETB\n"
+        report_msg += f"🏦 **የተጣራ ገቢ፦** `{total_sales - total_comm}` ETB"
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data="v_history"))
+    
+    bot.edit_message_text(report_msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
 @bot.callback_query_handler(func=lambda call: call.data == "v_wallet")
 def vendor_wallet_callback(call):
     v_id = str(call.message.chat.id)
