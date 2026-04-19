@@ -716,6 +716,74 @@ def get_vendor_active_orders(v_id):
 
 
 
+
+
+def get_sales_summary_text(v_id):
+    db = load_data()
+    v_id = str(v_id)
+    all_orders = db.get('orders', {})
+    
+    # የዛሬ ቀን (ለምሳሌ 2026-04-19)
+    today = datetime.now().strftime("%Y-%m-%d")
+    
+    today_revenue = 0
+    today_count = 0
+    total_revenue = 0
+    total_count = 0
+    
+    for oid, o in all_orders.items():
+        if str(o.get('vendor_id')) == v_id and o.get('status') == "Completed":
+            price = o.get('item_total', 0)
+            # የዛሬ ሽያጭ
+            if o.get('date') == today:
+                today_revenue += price
+                today_count += 1
+            # የሁሉንም ጊዜ ሽያጭ
+            total_revenue += price
+            total_count += 1
+            
+    summary_msg = (
+        f"📊 **የሽያጭ ማጠቃለያ**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📅 **ዛሬ፦**\n"
+        f"   💰 ገቢ፦ `{today_revenue}` ETB\n"
+        f"   📦 ብዛት፦ `{today_count}` ትዕዛዞች\n\n"
+        f"📈 **ጠቅላላ፦**\n"
+        f"   💰 ገቢ፦ `{total_revenue}` ETB\n"
+        f"   📦 ብዛት፦ `{total_count}` ትዕዛዞች\n"
+        f"━━━━━━━━━━━━━━━━━━━━"
+    )
+    return summary_msg
+
+
+
+
+def get_vendor_rating_ui(v_id):
+    db = load_data()
+    vendor = db['vendors_list'].get(str(v_id), {})
+    ratings = vendor.get('ratings', []) # የሁሉም ደንበኞች ውጤት ዝርዝር
+    
+    if not ratings:
+        return "⭐ ደረጃ፦ አዲስ (0.0)"
+    
+    avg = sum(ratings) / len(ratings)
+    star_icon = "⭐" * int(avg)
+    return f"{star_icon} ደረጃ፦ {avg:.1f} ({len(ratings)} አስተያየቶች)"
+
+
+
+def send_rating_request(customer_id, order_id):
+    markup = types.InlineKeyboardMarkup()
+    # ከ1 እስከ 5 ኮከብ በተኖች
+    stars = []
+    for i in range(1, 6):
+        stars.append(types.InlineKeyboardButton(f"{i}⭐", callback_data=f"rate_{order_id}_{i}"))
+    
+    markup.add(*stars)
+    bot.send_message(customer_id, "🙏 ስለ ትዕዛዝዎ እናመሰግናለን! እባክዎ ለምግቡ/ለዕቃው ደረጃ ይስጡ፦", reply_markup=markup)
+
+
+
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
         bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
@@ -809,7 +877,10 @@ def get_vendor_main_menu(vendor_id):
     markup.add(btn_items, btn_wallet)
     markup.add(btn_history, btn_status)
     markup.add(btn_exit)
-    
+
+
+    rating_text = get_vendor_rating_ui(v_id)
+
     msg = (f"🏢 **የድርጅት ዳሽቦርድ፦ {vendor['name']}**\n"
            f"━━━━━━━━━━━━━━━━━━━━\n"
            f"💰 ባላንስ፦ {vendor['deposit_balance']} ETB\n"
