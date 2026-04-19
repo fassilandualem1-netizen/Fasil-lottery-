@@ -3,6 +3,8 @@ from telebot import types
 import os, json, math, threading, time
 from flask import Flask
 from upstash_redis import Redis
+import pytz
+from datetime import datetime
 
 # --- 1. ውቅረት ---
 TOKEN = "8663228906:AAFsTC0fKqAVEWMi7rk59iSdfVD-1vlJA0Y"
@@ -788,13 +790,17 @@ def get_vendor_active_orders(v_id):
 
 
 
+import pytz
+from datetime import datetime
+
 def get_sales_summary_text(v_id):
     db = load_data()
     v_id = str(v_id)
     all_orders = db.get('orders', {})
     
-    # የዛሬ ቀን (ለምሳሌ 2026-04-19)
-    today = datetime.now().strftime("%Y-%m-%d")
+    # 🇪🇹 የኢትዮጵያ ሰዓት አቆጣጠርን መጠቀም
+    EAT = pytz.timezone('Africa/Addis_Ababa')
+    today = datetime.now(EAT).strftime("%Y-%m-%d")
     
     today_revenue = 0
     today_count = 0
@@ -802,28 +808,33 @@ def get_sales_summary_text(v_id):
     total_count = 0
     
     for oid, o in all_orders.items():
+        # የዚህ ቬንደር እና የተጠናቀቁ ትዕዛዞችን ብቻ መለየት
         if str(o.get('vendor_id')) == v_id and o.get('status') == "Completed":
-            price = o.get('item_total', 0)
-            # የዛሬ ሽያጭ
+            # ዋጋውን በጥንቃቄ መውሰድ (float ወይም int መሆኑን ማረጋገጥ)
+            price = float(o.get('item_total', 0))
+            
+            # የዛሬ ሽያጭ (በኢትዮጵያ ቀን አቆጣጠር)
             if o.get('date') == today:
                 today_revenue += price
                 today_count += 1
+            
             # የሁሉንም ጊዜ ሽያጭ
             total_revenue += price
             total_count += 1
             
     summary_msg = (
-        f"📊 **የሽያጭ ማጠቃለያ**\n"
+        f"📊 **የሽያጭ ማጠቃለያ (Summary)**\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📅 **ዛሬ፦**\n"
-        f"   💰 ገቢ፦ `{today_revenue}` ETB\n"
+        f"📅 **ዛሬ ({today})፦**\n"
+        f"   💰 ገቢ፦ `{today_revenue:,.2f}` ETB\n"
         f"   📦 ብዛት፦ `{today_count}` ትዕዛዞች\n\n"
-        f"📈 **ጠቅላላ፦**\n"
-        f"   💰 ገቢ፦ `{total_revenue}` ETB\n"
+        f"📈 **ጠቅላላ ሽያጭ፦**\n"
+        f"   💰 ገቢ፦ `{total_revenue:,.2f}` ETB\n"
         f"   📦 ብዛት፦ `{total_count}` ትዕዛዞች\n"
         f"━━━━━━━━━━━━━━━━━━━━"
     )
     return summary_msg
+
 
 
 
