@@ -251,6 +251,43 @@ def get_org_financials(v_id):
 
 
 
+
+def complete_order_finance(order_id):
+    db = load_data()
+    order = db['orders'].get(order_id)
+    v_id = str(order['vendor_id'])
+    r_id = str(order['rider_id'])
+    item_price = order['item_price']
+    
+    # 1. የቬንደር ኮሚሽን ስሌት (ከእቃው ላይ ብቻ)
+    v_comm_p = db['settings'].get('vendor_commission_p', 5)
+    vendor_deduction = item_price + (item_price * v_comm_p / 100)
+    
+    # 2. ከቬንደር ዋሌት ላይ መቀነስ (አድሚኑ ቀድሞ ስለከፈለው)
+    db['vendors_list'][v_id]['deposit_balance'] -= vendor_deduction
+    
+    # 3. ለቬንደሩ ትራንዛክሽን መመዝገብ
+    new_txn = {
+        "date": datetime.now().strftime("%m-%d %H:%M"),
+        "amount": vendor_deduction,
+        "desc": f"Order #{order_id[-5:]}"
+    }
+    if 'transactions' not in db['vendors_list'][v_id]:
+        db['vendors_list'][v_id]['transactions'] = []
+    db['vendors_list'][v_id]['transactions'].append(new_txn)
+    
+    # 4. ለአድሚን ኖቲፊኬሽን መላክ (ባላንስ ካለቀ)
+    if db['vendors_list'][v_id]['deposit_balance'] < 500:
+        admin_msg = (f"🚨 **የድርጅት ባላንስ አልቋል!**\n\n"
+                     f"🏢 ድርጅት፦ {db['vendors_list'][v_id]['name']}\n"
+                     f"💵 ቀሪ ሂሳብ፦ {db['vendors_list'][v_id]['deposit_balance']} ETB\n"
+                     f"እባክዎ ለድርጅቱ ክፍያ በመፈጸም ባላንስ ይሙሉ።")
+        bot.send_message(ADMIN_ID, admin_msg)
+        
+    save_data(db)
+
+
+
 def accept_order(rider_id, order_id):
     db = load_data()
     order = db['orders'].get(str(order_id))
@@ -540,6 +577,47 @@ def back_to_admin(call):
     except Exception as e:
         print(f"Back to Admin Error: {e}")
         bot.answer_callback_query(call.id, "❌ ወደ ዋናው ገጽ መመለስ አልተቻለም።")
+
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "v_wallet")
+def vendor_wallet_callback(call):
+    v_id = str(call.message.chat.id)
+    db = load_data()
+    vendor = db['vendors_list'].get(v_id)
+    
+    # ባላንስ (አድሚኑ የሞላለት ቀሪ ብር)
+    balance = vendor.get('deposit_balance', 0)
+    
+    # ታሪክ (የመጨረሻ 5 ሽያጮች)
+    history = vendor.get('transactions', [])[-5:]
+    history.reverse()
+
+    text = (f"💰 **የድርጅት ቅድመ-ክፍያ ዋሌት (Pre-paid)**\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"💵 ቀሪ የሽያጭ ፈቃድ፦ `{balance}` ETB\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"📊 **የመጨረሻ ሽያጮች፦**\n")
+    
+    if not history:
+        text += "_እስካሁን ምንም ሽያጭ አልተመዘገበም_"
+    else:
+        for txn in history:
+            text += f"• {txn['date']} | `-{txn['amount']}` | {txn['desc']}\n"
+
+    # ባላንስ ካነሰ ማስጠንቀቂያ
+    if balance < 500:
+        text += f"\n⚠️ **ማሳሰቢያ፦** ቀሪ ሂሳብዎ ዝቅተኛ ነው። እባክዎ ለአድሚኑ ያሳውቁ።"
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="v_wallet"))
+    markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data="v_dashboard"))
+    
+    bot.edit_message_text(text, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
 
 
 
