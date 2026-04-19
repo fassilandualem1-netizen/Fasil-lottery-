@@ -381,6 +381,34 @@ def can_rider_take_more(rider_id, new_order_price):
 
 
 
+
+def get_vendor_items_menu(v_id):
+    db = load_data()
+    vendor = db['vendors_list'].get(str(v_id), {})
+    items = vendor.get('items', {})
+    
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    # አዲስ ዕቃ ለመጨመር የመጀመሪያው በተን
+    markup.add(types.InlineKeyboardButton("➕ አዲስ እቃ መዝግብ", callback_data="v_add_item_start"))
+    
+    msg = "📦 **የእኔ እቃዎች ማስተዳደሪያ**\n\n"
+    if not items:
+        msg += "እስካሁን ምንም የተመዘገበ እቃ የለም።"
+    else:
+        for i_id, info in items.items():
+            status = "🟢" if info.get('available', True) else "🔴"
+            # የዕቃው ስም እና ዋጋ
+            btn_info = types.InlineKeyboardButton(f"{status} {info['name']} - {info['price']} ETB", callback_data=f"v_ignore_{i_id}")
+            # የመሰረዣ በተን
+            btn_del = types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"v_del_item_{i_id}")
+            markup.add(btn_info, btn_del)
+    
+    markup.add(types.InlineKeyboardButton("⬅️ ወደ ዳሽቦርድ ተመለስ", callback_data="v_dashboard_back"))
+    return msg, markup
+
+
+
+
 def save_new_item(message):
     v_id = str(message.chat.id)
     text = message.text
