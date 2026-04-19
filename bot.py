@@ -910,6 +910,41 @@ def interrupt_handler(message):
 
 
 
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "v_toggle_shop")
+def handle_vendor_shop_toggle(call):
+    v_id = str(call.message.chat.id)
+    db = load_data()
+    
+    # 1. አሁን ያለበትን ሁኔታ ማወቅ (ከሌለ Default True/ክፍት ይሁን)
+    if v_id not in db['vendors_list']:
+        bot.answer_callback_query(call.id, "❌ ድርጅቱ አልተገኘም!")
+        return
+        
+    current_status = db['vendors_list'][v_id].get('shop_open', True)
+    
+    # 2. ሁኔታውን መገልበጥ (True ወደ False ወይም False ወደ True)
+    new_status = not current_status
+    db['vendors_list'][v_id]['shop_open'] = new_status
+    save_data(db)
+    
+    # 3. ለቬንደሩ አጭር መልዕክት ማሳየት
+    alert_msg = "🟢 ድርጅትዎ አሁን ክፍት ነው!" if new_status else "🔴 ድርጅትዎ አሁን ተዘግቷል!"
+    bot.answer_callback_query(call.id, alert_msg)
+    
+    # 4. ዳሽቦርዱን አድሶ (Refresh) አዲሱን በተን ማሳየት
+    msg, markup = get_vendor_main_menu(v_id)
+    try:
+        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    except Exception as e:
+        # መልዕክቱ ካልተቀየረ (ለምሳሌ ተመሳሳይ ከሆነ) Error እንዳይጥል
+        pass
+
+
+
+
+
 @bot.callback_query_handler(func=lambda call: call.data == "v_history")
 def vendor_history_main(call):
     v_id = str(call.message.chat.id)
