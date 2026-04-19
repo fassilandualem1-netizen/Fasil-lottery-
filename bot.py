@@ -721,68 +721,70 @@ def vendor_wallet_callback(call):
 
 
 
-# 1. የዝርዝር ማሳያ እና የንዑስ ሜኑ ኮድ (Edit Message)
-if call.data == "v_manage_items":
-    db = load_data()
-    vendor = db['vendors_list'].get(v_id)
-    items = vendor.get('items', {})
-    
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    
-    # አዲስ እቃ መመዝገቢያ በተን (ሁልጊዜ ከላይ)
-    btn_add = types.InlineKeyboardButton("➕ አዲስ እቃ መዝግብ", callback_data="v_add_item_start")
-    markup.add(btn_add)
 
-    if not items:
-        text = "📦 **የእኔ እቃዎች ማስተዳደሪያ**\n\nእስካሁን ምንም የተመዘገበ እቃ የለም።"
-    else:
-        text = "📦 **የእኔ እቃዎች ዝርዝር**\n\n• 🟢/🔴 - የእቃው መገኘት (Toggle)\n• 🗑 - እቃውን መሰረዝ"
-        for item_id, info in items.items():
-            status_icon = "🟢" if info.get('available', True) else "🔴"
-            item_text = f"{info['name']} - {info['price']} ETB"
+
+# ቬንደር የሚጀምሩ ሁሉንም callback-ዎች የሚይዝ ፈንክሽን
+@bot.callback_query_handler(func=lambda call: call.data.startswith('v_'))
+def vendor_callback_manager(call):
+    # መጀመሪያ user_id-ን እናውጣ
+    v_id = str(call.message.chat.id)
+    
+    # 1. የዝርዝር ማሳያ እና የንዑስ ሜኑ ኮድ (Manage Items)
+    if call.data == "v_manage_items":
+        db = load_data()
+        vendor = db['vendors_list'].get(v_id)
+        items = vendor.get('items', {})
+
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        btn_add = types.InlineKeyboardButton("➕ አዲስ እቃ መዝግብ", callback_data="v_add_item_start")
+        markup.add(btn_add)
+
+        if not items:
+            text = "📦 **የእኔ እቃዎች ማስተዳደሪያ**\n\nእስካሁን ምንም የተመዘገበ እቃ የለም።"
+        else:
+            text = "📦 **የእኔ እቃዎች ዝርዝር**\n\n• 🟢/🔴 - የእቃው መገኘት (Toggle)\n• 🗑 - እቃውን መሰረዝ"
+            for item_id, info in items.items():
+                status_icon = "🟢" if info.get('available', True) else "🔴"
+                item_text = f"{info['name']} - {info['price']} ETB"
+                name_btn = types.InlineKeyboardButton(f"{item_text}", callback_data="none")
+                toggle_btn = types.InlineKeyboardButton(f"{status_icon} ሁኔታ", callback_data=f"v_toggle_{item_id}")
+                delete_btn = types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"v_del_{item_id}")
+                
+                markup.add(name_btn)
+                markup.add(toggle_btn, delete_btn)
+
+        markup.add(types.InlineKeyboardButton("⬅️ ወደ ዋና ሜኑ", callback_data="v_dashboard"))
+        bot.edit_message_text(text, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+    # 2. የእቃን ሁኔታ መቀየር (Toggle)
+    elif call.data.startswith('v_toggle_'):
+        item_id = call.data.replace('v_toggle_', '')
+        db = load_data()
+        if item_id in db['vendors_list'][v_id]['items']:
+            current = db['vendors_list'][v_id]['items'][item_id].get('available', True)
+            db['vendors_list'][v_id]['items'][item_id]['available'] = not current
+            save_data(db)
+            bot.answer_callback_query(call.id, "✅ ሁኔታው ተቀይሯል")
             
-            # የእቃውን ስም የያዘ በተን (ምንም አያደርግም)
-            name_btn = types.InlineKeyboardButton(f"{item_text}", callback_data="none")
-            # ሁኔታ መቀየሪያ እና መሰረዣ
-            toggle_btn = types.InlineKeyboardButton(f"{status_icon} ሁኔታ", callback_data=f"v_toggle_{item_id}")
-            delete_btn = types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"v_del_{item_id}")
+            # 🔄 ገጹን በራስ-ሰር ለማደስ፡
+            call.data = "v_manage_items"
+            vendor_callback_manager(call)
+
+    # 3. እቃ መሰረዝ (Delete)
+    elif call.data.startswith('v_del_'):
+        item_id = call.data.replace('v_del_', '')
+        db = load_data()
+        if item_id in db['vendors_list'][v_id]['items']:
+            del db['vendors_list'][v_id]['items'][item_id]
+            save_data(db)
+            bot.answer_callback_query(call.id, "🗑 እቃው ተሰርዟል")
             
-            # አቀማመጥ፡ ስሙ በትልቁ፣ ስር ደግሞ Toggle እና Delete
-            markup.add(name_btn)
-            markup.add(toggle_btn, delete_btn)
+            # 🔄 ገጹን በራስ-ሰር ለማደስ፡
+            call.data = "v_manage_items"
+            vendor_callback_manager(call)
+            
+    # ሌላ ካለ እዚህ ይቀጥላል (ለምሳሌ v_wallet, v_history...)
 
-    # ተመለስ በተን
-    markup.add(types.InlineKeyboardButton("⬅️ ወደ ዋና ሜኑ", callback_data="v_dashboard"))
-    
-    bot.edit_message_text(text, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-
-# 2. የእቃን ሁኔታ መቀየር (Toggle Available/Unavailable)
-elif call.data.startswith('v_toggle_'):
-    item_id = call.data.replace('v_toggle_', '')
-    db = load_data()
-    
-    if item_id in db['vendors_list'][v_id]['items']:
-        current = db['vendors_list'][v_id]['items'][item_id].get('available', True)
-        db['vendors_list'][v_id]['items'][item_id]['available'] = not current
-        save_data(db)
-        # ዝርዝሩን Refresh ለማድረግ መልሰን ጥሪ እናደርጋለን
-        bot.answer_callback_query(call.id, "✅ ሁኔታው ተቀይሯል")
-        # ራስን መልሶ መጥራት (ለማደስ)
-        call.data = "v_manage_items"
-        vendor_callback_manager(call)
-
-# 3. እቃ መሰረዝ (Delete Item)
-elif call.data.startswith('v_del_'):
-    item_id = call.data.replace('v_del_', '')
-    db = load_data()
-    
-    if item_id in db['vendors_list'][v_id]['items']:
-        del db['vendors_list'][v_id]['items'][item_id]
-        save_data(db)
-        bot.answer_callback_query(call.id, "🗑 እቃው ተሰርዟል")
-        # ዝርዝሩን Refresh ለማድረግ
-        call.data = "v_manage_items"
-        vendor_callback_manager(call)
 
 
 
