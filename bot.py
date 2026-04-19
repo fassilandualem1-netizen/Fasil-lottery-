@@ -556,35 +556,45 @@ def get_main_menu():
 
 
 
+def get_admin_dashboard(user_id):
+    try:
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        # ... በተኖችህ እዚህ አሉ ...
+        btn_topup = types.InlineKeyboardButton("💰 ብር ሙላ", callback_data="admin_topup_v")
+        markup.add(btn_topup)
+        
+        msg = "👋 ሰላም ጌታዬ! ወደ አድሚን ዳሽቦርድ ተመልሰዋል።\nከታች ካሉት አማራጮች አንዱን ይምረጡ፦"
+        
+        return msg, markup  # 👈 ጽሁፉንም ማርካፑንም አንድ ላይ ይመልስ
+    except Exception as e:
+        print(f"Error building dashboard: {e}")
+        return "❌ ስህተት ተፈጥሯል", None
+
+
+
+
 @bot.message_handler(commands=['start'])
 def start_command(message):
     try:
         user_id = str(message.chat.id)
         db = load_data()
 
-        # አድሚን ቼክ
+        # 1. አድሚን ቼክ
         if user_id == str(ADMIN_ID):
-            markup = get_admin_dashboard(user_id)
-            bot.send_message(user_id, "👋 ሰላም አድሚን!", reply_markup=markup)
+            msg, markup = get_admin_dashboard(user_id) # 👈 አሁን አይሳሳትም
+            bot.send_message(user_id, msg, reply_markup=markup)
             return
 
-        # ቬንደር ቼክ
+        # 2. ቬንደር ቼክ
         if user_id in db.get('vendors_list', {}):
-            result = get_vendor_main_menu(user_id)
-            # እዚህ ጋር ነው ስህተት ሊፈጠር የሚችለው (unpacking error)
-            if isinstance(result, tuple) and len(result) == 2:
-                msg, markup = result
-                bot.send_message(user_id, msg, reply_markup=markup, parse_mode="Markdown")
-            else:
-                bot.send_message(user_id, "❌ ስህተት፡ የቬንደር ሜኑ በትክክል አልተዘጋጀም።")
+            msg, markup = get_vendor_main_menu(user_id)
+            bot.send_message(user_id, msg, reply_markup=markup, parse_mode="Markdown")
             return
 
         bot.send_message(user_id, "እንኳን ደህና መጡ! ለመመዝገብ አድሚኑን ያነጋግሩ።")
 
     except Exception as e:
-        # ስህተቱን በቴሌግራም እንዲነግርህ ለማድረግ፡
-        bot.send_message(message.chat.id, f"❌ የሲስተም ስህተት፡ {str(e)}")
-        print(f"Start Error: {e}")
+        bot.send_message(message.chat.id, f"❌ ስህተቱ፦ {str(e)}")
 
 
 
