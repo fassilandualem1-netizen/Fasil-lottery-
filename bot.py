@@ -746,50 +746,34 @@ def vendor_wallet_callback(call):
 
 
 
-# --- ቬንደር የሚጀምሩ ሁሉንም callback-ዎች የሚይዝ ማዕከላዊ ፈንክሽን ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('v_'))
 def vendor_callback_manager(call):
     v_id = str(call.message.chat.id)
     
-    # 1. የዕቃ ማስተዳደሪያ ሜኑ (v_manage_items)
+    # ሀ. የዕቃ ማስተዳደሪያ ገጽን መክፈት
     if call.data == "v_manage_items":
-        msg, markup = get_vendor_items_menu(v_id) # የዕቃ ዝርዝር ፈንክሽን
+        msg, markup = get_vendor_items_menu(v_id)
         bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
-    # 2. ሱቅ መዝጊያ/መክፈቻ (v_toggle_shop)
-    elif call.data == "v_toggle_shop":
+    # ለ. ዕቃ ለመሰረዝ (Delete Logic)
+    elif call.data.startswith("v_del_item_"):
+        item_id = call.data.replace("v_del_item_", "")
         db = load_data()
-        current = db['vendors_list'][v_id].get('shop_open', True)
-        db['vendors_list'][v_id]['shop_open'] = not current
-        save_data(db)
-        
-        bot.answer_callback_query(call.id, f"✅ ሱቁ አሁን {'ክፍት' if not current else 'ዝግ'} ሆኗል")
-        # ዳሽቦርዱን Refresh ለማድረግ
-        msg, markup = get_vendor_main_menu(v_id)
-        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+        if item_id in db['vendors_list'][v_id].get('items', {}):
+            del db['vendors_list'][v_id]['items'][item_id]
+            save_data(db)
+            bot.answer_callback_query(call.id, "✅ ዕቃው ተሰርዟል")
+            # ገጹን ወዲያውኑ Refresh ለማድረግ
+            msg, markup = get_vendor_items_menu(v_id)
+            bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
-    # 3. አዲስ ዕቃ ለመመዝገብ ማስጀመሪያ (v_add_item_start)
+    # ሐ. አዲስ ዕቃ ለመመዝገብ ማስጀመሪያ
     elif call.data == "v_add_item_start":
         bot.answer_callback_query(call.id)
         sent_msg = bot.send_message(v_id, "📝 **አዲስ ዕቃ ለመመዝገብ፦**\n\nእባክዎ የእቃውን ስም እና ዋጋ በኮማ በመለየት ይላኩ።\nምሳሌ፦ `ፒዛ, 450`", parse_mode="Markdown")
-        # ተጠቃሚው የሚልከውን መልዕክት ለመጠበቅ register_next_step እንጠቀማለን
         bot.register_next_step_handler(sent_msg, save_new_item)
 
-    # 4. ወቅታዊ ትዕዛዞችን ለማየት (v_active_orders)
-    elif call.data == "v_active_orders":
-        db = load_data()
-        # ኦርደር ሊስት ውስጥ የዚህ ቬንደር የሆኑትን ብቻ መፈለግ
-        active_orders = [o for o in db.get('orders', {}).values() if str(o.get('vendor_id')) == v_id and o.get('status') != "Completed"]
-        
-        if not active_orders:
-            bot.answer_callback_query(call.id, "⚠️ በአሁኑ ሰዓት ምንም ትዕዛዝ የለም።")
-        else:
-            txt = "📋 **ወቅታዊ ትዕዛዞች፦**\n"
-            for order in active_orders:
-                txt += f"🔹 Order #{order['id'][-5:]} - {order['status']}\n"
-            bot.send_message(v_id, txt, parse_mode="Markdown")
-
-    # 5. ወደ ቬንደር ዋና ሜኑ ለመመለስ (v_dashboard_back)
+    # መ. ወደ ዋናው ዳሽቦርድ መመለሻ
     elif call.data == "v_dashboard_back":
         msg, markup = get_vendor_main_menu(v_id)
         bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
