@@ -530,26 +530,26 @@ def process_photo_step_2(message, file_id):
 def get_order_detail_view(order_id, v_id):
     db = load_data()
     order = db['orders'].get(str(order_id))
+    if not order: return "❌ ትዕዛዙ አልተገኘም", None
     
     text = (f"🆔 <b>ትዕዛዝ ቁጥር፦ #{order_id[-5:]}</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
             f"👤 ደንበኛ፦ {order.get('customer_name', 'ያልታወቀ')}\n"
-            f"📦 ዕቃዎች፦ {order.get('items_summary', 'በጽሁፍ')}\n"
-            f"💰 ዋጋ፦ {order.get('item_total', 0)} ETB\n"
+            f"📦 ዝርዝር፦ {order.get('items_summary', 'ያልተጠቀሰ')}\n"
+            f"💰 ዋጋ፦ <b>{order.get('item_total', 0)} ETB</b>\n"
             f"📊 ሁኔታ፦ <b>{order.get('status')}</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━")
 
     markup = types.InlineKeyboardMarkup(row_width=1)
-    
-    # በሁኔታው (Status) ላይ ተመስርቶ የሚመጡ በተኖች
     status = order.get('status')
+
     if status == "Pending":
         markup.add(types.InlineKeyboardButton("✅ ትዕዛዝ ተቀበል", callback_data=f"v_order_accept_{order_id}"))
     elif status == "Preparing":
         markup.add(types.InlineKeyboardButton("👨‍🍳 ዝግጁ ነው (ራይደር ጥራ)", callback_data=f"v_order_ready_{order_id}"))
     
     markup.add(types.InlineKeyboardButton("❌ ትዕዛዝ ሰርዝ", callback_data=f"v_order_cancel_{order_id}"))
-    markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data="v_active_orders"))
+    markup.add(types.InlineKeyboardButton("⬅️ ወደ ዝርዝር ተመለስ", callback_data="v_order_list"))
     
     return text, markup
 
