@@ -558,6 +558,55 @@ def get_main_menu():
 
 
 
+@bot.message_handler(commands=['start'])
+def start_command(message):
+    try:
+        user_id = message.from_user.id
+        uid_str = str(user_id)
+        bot.clear_step_handler_by_chat_id(chat_id=user_id) 
+
+        db = load_data() 
+
+        # --- ተጠቃሚውን ወደ ሊስት መጨመሪያ (እዚህ ቦታ መሆኑ ወሳኝ ነው) ---
+        if "user_list" not in db: db["user_list"] = []
+        if user_id not in db["user_list"]:
+            db["user_list"].append(user_id)
+            save_data(db)
+        # --------------------------------------------------------
+
+        if user_id in ADMIN_IDS:
+            return bot.send_message(user_id, "👑 **እንኳን ደህና መጡ የBDF አድሚን!**", 
+                                   reply_markup=get_admin_dashboard(), parse_mode="Markdown")
+
+        if uid_str in db.get('vendors_list', {}):
+            v_name = db['vendors_list'][uid_str]['name']
+            return bot.send_message(user_id, f"እንኳን ደህና መጡ **{v_name}** 👋", 
+                                   reply_markup=get_vendor_menu(), parse_mode="Markdown")
+
+        welcome_text = f"ሰላም {message.from_user.first_name} 👋\nየመለያ ቁጥርዎ፦ `{user_id}`"
+        bot.send_message(user_id, welcome_text, reply_markup=get_main_menu(), parse_mode="Markdown")
+
+    except Exception as e:
+        print(f"❌ Error in start_command: {e}")
+
+
+
+
+@bot.message_handler(commands=['admin'])
+def show_admin_panel(message):
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+    if message.from_user.id in ADMIN_IDS:
+        bot.send_message(
+            message.chat.id, 
+            "👑 **BDF አድሚን ዳሽቦርድ**",
+            reply_markup=get_admin_dashboard(), # አሁን በላይኛው ፈንክሽን ይጠራል
+            parse_mode="Markdown"
+        )
+    else:
+        bot.send_message(message.chat.id, "❌ ፈቃድ የለዎትም።")
+
+
+
 
 
 
