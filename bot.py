@@ -384,44 +384,41 @@ def can_rider_take_more(rider_id, new_order_price):
 
 def get_vendor_items_menu(v_id):
     db = load_data()
-    vendor = db['vendors_list'].get(str(v_id), {})
+    v_id_str = str(v_id)
+    # ቬንደሩ መኖሩን ማረጋገጥ
+    vendor = db['vendors_list'].get(v_id_str, {})
+    if not vendor:
+        return "❌ ድርጅቱ አልተገኘም", None
+
+    # 'items' የሚለው ቁልፍ ከሌለ ባዶ ዲክሽነሪ ይስጠው
     items = vendor.get('items', {})
     category = vendor.get('category', 'ዕቃዎች')
 
-    # በምድቡ መሰረት የሚቀየሩ ምልክቶች
     icons = {
         "ኮስሞቲክስ": "💄", "ቡቲክ": "👗", "ሱፐርማርኬት": "🛒", 
         "ምግብ ቤት": "🍔", "ግሮሰሪ": "🛍", "ፋርማሲ": "💊"
     }
     icon = icons.get(category, "📦")
-    
+
     markup = types.InlineKeyboardMarkup(row_width=2)
-    # አዲስ ዕቃ ለመመዝገብ (በፎቶ ወይም በጽሁፍ እንዲመርጥ የሚያደርገውን callback ይጠራል)
     markup.add(types.InlineKeyboardButton(f"➕ አዲስ {category} መዝግብ", callback_data="v_add_item_start"))
-    
-    msg = f"{icon} **የ{category} ማስተዳደሪያ**\n"
-    msg += "━━━━━━━━━━━━━━━━━━━━\n"
-    
+
+    msg = f"{icon} **የ{category} ማስተዳደሪያ**\n━━━━━━━━━━━━━━━━━━━━\n"
+
     if not items:
         msg += "እስካሁን ምንም የተመዘገበ ዕቃ የለም።"
     else:
         msg += "ለማስተካከል ወይም ዝርዝር ለማየት ዕቃውን ይጫኑ፦\n"
         for i_id, info in items.items():
-            # የክምችት ሁኔታ ምልክት
             stock_status = "🟢" if info.get('available', True) else "🔴"
-            # ፎቶ ካለው የካሜራ ምልክት እንዲያሳይ
             has_photo = "📸" if info.get('photo') else ""
-            
             btn_text = f"{stock_status} {info['name']} - {info['price']} ETB {has_photo}"
-            
-            # ዕቃውን ሲነካ ወደ detail menu እንዲወስደው callback_data ቀይረነዋል
             markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"v_view_item_{i_id}"))
-            
+
     msg += "\n━━━━━━━━━━━━━━━━━━━━"
     markup.add(types.InlineKeyboardButton("⬅️ ወደ ዳሽቦርድ ተመለስ", callback_data="v_dashboard_back"))
-    
-    return msg, markup
 
+    return msg, markup
 
 
 
@@ -526,38 +523,41 @@ def save_new_item(message):
     v_id = str(message.chat.id)
     text = message.text
 
-    # 1. ፎርማቱን ቼክ ማድረግ
     if "," not in text:
-        msg = bot.send_message(v_id, "⚠️ ስህተት! እባክዎ በኮማ ይለዩ።\nምሳሌ፦ `በርገር, 250`", parse_mode="Markdown")
-        bot.register_next_step_handler(msg, save_new_item) # ድጋሚ እንዲሞክር እድል ይሰጠዋል
+        msg = bot.send_message(v_id, "⚠️ ስህተት! እባክዎ በኮማ ይለዩ።\nምሳሌ፦ `በርገር, 250`")
+        bot.register_next_step_handler(msg, save_new_item)
         return
 
     try:
         name, price = text.split(",")
-        item_id = str(int(time.time())) # ለዕቃው ልዩ መለያ (Unique ID)
-        
+        item_id = str(int(time.time()))
         db = load_data()
-        
-        # የዚህ ቬንደር ዕቃዎች ዝርዝር (items) ከሌለ መፍጠር
+
+        # ቬንደሩ መኖሩን ቼክ ማድረግ
+        if v_id not in db['vendors_list']:
+            bot.send_message(v_id, "❌ ድርጅትዎ በሲስተሙ አልተገኘም።")
+            return
+
+        # 'items' የሚለውን ዲክሽነሪ መፍጠር (ከሌለ)
         if 'items' not in db['vendors_list'][v_id]:
             db['vendors_list'][v_id]['items'] = {}
 
         db['vendors_list'][v_id]['items'][item_id] = {
             "name": name.strip(),
             "price": float(price.strip()),
-            "available": True
+            "available": True,
+            "photo": None
         }
-        
+
         save_data(db)
         bot.send_message(v_id, f"✅ ዕቃው '{name.strip()}' በትክክል ተመዝግቧል!")
         
-        # ምዝገባው ሲያልቅ የዕቃ ማስተዳደሪያውን ዝርዝር መልሶ ማሳየት
+        # ወደ እቃዎች ዝርዝር መመለስ
         msg, markup = get_vendor_items_menu(v_id)
         bot.send_message(v_id, msg, reply_markup=markup, parse_mode="Markdown")
 
     except Exception as e:
-        bot.send_message(v_id, "❌ ስህተት ተፈጥሯል። ዋጋው ቁጥር መሆኑን ያረጋግጡ።")
-        print(f"Save Item Error: {e}")
+        bot.send_message(v_id, "❌ ስህተት! እባክዎ ዋጋውን ቁጥር ብቻ ያድርጉ።")
 
 
 
@@ -901,46 +901,58 @@ def vendor_callback_manager(call):
     v_id = str(call.message.chat.id)
     db = load_data()
 
+    # 1. የዕቃ ማስተዳደሪያ ገጽ
     if call.data == "v_manage_items":
         msg, markup = get_vendor_items_menu(v_id)
         bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
+    # 2. ዕቃ ለመመልከት
     elif call.data.startswith("v_view_item_"):
         item_id = call.data.replace("v_view_item_", "")
-        msg, markup = get_item_detail_menu(v_id, item_id)
-        # ፎቶ ካለው በፎቶ እንዲያሳይ (አማራጭ)
-        item = db['vendors_list'][v_id]['items'].get(item_id)
-        if item and item.get('photo'):
-            bot.delete_message(v_id, call.message.message_id)
-            bot.send_photo(v_id, item['photo'], caption=msg, reply_markup=markup, parse_mode="Markdown")
+        # v_id እና item_id መኖራቸውን ዳታቤዝ ውስጥ ቼክ ማድረግ
+        if v_id in db['vendors_list'] and item_id in db['vendors_list'][v_id].get('items', {}):
+            msg, markup = get_item_detail_menu(v_id, item_id)
+            item = db['vendors_list'][v_id]['items'][item_id]
+            
+            if item.get('photo'):
+                bot.delete_message(v_id, call.message.message_id)
+                bot.send_photo(v_id, item['photo'], caption=msg, reply_markup=markup, parse_mode="Markdown")
+            else:
+                bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
         else:
-            bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+            bot.answer_callback_query(call.id, "❌ ዕቃው አልተገኘም")
 
+    # 3. አዲስ ዕቃ መመዝገብ ማስጀመሪያ
     elif call.data == "v_add_item_start":
-        markup = types.InlineKeyboardMarkup()
+        markup = types.InlineKeyboardMarkup(row_width=2)
         markup.add(types.InlineKeyboardButton("✍️ በጽሁፍ ብቻ", callback_data="v_reg_mode_text"),
                    types.InlineKeyboardButton("📸 በፎቶ እና ጽሁፍ", callback_data="v_reg_mode_photo"))
-        bot.edit_message_text("📝 ዕቃውን እንዴት መመዝገብ ይፈልጋሉ?", v_id, call.message.message_id, reply_markup=markup)
+        bot.edit_message_text("📝 **ዕቃውን እንዴት መመዝገብ ይፈልጋሉ?**", v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
+    # 4. በጽሁፍ መመዝገቢያ Mode
     elif call.data == "v_reg_mode_text":
-        sent = bot.send_message(v_id, "🔢 ስም እና ዋጋ በኮማ ይላኩ (ምሳሌ፦ `ቲሸርት, 500`)")
+        sent = bot.send_message(v_id, "🔢 ስም እና ዋጋ በኮማ ይላኩ (ምሳሌ፦ `በርገር, 250`)")
         bot.register_next_step_handler(sent, save_new_item)
 
+    # 5. በፎቶ መመዝገቢያ Mode
     elif call.data == "v_reg_mode_photo":
         sent = bot.send_message(v_id, "📸 በመጀመሪያ የዕቃውን ፎቶ ይላኩ፦")
         bot.register_next_step_handler(sent, process_photo_step_1)
 
+    # 6. Stock መቀያየሪያ
     elif call.data.startswith("v_toggle_stock_"):
         item_id = call.data.replace("v_toggle_stock_", "")
-        db['vendors_list'][v_id]['items'][item_id]['available'] = not db['vendors_list'][v_id]['items'][item_id].get('available', True)
-        save_data(db)
-        msg, markup = get_item_detail_menu(v_id, item_id)
-        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+        if item_id in db['vendors_list'][v_id].get('items', {}):
+            current = db['vendors_list'][v_id]['items'][item_id].get('available', True)
+            db['vendors_list'][v_id]['items'][item_id]['available'] = not current
+            save_data(db)
+            msg, markup = get_item_detail_menu(v_id, item_id)
+            bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
+    # 7. ወደ ዋና ዳሽቦርድ መመለሻ
     elif call.data == "v_dashboard_back":
         msg, markup = get_vendor_main_menu(v_id)
         bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-
 
 
 
@@ -1004,81 +1016,6 @@ def view_order_details(call):
     
     markup.add(btn_cancel, btn_back)
     bot.edit_message_text(text, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-
-
-
-
-
-
-
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('v_'))
-def vendor_callback_manager(call):
-    v_id = str(call.message.chat.id)
-    db = load_data()
-
-    # 1. የዕቃ ማስተዳደሪያ ዝርዝር ገጽ
-    if call.data == "v_manage_items":
-        msg, markup = get_vendor_items_menu(v_id)
-        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-
-    # 2. የአንድን ዕቃ ዝርዝር መቆጣጠሪያ (Edit/View)
-    elif call.data.startswith("v_view_item_"):
-        item_id = call.data.replace("v_view_item_", "")
-        msg, markup = get_item_detail_menu(v_id, item_id)
-        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-
-    # 3. አዲስ ዕቃ መዝገብ ማስጀመሪያ (ምርጫ ያቀርባል)
-    elif call.data == "v_add_item_start":
-        markup = types.InlineKeyboardMarkup(row_width=2)
-        btn_text = types.InlineKeyboardButton("✍️ በጽሁፍ ብቻ", callback_data="v_reg_mode_text")
-        btn_photo = types.InlineKeyboardButton("📸 በፎቶ እና ጽሁፍ", callback_data="v_reg_mode_photo")
-        markup.add(btn_text, btn_photo)
-        markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data="v_manage_items"))
-        
-        bot.edit_message_text("📝 **ዕቃውን እንዴት መመዝገብ ይፈልጋሉ?**", 
-                              v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-
-    # 4. በጽሁፍ ብቻ የመመዝገቢያ መንገድ
-    elif call.data == "v_reg_mode_text":
-        sent = bot.send_message(v_id, "🔢 እባክዎ ስም እና ዋጋ በኮማ ይላኩ፦\nምሳሌ፦ `ሊፕስቲክ, 350`", parse_mode="Markdown")
-        bot.register_next_step_handler(sent, save_new_item)
-
-    # 5. በፎቶ እና ጽሁፍ የመመዝገቢያ መንገድ
-    elif call.data == "v_reg_mode_photo":
-        sent = bot.send_message(v_id, "📸 በመጀመሪያ የዕቃውን ፎቶ ይላኩ፦")
-        bot.register_next_step_handler(sent, process_photo_step_1)
-
-    # 6. የክምችት ሁኔታ መቀየሪያ (In Stock / Out of Stock)
-    elif call.data.startswith("v_toggle_stock_"):
-        item_id = call.data.replace("v_toggle_stock_", "")
-        current = db['vendors_list'][v_id]['items'][item_id].get('available', True)
-        db['vendors_list'][v_id]['items'][item_id]['available'] = not current
-        save_data(db)
-        bot.answer_callback_query(call.id, "✅ የክምችት ሁኔታ ተቀይሯል")
-        msg, markup = get_item_detail_menu(v_id, item_id)
-        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-
-    # 7. ዋጋ ለመቀየር (Price Edit)
-    elif call.data.startswith("v_edit_price_"):
-        item_id = call.data.replace("v_edit_price_", "")
-        sent = bot.send_message(v_id, "💰 አዲሱን ዋጋ በቁጥር ብቻ ያስገቡ፦")
-        bot.register_next_step_handler(sent, process_price_update, item_id)
-
-    # 8. ዕቃ ለመሰረዝ
-    elif call.data.startswith("v_del_item_"):
-        item_id = call.data.replace("v_del_item_", "")
-        if item_id in db['vendors_list'][v_id].get('items', {}):
-            del db['vendors_list'][v_id]['items'][item_id]
-            save_data(db)
-            bot.answer_callback_query(call.id, "✅ ዕቃው ተሰርዟል")
-            msg, markup = get_vendor_items_menu(v_id)
-            bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-
-    # 9. ወደ ዋናው ዳሽቦርድ መመለሻ
-    elif call.data == "v_dashboard_back":
-        msg, markup = get_vendor_main_menu(v_id)
-        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
 
 
