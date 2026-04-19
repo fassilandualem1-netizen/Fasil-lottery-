@@ -916,12 +916,13 @@ def get_admin_dashboard(user_id):
 
 def get_vendor_main_menu(vendor_id):
     db = load_data()
-    vendor = db['vendors_list'].get(str(vendor_id))
-    
+    v_id = str(vendor_id) # መጀመሪያ ID-ውን ወደ string ቀይረህ ያዘው
+    vendor = db['vendors_list'].get(v_id)
+
     if not vendor:
         return "❌ ይቅርታ፣ ይህ ድርጅት በሲስተሙ ውስጥ አልተመዘገበም።", None
 
-    # 📍 ደረጃ 1፡ ሎኬሽን መኖሩን ማረጋገጥ (ለዴሊቨሪ ክፍያ ስሌት ወሳኝ ነው)
+    # 📍 ደረጃ 1፡ ሎኬሽን መኖሩን ማረጋገጥ
     if not vendor.get('location'):
         markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
         btn_loc = types.KeyboardButton("📍 የድርጅቱን መገኛ ቦታ ላክ", request_location=True)
@@ -930,34 +931,39 @@ def get_vendor_main_menu(vendor_id):
 
     # 🟢 ደረጃ 2፡ ሎኬሽን ካለው ሙሉ ዳሽቦርድ ማሳየት
     is_open = vendor.get('shop_open', True)
-    status_text = "🟢 ድርጅቱ ክፍት ነው" if is_open else "🔴 ድርጅቱ ዝግ ነው"
+    # በተኑ ላይ የሚታየው ጽሁፍ (ተጭኖ እንዲቀይረው የሚያሳስብ)
+    toggle_btn_text = "🔴 ዝጋ (አሁን ክፍት ነው)" if is_open else "🟢 ክፈት (አሁን ዝግ ነው)"
     
+    # የSummary እና Rating ዳታዎችን መጥራት (ይህ ነው ቁልፉ ስራ!)
+    today_rev, active_orders = get_sales_summary(v_id) 
+    rating_text = get_vendor_rating_ui(v_id)
+
     markup = types.InlineKeyboardMarkup(row_width=2)
-    
+
     # ዋና ዋና በተኖች
-    btn_orders = types.InlineKeyboardButton("📋 ወቅታዊ ትዕዛዞች", callback_data="v_order_list")
+    btn_orders = types.InlineKeyboardButton(f"📋 ትዕዛዞች ({active_orders})", callback_data="v_order_list")
     btn_items = types.InlineKeyboardButton("📦 የእኔ እቃዎች", callback_data="v_item_manage")
     btn_wallet = types.InlineKeyboardButton("💰 የሂሳብ ሁኔታ", callback_data="v_wallet")
     btn_history = types.InlineKeyboardButton("📊 የሽያጭ ታሪክ", callback_data="v_history")
-    btn_status = types.InlineKeyboardButton(status_text, callback_data="v_toggle_shop")
+    btn_status = types.InlineKeyboardButton(toggle_btn_text, callback_data="v_toggle_shop")
     btn_exit = types.InlineKeyboardButton("⬅️ ውጣ", callback_data="main_menu")
-    
+
     # አቀማመጥ
     markup.add(btn_orders)
     markup.add(btn_items, btn_wallet)
     markup.add(btn_history, btn_status)
     markup.add(btn_exit)
 
-
-    rating_text = get_vendor_rating_ui(v_id)
-
-    msg = (f"🏢 **የድርጅት ዳሽቦርድ፦ {vendor['name']}**\n"
+    # የመልዕክቱ ይዘት
+    msg = (f"🏢 **የድርጅት ዳሽቦርድ፦ {vendor.get('name', 'ያልታወቀ')}**\n"
+           f"{rating_text}\n" # ኮከቡ እዚህ ይታያል
            f"━━━━━━━━━━━━━━━━━━━━\n"
-           f"💰 ባላንስ፦ {vendor['deposit_balance']} ETB\n"
-           f"📍 ቦታ፦ ተመዝግቧል ✅\n"
+           f"💰 ዛሬ የተሸጠ፦ `{today_rev}` ETB\n"
+           f"💰 ቀሪ ባላንስ፦ `{vendor.get('deposit_balance', 0)}` ETB\n"
+           f"📊 ሁኔታ፦ {'✅ ክፍት' if is_open else '🛑 ዝግ'}\n"
            f"━━━━━━━━━━━━━━━━━━━━\n"
            f"ምን ማድረግ ይፈልጋሉ?")
-    
+
     return msg, markup
 
 
