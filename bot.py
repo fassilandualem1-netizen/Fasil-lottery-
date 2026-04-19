@@ -559,45 +559,32 @@ def get_main_menu():
 @bot.message_handler(commands=['start'])
 def start_command(message):
     try:
-        # የላኪውን ID ወደ string መቀየር (ዳታቤዝ ላይ በ string ሊቀመጥ ስለሚችል)
         user_id = str(message.chat.id)
         db = load_data()
 
-        # 1. መጀመሪያ አድሚን መሆኑን ቼክ ማድረግ (ከሁሉ በፊት)
+        # አድሚን ቼክ
         if user_id == str(ADMIN_ID):
-            markup = get_admin_dashboard(user_id) # ያንተን ፈንክሽን ይጠራል
-            bot.send_message(
-                user_id, 
-                "👋 ሰላም ጌታዬ! ወደ አድሚን ዳሽቦርድ እንኳን ደህና መጡ።\nከታች ካሉት አማራጮች አንዱን ይምረጡ፦", 
-                reply_markup=markup
-            )
+            markup = get_admin_dashboard(user_id)
+            bot.send_message(user_id, "👋 ሰላም አድሚን!", reply_markup=markup)
             return
 
-        # 2. ቬንደር (Vendor) መሆኑን ቼክ ማድረግ
-        vendors = db.get('vendors_list', {})
-        if user_id in vendors:
-            # ያንተን የቬንደር ሜኑ ፈንክሽን ይጠራል
-            msg, markup = get_vendor_main_menu(user_id) 
-            bot.send_message(user_id, msg, reply_markup=markup, parse_mode="Markdown")
+        # ቬንደር ቼክ
+        if user_id in db.get('vendors_list', {}):
+            result = get_vendor_main_menu(user_id)
+            # እዚህ ጋር ነው ስህተት ሊፈጠር የሚችለው (unpacking error)
+            if isinstance(result, tuple) and len(result) == 2:
+                msg, markup = result
+                bot.send_message(user_id, msg, reply_markup=markup, parse_mode="Markdown")
+            else:
+                bot.send_message(user_id, "❌ ስህተት፡ የቬንደር ሜኑ በትክክል አልተዘጋጀም።")
             return
 
-        # 3. ራይደር (Rider) መሆኑን ቼክ ማድረግ
-        riders = db.get('riders_list', {})
-        if user_id in riders:
-            # ለጊዜው የራይደር ሜኑ ካልተሰራ እንዲህ ይበለው
-            bot.send_message(user_id, "🛵 ሰላም ራይደር! በቅርቡ ስራ እንጀምራለን።")
-            return
-
-        # 4. ለማይታወቅ ተጠቃሚ (Guest)
-        bot.send_message(user_id, "👋 እንኳን ደህና መጡ! \n\nለመመዝገብ እባክዎ አድሚኑን (@የአድሚን_ስም) ያነጋግሩ።")
+        bot.send_message(user_id, "እንኳን ደህና መጡ! ለመመዝገብ አድሚኑን ያነጋግሩ።")
 
     except Exception as e:
-        # ስህተት ካለ ተርሚናል ላይ እንዲያሳየን
-        print(f"❌ Start Error: {e}")
-        bot.send_message(message.chat.id, "⚠️ ሲስተሙ ላይ ችግር አጋጥሟል። እባክዎ ትንሽ ቆይተው ይሞክሩ።")
-
-
-
+        # ስህተቱን በቴሌግራም እንዲነግርህ ለማድረግ፡
+        bot.send_message(message.chat.id, f"❌ የሲስተም ስህተት፡ {str(e)}")
+        print(f"Start Error: {e}")
 
 
 
