@@ -386,24 +386,40 @@ def get_vendor_items_menu(v_id):
     db = load_data()
     vendor = db['vendors_list'].get(str(v_id), {})
     items = vendor.get('items', {})
+    category = vendor.get('category', 'ዕቃዎች')
+
+    # በምድቡ መሰረት የሚቀየሩ ምልክቶች
+    icons = {
+        "ኮስሞቲክስ": "💄", "ቡቲክ": "👗", "ሱፐርማርኬት": "🛒", 
+        "ምግብ ቤት": "🍔", "ግሮሰሪ": "🛍", "ፋርማሲ": "💊"
+    }
+    icon = icons.get(category, "📦")
     
     markup = types.InlineKeyboardMarkup(row_width=2)
-    # አዲስ ዕቃ ለመጨመር የመጀመሪያው በተን
-    markup.add(types.InlineKeyboardButton("➕ አዲስ እቃ መዝግብ", callback_data="v_add_item_start"))
+    # አዲስ ዕቃ ለመመዝገብ (በፎቶ ወይም በጽሁፍ እንዲመርጥ የሚያደርገውን callback ይጠራል)
+    markup.add(types.InlineKeyboardButton(f"➕ አዲስ {category} መዝግብ", callback_data="v_add_item_start"))
     
-    msg = "📦 **የእኔ እቃዎች ማስተዳደሪያ**\n\n"
+    msg = f"{icon} **የ{category} ማስተዳደሪያ**\n"
+    msg += "━━━━━━━━━━━━━━━━━━━━\n"
+    
     if not items:
-        msg += "እስካሁን ምንም የተመዘገበ እቃ የለም።"
+        msg += "እስካሁን ምንም የተመዘገበ ዕቃ የለም።"
     else:
+        msg += "ለማስተካከል ወይም ዝርዝር ለማየት ዕቃውን ይጫኑ፦\n"
         for i_id, info in items.items():
-            status = "🟢" if info.get('available', True) else "🔴"
-            # የዕቃው ስም እና ዋጋ
-            btn_info = types.InlineKeyboardButton(f"{status} {info['name']} - {info['price']} ETB", callback_data=f"v_ignore_{i_id}")
-            # የመሰረዣ በተን
-            btn_del = types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"v_del_item_{i_id}")
-            markup.add(btn_info, btn_del)
-    
+            # የክምችት ሁኔታ ምልክት
+            stock_status = "🟢" if info.get('available', True) else "🔴"
+            # ፎቶ ካለው የካሜራ ምልክት እንዲያሳይ
+            has_photo = "📸" if info.get('photo') else ""
+            
+            btn_text = f"{stock_status} {info['name']} - {info['price']} ETB {has_photo}"
+            
+            # ዕቃውን ሲነካ ወደ detail menu እንዲወስደው callback_data ቀይረነዋል
+            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"v_view_item_{i_id}"))
+            
+    msg += "\n━━━━━━━━━━━━━━━━━━━━"
     markup.add(types.InlineKeyboardButton("⬅️ ወደ ዳሽቦርድ ተመለስ", callback_data="v_dashboard_back"))
+    
     return msg, markup
 
 
