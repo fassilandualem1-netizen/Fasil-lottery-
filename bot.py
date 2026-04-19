@@ -659,6 +659,42 @@ def save_new_vendor(message, v_id, cat_name):
 
 
 
+def get_vendor_active_orders(v_id):
+    db = load_data()
+    v_id = str(v_id)
+    
+    # ንቁ የሆኑ የትዕዛዝ ሁኔታዎች (Statuses)
+    active_statuses = ["Pending", "Preparing", "Waiting for Rider", "Accepted"]
+    
+    # ከኦርደር ዝርዝር ውስጥ የዚህን ቬንደር ንቁ ትዕዛዞች መለየት
+    all_orders = db.get('orders', {})
+    vendor_orders = {
+        oid: o for oid, o in all_orders.items() 
+        if str(o.get('vendor_id')) == v_id and o.get('status') in active_statuses
+    }
+    
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    
+    if not vendor_orders:
+        msg = "📋 **በአሁኑ ሰዓት ምንም ንቁ ትዕዛዝ የለም።**"
+        markup.add(types.InlineKeyboardButton("⬅️ ወደ ዳሽቦርድ ተመለስ", callback_data="v_dashboard_back"))
+        return msg, markup
+
+    msg = f"📋 **ንቁ ትዕዛዞች ({len(vendor_orders)})**\n━━━━━━━━━━━━━━━━━━━━\n"
+    
+    for oid, o in vendor_orders.items():
+        # እንደ ትዕዛዙ ሁኔታ የሚቀያየር ምልክት
+        status = o.get('status')
+        icon = "🆕" if status == "Pending" else "⏳"
+        
+        # በተን ላይ የሚታይ ጽሁፍ
+        btn_text = f"{icon} #{oid[-5:]} - {o.get('item_total', 0)} ETB ({status})"
+        markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"v_order_view_{oid}"))
+    
+    markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data="v_dashboard_back"))
+    return msg, markup
+
+
 
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
@@ -930,44 +966,29 @@ def vendor_item_management_logic(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith('v_order_'))
 def vendor_order_logic(call):
     v_id = str(call.message.chat.id)
-    db = load_data()
     
-    # 1.1 ትዕዛዝ መቀበል (Accept)
-    if call.data.startswith("v_order_accept_"):
+    # 1. የትዕዛዝ ዝርዝሩን ለማሳየት
+    if call.data == "v_order_list":
+        msg, markup = get_vendor_active_orders(v_id)
+        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    
+    # 2. አንዱን ትዕዛዝ መርጦ ዝርዝር ለማየት (ከዚህ በፊት የሰራነው)
+    elif call.data.startswith("v_order_view_"):
+        order_id = call.data.replace("v_order_view_", "")
+        msg, markup = get_order_detail_view(order_id, v_id)
+        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+        
+    # 3. ትዕዛዝ ለመቀበል (Accept)
+    elif call.data.startswith("v_order_accept_"):
         order_id = call.data.replace("v_order_accept_", "")
+        db = load_data()
         if order_id in db['orders']:
             db['orders'][order_id]['status'] = "Preparing"
             save_data(db)
             bot.answer_callback_query(call.id, "✅ ትዕዛዙ ተቀባይነት አግኝቷል!")
-            
-            # ለደንበኛው ኖቲፊኬሽን መላክ
-            customer_id = db['orders'][order_id]['customer_id']
-            bot.send_message(customer_id, f"✅ ትዕዛዝዎ #{order_id[-5:]} በዝግጅት ላይ ነው።")
-            
-            # ገጹን ወደ 'በዝግጅት ላይ' እንዲቀየር ማዘመን
+            # ገጹን አድስ (Refresh)
             msg, markup = get_order_detail_view(order_id, v_id)
             bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
-
-    # 1.2 ዝግጅት አልቆ ለራይደር ጥሪ ማስተላለፍ (Ready)
-    elif call.data.startswith("v_order_ready_"):
-        order_id = call.data.replace("v_order_ready_", "")
-        db['orders'][order_id]['status'] = "Waiting for Rider"
-        save_data(db)
-        
-        bot.answer_callback_query(call.id, "🚀 ለራይደሮች ጥሪ ተላልፏል!")
-        # እዚህ ጋር ለራይደሮች ጥሪ የሚልከውን ተግባር ጥራ
-        # announce_to_riders(order_id)
-        
-        msg, markup = get_order_detail_view(order_id, v_id)
-        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
-
-    # 1.3 ትዕዛዝ መሰረዝ (Cancel)
-    elif call.data.startswith("v_order_cancel_"):
-        order_id = call.data.replace("v_order_cancel_", "")
-        db['orders'][order_id]['status'] = "Cancelled"
-        save_data(db)
-        bot.answer_callback_query(call.id, "❌ ትዕዛዙ ተሰርዟል")
-        bot.edit_message_text("❌ ይህ ትዕዛዝ ተሰርዟል።", v_id, call.message.message_id)
 
 
 
