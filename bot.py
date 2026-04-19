@@ -556,22 +556,6 @@ def get_main_menu():
 
 
 
-def get_admin_dashboard(user_id):
-    try:
-        markup = types.InlineKeyboardMarkup(row_width=2)
-        # ... በተኖችህ እዚህ አሉ ...
-        btn_topup = types.InlineKeyboardButton("💰 ብር ሙላ", callback_data="admin_topup_v")
-        markup.add(btn_topup)
-        
-        msg = "👋 ሰላም ጌታዬ! ወደ አድሚን ዳሽቦርድ ተመልሰዋል።\nከታች ካሉት አማራጮች አንዱን ይምረጡ፦"
-        
-        return msg, markup  # 👈 ጽሁፉንም ማርካፑንም አንድ ላይ ይመልስ
-    except Exception as e:
-        print(f"Error building dashboard: {e}")
-        return "❌ ስህተት ተፈጥሯል", None
-
-
-
 
 @bot.message_handler(commands=['start'])
 def start_command(message):
