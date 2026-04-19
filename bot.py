@@ -787,18 +787,17 @@ def get_vendor_active_orders(v_id):
 
 
 
-
-import pytz
-from datetime import datetime
+import json
+from datetime import datetime, timedelta  # 👈 ይሄን ተጠቀም
 
 def get_sales_summary_text(v_id):
     db = load_data()
     v_id = str(v_id)
     all_orders = db.get('orders', {})
     
-    # 🇪🇹 የኢትዮጵያ ሰዓት አቆጣጠርን መጠቀም
-    EAT = pytz.timezone('Africa/Addis_Ababa')
-    today = datetime.now(EAT).strftime("%Y-%m-%d")
+    # 🇪🇹 የኢትዮጵያን ሰዓት ለማግኘት (UTC + 3)
+    today_eat = datetime.utcnow() + timedelta(hours=3)
+    today = today_eat.strftime("%Y-%m-%d")
     
     today_revenue = 0
     today_count = 0
