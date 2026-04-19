@@ -3,8 +3,6 @@ from telebot import types
 import os, json, math, threading, time
 from flask import Flask
 from upstash_redis import Redis
-import pytz
-from datetime import datetime
 
 # --- 1. ውቅረት ---
 TOKEN = "8663228906:AAFsTC0fKqAVEWMi7rk59iSdfVD-1vlJA0Y"
