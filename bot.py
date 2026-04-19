@@ -790,47 +790,31 @@ def get_vendor_active_orders(v_id):
 import json
 from datetime import datetime, timedelta  # 👈 ይሄን ተጠቀም
 
-def get_sales_summary_text(v_id):
+def get_sales_summary(v_id): # ስሙን አስተካክለነዋል
     db = load_data()
     v_id = str(v_id)
     all_orders = db.get('orders', {})
-    
-    # 🇪🇹 የኢትዮጵያን ሰዓት ለማግኘት (UTC + 3)
-    today_eat = datetime.utcnow() + timedelta(hours=3)
+
+    # የኢትዮጵያ ሰዓት (UTC + 3)
+    # ማሳሰቢያ፡ datetime.utcnow() ጊዜ ያለፈበት ስለሆነ ይሄን መጠቀም ይሻላል
+    today_eat = datetime.now() + timedelta(hours=3)
     today = today_eat.strftime("%Y-%m-%d")
-    
+
     today_revenue = 0
-    today_count = 0
-    total_revenue = 0
-    total_count = 0
-    
+    active_orders_count = 0
+
     for oid, o in all_orders.items():
-        # የዚህ ቬንደር እና የተጠናቀቁ ትዕዛዞችን ብቻ መለየት
-        if str(o.get('vendor_id')) == v_id and o.get('status') == "Completed":
-            # ዋጋውን በጥንቃቄ መውሰድ (float ወይም int መሆኑን ማረጋገጥ)
-            price = float(o.get('item_total', 0))
-            
-            # የዛሬ ሽያጭ (በኢትዮጵያ ቀን አቆጣጠር)
-            if o.get('date') == today:
+        if str(o.get('vendor_id')) == v_id:
+            # ዛሬ የተጠናቀቁ
+            if o.get('status') == "Completed" and o.get('date') == today:
+                price = float(o.get('item_total', 0))
                 today_revenue += price
-                today_count += 1
             
-            # የሁሉንም ጊዜ ሽያጭ
-            total_revenue += price
-            total_count += 1
-            
-    summary_msg = (
-        f"📊 **የሽያጭ ማጠቃለያ (Summary)**\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📅 **ዛሬ ({today})፦**\n"
-        f"   💰 ገቢ፦ `{today_revenue:,.2f}` ETB\n"
-        f"   📦 ብዛት፦ `{today_count}` ትዕዛዞች\n\n"
-        f"📈 **ጠቅላላ ሽያጭ፦**\n"
-        f"   💰 ገቢ፦ `{total_revenue:,.2f}` ETB\n"
-        f"   📦 ብዛት፦ `{total_count}` ትዕዛዞች\n"
-        f"━━━━━━━━━━━━━━━━━━━━"
-    )
-    return summary_msg
+            # ንቁ ትዕዛዞች (በሂደት ላይ ያሉ)
+            if o.get('status') in ["Pending", "Preparing", "Accepted", "Waiting for Rider"]:
+                active_orders_count += 1
+
+    return today_revenue, active_orders_count
 
 
 
@@ -924,31 +908,29 @@ def get_admin_dashboard(user_id):
 
 def get_vendor_main_menu(vendor_id):
     db = load_data()
-    v_id = str(vendor_id) # መጀመሪያ ID-ውን ወደ string ቀይረህ ያዘው
+    v_id = str(vendor_id) 
     vendor = db['vendors_list'].get(v_id)
 
     if not vendor:
         return "❌ ይቅርታ፣ ይህ ድርጅት በሲስተሙ ውስጥ አልተመዘገበም።", None
 
-    # 📍 ደረጃ 1፡ ሎኬሽን መኖሩን ማረጋገጥ
+    # 📍 ደረጃ 1፡ ሎኬሽን ቼክ
     if not vendor.get('location'):
         markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
         btn_loc = types.KeyboardButton("📍 የድርጅቱን መገኛ ቦታ ላክ", request_location=True)
         markup.add(btn_loc)
         return "እንኳን ደህና መጡ! ድርጅትዎን ለመጨረስ መጀመሪያ ያሉበትን ቦታ (Location) መላክ አለብዎት።", markup
 
-    # 🟢 ደረጃ 2፡ ሎኬሽን ካለው ሙሉ ዳሽቦርድ ማሳየት
+    # 🟢 ደረጃ 2፡ ዳታዎችን ማዘጋጀት
     is_open = vendor.get('shop_open', True)
-    # በተኑ ላይ የሚታየው ጽሁፍ (ተጭኖ እንዲቀይረው የሚያሳስብ)
     toggle_btn_text = "🔴 ዝጋ (አሁን ክፍት ነው)" if is_open else "🟢 ክፈት (አሁን ዝግ ነው)"
-    
-    # የSummary እና Rating ዳታዎችን መጥራት (ይህ ነው ቁልፉ ስራ!)
+
+    # እዚህ ጋር ስሙ በትክክል መሬቱን አረጋግጥ
     today_rev, active_orders = get_sales_summary(v_id) 
     rating_text = get_vendor_rating_ui(v_id)
 
     markup = types.InlineKeyboardMarkup(row_width=2)
-
-    # ዋና ዋና በተኖች
+    # ... (የተቀሩት በተኖችህ እንዳሉ ናቸው) ...
     btn_orders = types.InlineKeyboardButton(f"📋 ትዕዛዞች ({active_orders})", callback_data="v_order_list")
     btn_items = types.InlineKeyboardButton("📦 የእኔ እቃዎች", callback_data="v_item_manage")
     btn_wallet = types.InlineKeyboardButton("💰 የሂሳብ ሁኔታ", callback_data="v_wallet")
@@ -956,18 +938,16 @@ def get_vendor_main_menu(vendor_id):
     btn_status = types.InlineKeyboardButton(toggle_btn_text, callback_data="v_toggle_shop")
     btn_exit = types.InlineKeyboardButton("⬅️ ውጣ", callback_data="main_menu")
 
-    # አቀማመጥ
     markup.add(btn_orders)
     markup.add(btn_items, btn_wallet)
     markup.add(btn_history, btn_status)
     markup.add(btn_exit)
 
-    # የመልዕክቱ ይዘት
     msg = (f"🏢 **የድርጅት ዳሽቦርድ፦ {vendor.get('name', 'ያልታወቀ')}**\n"
-           f"{rating_text}\n" # ኮከቡ እዚህ ይታያል
+           f"{rating_text}\n"
            f"━━━━━━━━━━━━━━━━━━━━\n"
-           f"💰 ዛሬ የተሸጠ፦ `{today_rev}` ETB\n"
-           f"💰 ቀሪ ባላንስ፦ `{vendor.get('deposit_balance', 0)}` ETB\n"
+           f"💰 ዛሬ የተሸጠ፦ `{today_rev:,.2f}` ETB\n"
+           f"💰 ቀሪ ባላንስ፦ `{vendor.get('deposit_balance', 0):,.2f}` ETB\n"
            f"📊 ሁኔታ፦ {'✅ ክፍት' if is_open else '🛑 ዝግ'}\n"
            f"━━━━━━━━━━━━━━━━━━━━\n"
            f"ምን ማድረግ ይፈልጋሉ?")
@@ -1247,52 +1227,77 @@ from datetime import datetime, timedelta
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('v_hist_'))
 def show_vendor_report(call):
-    v_id = str(call.message.chat.id)
+    chat_id = call.message.chat.id
+    v_id = str(chat_id)
     report_type = call.data.replace('v_hist_', '')
     db = load_data()
-    
-    now = datetime.now()
+
+    # 🇪🇹 የኢትዮጵያ ሰዓት (UTC+3)
+    now = datetime.utcnow() + timedelta(hours=3)
     orders_to_show = []
     total_sales = 0
-    
+
     # 1. ዳታውን ማጣራት (Filtering)
-    for oid, order in db['orders'].items():
+    all_orders = db.get('orders', {})
+    
+    for oid, order in all_orders.items():
+        # የዚህ ቬንደር እና የተጠናቀቁ መሆናቸውን ማረጋገጥ
         if str(order.get('vendor_id')) != v_id or order.get('status') != 'Completed':
             continue
+
+        try:
+            # የጊዜ ፎርማቱን ቼክ ማድረግ
+            order_time = datetime.strptime(order['timestamp'], "%Y-%m-%d %H:%M:%S")
             
-        order_time = datetime.strptime(order['timestamp'], "%Y-%m-%d %H:%M:%S")
-        
-        if report_type == "today" and order_time.date() == now.date():
-            orders_to_show.append(order)
-            total_sales += order['item_price']
-        elif report_type == "week" and order_time > (now - timedelta(days=7)):
-            orders_to_show.append(order)
-            total_sales += order['item_price']
+            # ዋጋውን መውሰድ (item_total መሆኑን እርግጠኛ ሁን)
+            price = float(order.get('item_total', 0))
+
+            if report_type == "today" and order_time.date() == now.date():
+                orders_to_show.append(order)
+                total_sales += price
+            elif report_type == "week" and order_time > (now - timedelta(days=7)):
+                orders_to_show.append(order)
+                total_sales += price
+        except (ValueError, KeyError):
+            continue
 
     # 2. ጽሁፉን ማዘጋጀት
     title = "📅 የዛሬ ሽያጭ" if report_type == "today" else "📅 የሳምንቱ ሽያጭ"
     report_msg = f"📊 **{title}**\n━━━━━━━━━━━━━━━\n"
-    
+
     if not orders_to_show:
         report_msg += "_ምንም ዓይነት የተጠናቀቀ ሽያጭ የለም።_"
     else:
-        for o in orders_to_show[-10:]: # የመጨረሻ 10ሩን ብቻ ለማሳየት
-            rider_name = o.get('rider_name', 'ያልታወቀ')
-            item_price = o['item_price']
-            report_msg += f"• **#{o['order_id'][-5:]}** | `{item_price} ETB`\n   🛵 ራይደር፦ {rider_name}\n"
-        
+        # የመጨረሻ 10ሩን በቅደም ተከተል ለማሳየት
+        for o in orders_to_show[-10:]:
+            order_id_short = str(o.get('order_id', oid))[-5:]
+            item_price = o.get('item_total', 0)
+            report_msg += f"• **#{order_id_short}** | `{item_price} ETB`\n"
+
+        # ኮሚሽን ስሌት
         v_comm_p = db['settings'].get('vendor_commission_p', 5)
         total_comm = total_sales * (v_comm_p / 100)
-        
+
         report_msg += f"━━━━━━━━━━━━━━━\n"
-        report_msg += f"💰 **ጠቅላላ ሽያጭ፦** `{total_sales}` ETB\n"
-        report_msg += f"📉 **የቦት ኮሚሽን ({v_comm_p}%)፦** `{total_comm}` ETB\n"
-        report_msg += f"🏦 **የተጣራ ገቢ፦** `{total_sales - total_comm}` ETB"
+        report_msg += f"💰 **ጠቅላላ ሽያጭ፦** `{total_sales:,.2f}` ETB\n"
+        report_msg += f"📉 **ኮሚሽን ({v_comm_p}%)፦** `{total_comm:,.2f}` ETB\n"
+        report_msg += f"🏦 **የተጣራ ገቢ፦** `{total_sales - total_comm:,.2f}` ETB"
 
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data="v_history"))
-    
-    bot.edit_message_text(report_msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+    try:
+        bot.edit_message_text(
+            report_msg, 
+            chat_id, 
+            call.message.message_id, 
+            reply_markup=markup, 
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        print(f"Report Error: {e}")
+
+
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "v_wallet")
