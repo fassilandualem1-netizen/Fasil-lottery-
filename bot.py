@@ -383,16 +383,17 @@ def can_rider_take_more(rider_id, new_order_price):
 
 def get_vendor_item_categories(v_id):
     db = load_data()
-    # አድሚኑ የፈጠራቸው ምድቦች (Categories)
-    global_cats = db.get('categories', ["ምግብ", "መጠጥ", "ሌሎች"]) 
+    v_id = str(v_id)
+    # አድሚኑ የፈጠራቸው ምድቦች
+    global_cats = db.get('categories', ["ምግብ", "መጠጥ", "ጣፋጭ", "ሌሎች"]) 
     
     markup = types.InlineKeyboardMarkup(row_width=2)
     msg = "📂 **የዕቃዎን ምድብ ይምረጡ**\n━━━━━━━━━━━━━━━━━━━━"
     
     for cat in global_cats:
-        # በየምድቡ ስር ስንት ዕቃ እንዳለ ለመቁጠር (Optional)
-        v_items = db['vendors_list'].get(str(v_id), {}).get('items', {})
+        v_items = db['vendors_list'].get(v_id, {}).get('items', {})
         count = sum(1 for i in v_items.values() if i.get('category') == cat)
+        # callback_data 'v_item_cat_' መሆኑን እርግጠኛ ሁን
         markup.add(types.InlineKeyboardButton(f"{cat} ({count})", callback_data=f"v_item_cat_{cat}"))
     
     markup.add(types.InlineKeyboardButton("⬅️ ወደ ዳሽቦርድ ተመለስ", callback_data="v_dashboard_back"))
@@ -402,7 +403,6 @@ def get_items_by_category(v_id, category):
     db = load_data()
     v_items = db['vendors_list'].get(str(v_id), {}).get('items', {})
     
-    # በተመረጠው ምድብ ስር ያሉትን ብቻ መለየት
     filtered_items = {k: v for k, v in v_items.items() if v.get('category') == category}
     
     markup = types.InlineKeyboardMarkup(row_width=1)
@@ -417,9 +417,8 @@ def get_items_by_category(v_id, category):
             markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"v_item_view_{i_id}"))
     
     markup.add(types.InlineKeyboardButton("➕ አዲስ ዕቃ ጨምር", callback_data=f"v_item_add_{category}"))
-    markup.add(types.InlineKeyboardButton("⬅️ ወደ ምድቦች ተመለስ", callback_data="v_manage_items"))
+    markup.add(types.InlineKeyboardButton("⬅️ ወደ ምድቦች ተመለስ", callback_data="v_item_manage"))
     return msg, markup
-
 
 
 
@@ -442,20 +441,19 @@ def save_item_with_category(message, category):
         db['vendors_list'][v_id]['items'][item_id] = {
             "name": name.strip(),
             "price": float(price.strip()),
-            "category": category, # <--- ምድቡ እዚህ ይገባል
+            "category": category,
             "available": True,
             "photo": None
         }
         save_data(db)
         bot.send_message(v_id, f"✅ '{name.strip()}' በ{category} ምድብ ተመዝግቧል!")
         
-        # ወደ ዝርዝሩ መልሶ መውሰድ
+        # ወደ ዝርዝሩ ለመመለስ
         msg, markup = get_items_by_category(v_id, category)
         bot.send_message(v_id, msg, reply_markup=markup, parse_mode="HTML")
-    except:
-        bot.send_message(v_id, "❌ ስህተት! ዋጋው ቁጥር መሆኑን ያረጋግጡ።")
-
-
+    except Exception as e:
+        bot.send_message(v_id, "❌ ስህተት! እባክዎ በትክክል ያስገቡ።")
+        
 
 
 
@@ -914,13 +912,18 @@ def vendor_item_management_logic(call):
     v_id = str(call.message.chat.id)
     db = load_data()
 
-    # 2.1 ምድብ መምረጥ
-    if call.data.startswith("v_item_cat_"):
+    # ሀ. "የእኔ እቃዎች" ሲጫን (Main Categories)
+    if call.data == "v_item_manage":
+        msg, markup = get_vendor_item_categories(v_id)
+        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+
+    # ለ. ምድብ ሲመረጥ
+    elif call.data.startswith("v_item_cat_"):
         category = call.data.replace("v_item_cat_", "")
         msg, markup = get_items_by_category(v_id, category)
         bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
 
-    # 2.2 የአንድን ዕቃ ዝርዝር ማየት
+    # ሐ. የአንድን ዕቃ ዝርዝር ማየት
     elif call.data.startswith("v_item_view_"):
         item_id = call.data.replace("v_item_view_", "")
         item = db['vendors_list'][v_id]['items'].get(item_id)
@@ -942,21 +945,21 @@ def vendor_item_management_logic(call):
             
             bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
 
-    # 2.3 ክምችት መቀያየሪያ (Toggle Stock)
+    # መ. ክምችት መቀያየሪያ (Toggle Stock)
     elif call.data.startswith("v_item_toggle_"):
         item_id = call.data.replace("v_item_toggle_", "")
         current = db['vendors_list'][v_id]['items'][item_id].get('available', True)
         db['vendors_list'][v_id]['items'][item_id]['available'] = not current
         save_data(db)
         bot.answer_callback_query(call.id, "✅ ተቀይሯል")
-        # ገጹን Refresh ለማድረግ ተመልሰን View እንጠራለን
+        # ገጹን Refresh ለማድረግ
         call.data = f"v_item_view_{item_id}"
         vendor_item_management_logic(call)
 
-    # 2.4 አዲስ ዕቃ ለመመዝገብ (ምድብ ይዞ መሄድ)
+    # ሠ. አዲስ ዕቃ ለመመዝገብ
     elif call.data.startswith("v_item_add_"):
         category = call.data.replace("v_item_add_", "")
-        sent = bot.send_message(v_id, f"📝 ለ<b>{category}</b> ምድብ አዲስ ዕቃ ለመመዝገብ ስም እና ዋጋ በኮማ ይላኩ፦\n(ምሳሌ፦ በርገር, 300)")
+        sent = bot.send_message(v_id, f"📝 ለ <b>{category}</b> ምድብ አዲስ ዕቃ ለመመዝገብ ስም እና ዋጋ በኮማ ይላኩ፦\n(ምሳሌ፦ ፒዛ, 450)")
         bot.register_next_step_handler(sent, save_item_with_category, category)
 
 
