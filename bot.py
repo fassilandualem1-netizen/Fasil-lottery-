@@ -910,7 +910,7 @@ def vendor_callback_manager(call):
         item_id = call.data.replace("v_del_item_", "")
         db = load_data()
         if item_id in db['vendors_list'][v_id].get('items', {}):
-            del db['vendors_list'][v_id]['items'][item_id]
+o
             save_data(db)
             bot.answer_callback_query(call.id, "✅ ዕቃው ተሰርዟል")
             # ገጹን ወዲያውኑ Refresh ለማድረግ
