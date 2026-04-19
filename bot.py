@@ -556,6 +556,33 @@ def get_main_menu():
 
 
 
+@bot.message_handler(commands=['start'])
+def start_command(message):
+    user_id = str(message.chat.id)
+    db = load_data()
+    
+    # 1. አድሚን መሆኑን ቼክ ማድረግ
+    if user_id == str(ADMIN_ID):
+        markup = get_admin_dashboard(user_id)
+        bot.send_message(user_id, "👋 ሰላም ጌታዬ! ወደ አድሚን ዳሽቦርድ እንኳን ደህና መጡ።", reply_markup=markup)
+        return
+
+    # 2. ቬንደር (Vendor) መሆኑን ቼክ ማድረግ
+    if user_id in db.get('vendors_list', {}):
+        msg, markup = get_vendor_main_menu(user_id)
+        bot.send_message(user_id, msg, reply_markup=markup, parse_mode="Markdown")
+        return
+
+    # 3. ራይደር መሆኑን ቼክ ማድረግ (ለወደፊቱ)
+    if user_id in db.get('riders_list', {}):
+        # r_msg, r_markup = get_rider_main_menu(user_id)
+        # bot.send_message(user_id, r_msg, reply_markup=r_markup)
+        return
+
+    # 4. አዲስ ተጠቃሚ ከሆነ
+    bot.send_message(user_id, "እንኳን ደህና መጡ! ለመመዝገብ እባክዎ አድሚኑን ያነጋግሩ።")
+
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_main_menu")
 def back_to_admin(call):
