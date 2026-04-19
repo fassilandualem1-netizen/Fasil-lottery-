@@ -384,34 +384,41 @@ def can_rider_take_more(rider_id, new_order_price):
 def save_new_item(message):
     v_id = str(message.chat.id)
     text = message.text
-    
+
+    # 1. ፎርማቱን ቼክ ማድረግ
     if "," not in text:
-        bot.reply_to(message, "⚠️ ስህተት! እባክዎ በኮማ ይለዩ።")
+        msg = bot.send_message(v_id, "⚠️ ስህተት! እባክዎ በኮማ ይለዩ።\nምሳሌ፦ `በርገር, 250`", parse_mode="Markdown")
+        bot.register_next_step_handler(msg, save_new_item) # ድጋሚ እንዲሞክር እድል ይሰጠዋል
         return
 
     try:
         name, price = text.split(",")
-        item_id = str(int(time.time()))
+        item_id = str(int(time.time())) # ለዕቃው ልዩ መለያ (Unique ID)
         
         db = load_data()
+        
+        # የዚህ ቬንደር ዕቃዎች ዝርዝር (items) ከሌለ መፍጠር
+        if 'items' not in db['vendors_list'][v_id]:
+            db['vendors_list'][v_id]['items'] = {}
+
         db['vendors_list'][v_id]['items'][item_id] = {
             "name": name.strip(),
             "price": float(price.strip()),
             "available": True
         }
+        
         save_data(db)
+        bot.send_message(v_id, f"✅ ዕቃው '{name.strip()}' በትክክል ተመዝግቧል!")
         
-        # ምዝገባው ሲያልቅ የላከውን መልዕክት እና የቦቱን መልዕክት አጥፍተን
-        # ዳሽቦርዱን "v_manage_items" በሚለው callback እናድሳለን
-        bot.send_message(v_id, "✅ ተመዝግቧል!")
-        
-        # የዳሽቦርድ ሜሴጅ መላክ
-        # (እዚህ ጋር 'call' ኦብጀክት ስለሌለን አዲስ የዳሽቦርድ ሜሴጅ እንልካለን)
-        txt, markup = get_vendor_items_menu(v_id)
-        bot.send_message(v_id, txt, reply_markup=markup, parse_mode="Markdown")
-        
-    except:
-        bot.send_message(v_id, "❌ ስህተት ተፈጥሯል።")
+        # ምዝገባው ሲያልቅ የዕቃ ማስተዳደሪያውን ዝርዝር መልሶ ማሳየት
+        msg, markup = get_vendor_items_menu(v_id)
+        bot.send_message(v_id, msg, reply_markup=markup, parse_mode="Markdown")
+
+    except Exception as e:
+        bot.send_message(v_id, "❌ ስህተት ተፈጥሯል። ዋጋው ቁጥር መሆኑን ያረጋግጡ።")
+        print(f"Save Item Error: {e}")
+
+
 
 
 
@@ -739,69 +746,53 @@ def vendor_wallet_callback(call):
 
 
 
-# ቬንደር የሚጀምሩ ሁሉንም callback-ዎች የሚይዝ ፈንክሽን
+# --- ቬንደር የሚጀምሩ ሁሉንም callback-ዎች የሚይዝ ማዕከላዊ ፈንክሽን ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('v_'))
 def vendor_callback_manager(call):
-    # መጀመሪያ user_id-ን እናውጣ
     v_id = str(call.message.chat.id)
     
-    # 1. የዝርዝር ማሳያ እና የንዑስ ሜኑ ኮድ (Manage Items)
+    # 1. የዕቃ ማስተዳደሪያ ሜኑ (v_manage_items)
     if call.data == "v_manage_items":
+        msg, markup = get_vendor_items_menu(v_id) # የዕቃ ዝርዝር ፈንክሽን
+        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+    # 2. ሱቅ መዝጊያ/መክፈቻ (v_toggle_shop)
+    elif call.data == "v_toggle_shop":
         db = load_data()
-        vendor = db['vendors_list'].get(v_id)
-        items = vendor.get('items', {})
+        current = db['vendors_list'][v_id].get('shop_open', True)
+        db['vendors_list'][v_id]['shop_open'] = not current
+        save_data(db)
+        
+        bot.answer_callback_query(call.id, f"✅ ሱቁ አሁን {'ክፍት' if not current else 'ዝግ'} ሆኗል")
+        # ዳሽቦርዱን Refresh ለማድረግ
+        msg, markup = get_vendor_main_menu(v_id)
+        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
-        markup = types.InlineKeyboardMarkup(row_width=2)
-        btn_add = types.InlineKeyboardButton("➕ አዲስ እቃ መዝግብ", callback_data="v_add_item_start")
-        markup.add(btn_add)
+    # 3. አዲስ ዕቃ ለመመዝገብ ማስጀመሪያ (v_add_item_start)
+    elif call.data == "v_add_item_start":
+        bot.answer_callback_query(call.id)
+        sent_msg = bot.send_message(v_id, "📝 **አዲስ ዕቃ ለመመዝገብ፦**\n\nእባክዎ የእቃውን ስም እና ዋጋ በኮማ በመለየት ይላኩ።\nምሳሌ፦ `ፒዛ, 450`", parse_mode="Markdown")
+        # ተጠቃሚው የሚልከውን መልዕክት ለመጠበቅ register_next_step እንጠቀማለን
+        bot.register_next_step_handler(sent_msg, save_new_item)
 
-        if not items:
-            text = "📦 **የእኔ እቃዎች ማስተዳደሪያ**\n\nእስካሁን ምንም የተመዘገበ እቃ የለም።"
+    # 4. ወቅታዊ ትዕዛዞችን ለማየት (v_active_orders)
+    elif call.data == "v_active_orders":
+        db = load_data()
+        # ኦርደር ሊስት ውስጥ የዚህ ቬንደር የሆኑትን ብቻ መፈለግ
+        active_orders = [o for o in db.get('orders', {}).values() if str(o.get('vendor_id')) == v_id and o.get('status') != "Completed"]
+        
+        if not active_orders:
+            bot.answer_callback_query(call.id, "⚠️ በአሁኑ ሰዓት ምንም ትዕዛዝ የለም።")
         else:
-            text = "📦 **የእኔ እቃዎች ዝርዝር**\n\n• 🟢/🔴 - የእቃው መገኘት (Toggle)\n• 🗑 - እቃውን መሰረዝ"
-            for item_id, info in items.items():
-                status_icon = "🟢" if info.get('available', True) else "🔴"
-                item_text = f"{info['name']} - {info['price']} ETB"
-                name_btn = types.InlineKeyboardButton(f"{item_text}", callback_data="none")
-                toggle_btn = types.InlineKeyboardButton(f"{status_icon} ሁኔታ", callback_data=f"v_toggle_{item_id}")
-                delete_btn = types.InlineKeyboardButton("🗑 ሰርዝ", callback_data=f"v_del_{item_id}")
-                
-                markup.add(name_btn)
-                markup.add(toggle_btn, delete_btn)
+            txt = "📋 **ወቅታዊ ትዕዛዞች፦**\n"
+            for order in active_orders:
+                txt += f"🔹 Order #{order['id'][-5:]} - {order['status']}\n"
+            bot.send_message(v_id, txt, parse_mode="Markdown")
 
-        markup.add(types.InlineKeyboardButton("⬅️ ወደ ዋና ሜኑ", callback_data="v_dashboard"))
-        bot.edit_message_text(text, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-
-    # 2. የእቃን ሁኔታ መቀየር (Toggle)
-    elif call.data.startswith('v_toggle_'):
-        item_id = call.data.replace('v_toggle_', '')
-        db = load_data()
-        if item_id in db['vendors_list'][v_id]['items']:
-            current = db['vendors_list'][v_id]['items'][item_id].get('available', True)
-            db['vendors_list'][v_id]['items'][item_id]['available'] = not current
-            save_data(db)
-            bot.answer_callback_query(call.id, "✅ ሁኔታው ተቀይሯል")
-            
-            # 🔄 ገጹን በራስ-ሰር ለማደስ፡
-            call.data = "v_manage_items"
-            vendor_callback_manager(call)
-
-    # 3. እቃ መሰረዝ (Delete)
-    elif call.data.startswith('v_del_'):
-        item_id = call.data.replace('v_del_', '')
-        db = load_data()
-        if item_id in db['vendors_list'][v_id]['items']:
-            del db['vendors_list'][v_id]['items'][item_id]
-            save_data(db)
-            bot.answer_callback_query(call.id, "🗑 እቃው ተሰርዟል")
-            
-            # 🔄 ገጹን በራስ-ሰር ለማደስ፡
-            call.data = "v_manage_items"
-            vendor_callback_manager(call)
-            
-    # ሌላ ካለ እዚህ ይቀጥላል (ለምሳሌ v_wallet, v_history...)
-
-
+    # 5. ወደ ቬንደር ዋና ሜኑ ለመመለስ (v_dashboard_back)
+    elif call.data == "v_dashboard_back":
+        msg, markup = get_vendor_main_menu(v_id)
+        bot.edit_message_text(msg, v_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
 
 
