@@ -557,29 +557,20 @@ def get_main_menu():
 
 
 
-@bot.message_handler(commands=['start'])
-def start_command(message):
-    try:
-        user_id = str(message.chat.id)
-        db = load_data()
 
-        # 1. አድሚን ቼክ
-        if user_id == str(ADMIN_ID):
-            msg, markup = get_admin_dashboard(user_id) # 👈 አሁን አይሳሳትም
-            bot.send_message(user_id, msg, reply_markup=markup)
-            return
 
-        # 2. ቬንደር ቼክ
-        if user_id in db.get('vendors_list', {}):
-            msg, markup = get_vendor_main_menu(user_id)
-            bot.send_message(user_id, msg, reply_markup=markup, parse_mode="Markdown")
-            return
 
-        bot.send_message(user_id, "እንኳን ደህና መጡ! ለመመዝገብ አድሚኑን ያነጋግሩ።")
 
-    except Exception as e:
-        bot.send_message(message.chat.id, f"❌ ስህተቱ፦ {str(e)}")
-
+@bot.message_handler(func=lambda message: message.text and message.text.startswith('/'))
+def interrupt_handler(message):
+    # ማንኛውም ኮማንድ ሲመጣ የቆየውን Next Step ይሰርዛል
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+    
+    # ከዚያ ወደ ትክክለኛው ኮማንድ ይልከዋል
+    if message.text == '/start':
+        start_command(message)
+    elif message.text == '/admin':
+        show_admin_panel(message)
 
 
 
