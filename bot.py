@@ -425,6 +425,70 @@ def get_vendor_items_menu(v_id):
 
 
 
+def process_photo_step_1(message):
+    if message.content_type != 'photo':
+        bot.send_message(message.chat.id, "❌ እባክዎ ፎቶ ይላኩ!")
+        return
+    file_id = message.photo[-1].file_id
+    sent = bot.send_message(message.chat.id, "✅ ፎቶው ደርሷል! አሁን ስም እና ዋጋ በኮማ ይላኩ (ምሳሌ፦ `ቀሚስ, 1200`)")
+    bot.register_next_step_handler(sent, process_photo_step_2, file_id)
+
+def process_photo_step_2(message, file_id):
+    v_id = str(message.chat.id)
+    try:
+        name, price = message.text.split(",")
+        item_id = str(int(time.time()))
+        db = load_data()
+        if 'items' not in db['vendors_list'][v_id]: db['vendors_list'][v_id]['items'] = {}
+        db['vendors_list'][v_id]['items'][item_id] = {
+            "name": name.strip(), "price": float(price.strip()), "photo": file_id, "available": True
+        }
+        save_data(db)
+        bot.send_message(v_id, "✅ በፎቶ በትክክል ተመዝግቧል!")
+        msg, markup = get_vendor_items_menu(v_id)
+        bot.send_message(v_id, msg, reply_markup=markup, parse_mode="Markdown")
+    except:
+        bot.send_message(v_id, "❌ ስህተት! እባክዎ ስም እና ዋጋን በኮማ ይላኩ።")
+
+
+
+
+def get_item_detail_menu(v_id, item_id):
+    db = load_data()
+    item = db['vendors_list'][str(v_id)]['items'].get(str(item_id))
+    
+    if not item: return "❌ ዕቃው አልተገኘም", None
+
+    stock_status = "✅ በክምችት ላይ" if item.get('available', True) else "❌ አልቆበታል (Out of Stock)"
+    
+    msg = (f"📦 **የዕቃ ዝርዝር መቆጣጠሪያ**\n"
+           f"━━━━━━━━━━━━━━━━━━━━\n"
+           f"📝 **ስም፦** {item['name']}\n"
+           f"💰 **ዋጋ፦** {item['price']} ETB\n"
+           f"📊 **ሁኔታ፦** {stock_status}\n"
+           f"━━━━━━━━━━━━━━━━━━━━")
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    
+    # የማስተካከያ ቁልፎች
+    btn_photo = types.InlineKeyboardButton("🖼 ፎቶ ቀይር", callback_data=f"v_edit_photo_{item_id}")
+    btn_price = types.InlineKeyboardButton("💵 ዋጋ ቀይር", callback_data=f"v_edit_price_{item_id}")
+    
+    # Stock መቀያየሪያ
+    stock_text = "🔴 ወደ 'አልቋል' ቀይር" if item.get('available', True) else "🟢 ወደ 'አለ' ቀይር"
+    btn_stock = types.InlineKeyboardButton(stock_text, callback_data=f"v_toggle_stock_{item_id}")
+    
+    btn_del = types.InlineKeyboardButton("🗑 ዕቃውን ሰርዝ", callback_data=f"v_del_item_{item_id}")
+    btn_back = types.InlineKeyboardButton("⬅️ ወደ ዝርዝር ተመለስ", callback_data="v_manage_items")
+
+    markup.add(btn_photo, btn_price)
+    markup.add(btn_stock)
+    markup.add(btn_del)
+    markup.add(btn_back)
+
+    return msg, markup
+
+
 
 def process_price_update(message, item_id):
     v_id = str(message.chat.id)
