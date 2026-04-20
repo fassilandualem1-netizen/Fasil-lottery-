@@ -327,6 +327,78 @@ def update_vendor_balance_with_recovery(v_id, topup_amount):
     return f"✅ ባላንስ ተሞልቷል! የአሁኑ ባላንስ፦ {new_balance}"
 
 
+
+
+def accept_order_with_hold(rider_id, order_id):
+    db = load_data()
+    order = db['orders'].get(str(order_id))
+    
+    # ራይደሩ መያዝ ያለበት = (የእቃው ዋጋ + የዴሊቨሪ ክፍያ)
+    # ማሳሰቢያ፡ ራይደሩ ከደንበኛው ሙሉውን ስለሚቀበል ነው ይሄ የሚያዘው
+    item_price = order['item_total']
+    delivery_fee = order['delivery_fee']
+    total_to_hold = item_price + delivery_fee
+    
+    rider_wallet = db['riders_list'][str(rider_id)].get('wallet', 0)
+
+    if rider_wallet >= total_to_hold:
+        # ብሩን ከዋሌት ቀንሶ 'Hold' ላይ ማድረግ
+        db['riders_list'][str(rider_id)]['wallet'] -= total_to_hold
+        db['riders_list'][str(rider_id)]['on_hold_balance'] += total_to_hold
+        
+        order['rider_id'] = rider_id
+        order['status'] = "Accepted"
+        order['held_amount'] = total_to_hold
+        
+        save_data(db)
+        return True, f"✅ ተቀብለዋል። {total_to_hold} ብር ታግዷል።"
+    else:
+        return False, "❌ በቂ ባላንስ የለዎትም።"
+
+
+
+
+
+
+def finalize_escrow_settlement(order_id):
+    with db_lock:
+        db = load_data()
+        order = db['orders'].get(str(order_id))
+        
+        if not order or order.get('status') == "Completed":
+            return False
+
+        v_id = str(order['vendor_id'])
+        r_id = str(order['rider_id'])
+        held_amount = order.get('held_amount', 0)
+        item_price = order['item_total']
+        
+        # --- ሀ. የድርጅቱ ሂሳብ (Negative Balance Logic) ---
+        # ከድርጅቱ ላይ (የእቃ ዋጋ + የቦቱ ኮሚሽን) መቀነስ
+        bot_comm_p = db['settings'].get('vendor_commission_p', 5)
+        bot_commission = item_price * (bot_comm_p / 100)
+        total_vendor_deduction = item_price + bot_commission
+        
+        # ባላንሱ Negative ቢሆንም ይቀንሳል
+        db['vendors_list'][v_id]['deposit_balance'] -= total_vendor_deduction
+        
+        # --- ለ. የራይደሩ ሂሳብ ---
+        # የታገደውን ብር ማጽዳት (አስቀድሞ ከዋሌቱ ስለተቀነሰ እዚህ ማጥፋት ብቻ ነው)
+        db['riders_list'][r_id]['on_hold_balance'] -= held_amount
+        # ለራይደሩ ትርፉን (Delivery Fee) ወደ ዋሌቱ መመለስ
+        db['riders_list'][r_id]['wallet'] += order['delivery_fee']
+        
+        # --- ሐ. የአድሚን ትርፍ ---
+        db['total_profit'] += bot_commission
+        
+        # ሁኔታውን መቀየር
+        order['status'] = "Completed"
+        save_data(db)
+        return True
+
+
+
+
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
         bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
