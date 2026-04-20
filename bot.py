@@ -1103,30 +1103,55 @@ def monitor_all_balances(call):
 @bot.callback_query_handler(func=lambda call: call.data == "admin_live_orders")
 def view_live_orders(call):
     db = load_data()
-    # በዳታቤዝህ ውስጥ 'active_orders' የሚል ሊስት መኖር አለበት
-    orders = db.get('active_orders', {})
+    # 'orders' ውስጥ ያሉትን ትዕዛዞች በሙሉ ይወስዳል
+    all_orders = db.get('orders', {})
     
-    if not orders:
-        return bot.answer_callback_query(call.id, "📭 አሁን ላይ ምንም ቀጥታ ትዕዛዝ የለም።")
+    # ሁኔታቸው "Completed" ወይም "Cancelled" ያልሆኑትን ብቻ ለይቶ ማውጣት
+    active_orders = {k: v for k, v in all_orders.items() if v.get('status') not in ['Completed', 'Cancelled']}
+
+    if not active_orders:
+        # ምንም ትዕዛዝ ከሌለ ያለውን ሜሴጅ አጥፍቶ አዲስ ሜሴጅ ይልካል
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🔄 እንደገና ሞክር", callback_data="admin_live_orders"))
+        markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
+        
+        try:
+            return bot.edit_message_text("📭 አሁን ላይ ምንም ቀጥታ ትዕዛዝ የለም።", call.message.chat.id, call.message.message_id, reply_markup=markup)
+        except:
+            return bot.answer_callback_query(call.id, "📭 ምንም ቀጥታ ትዕዛዝ የለም።")
 
     report = "📋 **የቀጥታ ትዕዛዞች ክትትል**\n\n"
-    
-    for order_id, info in orders.items():
+
+    for order_id, info in active_orders.items():
         status = info.get('status', 'Pending')
-        status_icon = "⏳" if status == "Pending" else "🛵" if status == "On Way" else "📦"
+        
+        # አይኮኖችን በሁኔታው መሰረት መቀየር
+        if status == "Pending": status_icon = "⏳"
+        elif status == "Accepted": status_icon = "✅"
+        elif status == "On Way": status_icon = "🛵"
+        else: status_icon = "📦"
+
+        # መረጃዎችን በጥንቃቄ ማውጣት
+        vendor = info.get('vendor_name', 'ያልታወቀ ድርጅት')
+        rider = info.get('rider_name', 'ገና አልተያዘም')
+        price = info.get('item_total', 0)
         
         report += f"{status_icon} **ትዕዛዝ ID፦** `{order_id}`\n"
-        report += f"🏢 **ድርጅት፦** {info['vendor_name']}\n"
-        report += f"🛵 **ራይደር፦** {info.get('rider_name', 'ገና አልተያዘም')}\n"
+        report += f"🏢 **ድርጅት፦** {vendor}\n"
+        report += f"🛵 **ራይደር፦** {rider}\n"
         report += f"📍 **ሁኔታ፦** {status}\n"
-        report += f"💰 **ጠቅላላ ዋጋ፦** {info['total_price']} ብር\n"
+        report += f"💰 **ዋጋ፦** {price} ETB\n"
         report += "------------------------\n"
-    
+
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="admin_live_orders"))
     markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
-    
-    bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+    try:
+        bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    except Exception as e:
+        print(f"Error updating live orders: {e}")
+
 
 
 
