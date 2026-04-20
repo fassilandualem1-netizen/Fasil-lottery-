@@ -645,19 +645,17 @@ def save_vendor_location(message):
     user_id = str(message.from_user.id)
     db = load_data()
     
-    # ተላኪው ቬንደር መሆኑን ማረጋገጥ
     if user_id in db.get('vendors_list', {}):
         db['vendors_list'][user_id]['lat'] = message.location.latitude
         db['vendors_list'][user_id]['lon'] = message.location.longitude
         save_data(db)
         
-        # የሎኬሽን በተኑን ማጥፋት
-        bot.send_message(message.chat.id, "✅ ሎኬሽንዎ በትክክል ተመዝግቧል!", reply_markup=types.ReplyKeyboardRemove())
-        
-        # ወደ ዋናው የቬንደር ዳሽቦርድ መውሰድ
-        text, markup = get_vendor_dashboard_elements(user_id)
-        bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
-
+        # ሎኬሽን በተኑን አጥፍተን ምድብ እንዲመርጥ እንጠይቃለን
+        bot.send_message(
+            message.chat.id, 
+            "✅ ሎኬሽንዎ ተመዝግቧል!\nአሁን ደግሞ የድርጅትዎን አይነት (Category) ይምረጡ፦", 
+            reply_markup=get_category_markup()
+        )
 
 
 
