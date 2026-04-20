@@ -963,20 +963,22 @@ def get_main_menu():
 
 def get_vendor_dashboard_elements(v_id):
     db = load_data()
-    v_info = db.get('vendors_list', {}).get(str(v_id), {})
-items_count = len(v_info.get('items', {}))
+    v_id_str = str(v_id)
+    v_info = db.get('vendors_list', {}).get(v_id_str, {})
     
+    # 🛡️ መረጃው ከሌለ ቀድሞ መመለስ
     if not v_info:
         return "❌ የድርጅት መረጃ አልተገኘም!", None
 
     v_name = v_info.get('name', 'የእኔ ድርጅት')
     balance = v_info.get('deposit_balance', 0)
-    items_count = len(v_info.get('items', {}))
+    items_dict = v_info.get('items', {})
+    items_count = len(items_dict)
     
     # ንቁ ትዕዛዞችን መቁጠር
     active_orders = 0 
     for order in db.get('orders', {}).values():
-        if str(order.get('vendor_id')) == str(v_id) and order.get('status') not in ['Completed', 'Cancelled']:
+        if str(order.get('vendor_id')) == v_id_str and order.get('status') not in ['Completed', 'Cancelled', 'Delivered']:
             active_orders += 1
 
     summary_text = (
@@ -989,15 +991,19 @@ items_count = len(v_info.get('items', {}))
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"👇 ስራ ለመጀመር ከታች ያሉትን በተኖች ይጠቀሙ፦"
     )
-
+    
+    # በተኖቹን እዚህ ጋር ጨምር (Markup)
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
         types.InlineKeyboardButton("➕ እቃ ጨምር", callback_data="vendor_add_item"),
-        types.InlineKeyboardButton("📦 የእኔ እቃዎች", callback_data="vendor_my_items"),
-        types.InlineKeyboardButton("📈 የሽያጭ ታሪክ", callback_data="vendor_sales_report"),
-        types.InlineKeyboardButton("⚙️ መቆጣጠሪያ", callback_data="vendor_settings"),
-        types.InlineKeyboardButton("🔄 አድስ", callback_data="vendor_refresh")
+        types.InlineKeyboardButton("📦 የእኔ እቃዎች", callback_data="vendor_my_items")
     )
+    markup.add(
+        types.InlineKeyboardButton("📈 የሽያጭ ታሪክ", callback_data="vendor_sales_history"),
+        types.InlineKeyboardButton("⚙️ መቆጣጠሪያ", callback_data="vendor_settings")
+    )
+    markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="vendor_refresh"))
+    
     return summary_text, markup
 
 
