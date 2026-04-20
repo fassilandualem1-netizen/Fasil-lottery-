@@ -1075,17 +1075,45 @@ def skip_photo_handler(call):
 @bot.callback_query_handler(func=lambda call: call.data == "confirm_final_save")
 def save_item_logic(call):
     v_id = str(call.from_user.id)
+    
     if v_id in item_creation_data:
         item = item_creation_data[v_id]
-        item_id = str(int(time.time())) # ልዩ ID መስጠት
+        current_time = time.time() # አሁኑኑ ሰዓቱን መያዝ
+        item_id = str(int(current_time)) # ID ለመስጠት ተጠቀምንበት
+
+        # 1. ዳታውን ማዘጋጀት (Timestamp እዚህ ጋር ይገባል)
+        new_item_data = {
+            "name": item['name'],
+            "price": item['price'],
+            "photo": item['photo'],
+            "status": "Available",
+            "timestamp": current_time  # <--- ለሪፖርት የሚያስፈልገው ቁልፍ መስመር
+        }
+
+        # 2. Redis ላይ ሴቭ ማድረግ 
+        # መጀመሪያ የቆየውን ዳታ እናወጣለን
+        raw_vendor_data = redis.hget("vendors", v_id)
+        if raw_vendor_data:
+            vendor_db = json.loads(raw_vendor_data)
+        else:
+            vendor_db = {"items": {}} # ከሌለ አዲስ ባዶ እንፈጥራለን
+
+        # አዲሱን እቃ መጨመር
+        if 'items' not in vendor_db:
+            vendor_db['items'] = {}
+            
+        vendor_db['items'][item_id] = new_item_data
         
-        # Redis ላይ ሴቭ ማድረግ (በቬንደሩ ID ስር)
-        vendor_data = redis.hget("vendors", v_id)
-        # ... እዚህ ጋር ቬንደር ዳታውን አውጥተህ አዲሱን እቃ ጨምረህ መልሰህ ሴቭ ታደርጋለህ ...
-        
-        bot.answer_callback_query(call.id, "✅ እቃው ተመዝግቧል!")
+        # ተመልሶ Redis ላይ እንዲቀመጥ ማድረግ
+        redis.hset("vendors", v_id, json.dumps(vendor_db))
+
+        # 3. ለቬንደሩ ማረጋገጫ መስጠት
+        bot.answer_callback_query(call.id, "✅ እቃው በተሳካ ሁኔታ ተመዝግቧል!")
         bot.delete_message(call.message.chat.id, call.message.message_id)
-        
+
+        # ጊዜያዊ ዳታውን ማጽዳት
+        del item_creation_data[v_id]
+
         # ዳሽቦርዱን መልሰህ አሳየው
         text, markup = get_vendor_dashboard_elements(v_id)
         bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
