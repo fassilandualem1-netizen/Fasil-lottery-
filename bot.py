@@ -1015,6 +1015,20 @@ def start_command(message):
         bot.send_message(message.chat.id, "⚠️ ቦቱን ማስጀመር ላይ ስህተት ተፈጥሯል። እባክዎ ደግመው ይሞክሩ።")
 
 
+@bot.callback_query_handler(func=lambda call: call.data in ["admin_list_vendors", "admin_full_stats", "admin_rider_status"])
+def admin_info_pages(call):
+    try:
+        if call.data == "admin_list_vendors":
+            list_all_entities(call)
+        elif call.data == "admin_full_stats":
+            show_enhanced_analytics(call)
+        elif call.data == "admin_rider_status":
+            view_riders_status(call)
+    except Exception as e:
+        print(f"Admin Page Error: {e}")
+        bot.answer_callback_query(call.id, "❌ መረጃውን መጫን አልተቻለም። ዳታቤዙን ቼክ አድርግ።")
+
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith('admin_'))
 def global_admin_handler(call):
     user_id = call.from_user.id
