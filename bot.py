@@ -442,6 +442,20 @@ def finalize_escrow_settlement(order_id):
 
 
 
+def get_category_markup():
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("🍴 ምግብና መጠጥ", callback_data="set_cat_Food_Drink"),
+        types.InlineKeyboardButton("🛍️ ሱፐርማርኬትና ግሮሰሪ", callback_data="set_cat_Supermarket"),
+        types.InlineKeyboardButton("👕 አልባሳትና ጫማ (Boutique)", callback_data="set_cat_Boutique"),
+        types.InlineKeyboardButton("💄 ኮስሞቲክስና ውበት", callback_data="set_cat_Beauty"),
+        types.InlineKeyboardButton("💊 መድኃኒት ቤት", callback_data="set_cat_Pharmacy"),
+        types.InlineKeyboardButton("📦 ሌላ አገልግሎት", callback_data="set_cat_Other")
+    )
+    return markup
+
+
+
 
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
