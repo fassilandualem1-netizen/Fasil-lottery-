@@ -1,4 +1,4 @@
- import telebot
+import telebot
 from telebot import types
 import os, json, math, threading, time
 from flask import Flask
