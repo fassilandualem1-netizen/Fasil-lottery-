@@ -639,6 +639,63 @@ def get_item_management_markup(v_id, item_id):
 
 
 
+
+
+from datetime import datetime, timedelta
+
+def get_detailed_report(v_id, period="day"):
+    db = load_data()
+    orders = db.get('orders', {})
+    now = datetime.now()
+    
+    total_sales = 0
+    total_revenue = 0
+    
+    # የጊዜ ገደቡን መወሰኛ
+    if period == "day":
+        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        title = "የዛሬ (Daily)"
+    elif period == "week":
+        start_date = now - timedelta(days=7)
+        title = "የሳምንቱ (Weekly)"
+    else: # Month
+        start_date = now - timedelta(days=30)
+        title = "የወሩ (Monthly)"
+
+    for order_id, order in orders.items():
+        # ትዕዛዙ የዚህ ቬንደር ከሆነ እና የተሳካ (Delivered) ከሆነ
+        if str(order.get('vendor_id')) == str(v_id) and order.get('status') == 'Delivered':
+            order_time = datetime.fromtimestamp(order.get('timestamp', 0))
+            
+            if order_time >= start_date:
+                total_sales += 1
+                total_revenue += order.get('total_price', 0)
+
+    report_text = (
+        f"📊 **{title} የሽያጭ ሪፖርት**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📦 **ጠቅላላ ትዕዛዞች፦** `{total_sales}`\n"
+        f"💰 **ጠቅላላ ሽያጭ፦** `{total_revenue:,.2f} ETB`\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🕒 ሪፖርቱ የተዘጋጀው፦ {now.strftime('%H:%M')}"
+    )
+    
+    # የሪፖርት መቀየሪያ በተኖች
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    markup.add(
+        types.InlineKeyboardButton("📅 የዛሬ", callback_data="rep_day"),
+        types.InlineKeyboardButton("🗓️ የሳምንት", callback_data="rep_week"),
+        types.InlineKeyboardButton("📆 የወር", callback_data="rep_month")
+    )
+    markup.add(types.InlineKeyboardButton("🏠 ወደ ዳሽቦርድ", callback_data="vendor_refresh"))
+    
+    return report_text, markup
+
+
+
+
+
+
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
         bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
@@ -832,6 +889,26 @@ def back_to_admin(call):
     except Exception as e:
         print(f"Back to Admin Error: {e}")
         bot.answer_callback_query(call.id, "❌ ወደ ዋናው ገጽ መመለስ አልተቻለም።")
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("rep_") or call.data == "vendor_sales_report")
+def handle_report_switching(call):
+    v_id = call.from_user.id
+    
+    # የትኛው ጊዜ እንደተመረጠ መለየት
+    period = "day" # Default
+    if "_" in call.data:
+        period = call.data.split("_")
+        
+    text, markup = get_detailed_report(v_id, period)
+    
+    try:
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    except:
+        bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
 
 
 
