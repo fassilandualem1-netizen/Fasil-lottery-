@@ -16,6 +16,11 @@ bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 app = Flask(__name__) # ስሙን 'app' ብንለው ይሻላል
 
+
+# --- 2. ጊዜያዊ ዳታ መያዣዎች (እዚህ ጋር አስገባው) ---
+item_creation_data = {} 
+
+
 @app.route('/')
 def index():
     return "BDF Bot is running!"
