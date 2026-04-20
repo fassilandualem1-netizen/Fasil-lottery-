@@ -246,56 +246,6 @@ def save_new_vendor(message, v_id, cat_name):
 
 
 
-def save_commissions(message):
-    try:
-        # አድሚን መሆኑን ማረጋገጥ
-        if message.from_user.id not in ADMIN_IDS:
-            return
-
-        # 1. ጽሁፉን በኮማ መከፋፈል
-        raw_parts = message.text.split(",")
-
-        if len(raw_parts) != 3:
-            msg = bot.send_message(message.chat.id, "⚠️ ስህተት፦ እባክዎ 3 ቁጥሮችን በኮማ በመለየት ያስገቡ (ለምሳሌ፦ 3, 5, 8)")
-            bot.register_next_step_handler(msg, save_commissions)
-            return
-
-        # 2. እያንዳንዱን ቁጥር በትክክለኛው ቦታ (Index) መውሰድ
-        v_comm_percent = float(raw_parts.strip()) # 3 (ለድርጅት በ %)
-        r_comm_fixed = float(raw_parts.strip())   # 5 (ለራይደር በ ብር)
-        c_service_fee = float(raw_parts.strip())  # 8 (ሰርቪስ ፊ በ ብር)
-
-        db = load_data()
-        if 'settings' not in db: db['settings'] = {}
-
-        # 3. መረጃውን በዳታቤዝ ውስጥ በተስተካከለ ስም ማስቀመጥ
-        db['settings']['vendor_commission_p'] = v_comm_percent
-        db['settings']['rider_commission_fixed'] = r_comm_fixed
-        db['settings']['service_fee'] = c_service_fee
-
-        save_data(db)
-
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("🔙 ወደ ዋናው ሜኑ", callback_data="admin_main_menu"))
-
-        response = (
-            f"✅ <b>ኮሚሽን በትክክል ተቀምጧል!</b>\n\n"
-            f"🏢 የድርጅት (Percent)፦ <code>{v_comm_percent}%</code>\n"
-            f"🛵 የራይደር (Fixed)፦ <code>{r_comm_fixed} ETB</code>\n"
-            f"👤 ሰርቪስ ፊ (Fixed)፦ <code>{c_service_fee} ETB</code>"
-        )
-        bot.send_message(message.chat.id, response, reply_markup=markup, parse_mode="HTML")
-
-    except (ValueError, IndexError):
-        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥሮችን በትክክል ያስገቡ (ለምሳሌ፦ 3, 5, 8)")
-        bot.register_next_step_handler(msg, save_commissions)
-    except Exception as e:
-        print(f"Error: {e}")
-        bot.send_message(message.chat.id, "❌ ችግር አጋጥሟል።")
-
-
-
-
 
 def process_final_settlement(order_id):
     db = load_data()
@@ -1012,53 +962,46 @@ def list_all_entities(call):
 def start_commission_settings(call):
     text = "⚙️ **የኮሚሽን ማስተካከያ**\n\n"
     text += "እባክዎ ሦስቱን የኮሚሽን መጠኖች በኮማ በመለየት ያስገቡ፦\n\n"
-    text += "1. የድርጅት ፐርሰንት (ለምሳሌ: 2)\n"
-    text += "2. የራይደር ኮሚሽን (ለምሳሌ: 10)\n"
-    text += "3. የደንበኛ ሰርቪስ ፊ (ለምሳሌ: 5)\n\n"
-    text += "ቅርጸት፦ `2, 10, 5`"
+    text += "1. የድርጅት ፐርሰንት (ለምሳሌ: 3)\n"
+    text += "2. የራይደር ኮሚሽን ብር (ለምሳሌ: 5)\n"
+    text += "3. የደንበኛ ሰርቪስ ፊ ብር (ለምሳሌ: 8)\n\n"
+    text += "ቅርጸት፦ `3, 5, 8`"
     
     msg = bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
     bot.register_next_step_handler(msg, save_commissions)
 
-# 2. የተቀበሉትን ቁጥሮች ዳታቤዝ ላይ ማስቀመጥ
+# 2. የተቀበሉትን ቁጥሮች በትክክል ዳታቤዝ ላይ ማስቀመጥ
 def save_commissions(message):
     try:
-        # 1. ጽሁፉን በኮማ መከፋፈል
         parts = message.text.split(",")
-        
-        # 2. በትክክል 3 ቁጥሮች መኖራቸውን ማረጋገጥ
         if len(parts) != 3:
             raise ValueError("ሶስት ቁጥሮች ያስፈልጋሉ")
             
-        # 3. እያንዳንዱን ክፍል ነጥሎ ማውጣትና ወደ ቁጥር መቀየር (strip እዚህ ጋር ነው የሚሰራው)
+        # እያንዳንዱን በቦታው (Index) ጠርቶ ማጽዳት (ይሄ ነው ትክክለኛው መንገድ)
         v_comm = float(parts.strip()) 
         r_comm = float(parts.strip()) 
         c_comm = float(parts.strip()) 
         
         db = load_data()
+        if 'settings' not in db: db['settings'] = {}
         
-        # 4. የ Key ስሞችን አንድ አይነት ማድረግ (ከ process_order_settlement ጋር እንዲሄድ)
+        # የ Key ስሞችን ከ process_final_settlement ጋር አንድ አይነት ማድረግ
         db['settings']['vendor_commission_p'] = v_comm
-        db['settings']['rider_commission_p'] = r_comm
-        db['settings']['customer_service_fee'] = c_comm
+        db['settings']['rider_commission_fixed'] = r_comm # ለ 5 ብር ክፍያ
+        db['settings']['service_fee'] = c_comm           # ለ 8 ብር ክፍያ
         
         save_data(db)
         
         response = (
             f"✅ **ኮሚሽን በተሳካ ሁኔታ ተቀይሯል!**\n\n"
-            f"🏢 ድርጅት (Vendor)፦ `{v_comm}%` ከእቃ ዋጋ\n"
-            f"🛵 ራይደር (Rider)፦ `{r_comm}%` ከማድረሻ ክፍያ\n"
-            f"👤 ደንበኛ (Service Fee)፦ `{c_comm}` ብር"
+            f"🏢 ድርጅት (Vendor)፦ `{v_comm}%` (ከእቃ ዋጋ)\n"
+            f"🛵 ራይደር (Rider)፦ `{r_comm} ETB` (ቋሚ ክፍያ)\n"
+            f"👤 ደንበኛ (Service Fee)፦ `{c_comm} ETB`"
         )
         bot.send_message(message.chat.id, response, parse_mode="Markdown")
         
     except (ValueError, IndexError):
-        msg = bot.send_message(
-            message.chat.id, 
-            "⚠️ **ስህተት፦** እባክዎ በትክክል ያስገቡ።\n"
-            "ለምሳሌ፦ `5, 10, 20` (ኮማ መጠቀሙን አይርሱ)"
-        )
-        # ስህተት ከሰሩ ደግመው እንዲሞክሩ እድል ይሰጣል
+        msg = bot.send_message(message.chat.id, "⚠️ **ስህተት፦** እባክዎ ቁጥሮችን በትክክል ያስገቡ (ለምሳሌ፦ 3, 5, 8)")
         bot.register_next_step_handler(msg, save_commissions)
 
 
