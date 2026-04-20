@@ -283,6 +283,35 @@ def save_commissions(message):
 
 
 
+
+
+def process_final_settlement(order_id):
+    db = load_data()
+    order = db['orders'].get(str(order_id))
+    
+    v_id = str(order['vendor_id'])
+    r_id = str(order['rider_id'])
+    
+    # 1. ከድርጅቱ ዋሌት ላይ (የእቃ ዋጋ + ኮሚሽን) መቀነስ
+    item_price = order['item_total']
+    bot_commission = item_price * (db['settings']['vendor_commission_p'] / 100)
+    total_vendor_deduction = item_price + bot_commission
+    
+    db['vendors_list'][v_id]['deposit_balance'] -= total_vendor_deduction
+    
+    # 2. ከራይደሩ ላይ 'Hold' የተደረገውን ማጽዳት
+    # ራይደሩ አስቀድሞ ከዋሌቱ ላይ ተቀንሶበታል፣ አሁን 'on_hold' የነበረውን ወደ ሲስተም ገቢ ማድረግ
+    held_amount = order['held_amount'] # (የእቃ ዋጋ + ዴሊቨሪ ፊ)
+    db['riders_list'][r_id]['on_hold_balance'] -= held_amount
+    
+    # 3. የአድሚን ትርፍ መዝገብ ላይ መጨመር
+    db['total_profit'] += bot_commission
+    
+    save_data(db)
+    return "✅ ሂሳብ ተወራርዷል። ድርጅቱ እዳውን ከፍሏል፣ አድሚኑ ኮሚሽኑን አግኝቷል።"
+
+
+
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
         bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
