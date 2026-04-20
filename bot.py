@@ -461,6 +461,59 @@ def get_category_markup():
 
 
 
+def get_item_photo(message):
+    v_id = str(message.from_user.id)
+    
+    # ፎቶ ከተላከ (በተኑን ካልተጫነ)
+    if message.content_type == 'photo':
+        item_creation_data[v_id]['photo'] = message.photo[-1].file_id
+    elif v_id not in item_creation_data or 'photo' not in item_creation_data[v_id]:
+        # ፎቶም ካልላከ በተኑንም ካልተጫነ
+        msg = bot.send_message(message.chat.id, "❌ እባክዎ ፎቶ ይላኩ ወይም 'ዝለል' የሚለውን ይጫኑ፦")
+        return bot.register_next_step_handler(msg, get_item_photo)
+
+    msg = bot.send_message(message.chat.id, "📝 አሁን ደግሞ የ**እቃውን ስም** ይጻፉ፦", parse_mode="Markdown")
+    bot.register_next_step_handler(msg, get_item_name)
+
+
+
+
+
+def get_item_name(message):
+    v_id = str(message.from_user.id)
+    if not message.text:
+        msg = bot.send_message(message.chat.id, "❌ እባክዎ የእቃውን ስም በጽሁፍ ይላኩ፦")
+        return bot.register_next_step_handler(msg, get_item_name)
+
+    item_creation_data[v_id]['name'] = message.text
+    msg = bot.send_message(message.chat.id, "💰 የዚህ እቃ **ዋጋ** ስንት ነው? (በቁጥር ብቻ)፦", parse_mode="Markdown")
+    bot.register_next_step_handler(msg, get_item_price)
+
+
+
+
+
+def get_item_price(message):
+    v_id = str(message.from_user.id)
+    if not message.text.isdigit():
+        msg = bot.send_message(message.chat.id, "❌ እባክዎ ዋጋውን በቁጥር ብቻ ይጻፉ (ለምሳሌ፦ 200)፦")
+        return bot.register_next_step_handler(msg, get_item_price)
+
+    item_creation_data[v_id]['price'] = int(message.text)
+    
+    # ዳታውን ሰብስቦ ማሳየት
+    data = item_creation_data[v_id]
+    summary = f"🔍 **እቃውን ያረጋግጡ**\n\n📦 ስም፦ {data['name']}\n💵 ዋጋ፦ {data['price']} ETB"
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("✅ አረጋግጥና መዝግብ", callback_data="confirm_final_save"))
+    
+    if data.get('photo') == "no_image":
+        bot.send_message(message.chat.id, summary, reply_markup=markup, parse_mode="Markdown")
+    else:
+        bot.send_photo(message.chat.id, data['photo'], caption=summary, reply_markup=markup, parse_mode="Markdown")
+
+
 
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
@@ -656,6 +709,70 @@ def back_to_admin(call):
         print(f"Back to Admin Error: {e}")
         bot.answer_callback_query(call.id, "❌ ወደ ዋናው ገጽ መመለስ አልተቻለም።")
 
+
+
+
+# --- 1. እቃ ጨምር የሚለው በተን ሲጫን (Trigger) ---
+@bot.callback_query_handler(func=lambda call: call.data == "vendor_add_item")
+def start_adding_item(call):
+    v_id = str(call.from_user.id)
+    item_creation_data[v_id] = {} # ጊዜያዊ ዳታ መያዣውን ማጽዳት
+    
+    # ፎቶ ለሌላቸው እቃዎች አማራጭ በተን
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("⏩ ያለ ፎቶ እለፍ", callback_data="skip_photo_upload"))
+    
+    msg = bot.send_message(
+        call.message.chat.id, 
+        "<b>ደረጃ 1/3: 📸 የእቃውን ፎቶ ይላኩ</b>\n\n"
+        "ፎቶው ለደንበኞች በግልጽ እንዲታይ ይመከራል። ፎቶ ከሌለዎት ግን 'ዝለል' የሚለውን በተን ይጫኑ።",
+        reply_markup=markup,
+        parse_mode="HTML"
+    )
+    
+    # ተጠቃሚው ፎቶ ከላከ ወደሚቀጥለው ፋንክሽን እንዲያልፍ ያደርጋል
+    bot.register_next_step_handler(msg, get_item_photo)
+
+# --- 2. ቬንደሩ "ያለ ፎቶ እለፍ" የሚለውን በተን ሲጫን ---
+@bot.callback_query_handler(func=lambda call: call.data == "skip_photo_upload")
+def skip_photo_handler(call):
+    v_id = str(call.from_user.id)
+    
+    if v_id in item_creation_data:
+        item_creation_data[v_id]['photo'] = "no_image" # ፎቶ እንደሌለው መመዝገብ
+        
+        # የቀደመውን መልዕክት አጥፍተን ወደ ስም መጠየቂያ ማለፍ
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        
+        msg = bot.send_message(
+            call.message.chat.id, 
+            "<b>ደረጃ 2/3: 📝 የእቃውን ስም ይጻፉ</b>\n\n"
+            "ለምሳሌ፦ ስኳር፣ ጨው፣ ወይም ስፔሻል ፒዛ...",
+            parse_mode="HTML"
+        )
+        bot.register_next_step_handler(msg, get_item_name)
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "confirm_final_save")
+def save_item_logic(call):
+    v_id = str(call.from_user.id)
+    if v_id in item_creation_data:
+        item = item_creation_data[v_id]
+        item_id = str(int(time.time())) # ልዩ ID መስጠት
+        
+        # Redis ላይ ሴቭ ማድረግ (በቬንደሩ ID ስር)
+        vendor_data = redis.hget("vendors", v_id)
+        # ... እዚህ ጋር ቬንደር ዳታውን አውጥተህ አዲሱን እቃ ጨምረህ መልሰህ ሴቭ ታደርጋለህ ...
+        
+        bot.answer_callback_query(call.id, "✅ እቃው ተመዝግቧል!")
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        
+        # ዳሽቦርዱን መልሰህ አሳየው
+        text, markup = get_vendor_dashboard_elements(v_id)
+        bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
 
 
 
