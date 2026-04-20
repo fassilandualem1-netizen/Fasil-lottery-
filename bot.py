@@ -277,24 +277,19 @@ def cancel_order(order_id):
 
 
 def save_new_vendor(message, v_id, cat_name):
-    # 1. 'cat_name' ውስጥ የሚመጣውን የተዝረከረከ ጽሁፍ ያጠራል
-    if isinstance(cat_name, (list, tuple)):
-        clean_cat = cat_name[-1] # የመጨረሻውን ንጹህ ስም ይወስዳል
+    # cat_name ከ callback_query የመጣ ከሆነ 'select_cat_for_vendor:ምግብ' ሊሆን ይችላል
+    if isinstance(cat_name, str) and ":" in cat_name:
+        clean_cat = cat_name.split(":")[-1]
+    elif isinstance(cat_name, (list, tuple)):
+        clean_cat = cat_name[-1]
     else:
-        # 'select_cat_for_vendor' የሚል ጽሁፍ ካለበት እሱን ያጠፋል
-        clean_cat = str(cat_name).replace("select_cat_for_vendor", "").replace(":", "").strip()
-    
-    # ባዶ ከሆነ "ምድብ የሌለው" ይበል
-    if not clean_cat: 
-        clean_cat = "አጠቃላይ"
+        clean_cat = str(cat_name)
 
     v_name = message.text.strip()
     db = load_data()
     
-    if 'vendors_list' not in db: 
-        db['vendors_list'] = {}
+    if 'vendors_list' not in db: db['vendors_list'] = {}
 
-    # 2. ዳታቤዝ ላይ ማስቀመጥ (ሁለቱንም Key ስሞች ለጥንቃቄ ይዟል)
     db['vendors_list'][str(v_id)] = {
         "vendor_name": v_name,
         "name": v_name,
@@ -303,25 +298,9 @@ def save_new_vendor(message, v_id, cat_name):
         "items": {},
         "is_active": True
     }
-    
     save_data(db)
-    
-    # 3. ለተጠቃሚው (ለአድሚኑ) መልስ መላክ
-    bot.send_message(message.chat.id, f"✅ ድርጅት '{v_name}' በትክክል ተመዝግቧል!")
+    bot.send_message(message.chat.id, f"✅ ድርጅት '{v_name}' በምድብ '{clean_cat}' ተመዝግቧል!")
 
-    # 4. ወደ ቻናሉ መረጃ መላክ (Log)
-    # እዚህ ጋር actual_cat የነበረውን ወደ clean_cat ቀይሬዋለሁ እንዳይቆም
-    log_msg = (
-        f"🏢 **አዲስ ድርጅት ተመዝግቧል!**\n\n"
-        f"👤 **ስም፦** {v_name}\n"
-        f"📁 **ምድብ፦** {clean_cat}\n"
-        f"🆔 **ID፦** `{v_id}`"
-    )
-    
-    try:
-        bot.send_message(CHANNEL_ID, log_msg, parse_mode="Markdown")
-    except Exception as e:
-        print(f"ቻናል ላይ መላክ አልተቻለም: {e}")
 
 
 
@@ -331,56 +310,41 @@ def process_final_settlement(order_id):
     order = db.get('orders', {}).get(str(order_id))
     
     if not order or order.get('status') == "Completed":
-        return "⚠️ ትዕዛዙ ቀድሞ ተጠናቅቋል ወይም አልተገኘም።"
+        return "⚠️ ትዕዛዙ አልተገኘም ወይም ቀድሞ ተጠናቅቋል።"
 
     v_id = str(order['vendor_id'])
-    r_id = str(order['rider_id'])
     item_price = order['item_total']
     
-    # 1. ከድርጅቱ የሚቀነስ ሂሳብ (የእቃ ዋጋ + 3% ኮሚሽን)
+    # የኮሚሽን መጠኖችን ማግኘት
     v_comm_p = db.get('settings', {}).get('vendor_commission_p', 3)
-    vendor_bot_profit = item_price * (v_comm_p / 100)
-    total_vendor_deduction = item_price + vendor_bot_profit
-    
-    # የቬንደሩን ባላንስ መቀነስ
-    if v_id in db.get('vendors_list', {}):
-        db['vendors_list'][v_id]['deposit_balance'] -= total_vendor_deduction
-    
-    # 2. ከራይደሩ ላይ 'Hold' የተደረገውን ማጽዳት
-    held_amount = order.get('held_amount', 0)
-    if r_id in db.get('riders_list', {}):
-        db['riders_list'][r_id]['on_hold_balance'] -= held_amount
-    
-    # 3. የአድሚን ጠቅላላ ትርፍ ስሌት
     r_fixed = db.get('settings', {}).get('rider_commission_fixed', 5)
     s_fee = db.get('settings', {}).get('service_fee', 8)
+
+    # ትርፍ ስሌት
+    vendor_profit = item_price * (v_comm_p / 100)
+    total_order_profit = vendor_profit + r_fixed + s_fee
     
-    total_order_profit = vendor_bot_profit + r_fixed + s_fee
+    # --- ዳታቤዝ ማዘመን ---
+    # 1. ቬንደር ባላንስ
+    if v_id in db['vendors_list']:
+        db['vendors_list'][v_id]['deposit_balance'] -= (item_price + vendor_profit)
+
+    # 2. ትርፍ መመዝገቢያ (Stats)
+    if 'stats' not in db: # ለጥንቃቄ
+        db['stats'] = {"total_vendor_comm": 0, "total_rider_comm": 0, "total_customer_comm": 0, "total_orders": 0}
     
-    # 'total_profit' መኖሩን ማረጋገጥ (ከሌለ በ 0 ይጀምራል)
-    if 'total_profit' not in db:
-        db['total_profit'] = 0
-    db['total_profit'] += total_order_profit
+    db['stats']['total_vendor_comm'] += vendor_profit
+    db['stats']['total_rider_comm'] += r_fixed
+    db['stats']['total_customer_comm'] += s_fee
+    db['stats']['total_orders'] += 1
     
-    # 4. ሁኔታውን ማዘመን
+    # 3. ጠቅላላ ትርፍ
+    db['total_profit'] = db.get('total_profit', 0) + total_order_profit
+    
     order['status'] = "Completed"
     save_data(db)
     
-    # 5. ወደ ቻናሉ መረጃ መላክ (Log)
-    log_msg = (
-        f"💰 **የሂሳብ ማጠቃለያ ተከናውኗል!**\n\n"
-        f"🆔 **ትዕዛዝ ID፦** `{order_id}`\n"
-        f"🏢 **ከድርጅት የተገኘ፦** {vendor_bot_profit:.2f} ETB\n"
-        f"🛵 **ከራይደር የተገኘ፦** {r_fixed} ETB\n"
-        f"👤 **ሰርቪስ ፊ፦** {s_fee} ETB\n"
-        f"📈 **ጠቅላላ ትርፍ፦** {total_order_profit:.2f} ETB"
-    )
-    try:
-        bot.send_message(CHANNEL_ID, log_msg, parse_mode="Markdown")
-    except Exception as e:
-        print(f"Log error: {e}")
-    
-    return f"✅ ሂሳብ ተወራርዷል!\n💰 ጠቅላላ ትርፍ፦ {total_order_profit:.2f} ETB"
+    return f"✅ ሂሳብ ተወራርዷል!\n💰 ትርፍ፦ {total_order_profit:.2f} ETB"
 
 
 
