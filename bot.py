@@ -160,6 +160,53 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 
 
 
+def save_commissions(message):
+    try:
+        # 1. መረጃው መድረሱን ለማረጋገጥ ፕሪንት እናድርገው (ለዲባግ ይረዳሃል)
+        print(f"የመጣው መልዕክት: {message.text}")
+
+        # 2. ጽሁፉን በኮማ መከፋፈል
+        parts = message.text.split(",")
+        
+        if len(parts) != 3:
+            msg = bot.reply_to(message, "⚠️ ስህተት፦ እባክዎ 3 ቁጥሮችን በኮማ በመለየት ያስገቡ (ለምሳሌ፦ 3, 5, 8)")
+            bot.register_next_step_handler(msg, save_commissions)
+            return
+
+        # 3. እያንዳንዱን ክፍል በቦታው (Index) ጠርቶ ማጽዳት
+        # እዚህ ጋር ነው ስህተት ይፈጠር የነበረው! አሁን ተስተካክሏል
+        v_comm = float(parts.strip()) 
+        r_comm = float(parts.strip()) 
+        c_comm = float(parts.strip()) 
+        
+        db = load_data()
+        if 'settings' not in db: db['settings'] = {}
+        
+        # 4. ዳታቤዝ ላይ ማስቀመጥ
+        db['settings']['vendor_commission_p'] = v_comm
+        db['settings']['rider_commission_fixed'] = r_comm
+        db['settings']['service_fee'] = c_comm
+        
+        save_data(db)
+        
+        # 5. ስኬታማ ከሆነ መልስ መላክ
+        response = (
+            f"✅ **ኮሚሽን በተሳካ ሁኔታ ተቀምጧል!**\n\n"
+            f"🏢 ድርጅት፦ `{v_comm}%` \n"
+            f"🛵 ራይደር፦ `{r_comm} ETB` \n"
+            f"👤 ሰርቪስ፦ `{c_comm} ETB`"
+        )
+        bot.send_message(message.chat.id, response, parse_mode="Markdown")
+        print("ዳታው በትክክል ተቀምጧል!")
+
+    except ValueError:
+        msg = bot.reply_to(message, "❌ ስህተት፦ እባክዎ ቁጥሮችን ብቻ ያስገቡ (ለምሳሌ፦ 3, 5, 8)")
+        bot.register_next_step_handler(msg, save_commissions)
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        bot.send_message(message.chat.id, f"❌ ያልተጠበቀ ስህተት አጋጥሟል፦ {e}")
+
+
 def accept_order(rider_id, order_id):
     db = load_data()
     order = db['orders'].get(str(order_id))
@@ -960,49 +1007,11 @@ def list_all_entities(call):
 # 1. የኮሚሽን ማስተካከያ መጀመሪያ
 @bot.callback_query_handler(func=lambda call: call.data == "admin_set_commission")
 def start_commission_settings(call):
-    text = "⚙️ **የኮሚሽን ማስተካከያ**\n\n"
-    text += "እባክዎ ሦስቱን የኮሚሽን መጠኖች በኮማ በመለየት ያስገቡ፦\n\n"
-    text += "1. የድርጅት ፐርሰንት (ለምሳሌ: 3)\n"
-    text += "2. የራይደር ኮሚሽን ብር (ለምሳሌ: 5)\n"
-    text += "3. የደንበኛ ሰርቪስ ፊ ብር (ለምሳሌ: 8)\n\n"
-    text += "ቅርጸት፦ `3, 5, 8`"
-    
-    msg = bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+    text = "⚙️ የኮሚሽን ማስተካከያ\n\nእባክዎ 3 ቁጥሮችን በኮማ ይላኩ (ለምሳሌ፦ 3, 5, 8)"
+    # መልዕክቱን ለኪል ተጠቃሚው መላክ
+    msg = bot.send_message(call.message.chat.id, text)
+    # ቀጣዩን መልዕክት 'save_commissions' እንዲቀበለው ማድረግ
     bot.register_next_step_handler(msg, save_commissions)
-
-# 2. የተቀበሉትን ቁጥሮች በትክክል ዳታቤዝ ላይ ማስቀመጥ
-def save_commissions(message):
-    try:
-        parts = message.text.split(",")
-        if len(parts) != 3:
-            raise ValueError("ሶስት ቁጥሮች ያስፈልጋሉ")
-            
-        # እያንዳንዱን በቦታው (Index) ጠርቶ ማጽዳት (ይሄ ነው ትክክለኛው መንገድ)
-        v_comm = float(parts.strip()) 
-        r_comm = float(parts.strip()) 
-        c_comm = float(parts.strip()) 
-        
-        db = load_data()
-        if 'settings' not in db: db['settings'] = {}
-        
-        # የ Key ስሞችን ከ process_final_settlement ጋር አንድ አይነት ማድረግ
-        db['settings']['vendor_commission_p'] = v_comm
-        db['settings']['rider_commission_fixed'] = r_comm # ለ 5 ብር ክፍያ
-        db['settings']['service_fee'] = c_comm           # ለ 8 ብር ክፍያ
-        
-        save_data(db)
-        
-        response = (
-            f"✅ **ኮሚሽን በተሳካ ሁኔታ ተቀይሯል!**\n\n"
-            f"🏢 ድርጅት (Vendor)፦ `{v_comm}%` (ከእቃ ዋጋ)\n"
-            f"🛵 ራይደር (Rider)፦ `{r_comm} ETB` (ቋሚ ክፍያ)\n"
-            f"👤 ደንበኛ (Service Fee)፦ `{c_comm} ETB`"
-        )
-        bot.send_message(message.chat.id, response, parse_mode="Markdown")
-        
-    except (ValueError, IndexError):
-        msg = bot.send_message(message.chat.id, "⚠️ **ስህተት፦** እባክዎ ቁጥሮችን በትክክል ያስገቡ (ለምሳሌ፦ 3, 5, 8)")
-        bot.register_next_step_handler(msg, save_commissions)
 
 
 
