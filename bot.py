@@ -565,6 +565,42 @@ def get_items_pagination_markup(v_id, page=1):
 
 
 
+def get_item_management_markup(v_id, item_id):
+    db = load_data()
+    item = db.get('vendors_list', {}).get(str(v_id), {}).get('items', {}).get(str(item_id))
+    
+    if not item:
+        return None, None
+
+    status = item.get('status', 'Available')
+    status_text = "🟢 አለ (Available)" if status == "Available" else "🔴 አልቋል (Out of Stock)"
+    toggle_text = "🔴 አልቋል በል" if status == "Available" else "🟢 አለ በል"
+    
+    text = (
+        f"🛠 **የእቃ ማስተዳደሪያ**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📦 **ስም፦** {item['name']}\n"
+        f"💵 **ዋጋ፦** {item['price']} ETB\n"
+        f"📊 **ሁኔታ፦** {status_text}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"ምን ማድረግ ይፈልጋሉ?"
+    )
+    
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        # የሁኔታ መቀየሪያ (Available <-> Out of Stock)
+        types.InlineKeyboardButton(toggle_text, callback_data=f"toggle_status_{item_id}"),
+        # ዋጋ መቀየሪያ
+        types.InlineKeyboardButton("💰 ዋጋ ቀይር", callback_data=f"edit_price_{item_id}")
+    )
+    markup.add(types.InlineKeyboardButton("🗑️ እቃውን ሰርዝ", callback_data=f"delete_item_{item_id}"))
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ዝርዝር ተመለስ", callback_data="vendor_my_items"))
+    
+    return text, markup, item.get('photo')
+
+
+
+
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
         bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
@@ -760,6 +796,70 @@ def back_to_admin(call):
         bot.answer_callback_query(call.id, "❌ ወደ ዋናው ገጽ መመለስ አልተቻለም።")
 
 
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("manage_item_"))
+def handle_manage_item(call):
+    v_id = call.from_user.id
+    item_id = call.data.replace("manage_item_", "")
+    
+    text, markup, photo = get_item_management_markup(v_id, item_id)
+    
+    if not text:
+        return bot.answer_callback_query(call.id, "❌ እቃው አልተገኘም!")
+
+    # ፎቶ ካለው ከነፎቶው ያሳያል
+    if photo and photo != "no_image":
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        bot.send_photo(call.message.chat.id, photo, caption=text, reply_markup=markup, parse_mode="Markdown")
+    else:
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("toggle_status_"))
+def handle_toggle_status(call):
+    v_id = str(call.from_user.id)
+    item_id = call.data.replace("toggle_status_", "")
+    
+    db = load_data()
+    vendor_items = db.get('vendors_list', {}).get(v_id, {}).get('items', {})
+    
+    if item_id in vendor_items:
+        current_status = vendor_items[item_id].get('status', 'Available')
+        new_status = 'Out of Stock' if current_status == 'Available' else 'Available'
+        
+        db['vendors_list'][v_id]['items'][item_id]['status'] = new_status
+        save_data(db)
+        
+        bot.answer_callback_query(call.id, f"ሁኔታው ወደ {new_status} ተቀይሯል")
+        
+        # ገጹን ሪፍሬሽ ማድረግ
+        text, markup, photo = get_item_management_markup(v_id, item_id)
+        if photo and photo != "no_image":
+            bot.edit_message_caption(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+        else:
+            bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("delete_item_"))
+def handle_delete_item(call):
+    v_id = str(call.from_user.id)
+    item_id = call.data.replace("delete_item_", "")
+    
+    db = load_data()
+    if item_id in db.get('vendors_list', {}).get(v_id, {}).get('items', {}):
+        del db['vendors_list'][v_id]['items'][item_id]
+        save_data(db)
+        
+        bot.answer_callback_query(call.id, "✅ እቃው ተሰርዟል")
+        # ወደ ዝርዝሩ ይመልሰዋል
+        show_my_items(call) 
 
 
 
