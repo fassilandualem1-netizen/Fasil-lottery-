@@ -42,10 +42,17 @@ def load_data():
         "categories": [],      
         "total_profit": 0,     
         "user_list": [],       
+        "stats": {  # ለሪፖርት እና ለትርፍ ክትትል አዲስ የታከለ
+            "total_vendor_comm": 0.0,
+            "total_rider_comm": 0.0,
+            "total_customer_comm": 0.0,
+            "total_orders": 0
+        },
         "settings": {
-            "vendor_commission_p": 5,    # 5% ኮሚሽን ከእቃ ዋጋ
-            "rider_commission_p": 10,   # 10% ኮሚሽን ከዴሊቨሪ ክፍያ
-            "rider_fixed_fee": 30,
+            "vendor_commission_p": 5,    
+            "rider_commission_fixed": 5, # ለራይደር የሚታሰብ ቋሚ ትርፍ
+            "service_fee": 8,            # ከደንበኛው የሚወሰድ ሰርቪስ ፊ
+            "rider_fixed_fee": 30,       
             "base_delivery": 50,
             "system_locked": False 
         }
@@ -58,16 +65,25 @@ def load_data():
             if not isinstance(loaded_db, dict):
                 loaded_db = default_db
 
-            # አዳዲስ ቁልፎች በቆየው ዳታቤዝ ውስጥ ከሌሉ እንዲጨመሩ (Merge)
+            # 🛠 ወሳኝ ክፍል፡ አዳዲስ ቁልፎች (እንደ stats ያሉት) በቆየው ዳታቤዝ ውስጥ 
+            # ከሌሉ እንዲጨመሩ (Merge) ያደርጋል
             for key, value in default_db.items():
                 if key not in loaded_db:
                     loaded_db[key] = value
+                
+                # በ settings ውስጥ ያሉ ንዑስ ቁልፎችንም ቼክ ለማድረግ
+                if key == "settings":
+                    for s_key, s_val in default_db["settings"].items():
+                        if s_key not in loaded_db["settings"]:
+                            loaded_db["settings"][s_key] = s_val
+                            
             return loaded_db
 
         return default_db
     except Exception as e:
         print(f"❌ Database Load Error: {e}")
         return default_db
+
 
 def save_data(db):
     """ዳታውን ወደ Redis ያስቀምጣል"""
