@@ -256,22 +256,22 @@ def save_commissions(message):
         raw_parts = message.text.split(",")
 
         if len(raw_parts) != 3:
-            msg = bot.send_message(message.chat.id, "⚠️ ስህተት፦ እባክዎ 3 ቁጥሮችን በኮማ በመለየት ያስገቡ (ለምሳሌ፦ 5, 10, 20)")
+            msg = bot.send_message(message.chat.id, "⚠️ ስህተት፦ እባክዎ 3 ቁጥሮችን በኮማ በመለየት ያስገቡ (ለምሳሌ፦ 3, 5, 8)")
             bot.register_next_step_handler(msg, save_commissions)
             return
 
-        # 2. እያንዳንዱን ቁጥር ነጥሎ ማውጣትና ወደ ቁጥር መቀየር (Index በመጠቀም)
-        v_comm = float(raw_parts.strip()) # የመጀመሪያው - የድርጅት
-        r_comm = float(raw_parts.strip()) # ሁለተኛው - የራይደር
-        c_comm = float(raw_parts.strip()) # ሶስተኛው - ሰርቪስ ፊ
+        # 2. እያንዳንዱን ቁጥር በትክክለኛው ቦታ (Index) መውሰድ
+        v_comm_percent = float(raw_parts.strip()) # 3 (ለድርጅት በ %)
+        r_comm_fixed = float(raw_parts.strip())   # 5 (ለራይደር በ ብር)
+        c_service_fee = float(raw_parts.strip())  # 8 (ሰርቪስ ፊ በ ብር)
 
         db = load_data()
         if 'settings' not in db: db['settings'] = {}
 
-        # 3. መረጃውን በዳታቤዝ ውስጥ ማስቀመጥ
-        db['settings']['vendor_commission_p'] = v_comm
-        db['settings']['rider_commission_p'] = r_comm
-        db['settings']['customer_service_fee'] = c_comm
+        # 3. መረጃውን በዳታቤዝ ውስጥ በተስተካከለ ስም ማስቀመጥ
+        db['settings']['vendor_commission_p'] = v_comm_percent
+        db['settings']['rider_commission_fixed'] = r_comm_fixed
+        db['settings']['service_fee'] = c_service_fee
 
         save_data(db)
 
@@ -279,15 +279,15 @@ def save_commissions(message):
         markup.add(types.InlineKeyboardButton("🔙 ወደ ዋናው ሜኑ", callback_data="admin_main_menu"))
 
         response = (
-            f"✅ **ኮሚሽን በትክክል ተቀምጧል!**\n\n"
-            f"🏢 የድርጅት፦ `{v_comm}%` \n"
-            f"🛵 የራይደር፦ `{r_comm}%` \n"
-            f"👤 ሰርቪስ ፊ፦ `{c_comm} ETB`"
+            f"✅ <b>ኮሚሽን በትክክል ተቀምጧል!</b>\n\n"
+            f"🏢 የድርጅት (Percent)፦ <code>{v_comm_percent}%</code>\n"
+            f"🛵 የራይደር (Fixed)፦ <code>{r_comm_fixed} ETB</code>\n"
+            f"👤 ሰርቪስ ፊ (Fixed)፦ <code>{c_service_fee} ETB</code>"
         )
         bot.send_message(message.chat.id, response, reply_markup=markup, parse_mode="HTML")
 
     except (ValueError, IndexError):
-        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥሮችን በትክክል ያስገቡ (ለምሳሌ፦ 5, 10, 20)")
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥሮችን በትክክል ያስገቡ (ለምሳሌ፦ 3, 5, 8)")
         bot.register_next_step_handler(msg, save_commissions)
     except Exception as e:
         print(f"Error: {e}")
@@ -301,42 +301,38 @@ def process_final_settlement(order_id):
     db = load_data()
     order = db['orders'].get(str(order_id))
     
+    if not order or order.get('status') == "Completed":
+        return "⚠️ ትዕዛዙ ቀድሞ ተጠናቅቋል ወይም አልተገኘም።"
+
     v_id = str(order['vendor_id'])
     r_id = str(order['rider_id'])
-    
-    # 1. ከድርጅቱ ዋሌት ላይ (የእቃ ዋጋ + ኮሚሽን) መቀነስ
     item_price = order['item_total']
-    bot_commission = item_price * (db['settings']['vendor_commission_p'] / 100)
-    total_vendor_deduction = item_price + bot_commission
+    
+    # 1. ከድርጅቱ የሚቀነስ ሂሳብ (የእቃ ዋጋ + 3% ኮሚሽን)
+    v_comm_p = db['settings'].get('vendor_commission_p', 3)
+    vendor_bot_profit = item_price * (v_comm_p / 100)
+    total_vendor_deduction = item_price + vendor_bot_profit
     
     db['vendors_list'][v_id]['deposit_balance'] -= total_vendor_deduction
     
     # 2. ከራይደሩ ላይ 'Hold' የተደረገውን ማጽዳት
-    # ራይደሩ አስቀድሞ ከዋሌቱ ላይ ተቀንሶበታል፣ አሁን 'on_hold' የነበረውን ወደ ሲስተም ገቢ ማድረግ
-    held_amount = order['held_amount'] # (የእቃ ዋጋ + ዴሊቨሪ ፊ)
+    # ራይደሩ አስቀድሞ (የእቃ ዋጋ + 5 ብር + 8 ብር) ተቀንሶበታል
+    held_amount = order.get('held_amount', 0)
     db['riders_list'][r_id]['on_hold_balance'] -= held_amount
     
-    # 3. የአድሚን ትርፍ መዝገብ ላይ መጨመር
-    db['total_profit'] += bot_commission
+    # 3. የአድሚን ጠቅላላ ትርፍ ስሌት
+    # ትርፍ = (ከድርጅቱ 3%) + (ከራይደሩ 5 ብር) + (ከደንበኛው 8 ብር)
+    r_fixed = db['settings'].get('rider_commission_fixed', 5)
+    s_fee = db['settings'].get('service_fee', 8)
     
-    save_data(db)
-    return "✅ ሂሳብ ተወራርዷል። ድርጅቱ እዳውን ከፍሏል፣ አድሚኑ ኮሚሽኑን አግኝቷል።"
-
-
-
-def update_vendor_balance_with_recovery(v_id, topup_amount):
-    db = load_data()
-    current_bal = db['vendors_list'][v_id].get('deposit_balance', 0)
+    total_order_profit = vendor_bot_profit + r_fixed + s_fee
+    db['total_profit'] += total_order_profit
     
-    # አዲሱ ባላንስ የድሮውን እዳ (Negative ከሆነ) አካትቶ ይሰላል
-    new_balance = current_bal + topup_amount
-    
-    db['vendors_list'][v_id]['deposit_balance'] = new_balance
+    # 4. ሁኔታውን ማዘመን
+    order['status'] = "Completed"
     save_data(db)
     
-    if current_bal < 0:
-        return f"✅ እዳ ተከፍሏል! የነበረው እዳ፦ {current_bal}፣ የአሁኑ ባላንስ፦ {new_balance}"
-    return f"✅ ባላንስ ተሞልቷል! የአሁኑ ባላንስ፦ {new_balance}"
+    return f"✅ ሂሳብ ተወራርዷል!\n💰 ጠቅላላ ትርፍ፦ {total_order_profit} ETB"
 
 
 
