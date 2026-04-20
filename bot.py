@@ -164,28 +164,39 @@ def accept_order(rider_id, order_id):
     db = load_data()
     order = db['orders'].get(str(order_id))
     
-    # ራይደሩ መክፈል ያለበት (የእቃ ዋጋ + የቦቱ ኮሚሽን)
+    if not order:
+        bot.send_message(rider_id, "❌ ትዕዛዙ አልተገኘም።")
+        return
+
+    # 1. ራይደሩ መያዝ ያለበት (የእቃ ዋጋ + የድርጅቱ ለቦቱ የሚከፍለው ኮሚሽን)
     item_price = order['item_total']
-    # ከ settings ትክክለኛውን key መጠቀማችንን እናረጋግጥ
-    bot_comm_p = db['settings'].get('rider_commission_p', 10) 
+    
+    # እዚህ ጋር 'vendor_commission_p' መጠቀማችንን እርግጠኛ እንሁን
+    bot_comm_p = db['settings'].get('vendor_commission_p', 5) 
     bot_commission = item_price * (bot_comm_p / 100)
     
     total_to_hold = item_price + bot_commission
     rider_wallet = db['riders_list'][str(rider_id)].get('wallet', 0)
 
     if rider_wallet >= total_to_hold:
+        # 2. በትዕዛዙ ላይ መረጃ መመዝገብ
         order['rider_id'] = rider_id
         order['status'] = "Accepted"
-        order['held_amount'] = total_to_hold # በትዕዛዙ ላይ መጠኑን መመዝገብ
+        order['held_amount'] = total_to_hold 
         
-        # ብሩን 'Hold' ማድረግ
+        # 3. ብሩን ከራይደሩ ዋሌት ቀንሶ 'Hold' ላይ ማድረግ
         db['riders_list'][str(rider_id)]['wallet'] -= total_to_hold
+        
+        # 'on_hold_balance' ቁልፍ መኖሩን ማረጋገጥ
+        if 'on_hold_balance' not in db['riders_list'][str(rider_id)]:
+            db['riders_list'][str(rider_id)]['on_hold_balance'] = 0
+            
         db['riders_list'][str(rider_id)]['on_hold_balance'] += total_to_hold
         
         save_data(db)
-        bot.send_message(rider_id, f"✅ ትዕዛዙን ተቀብለዋል። {total_to_hold} ETB በጊዜያዊነት ታግዷል።")
+        bot.send_message(rider_id, f"✅ ትዕዛዙን ተቀብለዋል።\n💰 የታገደ ብር፦ {total_to_hold} ETB\n\nእባክዎ እቃውን ከድርጅቱ ተረክበው ለደንበኛው ያድርሱ።")
     else:
-        bot.send_message(rider_id, "❌ በቂ ባላንስ የለዎትም።")
+        bot.send_message(rider_id, f"❌ በቂ ባላንስ የለዎትም።\nየሚያስፈልገው፦ {total_to_hold} ETB\nየእርስዎ፦ {rider_wallet} ETB")
 
 
 
@@ -241,42 +252,42 @@ def save_commissions(message):
         if message.from_user.id not in ADMIN_IDS:
             return
 
-        # 1. ጽሁፉን በኮማ መከፋፈል እና እያንዳንዱን ቁጥር ማጽዳት (Strip)
-        # በላክኸው ኮድ ላይ የነበረው ስህተት እዚህ ጋር ነው የተስተካከለው
+        # 1. ጽሁፉን በኮማ መከፋፈል
         raw_parts = message.text.split(",")
-        
+
         if len(raw_parts) != 3:
             msg = bot.send_message(message.chat.id, "⚠️ ስህተት፦ እባክዎ 3 ቁጥሮችን በኮማ በመለየት ያስገቡ (ለምሳሌ፦ 5, 10, 20)")
             bot.register_next_step_handler(msg, save_commissions)
             return
 
-        # እያንዳንዱን ቁጥር ነጥሎ ማውጣት
-        v_comm = float(raw_parts.strip()) 
-        r_comm = float(raw_parts.strip()) 
-        c_comm = float(raw_parts.strip()) 
-        
+        # 2. እያንዳንዱን ቁጥር ነጥሎ ማውጣትና ወደ ቁጥር መቀየር (Index በመጠቀም)
+        v_comm = float(raw_parts.strip()) # የመጀመሪያው - የድርጅት
+        r_comm = float(raw_parts.strip()) # ሁለተኛው - የራይደር
+        c_comm = float(raw_parts.strip()) # ሶስተኛው - ሰርቪስ ፊ
+
         db = load_data()
         if 'settings' not in db: db['settings'] = {}
-        
+
+        # 3. መረጃውን በዳታቤዝ ውስጥ ማስቀመጥ
         db['settings']['vendor_commission_p'] = v_comm
         db['settings']['rider_commission_p'] = r_comm
         db['settings']['customer_service_fee'] = c_comm
-        
+
         save_data(db)
-        
+
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("🔙 ወደ ዋናው ሜኑ", callback_data="admin_main_menu"))
-        
+
         response = (
             f"✅ **ኮሚሽን በትክክል ተቀምጧል!**\n\n"
             f"🏢 የድርጅት፦ `{v_comm}%` \n"
             f"🛵 የራይደር፦ `{r_comm}%` \n"
             f"👤 ሰርቪስ ፊ፦ `{c_comm} ETB`"
         )
-        bot.send_message(message.chat.id, response, reply_markup=markup, parse_mode="Markdown")
-        
-    except ValueError:
-        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ (ለምሳሌ፦ 2, 10, 5)")
+        bot.send_message(message.chat.id, response, reply_markup=markup, parse_mode="HTML")
+
+    except (ValueError, IndexError):
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥሮችን በትክክል ያስገቡ (ለምሳሌ፦ 5, 10, 20)")
         bot.register_next_step_handler(msg, save_commissions)
     except Exception as e:
         print(f"Error: {e}")
