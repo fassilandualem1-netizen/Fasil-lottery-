@@ -506,6 +506,49 @@ def get_main_menu():
 
 
 
+
+
+def get_vendor_dashboard_elements(v_id):
+    db = load_data()
+    v_info = db.get('vendors_list', {}).get(str(v_id))
+    
+    if not v_info:
+        return "❌ የድርጅት መረጃ አልተገኘም!", None
+
+    v_name = v_info.get('name', 'የእኔ ድርጅት')
+    balance = v_info.get('deposit_balance', 0)
+    items_count = len(v_info.get('items', {}))
+    
+    # ንቁ ትዕዛዞችን መቁጠር
+    active_orders = 0 
+    for order in db.get('orders', {}).values():
+        if str(order.get('vendor_id')) == str(v_id) and order.get('status') not in ['Completed', 'Cancelled']:
+            active_orders += 1
+
+    summary_text = (
+        f"🏠 **የድርጅት ዳሽቦርድ፦ {v_name}**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"💰 **ቀሪ ባላንስ፦** `{balance:,.2f} ETB`\n"
+        f"📦 **ንቁ ትዕዛዞች፦** `{active_orders}`\n"
+        f"🛍 **ጠቅላላ እቃዎች፦** `{items_count}`\n"
+        f"🟢 **ሁኔታ፦** ክፍት (ለደንበኞች ይታያሉ)\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"👇 ስራ ለመጀመር ከታች ያሉትን በተኖች ይጠቀሙ፦"
+    )
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("➕ እቃ ጨምር", callback_data="vendor_add_item"),
+        types.InlineKeyboardButton("📦 የእኔ እቃዎች", callback_data="vendor_my_items"),
+        types.InlineKeyboardButton("📈 የሽያጭ ታሪክ", callback_data="vendor_sales_report"),
+        types.InlineKeyboardButton("⚙️ መቆጣጠሪያ", callback_data="vendor_settings"),
+        types.InlineKeyboardButton("🔄 አድስ", callback_data="vendor_refresh")
+    )
+    return summary_text, markup
+
+
+
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_id = message.from_user.id
