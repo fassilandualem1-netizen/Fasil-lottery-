@@ -683,10 +683,18 @@ def start_add_vendor(call):
     
     bot.edit_message_text("📂 ለድርጅቱ ምድብ ይምረጡ፦", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
+
+
+
+
+
 # ምድብ ከተመረጠ በኋላ ID መጠየቂያ
 @bot.callback_query_handler(func=lambda call: call.data.startswith("select_cat_for_vendor:"))
 def get_id_after_cat(call):
-    cat_name = call.data.split(":")
+    # .split(":") ካደረግን በኋላ ሁለተኛውን (index 1) ብቻ ነው የምንፈልገው
+    parts = call.data.split(":")
+    cat_name = parts # እውነተኛውን የምድብ ስም ብቻ ለመውሰድ
+    
     msg = bot.send_message(call.message.chat.id, f"🆔 የ[{cat_name}] ባለቤት Telegram ID ያስገቡ፦")
     bot.register_next_step_handler(msg, lambda m: process_vendor_id(m, cat_name))
 
@@ -695,19 +703,20 @@ def process_vendor_id(message, cat_name):
     if not v_id.isdigit():
         msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ ID ቁጥር መሆን አለበት። ድጋሚ ያስገቡ፦")
         return bot.register_next_step_handler(msg, lambda m: process_vendor_id(m, cat_name))
-    
+
     msg = bot.send_message(message.chat.id, "🏢 የድርጅቱን ስም ያስገቡ፦")
     bot.register_next_step_handler(msg, lambda m: save_new_vendor(m, v_id, cat_name))
 
 def save_new_vendor(message, v_id, cat_name):
     v_name = message.text.strip()
     db = load_data()
-    
+
     if 'vendors_list' not in db: db['vendors_list'] = {}
-    
+
+    # ለሪፖርቱ እንዲመችህ 'vendor_name' የሚለውን Key ተጠቀም
     db['vendors_list'][v_id] = {
-        "name": v_name,
-        "category": cat_name, # አሁን ምድቡ እዚህ ይገባል
+        "vendor_name": v_name, # ስሙን ለብቻው እዚህ እናስቀምጥ
+        "category": cat_name,  # እዚህ ጋር አሁን ስሙ ብቻ ነው የሚቀመጠው (['...', '...'] አይሆንም)
         "deposit_balance": 0,
         "items": {},
         "is_active": True
