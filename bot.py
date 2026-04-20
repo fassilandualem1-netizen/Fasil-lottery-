@@ -695,6 +695,44 @@ def get_detailed_report(v_id, period="day"):
 
 
 
+def get_vendor_settings_markup(v_id):
+    raw_data = redis.hget("vendors", str(v_id))
+    if not raw_data:
+        return "❌ መረጃ አልተገኘም", None
+    
+    vendor_db = json.loads(raw_data)
+    
+    # የሱቁን ሁኔታ መለየት
+    is_open = vendor_db.get('is_open', True)
+    status_text = "🟢 ክፍት (Open)" if is_open else "🔴 ዝግ (Closed)"
+    toggle_btn = "🔴 ሱቁን ዝጋ" if is_open else "🟢 ሱቁን ክፈት"
+
+    text = (
+        f"⚙️ **የመቆጣጠሪያ ገጽ**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🏪 **የሱቅ ስም፦** {vendor_db.get('shop_name', 'ያልተገለጸ')}\n"
+        f"📞 **ስልክ፦** {vendor_db.get('phone', 'ያልተገለጸ')}\n"
+        f"📍 **አድራሻ፦** {vendor_db.get('location', 'ያልተገለጸ')}\n"
+        f"📊 **ሁኔታ፦** {status_text}\n"
+        f"━━━━━━━━━━━━━━━━━━━━"
+    )
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton(toggle_btn, callback_data="v_toggle_shop"),
+        types.InlineKeyboardButton("📝 ስም ቀይር", callback_data="v_edit_name")
+    )
+    markup.add(
+        types.InlineKeyboardButton("📞 ስልክ ቀይር", callback_data="v_edit_phone"),
+        types.InlineKeyboardButton("📍 ቦታ ቀይር", callback_data="v_edit_loc")
+    )
+    markup.add(types.InlineKeyboardButton("🏠 ወደ ዳሽቦርድ ተመለስ", callback_data="vendor_refresh"))
+
+    return text, markup
+
+
+
+
 
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
@@ -889,6 +927,36 @@ def back_to_admin(call):
     except Exception as e:
         print(f"Back to Admin Error: {e}")
         bot.answer_callback_query(call.id, "❌ ወደ ዋናው ገጽ መመለስ አልተቻለም።")
+
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "vendor_settings")
+def show_settings(call):
+    v_id = call.from_user.id
+    text, markup = get_vendor_settings_markup(v_id)
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+@bot.callback_query_handler(func=lambda call: call.data == "v_toggle_shop")
+def toggle_shop_status(call):
+    v_id = str(call.from_user.id)
+    raw_data = redis.hget("vendors", v_id)
+    
+    if raw_data:
+        vendor_db = json.loads(raw_data)
+        # ሁኔታውን መቀልበስ (True ከሆነ False፣ False ከሆነ True)
+        vendor_db['is_open'] = not vendor_db.get('is_open', True)
+        
+        redis.hset("vendors", v_id, json.dumps(vendor_db))
+        
+        status = "ተከፍቷል" if vendor_db['is_open'] else "ተዘግቷል"
+        bot.answer_callback_query(call.id, f"✅ ሱቁ በተሳካ ሁኔታ {status}!")
+        
+        # ገጹን ሪፍሬሽ ማድረግ
+        text, markup = get_vendor_settings_markup(v_id)
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
 
 
