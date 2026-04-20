@@ -707,22 +707,31 @@ def process_vendor_id(message, cat_name):
     msg = bot.send_message(message.chat.id, "🏢 የድርጅቱን ስም ያስገቡ፦")
     bot.register_next_step_handler(msg, lambda m: save_new_vendor(m, v_id, cat_name))
 
-def save_new_vendor(message, v_id, cat_name):
+def save_new_vendor(message, v_id, cat_name_list):
     v_name = message.text.strip()
     db = load_data()
 
     if 'vendors_list' not in db: db['vendors_list'] = {}
 
-    # ለሪፖርቱ እንዲመችህ 'vendor_name' የሚለውን Key ተጠቀም
+    # 1. የምድቡን ስም ብቻ ነጥሎ ማውጣት (ያንን ረጅም ዝርዝር ለማጥፋት)
+    # cat_name_list ['select_cat_for_vendor', '🍔 ምግብ ቤት'] ከሆነ 
+    # እኛ የምንፈልገው index 1 ላይ ያለውን ብቻ ነው
+    actual_cat = cat_name_list if isinstance(cat_name_list, list) else cat_name_list
+
+    # 2. ዳታውን በሁለቱም Key (ስም) ማስቀመጥ (ለጥንቃቄ)
     db['vendors_list'][v_id] = {
-        "vendor_name": v_name, # ስሙን ለብቻው እዚህ እናስቀምጥ
-        "category": cat_name,  # እዚህ ጋር አሁን ስሙ ብቻ ነው የሚቀመጠው (['...', '...'] አይሆንም)
+        "vendor_name": v_name, # ሪፖርቱ የሚፈልገው ይሄን ሊሆን ይችላል
+        "name": v_name,        # ለሌላ ቦታ ካስፈለገህ
+        "category": actual_cat,
         "deposit_balance": 0,
         "items": {},
         "is_active": True
     }
+    
     save_data(db)
-    bot.send_message(message.chat.id, f"✅ ድርጅት '{v_name}' በምድብ '{cat_name}' ተመዝግቧል!")
+    
+    # እዚህ ጋር መልዕክቱ ሲላክም ትክክለኛውን የምድብ ስም ብቻ እንዲያሳይ
+    bot.send_message(message.chat.id, f"✅ ድርጅት '{v_name}' በምድብ '{actual_cat}' ተመዝግቧል!")
 
 
 
