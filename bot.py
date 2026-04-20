@@ -312,6 +312,21 @@ def process_final_settlement(order_id):
 
 
 
+def update_vendor_balance_with_recovery(v_id, topup_amount):
+    db = load_data()
+    current_bal = db['vendors_list'][v_id].get('deposit_balance', 0)
+    
+    # አዲሱ ባላንስ የድሮውን እዳ (Negative ከሆነ) አካትቶ ይሰላል
+    new_balance = current_bal + topup_amount
+    
+    db['vendors_list'][v_id]['deposit_balance'] = new_balance
+    save_data(db)
+    
+    if current_bal < 0:
+        return f"✅ እዳ ተከፍሏል! የነበረው እዳ፦ {current_bal}፣ የአሁኑ ባላንስ፦ {new_balance}"
+    return f"✅ ባላንስ ተሞልቷል! የአሁኑ ባላንስ፦ {new_balance}"
+
+
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
         bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
