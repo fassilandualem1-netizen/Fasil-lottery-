@@ -81,6 +81,14 @@ def load_data():
 
 
 
+def save_data(db):
+    try:
+        redis.set("bdf_delivery_db", json.dumps(db))
+        return True
+    except Exception as e:
+        print(f"❌ Database Save Error: {e}")
+        return False
+
 
 
 
@@ -209,7 +217,7 @@ def save_commissions(message):
         if len(parts) != 3:
             raise ValueError
 
-        # ትክክለኛው አጻጻፍ ይሄ ነው (እያንዳንዱን index ነጥሎ መውሰድ)
+        # ለእያንዳንዱ ኢንዴክስ ነጥሎ መውሰድ
         v_comm = float(parts.strip()) 
         r_comm = float(parts.strip()) 
         c_comm = float(parts.strip()) 
