@@ -556,14 +556,24 @@ def process_price_update(message):
 
 
 def get_items_pagination_markup(v_id, page=1):
+    # 1. ሙሉውን ዳታቤዝ ከ Redis ጫን
     db = load_data()
+    
+    # 2. የዚህን ቬንደር መረጃ ከ vendors_list ውስጥ ፈልግ
     vendor_info = db.get('vendors_list', {}).get(str(v_id), {})
     items_dict = vendor_info.get('items', {})
-    
-    # እቃዎቹን ወደ ሊስት መቀየር (ID እና ዳታውን አብሮ ለመያዝ)
+
+    # 3. እቃ ከሌለ "እቃ ጨምር" የሚል በተን ብቻ አሳይ
+    if not items_dict:
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("➕ የመጀመሪያ እቃህን ጨምር", callback_data="vendor_add_item"))
+        markup.add(types.InlineKeyboardButton("🏠 ወደ ዳሽቦርድ", callback_data="vendor_refresh"))
+        return markup
+
+    # 4. እቃ ካለ በገጽ (Pagination) ከፋፍለህ አሳይ
     item_ids = list(items_dict.keys())
     total_items = len(item_ids)
-    items_per_page = 10 # በአንድ ገጽ የሚታዩ እቃዎች
+    items_per_page = 6 # በገጽ 6 እቃ እንዲታይ
     
     start_index = (page - 1) * items_per_page
     end_index = start_index + items_per_page
@@ -571,23 +581,21 @@ def get_items_pagination_markup(v_id, page=1):
     
     markup = types.InlineKeyboardMarkup(row_width=1)
     
-    # 1. እቃዎቹን እንደ በተን መጨመር
     for i_id in current_items:
         item = items_dict[i_id]
         status_icon = "🟢" if item.get('status') == "Available" else "🔴"
+        # እቃው ላይ ስትነካ ማስተካከያ ገጽ እንዲከፍት
         btn_text = f"{status_icon} {item['name']} - {item['price']} ETB"
-        # እያንዳንዱ እቃ ሲነካ ወደ ማስተካከያ ገጽ እንዲወስድ
         markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"manage_item_{i_id}"))
     
-    # 2. የገጽ መቀየሪያ በተኖች (Pagination Row)
+    # 5. የገጽ መቀየሪያ በተኖች
     nav_btns = []
     if page > 1:
         nav_btns.append(types.InlineKeyboardButton("⬅️ የቀደመ", callback_data=f"v_items_page_{page-1}"))
     
-    # የገጽ ቁጥር ማሳያ (ለምሳሌ 1/3)
     total_pages = (total_items + items_per_page - 1) // items_per_page
     if total_pages > 1:
-        nav_btns.append(types.InlineKeyboardButton(f"{page}/{total_pages}", callback_data="ignore"))
+        nav_btns.append(types.InlineKeyboardButton(f"ገጽ {page}/{total_pages}", callback_data="ignore"))
         
     if end_index < total_items:
         nav_btns.append(types.InlineKeyboardButton("ቀጣይ ➡️", callback_data=f"v_items_page_{page+1}"))
@@ -595,7 +603,6 @@ def get_items_pagination_markup(v_id, page=1):
     if nav_btns:
         markup.row(*nav_btns)
         
-    # 3. ወደ ኋላ መመለሻ
     markup.add(types.InlineKeyboardButton("🏠 ወደ ዳሽቦርድ ተመለስ", callback_data="vendor_refresh"))
     
     return markup
