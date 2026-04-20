@@ -234,6 +234,54 @@ def save_new_vendor(message, v_id, cat_name):
 
 
 
+def save_commissions(message):
+    try:
+        # አድሚን መሆኑን ማረጋገጥ
+        if message.from_user.id not in ADMIN_IDS:
+            return
+
+        # 1. ጽሁፉን በኮማ መከፋፈል እና እያንዳንዱን ቁጥር ማጽዳት (Strip)
+        # በላክኸው ኮድ ላይ የነበረው ስህተት እዚህ ጋር ነው የተስተካከለው
+        raw_parts = message.text.split(",")
+        
+        if len(raw_parts) != 3:
+            msg = bot.send_message(message.chat.id, "⚠️ ስህተት፦ እባክዎ 3 ቁጥሮችን በኮማ በመለየት ያስገቡ (ለምሳሌ፦ 5, 10, 20)")
+            bot.register_next_step_handler(msg, save_commissions)
+            return
+
+        # እያንዳንዱን ቁጥር ነጥሎ ማውጣት
+        v_comm = float(raw_parts.strip()) 
+        r_comm = float(raw_parts.strip()) 
+        c_comm = float(raw_parts.strip()) 
+        
+        db = load_data()
+        if 'settings' not in db: db['settings'] = {}
+        
+        db['settings']['vendor_commission_p'] = v_comm
+        db['settings']['rider_commission_p'] = r_comm
+        db['settings']['customer_service_fee'] = c_comm
+        
+        save_data(db)
+        
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🔙 ወደ ዋናው ሜኑ", callback_data="admin_main_menu"))
+        
+        response = (
+            f"✅ **ኮሚሽን በትክክል ተቀምጧል!**\n\n"
+            f"🏢 የድርጅት፦ `{v_comm}%` \n"
+            f"🛵 የራይደር፦ `{r_comm}%` \n"
+            f"👤 ሰርቪስ ፊ፦ `{c_comm} ETB`"
+        )
+        bot.send_message(message.chat.id, response, reply_markup=markup, parse_mode="Markdown")
+        
+    except ValueError:
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ (ለምሳሌ፦ 2, 10, 5)")
+        bot.register_next_step_handler(msg, save_commissions)
+    except Exception as e:
+        print(f"Error: {e}")
+        bot.send_message(message.chat.id, "❌ ችግር አጋጥሟል።")
+
+
 
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
