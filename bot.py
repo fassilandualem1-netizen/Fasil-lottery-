@@ -734,6 +734,65 @@ def get_vendor_settings_markup(v_id):
 
 
 
+
+def show_settings_after_edit(message):
+    v_id = message.from_user.id
+    text, markup = get_vendor_settings_markup(v_id)
+    bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+
+# ስም ሴቭ ማድረጊያ
+def v_save_new_name(message):
+    v_id = str(message.from_user.id)
+    new_name = message.text
+    
+    raw_data = redis.hget("vendors", v_id)
+    if raw_data:
+        vendor_db = json.loads(raw_data)
+        vendor_db['shop_name'] = new_name # ስሙን ማዘመን
+        redis.hset("vendors", v_id, json.dumps(vendor_db))
+        
+        bot.send_message(message.chat.id, f"✅ የሱቅ ስም ወደ **{new_name}** ተቀይሯል!")
+        # ወደ settings ይመልሰዋል
+        show_settings_after_edit(message)
+
+# ስልክ ሴቭ ማድረጊያ
+def v_save_new_phone(message):
+    v_id = str(message.from_user.id)
+    new_phone = message.text
+    
+    if len(new_phone) < 10:
+        msg = bot.send_message(message.chat.id, "❌ ስህተት፡ እባክዎ ትክክለኛ ስልክ ቁጥር ያስገቡ፦")
+        return bot.register_next_step_handler(msg, v_save_new_phone)
+
+    raw_data = redis.hget("vendors", v_id)
+    if raw_data:
+        vendor_db = json.loads(raw_data)
+        vendor_db['phone'] = new_phone
+        redis.hset("vendors", v_id, json.dumps(vendor_db))
+        
+        bot.send_message(message.chat.id, "✅ ስልክ ቁጥርዎ ተቀይሯል!")
+        show_settings_after_edit(message)
+
+# አድራሻ ሴቭ ማድረጊያ
+def v_save_new_loc(message):
+    v_id = str(message.from_user.id)
+    new_loc = message.text
+    
+    raw_data = redis.hget("vendors", v_id)
+    if raw_data:
+        vendor_db = json.loads(raw_data)
+        vendor_db['location'] = new_loc
+        redis.hset("vendors", v_id, json.dumps(vendor_db))
+        
+        bot.send_message(message.chat.id, "✅ የሱቅ አድራሻ ተቀይሯል!")
+        show_settings_after_edit(message)
+
+
+
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
         bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
@@ -928,6 +987,28 @@ def back_to_admin(call):
         print(f"Back to Admin Error: {e}")
         bot.answer_callback_query(call.id, "❌ ወደ ዋናው ገጽ መመለስ አልተቻለም።")
 
+
+
+
+
+
+# --- ስም ለመቀየር ---
+@bot.callback_query_handler(func=lambda call: call.data == "v_edit_name")
+def v_edit_name_start(call):
+    msg = bot.send_message(call.message.chat.id, "📝 አዲሱን የ**ሱቅ ስም** ያስገቡ፦", parse_mode="Markdown")
+    bot.register_next_step_handler(msg, v_save_new_name)
+
+# --- ስልክ ለመቀየር ---
+@bot.callback_query_handler(func=lambda call: call.data == "v_edit_phone")
+def v_edit_phone_start(call):
+    msg = bot.send_message(call.message.chat.id, "📞 አዲሱን የ**ስልክ ቁጥር** ያስገቡ፦", parse_mode="Markdown")
+    bot.register_next_step_handler(msg, v_save_new_phone)
+
+# --- አድራሻ ለመቀየር ---
+@bot.callback_query_handler(func=lambda call: call.data == "v_edit_loc")
+def v_edit_loc_start(call):
+    msg = bot.send_message(call.message.chat.id, "📍 አዲሱን የ**ሱቅ አድራሻ** (ሰፈር) ያስገቡ፦", parse_mode="Markdown")
+    bot.register_next_step_handler(msg, v_save_new_loc)
 
 
 
