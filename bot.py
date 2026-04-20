@@ -814,6 +814,25 @@ def start_add_vendor(call):
 
 
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith('set_cat_'))
+def set_vendor_category(call):
+    user_id = str(call.from_user.id)
+    category = call.data.replace('set_cat_', '')
+    db = load_data()
+    
+    if user_id in db.get('vendors_list', {}):
+        db['vendors_list'][user_id]['category'] = category
+        save_data(db)
+        
+        bot.answer_callback_query(call.id, f"ምድብ፦ {category} ተመርጧል")
+        bot.delete_message(call.message.chat.id, call.message.message_id) # ምርጫውን ማጥፋት
+        
+        # አሁን ዳሽቦርዱን አሳየው
+        text, markup = get_vendor_dashboard_elements(user_id)
+        bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+
+
+
 
 # ምድብ ከተመረጠ በኋላ ID መጠየቂያ
 @bot.callback_query_handler(func=lambda call: call.data.startswith("select_cat_for_vendor:"))
