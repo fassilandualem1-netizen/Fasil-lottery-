@@ -517,6 +517,44 @@ def get_item_price(message):
 
 
 
+
+def process_price_update(message):
+    v_id = str(message.from_user.id)
+    new_price = message.text
+
+    # የትኛው እቃ እንደነበር ከጊዜያዊ ዳታው ማውጣት
+    item_id = item_creation_data.get(v_id, {}).get("editing_item_id")
+
+    if not item_id:
+        return bot.send_message(message.chat.id, "❌ ስህተት ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።")
+
+    if not new_price.isdigit():
+        msg = bot.send_message(message.chat.id, "❌ እባክዎ ዋጋውን በቁጥር ብቻ ይጻፉ (ለምሳሌ፦ 300)፦")
+        return bot.register_next_step_handler(msg, process_price_update)
+
+    # ዳታቤዝ ላይ ማሻሻል
+    db = load_data()
+    if item_id in db.get('vendors_list', {}).get(v_id, {}).get('items', {}):
+        db['vendors_list'][v_id]['items'][item_id]['price'] = int(new_price)
+        save_data(db)
+        
+        bot.send_message(message.chat.id, f"✅ ዋጋው በተሳካ ሁኔታ ወደ **{new_price} ETB** ተቀይሯል!")
+        
+        # ወደ እቃው መቆጣጠሪያ ማውጫ ተመለስ
+        text, markup, photo = get_item_management_markup(v_id, item_id)
+        if photo and photo != "no_image":
+            bot.send_photo(message.chat.id, photo, caption=text, reply_markup=markup, parse_mode="Markdown")
+        else:
+            bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+    
+    # ጊዜያዊ ዳታውን አጽዳ
+    if v_id in item_creation_data:
+        del item_creation_data[v_id]
+
+
+
+
+
 def get_items_pagination_markup(v_id, page=1):
     db = load_data()
     vendor_info = db.get('vendors_list', {}).get(str(v_id), {})
@@ -816,6 +854,27 @@ def handle_manage_item(call):
         bot.send_photo(call.message.chat.id, photo, caption=text, reply_markup=markup, parse_mode="Markdown")
     else:
         bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("edit_price_"))
+def start_edit_price(call):
+    item_id = call.data.replace("edit_price_", "")
+    v_id = str(call.from_user.id)
+    
+    # የትኛው እቃ ላይ ዋጋ እየቀየርን እንደሆነ ለጊዜው መመዝገብ
+    item_creation_data[v_id] = {"editing_item_id": item_id}
+    
+    msg = bot.send_message(
+        call.message.chat.id, 
+        "💰 እባክዎ አዲሱን የእቃውን **ዋጋ በቁጥር** ብቻ ይጻፉ፦\n(ስራውን ለማቆም /start ይበሉ)"
+    )
+    bot.register_next_step_handler(msg, process_price_update)
+
+
 
 
 
