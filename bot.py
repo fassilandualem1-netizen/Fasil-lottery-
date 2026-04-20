@@ -515,6 +515,56 @@ def get_item_price(message):
 
 
 
+
+
+def get_items_pagination_markup(v_id, page=1):
+    db = load_data()
+    vendor_info = db.get('vendors_list', {}).get(str(v_id), {})
+    items_dict = vendor_info.get('items', {})
+    
+    # እቃዎቹን ወደ ሊስት መቀየር (ID እና ዳታውን አብሮ ለመያዝ)
+    item_ids = list(items_dict.keys())
+    total_items = len(item_ids)
+    items_per_page = 10 # በአንድ ገጽ የሚታዩ እቃዎች
+    
+    start_index = (page - 1) * items_per_page
+    end_index = start_index + items_per_page
+    current_items = item_ids[start_index:end_index]
+    
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    
+    # 1. እቃዎቹን እንደ በተን መጨመር
+    for i_id in current_items:
+        item = items_dict[i_id]
+        status_icon = "🟢" if item.get('status') == "Available" else "🔴"
+        btn_text = f"{status_icon} {item['name']} - {item['price']} ETB"
+        # እያንዳንዱ እቃ ሲነካ ወደ ማስተካከያ ገጽ እንዲወስድ
+        markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"manage_item_{i_id}"))
+    
+    # 2. የገጽ መቀየሪያ በተኖች (Pagination Row)
+    nav_btns = []
+    if page > 1:
+        nav_btns.append(types.InlineKeyboardButton("⬅️ የቀደመ", callback_data=f"v_items_page_{page-1}"))
+    
+    # የገጽ ቁጥር ማሳያ (ለምሳሌ 1/3)
+    total_pages = (total_items + items_per_page - 1) // items_per_page
+    if total_pages > 1:
+        nav_btns.append(types.InlineKeyboardButton(f"{page}/{total_pages}", callback_data="ignore"))
+        
+    if end_index < total_items:
+        nav_btns.append(types.InlineKeyboardButton("ቀጣይ ➡️", callback_data=f"v_items_page_{page+1}"))
+    
+    if nav_btns:
+        markup.row(*nav_btns)
+        
+    # 3. ወደ ኋላ መመለሻ
+    markup.add(types.InlineKeyboardButton("🏠 ወደ ዳሽቦርድ ተመለስ", callback_data="vendor_refresh"))
+    
+    return markup
+
+
+
+
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
         bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
@@ -708,6 +758,36 @@ def back_to_admin(call):
     except Exception as e:
         print(f"Back to Admin Error: {e}")
         bot.answer_callback_query(call.id, "❌ ወደ ዋናው ገጽ መመለስ አልተቻለም።")
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("vendor_my_items") or call.data.startswith("v_items_page_"))
+def show_my_items(call):
+    v_id = call.from_user.id
+    
+    # የገጽ ቁጥሩን ከ callback_data ላይ ማውጣት
+    if "_" in call.data and "page" in call.data:
+        page = int(call.data.split("_")[-1])
+    else:
+        page = 1
+        
+    markup = get_items_pagination_markup(v_id, page)
+    
+    text = (
+        "📦 **የእርስዎ እቃዎች ዝርዝር**\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "ለማስተካከል ወይም 'አልቋል' ለማለት የእቃውን ስም ይንኩ።\n"
+        "━━━━━━━━━━━━━━━━━━━━"
+    )
+    
+    # ገጹን ሪፍሬሽ ለማድረግ (Edit message)
+    try:
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    except:
+        bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+
 
 
 
