@@ -1356,45 +1356,49 @@ def save_item_logic(call):
     
     if v_id in item_creation_data:
         item = item_creation_data[v_id]
-        current_time = time.time() # አሁኑኑ ሰዓቱን መያዝ
-        item_id = str(int(current_time)) # ID ለመስጠት ተጠቀምንበት
+        item_id = str(int(time.time()))
 
-        # 1. ዳታውን ማዘጋጀት (Timestamp እዚህ ጋር ይገባል)
-        new_item_data = {
+        # 1. ዳታቤዙን በሙሉ መጫን
+        db = load_data()
+
+        # 2. 'vendors_list' መኖሩን ማረጋገጥ (ከሌለ መፍጠር)
+        if 'vendors_list' not in db:
+            db['vendors_list'] = {}
+
+        # 3. የዚህ ቬንደር መለያ መኖሩን ማረጋገጥ
+        if v_id not in db['vendors_list']:
+            db['vendors_list'][v_id] = {
+                "name": "ያልተሰየመ ሱቅ",
+                "deposit_balance": 0,
+                "items": {}
+            }
+        
+        # 4. 'items' የሚለው ቁልፍ መኖሩን ማረጋገጥ
+        if 'items' not in db['vendors_list'][v_id]:
+            db['vendors_list'][v_id]['items'] = {}
+
+        # 5. እቃውን በትክክለኛው ቦታ መመዝገብ
+        db['vendors_list'][v_id]['items'][item_id] = {
             "name": item['name'],
             "price": item['price'],
             "photo": item['photo'],
             "status": "Available",
-            "timestamp": current_time  # <--- ለሪፖርት የሚያስፈልገው ቁልፍ መስመር
+            "timestamp": time.time()
         }
 
-        # 2. Redis ላይ ሴቭ ማድረግ 
-        # መጀመሪያ የቆየውን ዳታ እናወጣለን
-        raw_vendor_data = redis.hget("vendors", v_id)
-        if raw_vendor_data:
-            vendor_db = json.loads(raw_vendor_data)
-        else:
-            vendor_db = {"items": {}} # ከሌለ አዲስ ባዶ እንፈጥራለን
+        # 6. ሙሉውን ዳታቤዝ መልሰህ ሴቭ አድርግ
+        save_data(db)
 
-        # አዲሱን እቃ መጨመር
-        if 'items' not in vendor_db:
-            vendor_db['items'] = {}
-            
-        vendor_db['items'][item_id] = new_item_data
-        
-        # ተመልሶ Redis ላይ እንዲቀመጥ ማድረግ
-        redis.hset("vendors", v_id, json.dumps(vendor_db))
-
-        # 3. ለቬንደሩ ማረጋገጫ መስጠት
-        bot.answer_callback_query(call.id, "✅ እቃው በተሳካ ሁኔታ ተመዝግቧል!")
+        bot.answer_callback_query(call.id, "✅ እቃው በትክክል ተመዝግቧል!")
         bot.delete_message(call.message.chat.id, call.message.message_id)
 
-        # ጊዜያዊ ዳታውን ማጽዳት
+        # ጊዜያዊ ዳታውን አጽዳ
         del item_creation_data[v_id]
 
-        # ዳሽቦርዱን መልሰህ አሳየው
+        # ዳሽቦርዱን አሳይ
         text, markup = get_vendor_dashboard_elements(v_id)
         bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+
 
 
 
