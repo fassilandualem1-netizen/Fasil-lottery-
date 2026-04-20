@@ -826,6 +826,68 @@ def get_vendor_dashboard_elements(v_id):
 
 
 
+def process_wallet_deduction(v_id, order_id):
+    db = load_data()
+    order = db.get('orders', {}).get(order_id)
+    
+    # 🛡️ Safety Check 1: ትዕዛዙ መኖሩን ማረጋገጥ
+    if not order:
+        return False
+
+    # 🛡️ Safety Check 2: ቀደም ብሎ ሂሳቡ ተቀንሶ ከሆነ (Double Deduction Prevention)
+    if order.get('settled') == True:
+        print(f"⚠️ Warning: Order {order_id} was already settled.")
+        return False
+
+    v_id = str(v_id)
+    item_price = order.get('total_price', 0)
+    commission = item_price * 0.10  # 10% ኮሚሽን
+    total_deduct = item_price + commission
+
+    if v_id in db['vendors_list']:
+        vendor = db['vendors_list'][v_id]
+        current_balance = vendor.get('deposit_balance', 0)
+        
+        # 🛡️ Safety Check 3: በቂ ባላንስ መኖሩን ማረጋገጥ (አማራጭ - ካስፈለገህ)
+        # ባላንሱ ከሚቀንሰው ብር ካነሰ ለቬንደሩ ወይም ለአድሚን ማስጠንቀቂያ መላክ ይቻላል።
+        
+        # ሂሳቡን መቀነስ
+        new_balance = current_balance - total_deduct
+        db['vendors_list'][v_id]['deposit_balance'] = new_balance
+        
+        # ትዕዛዙ ተወራርዷል (Settled) ብሎ መመዝገብ
+        order['settled'] = True
+        order['settled_at'] = time.time() # መቼ እንደተቀነሰ ለማወቅ
+        order['deducted_amount'] = total_deduct
+        
+        save_data(db)
+        
+        # ለቬንደሩ መልዕክት መላክ
+        status_icon = "💳" if new_balance >= 0 else "⚠️"
+        report_msg = (
+            f"💸 **የሂሳብ ቅነሳ ማሳወቂያ**\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"📦 ለትዕዛዝ ቁጥር፦ `{order_id}`\n"
+            f"💰 የእቃ ዋጋ፦ `{item_price} ETB`\n"
+            f"📈 ኮሚሽን (10%)፦ `{commission} ETB`\n"
+            f"➖ **ጠቅላላ ቅነሳ፦** `{total_deduct} ETB`\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"{status_icon} **ቀሪ ባላንስዎ፦** `{new_balance:,.2f} ETB`"
+        )
+        
+        # ባላንሱ ካለቀ ተጨማሪ ማስጠንቀቂያ
+        if new_balance <= 0:
+            report_msg += "\n\n❗ **ማሳሰቢያ፦** ቀሪ ባላንስዎ አልቋል። እባክዎ ባላንስዎን ይሙሉ!"
+
+        bot.send_message(v_id, report_msg, parse_mode="Markdown")
+        return True
+        
+    return False
+
+
+
+
+
 
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
