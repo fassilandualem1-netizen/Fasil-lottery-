@@ -176,6 +176,13 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 
 
 
+def get_location_keyboard():
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+    button = types.KeyboardButton("📍 የድርጅትዎን መገኛ (Location) እዚህ ተጭነው ይላኩ", request_location=True)
+    markup.add(button)
+    return markup
+
+
 def save_commissions(message):
     try:
         # 1. ጽሁፉን በኮማ መከፋፈል እና ማጽዳት
