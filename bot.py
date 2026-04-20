@@ -963,7 +963,8 @@ def get_main_menu():
 
 def get_vendor_dashboard_elements(v_id):
     db = load_data()
-    v_info = db.get('vendors_list', {}).get(str(v_id))
+    v_info = db.get('vendors_list', {}).get(str(v_id), {})
+items_count = len(v_info.get('items', {}))
     
     if not v_info:
         return "❌ የድርጅት መረጃ አልተገኘም!", None
@@ -1305,79 +1306,105 @@ def show_my_items(call):
 
 
 
+import time
+import json
 
-# --- 1. እቃ ጨምር የሚለው በተን ሲጫን (Trigger) ---
+# ጊዜያዊ ዳታ መያዣ
+item_creation_data = {}
+
+# --- 1. እቃ ጨምር የሚለው በተን ሲጫን ---
 @bot.callback_query_handler(func=lambda call: call.data == "vendor_add_item")
 def start_adding_item(call):
     v_id = str(call.from_user.id)
-    item_creation_data[v_id] = {} # ጊዜያዊ ዳታ መያዣውን ማጽዳት
+    item_creation_data[v_id] = {'photo': 'no_image', 'name': '', 'price': ''}
     
-    # ፎቶ ለሌላቸው እቃዎች አማራጭ በተን
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("⏩ ያለ ፎቶ እለፍ", callback_data="skip_photo_upload"))
     
     msg = bot.send_message(
         call.message.chat.id, 
         "<b>ደረጃ 1/3: 📸 የእቃውን ፎቶ ይላኩ</b>\n\n"
-        "ፎቶው ለደንበኞች በግልጽ እንዲታይ ይመከራል። ፎቶ ከሌለዎት ግን 'ዝለል' የሚለውን በተን ይጫኑ።",
+        "ፎቶ ከሌለዎት 'ያለ ፎቶ እለፍ' የሚለውን ይጫኑ።",
         reply_markup=markup,
         parse_mode="HTML"
     )
-    
-    # ተጠቃሚው ፎቶ ከላከ ወደሚቀጥለው ፋንክሽን እንዲያልፍ ያደርጋል
     bot.register_next_step_handler(msg, get_item_photo)
 
-# --- 2. ቬንደሩ "ያለ ፎቶ እለፍ" የሚለውን በተን ሲጫን ---
+# --- 2. ፎቶ መቀበያ ወይም መዝለያ ---
+def get_item_photo(message):
+    v_id = str(message.from_user.id)
+    if v_id not in item_creation_data: return
+
+    if message.content_type == 'photo':
+        item_creation_data[v_id]['photo'] = message.photo[-1].file_id
+    
+    msg = bot.send_message(message.chat.id, "<b>ደረጃ 2/3: 📝 የእቃውን ስም ይጻፉ</b>", parse_mode="HTML")
+    bot.register_next_step_handler(msg, get_item_name)
+
 @bot.callback_query_handler(func=lambda call: call.data == "skip_photo_upload")
 def skip_photo_handler(call):
     v_id = str(call.from_user.id)
+    item_creation_data[v_id]['photo'] = "no_image"
+    bot.delete_message(call.message.chat.id, call.message.message_id)
     
-    if v_id in item_creation_data:
-        item_creation_data[v_id]['photo'] = "no_image" # ፎቶ እንደሌለው መመዝገብ
-        
-        # የቀደመውን መልዕክት አጥፍተን ወደ ስም መጠየቂያ ማለፍ
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-        
-        msg = bot.send_message(
-            call.message.chat.id, 
-            "<b>ደረጃ 2/3: 📝 የእቃውን ስም ይጻፉ</b>\n\n"
-            "ለምሳሌ፦ ስኳር፣ ጨው፣ ወይም ስፔሻል ፒዛ...",
-            parse_mode="HTML"
-        )
-        bot.register_next_step_handler(msg, get_item_name)
+    msg = bot.send_message(call.message.chat.id, "<b>ደረጃ 2/3: 📝 የእቃውን ስም ይጻፉ</b>", parse_mode="HTML")
+    bot.register_next_step_handler(msg, get_item_name)
 
+# --- 3. ስም መቀበያ ---
+def get_item_name(message):
+    v_id = str(message.from_user.id)
+    if v_id not in item_creation_data: return
 
+    item_creation_data[v_id]['name'] = message.text
+    msg = bot.send_message(message.chat.id, "<b>ደረጃ 3/3: 💰 የእቃውን ዋጋ ያስገቡ (በቁጥር ብቻ)</b>", parse_mode="HTML")
+    bot.register_next_step_handler(msg, get_item_price)
 
+# --- 4. ዋጋ መቀበያ እና ማጠቃለያ ---
+def get_item_price(message):
+    v_id = str(message.from_user.id)
+    if v_id not in item_creation_data: return
 
+    if not message.text.isdigit():
+        msg = bot.send_message(message.chat.id, "❌ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ (ለምሳሌ 150)፦")
+        return bot.register_next_step_handler(msg, get_item_price)
 
+    item_creation_data[v_id]['price'] = message.text
+    item = item_creation_data[v_id]
+
+    summary = (
+        f"🔍 **እቃውን ያረጋግጡ**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📦 **ስም፦** {item['name']}\n"
+        f"💵 **ዋጋ፦** {item['price']} ETB\n"
+        f"━━━━━━━━━━━━━━━━━━━━"
+    )
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("✅ አረጋግጥና መዝግብ", callback_data="confirm_final_save"))
+    markup.add(types.InlineKeyboardButton("❌ ሰርዝ", callback_data="vendor_refresh"))
+
+    if item['photo'] != "no_image":
+        bot.send_photo(message.chat.id, item['photo'], caption=summary, reply_markup=markup, parse_mode="Markdown")
+    else:
+        bot.send_message(message.chat.id, summary, reply_markup=markup, parse_mode="Markdown")
+
+# --- 5. መጨረሻ ላይ ዳታቤዝ ውስጥ ሴቭ ማድረጊያ ---
 @bot.callback_query_handler(func=lambda call: call.data == "confirm_final_save")
 def save_item_logic(call):
     v_id = str(call.from_user.id)
-    
     if v_id in item_creation_data:
         item = item_creation_data[v_id]
         item_id = str(int(time.time()))
 
-        # 1. ዳታቤዙን በሙሉ መጫን
         db = load_data()
-
-        # 2. 'vendors_list' መኖሩን ማረጋገጥ (ከሌለ መፍጠር)
-        if 'vendors_list' not in db:
-            db['vendors_list'] = {}
-
-        # 3. የዚህ ቬንደር መለያ መኖሩን ማረጋገጥ
-        if v_id not in db['vendors_list']:
-            db['vendors_list'][v_id] = {
-                "name": "ያልተሰየመ ሱቅ",
-                "deposit_balance": 0,
-                "items": {}
-            }
         
-        # 4. 'items' የሚለው ቁልፍ መኖሩን ማረጋገጥ
-        if 'items' not in db['vendors_list'][v_id]:
-            db['vendors_list'][v_id]['items'] = {}
+        # የቬንደሩን መዋቅር ማረጋገጥ
+        if 'vendors_list' not in db: db['vendors_list'] = {}
+        if v_id not in db['vendors_list']:
+            db['vendors_list'][v_id] = {"name": "ያልተሰየመ ሱቅ", "items": {}, "deposit_balance": 0}
+        if 'items' not in db['vendors_list'][v_id]: db['vendors_list'][v_id]['items'] = {}
 
-        # 5. እቃውን በትክክለኛው ቦታ መመዝገብ
+        # ዳታውን ማስገባት
         db['vendors_list'][v_id]['items'][item_id] = {
             "name": item['name'],
             "price": item['price'],
@@ -1386,18 +1413,19 @@ def save_item_logic(call):
             "timestamp": time.time()
         }
 
-        # 6. ሙሉውን ዳታቤዝ መልሰህ ሴቭ አድርግ
         save_data(db)
-
-        bot.answer_callback_query(call.id, "✅ እቃው በትክክል ተመዝግቧል!")
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-
-        # ጊዜያዊ ዳታውን አጽዳ
         del item_creation_data[v_id]
 
-        # ዳሽቦርዱን አሳይ
+        bot.answer_callback_query(call.id, "✅ እቃው ተመዝግቧል!")
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        
+        # ወደ ዳሽቦርድ መመለስ
         text, markup = get_vendor_dashboard_elements(v_id)
         bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
 
 
 
