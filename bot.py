@@ -793,6 +793,40 @@ def v_save_new_loc(message):
 
 
 
+
+
+
+def get_vendor_dashboard_elements(v_id):
+    # ከዳታቤዝ የቬንደሩን ስም ለማውጣት (ከተመዘገበ)
+    raw_data = redis.hget("vendors", str(v_id))
+    shop_name = "የእርስዎ ሱቅ"
+    if raw_data:
+        vendor_db = json.loads(raw_data)
+        shop_name = vendor_db.get('shop_name', "የእርስዎ ሱቅ")
+
+    text = (
+        f"🏪 **እንኳን ወደ {shop_name} መቆጣጠሪያ መጡ!**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"ምን ማድረግ ይፈልጋሉ? ከታች ካሉት አማራጮች አንዱን ይምረጡ።"
+    )
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("➕ እቃ ጨምር", callback_data="vendor_add_item"),
+        types.InlineKeyboardButton("📦 የእኔ እቃዎች", callback_data="vendor_my_items")
+    )
+    markup.add(
+        types.InlineKeyboardButton("📈 የሽያጭ ታሪክ", callback_data="vendor_sales_report"),
+        types.InlineKeyboardButton("⚙️ መቆጣጠሪያ", callback_data="vendor_settings")
+    )
+    markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="vendor_refresh"))
+
+    return text, markup
+
+
+
+
+
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
         bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
@@ -986,6 +1020,32 @@ def back_to_admin(call):
     except Exception as e:
         print(f"Back to Admin Error: {e}")
         bot.answer_callback_query(call.id, "❌ ወደ ዋናው ገጽ መመለስ አልተቻለም።")
+
+
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "vendor_refresh")
+def handle_vendor_refresh(call):
+    v_id = call.from_user.id
+    text, markup = get_vendor_dashboard_elements(v_id)
+    
+    try:
+        # የነበረውን መልዕክት ወደ ዳሽቦርድ መቀየር
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=text,
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
+        # ለተጠቃሚው ትንሽዬ "Flash" መልዕክት ለማሳየት
+        bot.answer_callback_query(call.id, "🔄 ዳሽቦርዱ ታድሷል!")
+    except Exception as e:
+        # መልዕክቱ መቀየር ካልቻለ (ለምሳሌ ዳታው ተመሳሳይ ከሆነ) አዲስ መላክ
+        bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
 
 
 
