@@ -162,22 +162,19 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 
 def save_commissions(message):
     try:
-        # 1. መረጃው መድረሱን ለማረጋገጥ ፕሪንት እናድርገው (ለዲባግ ይረዳሃል)
-        print(f"የመጣው መልዕክት: {message.text}")
+        # 1. መጀመሪያ ጽሁፉን በኮማ እንከፋፍለውና ወደ ሊስት እንቀይረው
+        # ለምሳሌ፡ "3, 5, 8" የነበረው ["3", "5", "8"] ይሆናል
+        input_data = [x.strip() for x in message.text.split(",")]
 
-        # 2. ጽሁፉን በኮማ መከፋፈል
-        parts = message.text.split(",")
-        
-        if len(parts) != 3:
-            msg = bot.reply_to(message, "⚠️ ስህተት፦ እባክዎ 3 ቁጥሮችን በኮማ በመለየት ያስገቡ (ለምሳሌ፦ 3, 5, 8)")
+        # 2. በትክክል 3 ቁጥሮች መኖራቸውን እናረጋግጥ
+        if len(input_data) != 3:
+            msg = bot.reply_to(message, "⚠️ ስህተት፦ እባክዎ 3 ቁጥሮችን በኮማ በመለየት ያስገቡ።\nምሳሌ፦ 3, 5, 8")
             bot.register_next_step_handler(msg, save_commissions)
             return
 
-        # 3. እያንዳንዱን ክፍል በቦታው (Index) ጠርቶ ማጽዳት
-        # እዚህ ጋር ነው ስህተት ይፈጠር የነበረው! አሁን ተስተካክሏል
-        v_comm = float(parts.strip()) 
-        r_comm = float(parts.strip()) 
-        c_comm = float(parts.strip()) 
+        # 3. እያንዳንዱን ቁጥር ለየብቻው እንመድበው (Unpacking)
+        # እዚህ ጋር parts ምናምን ማለት አያስፈልግም
+        v_comm, r_comm, c_comm = map(float, input_data)
         
         db = load_data()
         if 'settings' not in db: db['settings'] = {}
@@ -189,22 +186,23 @@ def save_commissions(message):
         
         save_data(db)
         
-        # 5. ስኬታማ ከሆነ መልስ መላክ
         response = (
-            f"✅ **ኮሚሽን በተሳካ ሁኔታ ተቀምጧል!**\n\n"
+            f"✅ **ኮሚሽን በትክክል ተቀምጧል!**\n\n"
             f"🏢 ድርጅት፦ `{v_comm}%` \n"
             f"🛵 ራይደር፦ `{r_comm} ETB` \n"
             f"👤 ሰርቪስ፦ `{c_comm} ETB`"
         )
         bot.send_message(message.chat.id, response, parse_mode="Markdown")
-        print("ዳታው በትክክል ተቀምጧል!")
 
     except ValueError:
         msg = bot.reply_to(message, "❌ ስህተት፦ እባክዎ ቁጥሮችን ብቻ ያስገቡ (ለምሳሌ፦ 3, 5, 8)")
         bot.register_next_step_handler(msg, save_commissions)
     except Exception as e:
-        print(f"Error occurred: {e}")
-        bot.send_message(message.chat.id, f"❌ ያልተጠበቀ ስህተት አጋጥሟል፦ {e}")
+        bot.send_message(message.chat.id, f"❌ ስህተት ተፈጥሯል፦ {e}")
+
+
+
+
 
 
 def accept_order(rider_id, order_id):
