@@ -202,6 +202,30 @@ def process_order_settlement(order_id):
 
 
 
+
+def save_commissions(message):
+    try:
+        parts = message.text.split(",")
+        if len(parts) != 3:
+            raise ValueError
+
+        # ትክክለኛው አጻጻፍ ይሄ ነው (እያንዳንዱን index ነጥሎ መውሰድ)
+        v_comm = float(parts.strip()) 
+        r_comm = float(parts.strip()) 
+        c_comm = float(parts.strip()) 
+
+        db = load_data()
+        db['settings']['vendor_commission_p'] = v_comm
+        db['settings']['rider_commission_p'] = r_comm
+        db['settings']['customer_service_fee'] = c_comm
+
+        save_data(db)
+        bot.send_message(message.chat.id, "✅ ኮሚሽን በተሳካ ሁኔታ ተቀይሯል!")
+    except:
+        bot.send_message(message.chat.id, "⚠️ ስህተት! እባክዎ እንደዚህ ያስገቡ፦ `5, 10, 20` (በኮማ በመለየት)")
+
+
+
 def add_org_item(v_id, text_input):
     try:
         name, price = text_input.split(",")
@@ -991,20 +1015,52 @@ def start_command(message):
         bot.send_message(message.chat.id, "⚠️ ቦቱን ማስጀመር ላይ ስህተት ተፈጥሯል። እባክዎ ደግመው ይሞክሩ።")
 
 
-@bot.message_handler(commands=['admin'])
-def show_admin_panel(message):
-    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
-    user_id = message.from_user.id
-    if user_id in ADMIN_IDS:
-        markup = get_admin_dashboard(user_id) # 👈 user_id ተጨምሯል
-        bot.send_message(
-            message.chat.id, 
-            "👑 **BDF አድሚን ዳሽቦርድ**",
-            reply_markup=markup,
-            parse_mode="Markdown"
-        )
-    else:
-        bot.send_message(message.chat.id, "❌ ፈቃድ የለዎትም።")
+@bot.callback_query_handler(func=lambda call: call.data.startswith('admin_'))
+def global_admin_handler(call):
+    user_id = call.from_user.id
+    
+    # አድሚን መሆኑን በድጋሚ ቼክ ማድረግ (ለደህንነት)
+    if user_id not in ADMIN_IDS:
+        return bot.answer_callback_query(call.id, "❌ ፈቃድ የለዎትም!", show_alert=True)
+
+    try:
+        # በተኖቹን አንድ በአንድ ማገናኘት
+        if call.data == "admin_broadcast":
+            start_broadcast(call)
+        elif call.data == "admin_add_funds":
+            start_topup(call)
+        elif call.data == "admin_monitor_balance":
+            monitor_all_balances(call)
+        elif call.data == "admin_profit_track":
+            view_profit_stats(call)
+        elif call.data == "admin_system_reset":
+            confirm_reset_request(call)
+        elif call.data == "admin_live_orders":
+            view_live_orders(call)
+        elif call.data == "admin_manage_cats":
+            ask_new_cat_name(call)
+        elif call.data == "admin_view_categories":
+            view_all_categories(call)
+        elif call.data == "admin_rider_status":
+            view_riders_status(call)
+        elif call.data == "admin_set_commission":
+            start_commission_settings(call)
+        elif call.data == "admin_block_manager":
+            start_block_process(call)
+        elif call.data == "admin_system_lock":
+            toggle_system_lock(call)
+        elif call.data == "admin_main_menu":
+            markup = get_admin_dashboard(user_id)
+            bot.edit_message_text("👑 **BDF አድሚን ዳሽቦርድ**", 
+                                 call.message.chat.id, 
+                                 call.message.message_id, 
+                                 reply_markup=markup, 
+                                 parse_mode="Markdown")
+
+    except Exception as e:
+        print(f"❌ Admin Callback Error: {e}")
+        bot.answer_callback_query(call.id, "⚠️ ስህተት ተፈጥሯል። ተርሚናልን እይ።")
+
 
 
 
