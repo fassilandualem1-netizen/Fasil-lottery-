@@ -497,41 +497,66 @@ def get_admin_dashboard(user_id):
         print(f"Error building dashboard: {e}")
         return None
 
+
+
 def get_main_menu():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     markup.add( "📊 ሪፖርት" )
     return markup
 
 
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_id = message.from_user.id
-    
-    # ዳታቤዝ ውስጥ ተጠቃሚውን መመዝገብ (ለብሮድካስት እንዲረዳን)
+    user_id_str = str(user_id) # ለዳታቤዝ ንፅፅር እንዲመች
     db = load_data()
+
+    # 1. ተጠቃሚውን ለብሮድካስት መመዝገብ
     if 'user_list' not in db: db['user_list'] = []
     if user_id not in db['user_list']:
         db['user_list'].append(user_id)
         save_data(db)
 
+    # 2. አድሚን ከሆነ
     if user_id in ADMIN_IDS:
         markup = get_admin_dashboard(user_id)
-        bot.send_message(
+        return bot.send_message(
             message.chat.id, 
             "👋 ሰላም ጌታዬ! እንኳን ወደ **BDF Delivery** መቆጣጠሪያ መጡ።\nከታች ያሉትን አማራጮች ተጠቅመው ሲስተሙን ያስተዳድሩ።",
             reply_markup=markup,
             parse_mode="Markdown"
         )
-    else:
-        # ለደንበኞች የሚታይ ገጽ (ለጊዜው)
-        customer_markup = types.InlineKeyboardMarkup()
-        customer_markup.add(types.InlineKeyboardButton("🛍 እቃዎችን ማየት", callback_data="customer_view_items"))
-        bot.send_message(
-            message.chat.id, 
-            "እንኳን ወደ **BDF Delivery** በደህና መጡ! 🛵\nእቃ ለማዘዝ ከታች ያለውን በተን ይጫኑ።",
-            reply_markup=customer_markup,
-            parse_mode="Markdown"
-        )
+
+    # 3. ቬንደር (ድርጅት) ከሆነ
+    vendors_list = db.get('vendors_list', {})
+    if user_id_str in vendors_list:
+        v_info = vendors_list[user_id_str]
+        
+        # ሎኬሽን ገና ካልላከ ሎኬሽን ይጠይቃል
+        if 'lat' not in v_info or 'lon' not in v_info:
+            text = (
+                f"ሰላም {v_info.get('name', 'ባለቤት')}! 👋\n\n"
+                "ወደ BDF Delivery እንኳን በደህና መጡ። ስራ ከመጀመርዎ በፊት የድርጅቱን ትክክለኛ መገኛ (Location) መላክ አለብዎት።\n"
+                "ይህ ለደንበኞች የዴሊቨሪ ክፍያ ስሌት ጥቅም ላይ ይውላል።\n\n"
+                "👇 እባክዎ ከታች ያለውን በተን ተጭነው ሎኬሽን ይላኩ።"
+            )
+            return bot.send_message(message.chat.id, text, reply_markup=get_location_keyboard())
+        
+        # ሎኬሽን ካለው ቀጥታ ወደ ቬንደር ዳሽቦርድ
+        text, markup = get_vendor_dashboard_elements(user_id)
+        return bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+
+    # 4. ተራ ደንበኛ ከሆነ
+    welcome_text = (
+        "እንኳን ወደ **BDF Delivery** በደህና መጡ! 👋\n\n"
+        "በቀላሉ የሚፈልጉትን እቃ ይዘዙ፣ ያሉበት እናደርሳለን።\n"
+        "ለመጀመር ከታች ያሉትን በተኖች ይጠቀሙ።"
+    )
+    # የደንበኛ ማርካፕ እዚህ ጋር መጨመር ትችላለህ
+    bot.send_message(message.chat.id, welcome_text, parse_mode="Markdown")
+
+
 
 # አድሚኑ ወደ ዳሽቦርድ መመለስ ሲፈልግ (ለተደጋጋሚ አጠቃቀም)
 @bot.callback_query_handler(func=lambda call: call.data == "admin_main_menu")
@@ -569,6 +594,26 @@ def back_to_admin(call):
         print(f"Back to Admin Error: {e}")
         bot.answer_callback_query(call.id, "❌ ወደ ዋናው ገጽ መመለስ አልተቻለም።")
 
+
+
+
+@bot.message_handler(content_types=['location'])
+def save_vendor_location(message):
+    user_id = str(message.from_user.id)
+    db = load_data()
+    
+    # ተላኪው ቬንደር መሆኑን ማረጋገጥ
+    if user_id in db.get('vendors_list', {}):
+        db['vendors_list'][user_id]['lat'] = message.location.latitude
+        db['vendors_list'][user_id]['lon'] = message.location.longitude
+        save_data(db)
+        
+        # የሎኬሽን በተኑን ማጥፋት
+        bot.send_message(message.chat.id, "✅ ሎኬሽንዎ በትክክል ተመዝግቧል!", reply_markup=types.ReplyKeyboardRemove())
+        
+        # ወደ ዋናው የቬንደር ዳሽቦርድ መውሰድ
+        text, markup = get_vendor_dashboard_elements(user_id)
+        bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
 
 
 
