@@ -297,26 +297,56 @@ def get_main_menu():
 
 
 
-@bot.callback_query_handler(func=lambda call: call.data == "admin_main_menu")
-def back_to_admin(call):
+
+@bot.message_handler(commands=['start'])
+def start_command(message):
     try:
-        user_id = call.from_user.id
-        # የአድሚን ዳሽቦርድ ማርካፕን እንጠራለን
-        markup = get_admin_dashboard(user_id)
-        
-        # የነበረውን መልዕክት ወደ ዋናው ዳሽቦርድ ይቀይረዋል
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text="👋 ሰላም ጌታዬ! ወደ አድሚን ዳሽቦርድ ተመልሰዋል።\nከታች ካሉት አማራጮች አንዱን ይምረጡ፦",
-            reply_markup=markup
-        )
-        # በተኑ ሲነካ የሚመጣውን 'Loading' ምልክት ያጠፋል
-        bot.answer_callback_query(call.id)
-        
+        user_id = message.from_user.id
+        uid_str = str(user_id)
+        bot.clear_step_handler_by_chat_id(chat_id=user_id) 
+
+        db = load_data() 
+
+        # ተጠቃሚውን ወደ ሊስት መጨመሪያ
+        if "user_list" not in db: db["user_list"] = []
+        if user_id not in db["user_list"]:
+            db["user_list"].append(user_id)
+            save_data(db)
+
+        # 1. አድሚን ከሆነ
+        if user_id in ADMIN_IDS:
+            markup = get_admin_dashboard(user_id) # 👈 user_id ተጨምሯል
+            return bot.send_message(user_id, "👑 **እንኳን ደህና መጡ የBDF አድሚን!**", 
+                                   reply_markup=markup, parse_mode="Markdown")
+
+        # 2. ቬንደር ከሆነ
+        if uid_str in db.get('vendors_list', {}):
+            # ⚠️ ማስተካከያ፦ ፈንክሽኑ msg እና markup ይመልሳል
+            msg, markup = get_vendor_main_menu(uid_str) 
+            return bot.send_message(user_id, msg, reply_markup=markup, parse_mode="Markdown")
+
+        # 3. ለሌላ ተጠቃሚ
+        welcome_text = f"ሰላም {message.from_user.first_name} 👋\nየመለያ ቁጥርዎ፦ `{user_id}`"
+        bot.send_message(user_id, welcome_text, reply_markup=get_main_menu(), parse_mode="Markdown")
+
     except Exception as e:
-        print(f"Back to Admin Error: {e}")
-        bot.answer_callback_query(call.id, "❌ ወደ ዋናው ገጽ መመለስ አልተቻለም።")
+        print(f"❌ Error in start_command: {e}")
+        bot.send_message(message.chat.id, f"❌ ስህተት ተፈጥሯል፦ {str(e)}")
+
+@bot.message_handler(commands=['admin'])
+def show_admin_panel(message):
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+    user_id = message.from_user.id
+    if user_id in ADMIN_IDS:
+        markup = get_admin_dashboard(user_id) # 👈 user_id ተጨምሯል
+        bot.send_message(
+            message.chat.id, 
+            "👑 **BDF አድሚን ዳሽቦርድ**",
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
+    else:
+        bot.send_message(message.chat.id, "❌ ፈቃድ የለዎትም።")
 
 
 
