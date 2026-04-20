@@ -522,6 +522,64 @@ def show_combined_metrics(call):
 
 
 
+@bot.callback_query_handler(func=lambda call: True)
+def handle_all_callbacks(call):
+    # የአድሚን ጥበቃ (Security)
+    if call.from_user.id not in ADMIN_IDS:
+        return bot.answer_callback_query(call.id, "🚫 ፍቃድ የለዎትም!", show_alert=True)
+
+    try:
+        # 1. ኮሚሽን ማስተካከያ (Commission)
+        if call.data == "admin_set_commission":
+            msg = bot.send_message(call.message.chat.id, "⚙️ **የኮሚሽን ማስተካከያ**\n\nእባክዎ 3ቱን ቁጥሮች በኮማ በመለየት ያስገቡ (ለምሳሌ፦ 3, 7, 6)")
+            bot.register_next_step_handler(msg, save_commissions)
+
+        # 2. ብር መሙያ (Top-up)
+        elif call.data == "admin_add_funds":
+            # እዚህ ጋር ብር መሙያ ፋንክሽንህን ጥራ
+            start_topup_process(call) 
+
+        # 3. ሲስተም ዝጋ/ክፈት (Lock/Unlock)
+        elif call.data == "admin_system_lock":
+            toggle_system_lock(call)
+
+        # 4. ሲስተም ማጽጃ (Reset)
+        elif call.data == "admin_system_reset":
+            confirm_reset_request(call)
+
+        # 5. ማስታወቂያ (Broadcast)
+        elif call.data == "admin_broadcast":
+            msg = bot.send_message(call.message.chat.id, "📢 የሚላከውን ማስታወቂያ ይጻፉ፦")
+            bot.register_next_step_handler(msg, perform_broadcast)
+
+        # 6. የአካውንት ማስተዳደሪያ (Vendors/Riders)
+        elif call.data == "admin_manage_accounts":
+            account_hub(call)
+
+        # 7. የምድቦች ማዕከል (Categories)
+        elif call.data == "admin_view_categories":
+            # የምድብ ማሳያ ፋንክሽንህን እዚህ ጥራ
+            show_categories_to_admin(call)
+
+        # 8. የቀጥታ ትዕዛዞች (Live Orders)
+        elif call.data == "admin_live_orders":
+            # የቀጥታ ትዕዛዝ ፋንክሽንህን እዚህ ጥራ
+            monitor_live_orders(call)
+
+        # 9. ወደ ዋናው ሜኑ መመለሻ (Back to Dashboard)
+        elif call.data == "admin_main_menu":
+            markup = get_admin_dashboard(call.from_user.id)
+            bot.edit_message_text("👋 የአድሚን ዳሽቦርድ", call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+        # ለሁሉም በተኖች አጭር ምላሽ መስጠት (Bot Loading እንዳያሳይ)
+        bot.answer_callback_query(call.id)
+
+    except Exception as e:
+        print(f"Callback Error: {e}")
+        bot.answer_callback_query(call.id, "❌ ስህተት ተፈጥሯል!", show_alert=True)
+
+
+
 
 
 if __name__ == "__main__":
