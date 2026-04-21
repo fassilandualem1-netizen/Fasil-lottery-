@@ -1162,90 +1162,84 @@ def back_to_main_handler(call):
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_id = message.from_user.id
-    user_id_str = str(user_id) # ለዳታቤዝ ንፅፅር እንዲመች
+    chat_id = message.chat.id
+    user_id_str = str(user_id)
     db = load_data()
 
-    # 1. ተጠቃሚውን ለብሮድካስት መመዝገብ
+    # 🔥 1. በግዴታ (Force) የቆዩ የጥያቄ ሂደቶችን ያቋርጣል
+    bot.clear_step_handler_by_chat_id(chat_id=chat_id)
+    
+    # ጽዳት፡ በምዝገባ ወቅት የተያዙ ጊዜያዊ ዳታዎችን ያጠፋል
+    if user_id_str in item_creation_data:
+        del item_creation_data[user_id_str]
+
+    # 2. ተጠቃሚውን ለብሮድካስት መመዝገብ
     if 'user_list' not in db: db['user_list'] = []
     if user_id not in db['user_list']:
         db['user_list'].append(user_id)
         save_data(db)
 
-    # 2. አድሚን ከሆነ
+    # 3. አድሚን ከሆነ
     if user_id in ADMIN_IDS:
         markup = get_admin_dashboard(user_id)
         return bot.send_message(
-            message.chat.id, 
+            chat_id, 
             "👋 ሰላም ጌታዬ! እንኳን ወደ **BDF Delivery** መቆጣጠሪያ መጡ።\nከታች ያሉትን አማራጮች ተጠቅመው ሲስተሙን ያስተዳድሩ።",
             reply_markup=markup,
             parse_mode="Markdown"
         )
 
-    # 3. ቬንደር (ድርጅት) ከሆነ
+    # 4. ቬንደር (ድርጅት) ከሆነ
     vendors_list = db.get('vendors_list', {})
     if user_id_str in vendors_list:
         v_info = vendors_list[user_id_str]
-        
-        # ሎኬሽን ገና ካልላከ ሎኬሽን ይጠይቃል
+
+        # ሎኬሽን ገና ካልላከ
         if 'lat' not in v_info or 'lon' not in v_info:
             text = (
                 f"ሰላም {v_info.get('name', 'ባለቤት')}! 👋\n\n"
-                "ወደ BDF Delivery እንኳን በደህና መጡ። ስራ ከመጀመርዎ በፊት የድርጅቱን ትክክለኛ መገኛ (Location) መላክ አለብዎት።\n"
-                "ይህ ለደንበኞች የዴሊቨሪ ክፍያ ስሌት ጥቅም ላይ ይውላል።\n\n"
-                "👇 እባክዎ ከታች ያለውን በተን ተጭነው ሎኬሽን ይላኩ።"
+                "ወደ BDF Delivery እንኳን በደህና መጡ። ስራ ከመጀመርዎ በፊት የድርጅቱን ትክክለኛ መገኛ (Location) መላክ አለብዎት።"
             )
-            return bot.send_message(message.chat.id, text, reply_markup=get_location_keyboard())
-        
-        # ሎኬሽን ካለው ቀጥታ ወደ ቬንደር ዳሽቦርድ
-        text, markup = get_vendor_dashboard_elements(user_id)
-        return bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+            return bot.send_message(chat_id, text, reply_markup=get_location_keyboard())
 
-    # 4. ተራ ደንበኛ ከሆነ
+        # ሎኬሽን ካለው ወደ ቬንደር ዳሽቦርድ
+        text, markup = get_vendor_dashboard_elements(user_id)
+        return bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
+
+    # 5. ተራ ደንበኛ ከሆነ
     welcome_text = (
         "እንኳን ወደ **BDF Delivery** በደህና መጡ! 👋\n\n"
-        "በቀላሉ የሚፈልጉትን እቃ ይዘዙ፣ ያሉበት እናደርሳለን።\n"
-        "ለመጀመር ከታች ያሉትን በተኖች ይጠቀሙ።"
+        "በቀላሉ የሚፈልጉትን እቃ ይዘዙ፣ ያሉበት እናደርሳለን።"
     )
-    # የደንበኛ ማርካፕ እዚህ ጋር መጨመር ትችላለህ
-    bot.send_message(message.chat.id, welcome_text, parse_mode="Markdown")
+    # ማሳሰቢያ፡ እዚህ ጋር የደንበኛውን main_menu_markup() መጨመር እንዳትረሳ
+    bot.send_message(chat_id, welcome_text, reply_markup=customer_main_menu(), parse_mode="Markdown")
 
 
-
-# አድሚኑ ወደ ዳሽቦርድ መመለስ ሲፈልግ (ለተደጋጋሚ አጠቃቀም)
-@bot.callback_query_handler(func=lambda call: call.data == "admin_main_menu")
-def back_to_dashboard(call):
-    if call.from_user.id in ADMIN_IDS:
-        markup = get_admin_dashboard(call.from_user.id)
-        bot.edit_message_text(
-            "👋 የአድሚን ዳሽቦርድ", 
-            call.message.chat.id, 
-            call.message.message_id, 
-            reply_markup=markup
-        )
-    bot.answer_callback_query(call.id)
-
-
-
-@bot.callback_query_handler(func=lambda call: call.data == "admin_main_menu")
-def back_to_admin(call):
-    try:
-        user_id = call.from_user.id
-        # የአድሚን ዳሽቦርድ ማርካፕን እንጠራለን
+# --- የተዋሃደ የአድሚን መመለሻ (ለ admin_main_menu እና go_to_main_start) ---
+@bot.callback_query_handler(func=lambda call: call.data in ["admin_main_menu", "go_to_main_start"])
+def back_to_main_handler(call):
+    user_id = call.from_user.id
+    chat_id = call.message.chat.id
+    
+    # የቆየ ፕሮሰስ ካለ ያጸዳል
+    bot.clear_step_handler_by_chat_id(chat_id=chat_id)
+    
+    # አድሚን ከሆነ ወደ አድሚን ዳሽቦርድ
+    if user_id in ADMIN_IDS:
         markup = get_admin_dashboard(user_id)
-        
-        # የነበረውን መልዕክት ወደ ዋናው ዳሽቦርድ ይቀይረዋል
         bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text="👋 ሰላም ጌታዬ! ወደ አድሚን ዳሽቦርድ ተመልሰዋል።\nከታች ካሉት አማራጮች አንዱን ይምረጡ፦",
-            reply_markup=markup
+            "👋 ወደ አድሚን ዳሽቦርድ ተመልሰዋል።",
+            chat_id, call.message.message_id, reply_markup=markup
         )
-        # በተኑ ሲነካ የሚመጣውን 'Loading' ምልክት ያጠፋል
-        bot.answer_callback_query(call.id)
-        
-    except Exception as e:
-        print(f"Back to Admin Error: {e}")
-        bot.answer_callback_query(call.id, "❌ ወደ ዋናው ገጽ መመለስ አልተቻለም።")
+    # ቬንደር ከሆነ ወደ ቬንደር ዳሽቦርድ
+    elif str(user_id) in load_data().get('vendors_list', {}):
+        text, markup = get_vendor_dashboard_elements(user_id)
+        bot.edit_message_text(text, chat_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    # ካልሆነ ወደ ደንበኛ ሜኑ
+    else:
+        bot.edit_message_text("ወደ ዋናው ሜኑ ተመልሰዋል", chat_id, call.message.message_id, reply_markup=customer_main_menu())
+    
+    bot.answer_callback_query(call.id)
 
 
 
