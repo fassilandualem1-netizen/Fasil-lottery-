@@ -1501,13 +1501,18 @@ item_creation_data = {}
 @bot.callback_query_handler(func=lambda call: call.data == "vendor_add_item")
 def start_adding_item(call):
     v_id = str(call.from_user.id)
+    chat_id = call.message.chat.id
+    
+    # 🛡️ 1. ማንኛውንም የቆየ ፕሮሰስ አጽዳ
+    bot.clear_step_handler_by_chat_id(chat_id=chat_id)
+    
     item_creation_data[v_id] = {'photo': 'no_image', 'name': '', 'price': ''}
     
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("⏩ ያለ ፎቶ እለፍ", callback_data="skip_photo_upload"))
     
     msg = bot.send_message(
-        call.message.chat.id, 
+        chat_id, 
         "<b>ደረጃ 1/3: 📸 የእቃውን ፎቶ ይላኩ</b>\n\n"
         "ፎቶ ከሌለዎት 'ያለ ፎቶ እለፍ' የሚለውን ይጫኑ።",
         reply_markup=markup,
@@ -1515,10 +1520,13 @@ def start_adding_item(call):
     )
     bot.register_next_step_handler(msg, get_item_photo)
 
-# --- 2. ፎቶ መቀበያ ወይም መዝለያ ---
+# --- 2. ፎቶ መቀበያ ---
 def get_item_photo(message):
     v_id = str(message.from_user.id)
     if v_id not in item_creation_data: return
+
+    # 🛡️ 2. እዚህም አጽዳ
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
 
     if message.content_type == 'photo':
         item_creation_data[v_id]['photo'] = message.photo[-1].file_id
@@ -1526,28 +1534,43 @@ def get_item_photo(message):
     msg = bot.send_message(message.chat.id, "<b>ደረጃ 2/3: 📝 የእቃውን ስም ይጻፉ</b>", parse_mode="HTML")
     bot.register_next_step_handler(msg, get_item_name)
 
+# --- 3. ፎቶ መዝለያ (በተኑ ሲነካ) ---
 @bot.callback_query_handler(func=lambda call: call.data == "skip_photo_upload")
 def skip_photo_handler(call):
     v_id = str(call.from_user.id)
-    item_creation_data[v_id]['photo'] = "no_image"
-    bot.delete_message(call.message.chat.id, call.message.message_id)
+    chat_id = call.message.chat.id
     
-    msg = bot.send_message(call.message.chat.id, "<b>ደረጃ 2/3: 📝 የእቃውን ስም ይጻፉ</b>", parse_mode="HTML")
+    # 🛡️ 3. ፎቶ እንዲላክ ይጠብቅ የነበረውን ፕሮሰስ በግዴታ አጽዳ (ዋናው መፍትሄ!)
+    bot.clear_step_handler_by_chat_id(chat_id=chat_id)
+    
+    if v_id not in item_creation_data:
+        item_creation_data[v_id] = {'photo': 'no_image', 'name': '', 'price': ''}
+        
+    item_creation_data[v_id]['photo'] = "no_image"
+    bot.delete_message(chat_id, call.message.message_id)
+    
+    msg = bot.send_message(chat_id, "<b>ደረጃ 2/3: 📝 የእቃውን ስም ይጻፉ</b>", parse_mode="HTML")
     bot.register_next_step_handler(msg, get_item_name)
 
-# --- 3. ስም መቀበያ ---
+# --- 4. ስም መቀበያ ---
 def get_item_name(message):
     v_id = str(message.from_user.id)
     if v_id not in item_creation_data: return
+
+    # 🛡️ 4. አጽዳ
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
 
     item_creation_data[v_id]['name'] = message.text
     msg = bot.send_message(message.chat.id, "<b>ደረጃ 3/3: 💰 የእቃውን ዋጋ ያስገቡ (በቁጥር ብቻ)</b>", parse_mode="HTML")
     bot.register_next_step_handler(msg, get_item_price)
 
-# --- 4. ዋጋ መቀበያ እና ማጠቃለያ ---
+# --- 5. ዋጋ መቀበያ ---
 def get_item_price(message):
     v_id = str(message.from_user.id)
     if v_id not in item_creation_data: return
+
+    # 🛡️ 5. አጽዳ
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
 
     if not message.text.isdigit():
         msg = bot.send_message(message.chat.id, "❌ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ (ለምሳሌ 150)፦")
@@ -1572,6 +1595,11 @@ def get_item_price(message):
         bot.send_photo(message.chat.id, item['photo'], caption=summary, reply_markup=markup, parse_mode="Markdown")
     else:
         bot.send_message(message.chat.id, summary, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+
 
 # --- 5. መጨረሻ ላይ ዳታቤዝ ውስጥ ሴቭ ማድረጊያ ---
 @bot.callback_query_handler(func=lambda call: call.data == "confirm_final_save")
