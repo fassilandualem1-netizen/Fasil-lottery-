@@ -38,7 +38,6 @@ import time
 db_lock = threading.Lock()
 
 def load_data():
-    """ከ Redis ዳታውን ይጭናል፣ ከሌለ መሠረታዊ መዋቅር ይፈጥራል"""
     default_db = {
         "riders_list": {},     
         "vendors_list": {}, 
@@ -47,7 +46,7 @@ def load_data():
         "categories": [],      
         "total_profit": 0,     
         "user_list": [],       
-        "stats": {  # ለሪፖርት እና ለትርፍ ክትትል አዲስ የታከለ
+        "stats": {
             "total_vendor_comm": 0.0,
             "total_rider_comm": 0.0,
             "total_customer_comm": 0.0,
@@ -55,10 +54,14 @@ def load_data():
         },
         "settings": {
             "vendor_commission_p": 5,    
-            "rider_commission_fixed": 5, # ለራይደር የሚታሰብ ቋሚ ትርፍ
-            "service_fee": 8,            # ከደንበኛው የሚወሰድ ሰርቪስ ፊ
+            "rider_commission_fixed": 5,
+            "service_fee": 8,
             "rider_fixed_fee": 30,       
             "base_delivery": 50,
+            "rain_mode": False,   # ✅ አዲስ የታከለ
+            "rain_val": 25,       # ✅ አዲስ የታከለ
+            "night_mode": False,  # ✅ አዲስ የታከለ
+            "night_val": 15,      # ✅ አዲስ የታከለ
             "system_locked": False 
         }
     }
@@ -1847,44 +1850,46 @@ def process_balance_update(message):
 @bot.callback_query_handler(func=lambda call: call.data == "admin_delivery_mgmt")
 def admin_delivery_mgmt_page(call):
     try:
-        # ዳታቤዙን መጫን
         db = load_data()
         s = db.get('settings', {})
         
-        # የዋጋ መረጃዎችን ከዳታቤዝ ማውጣት (ከሌሉ Default ዋጋ መጠቀም)
-        base = s.get('base_delivery', 30)
+        # ዳታው ከሌለ default ዋጋ እንዲወስድ (ስህተት እንዳይፈጥር)
+        base = s.get('base_delivery', 50)
         rain_v = s.get('rain_val', 25)
         night_v = s.get('night_val', 15)
         
-        # የ On/Off ሁኔታን በኢሞጂ ማሳየት
-        r_status = "🟢 በርቷል" if s.get('rain_mode') else "🔴 ጠፍቷል"
-        n_status = "🟢 በርቷል" if s.get('night_mode') else "🔴 ጠፍቷል"
+        # የ On/Off ሁኔታ (ከሌለ False እንዲሆን)
+        r_status = "🟢 በርቷል" if s.get('rain_mode', False) else "🔴 ጠፍቷል"
+        n_status = "🟢 በርቷል" if s.get('night_mode', False) else "🔴 ጠፍቷል"
 
         text = (
             "🚚 **የማጓጓዣ ዋጋ መቆጣጠሪያ**\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             f"💰 መነሻ ዋጋ፦ `{base} ETB`\n"
-            f"🌧️ የዝናብ ሁኔታ፦ `{r_status}` ({rain_v} ETB)\n"
-            f"🌙 የምሽት ሁኔታ፦ `{n_status}` ({night_v} ETB)\n"
+            f"🌧️ የዝናብ ሁኔታ፦ {r_status} (+{rain_v} ETB)\n"
+            f"🌙 የምሽት ሁኔታ፦ {n_status} (+{night_v} ETB)\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
-            "👇 ዋጋ ለመቀየር ወይም On/Off ለማድረግ በተኖቹን ይጠቀሙ፦"
+            "👇 ዋጋ ለመቀየር ወይም ሁኔታውን ለመቀየር ይጠቀሙ፦"
         )
 
-        # የቅድሙን የገጽ ማርካፕ መጥራት
-        markup = get_admin_settings_markup() 
-        
-        bot.edit_message_text(
-            text, 
-            call.message.chat.id, 
-            call.message.message_id, 
-            reply_markup=markup, 
-            parse_mode="Markdown"
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        markup.add(types.InlineKeyboardButton("💰 መነሻ ዋጋ ቀይር", callback_data="edit_val_base_delivery"))
+        markup.add(
+            types.InlineKeyboardButton("🌧️ ዝናብ On/Off", callback_data="toggle_rain"),
+            types.InlineKeyboardButton("🌧️ የዝናብ ዋጋ", callback_data="edit_val_rain_val")
         )
+        markup.add(
+            types.InlineKeyboardButton("🌙 ምሽት On/Off", callback_data="toggle_night"),
+            types.InlineKeyboardButton("🌙 የምሽት ዋጋ", callback_data="edit_val_night_val")
+        )
+        markup.add(types.InlineKeyboardButton("🏠 ወደ ዳሽቦርድ", callback_data="admin_main_menu"))
+
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
         bot.answer_callback_query(call.id)
         
     except Exception as e:
-        print(f"Error in delivery mgmt: {e}")
-        bot.answer_callback_query(call.id, "❌ ስህተት ተፈጥሯል!")
+        print(f"Delivery Mgmt Error: {e}")
+        bot.answer_callback_query(call.id, "❌ በዳታቤዝ ስህተት ምክንያት መክፈት አልተቻለም።")
 
 
 
