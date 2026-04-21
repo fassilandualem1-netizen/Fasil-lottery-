@@ -1470,50 +1470,169 @@ def shop_now_handler(message):
 
 
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('v_cat_'))
-def view_category_items(call):
+import time
+
+@bot.message_handler(func=lambda message: message.text == "📋 ትዕዛዞቼ")
+def view_my_orders(message):
     try:
-        # 1. ዳታውን መበለት (v_cat_VENDORID_CATEGORYNAME)
-        data_parts = call.data.split('_')
-        vendor_id = data_parts
-        cat_name = data_parts
+        db = load_data()
+        user_id = str(message.from_user.id)
+        orders = db.get('orders', {})
         
+        # የዚህን ደንበኛ ትዕዛዞች ብቻ መለየት
+        my_orders = [ord for ord in orders.values() if ord['customer']['id'] == user_id]
+        
+        if not my_orders:
+            return bot.send_message(message.chat.id, "😔 እስካሁን ምንም ያዘዙት ትዕዛዝ የለም።")
+
+        # ትዕዛዞቹን በጊዜ (አዲስ ከላይ) መደርደር
+        my_orders = sorted(my_orders, key=lambda x: x['order_id'], reverse=True)
+
+        for ord in my_orders[:5]: # የመጨረሻዎቹን 5 ብቻ እናሳይ
+            order_id = ord['order_id']
+            status = ord.get('status', 'Pending')
+            total = ord.get('total_price', 0)
+            
+            # የጊዜ ስሌት (ለ 2 ደቂቃ ስረዛ)
+            # order_id ውስጥ timestamp ካለ (ለምሳሌ BDF-1713500000)
+            created_time = int(order_id.split('-'))
+            current_time = int(time.time())
+            time_passed = (current_time - created_time) / 60 # በደቂቃ
+            
+            status_text = {
+                "Pending": "⏳ በጥበቃ ላይ",
+                "Accepted": "✅ ራይደር ተቀብሎታል",
+                "Picked": "🥡 ራይደሩ እቃውን ተረክቧል",
+                "Delivered": "🏁 ደርሷል",
+                "Cancelled": "❌ ተሰርዟል"
+            }.get(status, status)
+
+            text = (
+                f"🆔 **ትዕዛዝ ቁጥር፦** `{order_id}`\n"
+                f"📊 **ሁኔታ፦** {status_text}\n"
+                f"💰 **ጠቅላላ ሂሳብ፦** {total:,.2f} ETB\n"
+                f"📅 **ቀን፦** {ord.get('time')}\n"
+            )
+
+            markup = types.InlineKeyboardMarkup()
+            
+            # 📌 የ 2 ደቂቃ ስረዛ ሎጂክ
+            if status == "Pending" and time_passed <= 2:
+                markup.add(types.InlineKeyboardButton("❌ ትዕዛዙን ሰርዝ (Cancel)", callback_data=f"cancel_order_{order_id}"))
+            
+            # ራይደር ከተመደበ ስልኩን ማሳየት
+            if status == "Accepted" and 'rider_phone' in ord:
+                markup.add(types.InlineKeyboardButton(f"📞 ለራይደሩ ደውል", url=f"tel:{ord['rider_phone']}"))
+
+            bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+
+    except Exception as e:
+        print(f"❌ View Orders Error: {e}")
+        bot.send_message(message.chat.id, "⚠️ ትዕዛዞችን በማምጣት ላይ ስህተት ተፈጥሯል።")
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('cancel_order_'))
+def cancel_order_handler(call):
+    try:
+        order_id = call.data.replace('cancel_order_', '')
+        db = load_data()
+        order = db.get('orders', {}).get(order_id)
+
+        if not order:
+            return bot.answer_callback_query(call.id, "❌ ይቅርታ፣ ይህ ትዕዛዝ አልተገኘም።")
+
+        # 1. የጊዜ ስሌት (2 ደቂቃ መሙላቱን ቼክ ማድረግ)
+        created_time = int(order_id.split('-'))
+        current_time = int(time.time())
+        time_passed = (current_time - created_time) / 60
+
+        # 2. የመሰረዝ መብት ቼክ (2 ደቂቃ ካለፈ ወይም ራይደር ከያዘው መሰረዝ አይቻልም)
+        if order.get('status') != "Pending":
+            return bot.answer_callback_query(call.id, "❌ ይቅርታ፣ ትዕዛዙ በሂደት ላይ ስለሆነ መሰረዝ አይቻልም።", show_alert=True)
+        
+        if time_passed > 2:
+            return bot.answer_callback_query(call.id, "❌ ይቅርታ፣ የ 2 ደቂቃ የማስተካከያ ጊዜ አልፏል።", show_alert=True)
+
+        # 3. ትዕዛዙን በዳታቤዝ ውስጥ መሰረዝ (ወይም Status መቀየር)
+        # ለሪፖርት እንዲያገለግል ሙሉ በሙሉ ከማጥፋት Status መቀየር ይሻላል
+        order['status'] = "Cancelled"
+        db['orders'][order_id] = order
+        save_data(db)
+
+        # 4. ለደንበኛው ምላሽ መስጠት
+        bot.edit_message_text(
+            f"❌ **ትዕዛዝ ቁጥር {order_id} ተሰርዟል።**\nሌላ እቃ ማዘዝ ከፈለጉ '🛍️ እቃዎችን ግዛ' የሚለውን ይጠቀሙ።",
+            call.message.chat.id, call.message.message_id, parse_mode="Markdown"
+        )
+        bot.answer_callback_query(call.id, "ትዕዛዙ ተሰርዟል!")
+
+        # 5. ለአድሚን ማሳወቅ
+        admin_msg = f"⚠️ **ትዕዛዝ ተሰርዟል!**\n\n🆔 Order ID: `{order_id}`\n👤 ደንበኛ: {call.from_user.first_name}\nሁኔታ: ደንበኛው በራሱ ሰርዞታል።"
+        bot.send_message(ADMIN_GROUP_ID, admin_msg, parse_mode="Markdown")
+
+        # 6. ለቬንደሩ (ሱቁ) ማሳወቅ
+        vendor_id = order.get('vendor_id')
+        vendor_msg = f"🚫 **ትዕዛዝ ተሰርዟል!**\nትዕዛዝ ቁጥር `{order_id}` በደንበኛው ተሰርዟል። እባክዎ ዝግጅት አያድርጉ።"
+        bot.send_message(vendor_id, vendor_msg, parse_mode="Markdown")
+
+    except Exception as e:
+        print(f"❌ Cancel Order Error: {e}")
+        bot.answer_callback_query(call.id, "⚠️ ትዕዛዙን መሰረዝ አልተቻለም።")
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('v_view_'))
+def view_vendor_categories(call):
+    try:
+        # 1. የቬንደሩን ID መለየት
+        vendor_id = call.data.replace('v_view_', '')
         db = load_data()
         user_id_str = str(call.from_user.id)
-        vendor = db.get('vendors_list', {}).get(vendor_id, {})
-        all_items = vendor.get('items', {})
 
-        # 2. በካርት ውስጥ ያለውን ዳታ ቼክ ማድረግ (ለቁጥሩ ማሳያ)
-        # በዳታቤዝህ 'carts' ውስጥ መኖሩን እናረጋግጣለን
-        user_cart = db.get('carts', {}).get(user_id_str, {})
+        # 2. የቬንደሩን መረጃ ማግኘት
+        vendor = db.get('vendors_list', {}).get(vendor_id)
+        if not vendor:
+            return bot.answer_callback_query(call.id, "❌ ድርጅቱ አልተገኘም!")
 
-        # 3. የተመረጠው ካቴጎሪ ውስጥ ያሉ እቃዎችን ብቻ መለየት
-        items_in_cat = {k: v for k, v in all_items.items() if v.get('category') == cat_name}
-
-        if not items_in_cat:
-            return bot.answer_callback_query(call.id, "😔 በዚህ ምድብ ስር ምንም እቃዎች የሉም።")
-
-        markup = types.InlineKeyboardMarkup(row_width=1)
-        text = f"📂 **ምድብ፦ {cat_name}**\nሱቅ፦ {vendor.get('name')}\n\n"
-
-        for item_id, item_info in items_in_cat.items():
-            name = item_info.get('name')
-            price = item_info.get('price', 0)
-            qty = user_cart.get(item_id, 0) # በካርት ውስጥ ያለ ብዛት
-
-            text += f"🔹 **{name}** — `{price:,.2f} ETB`\n"
-
-            # [ - ] [ ቁጥር ] [ + ] በተኖችን መፍጠር
-            # callback_data አወቃቀር፦ cart_ACTION_VENDORID_CAT_ITEMID
-            btn_minus = types.InlineKeyboardButton("➖", callback_data=f"cart_minus_{vendor_id}_{cat_name}_{item_id}")
-            btn_qty = types.InlineKeyboardButton(f"{qty}", callback_data="no_action")
-            btn_plus = types.InlineKeyboardButton("➕", callback_data=f"cart_plus_{vendor_id}_{cat_name}_{item_id}")
+        # 🔥 [አዲስ የታከለ] የሌላ ሱቅ እቃ ካርቱ ውስጥ ካለ የማጽጃ ሎጂክ
+        if 'carts' in db and user_id_str in db['carts']:
+            existing_cart = db['carts'][user_id_str]
+            vendor_items = vendor.get('items', {})
             
-            markup.row(btn_minus, btn_qty, btn_plus)
+            for item_id in list(existing_cart.keys()):
+                # በካርቱ ውስጥ ያለ እቃ አሁን ከተመረጠው ሱቅ እቃዎች ውስጥ ከሌለ
+                if item_id not in vendor_items:
+                    del db['carts'][user_id_str]
+                    save_data(db) # ለውጡን ሴቭ እናደርጋለን
+                    bot.answer_callback_query(call.id, "🔄 አዲስ ሱቅ ስለመረጡ ካርትዎ ታድሷል።")
+                    break
 
-        # 4. የታችኛው በተኖች (Check Out & Back)
-        markup.add(types.InlineKeyboardButton("🛒 ወደ ካርት ሂድ / ሂሳብ ክፈል", callback_data=f"view_cart_{vendor_id}"))
-        markup.add(types.InlineKeyboardButton("⬅️ ወደ ምድቦች ተመለስ", callback_data=f"v_view_{vendor_id}"))
+        v_name = vendor.get('name', 'ድርጅት')
+        items = vendor.get('items', {})
+
+        # 3. ምድቦችን (Categories) መለየት
+        categories = list(set([item.get('category', 'ሌሎች') for item in items.values()]))
+
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        if categories:
+            for cat in categories:
+                markup.add(types.InlineKeyboardButton(f"📂 {cat}", callback_data=f"v_cat_{vendor_id}_{cat}"))
+        else:
+            return bot.answer_callback_query(call.id, "😔 ለጊዜው በዚህ ሱቅ ውስጥ ምንም እቃዎች የሉም።")
+
+        # 4. መመለሻ በተን
+        markup.add(types.InlineKeyboardButton("⬅️ ወደ ሱቆች ዝርዝር ተመለስ", callback_data="back_to_shops"))
+
+        text = (
+            f"🏢 **ድርጅት፦ {v_name}**\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"እባክዎ መግዛት የሚፈልጉትን የምድብ አይነት ይምረጡ፦"
+        )
 
         bot.edit_message_text(
             text, 
@@ -1524,7 +1643,7 @@ def view_category_items(call):
         )
 
     except Exception as e:
-        print(f"❌ View Category Items Error: {e}")
+        print(f"❌ View Category Error: {e}")
         bot.answer_callback_query(call.id, "⚠️ ስህተት ተፈጥሯል!")
 
 
