@@ -796,19 +796,19 @@ def get_detailed_report(v_id, period="day"):
 def get_vendor_settings_markup(v_id):
     raw_data = redis.hget("vendors", str(v_id))
     if not raw_data:
-        return "❌ መረጃ አልተገኘም", None
-    
+        return "❌ የድርጅት መረጃ አልተገኘም", None
+
     vendor_db = json.loads(raw_data)
-    
-    # የሱቁን ሁኔታ መለየት
+
     is_open = vendor_db.get('is_open', True)
     status_text = "🟢 ክፍት (Open)" if is_open else "🔴 ዝግ (Closed)"
-    toggle_btn = "🔴 ሱቁን ዝጋ" if is_open else "🟢 ሱቁን ክፈት"
+    # በተኑንም ጭምር ቀይረነዋል
+    toggle_btn = "🔴 ድርጅቱን ዝጋ" if is_open else "🟢 ድርጅቱን ክፈት"
 
     text = (
         f"⚙️ **የመቆጣጠሪያ ገጽ**\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🏪 **የሱቅ ስም፦** {vendor_db.get('shop_name', 'ያልተገለጸ')}\n"
+        f"🏢 **የድርጅት ስም፦** {vendor_db.get('shop_name', 'ያልተገለጸ')}\n"
         f"📞 **ስልክ፦** {vendor_db.get('phone', 'ያልተገለጸ')}\n"
         f"📍 **አድራሻ፦** {vendor_db.get('location', 'ያልተገለጸ')}\n"
         f"📊 **ሁኔታ፦** {status_text}\n"
@@ -1128,8 +1128,10 @@ def get_vendor_dashboard_elements(v_id):
         f"👇 ስራ ለመጀመር ከታች ያሉትን በተኖች ይጠቀሙ፦"
     )
     
-    # በተኖቹን እዚህ ጋር ጨምር (Markup)
+    # 1. ማርካፕ መፍጠር
     markup = types.InlineKeyboardMarkup(row_width=2)
+    
+    # 2. በተኖችን መጨመር
     markup.add(
         types.InlineKeyboardButton("➕ እቃ ጨምር", callback_data="vendor_add_item"),
         types.InlineKeyboardButton("📦 የእኔ እቃዎች", callback_data="vendor_my_items")
@@ -1138,20 +1140,30 @@ def get_vendor_dashboard_elements(v_id):
         types.InlineKeyboardButton("📈 የሽያጭ ታሪክ", callback_data="vendor_sales_history"),
         types.InlineKeyboardButton("⚙️ መቆጣጠሪያ", callback_data="vendor_settings")
     )
-    markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="vendor_refresh"))
     
-# ይህንን በተን በሁሉም ዳሽቦርዶች መጨረሻ ላይ ጨምረው
-btn_back_to_main = types.InlineKeyboardButton("🏠 ወደ ዋናው ሜኑ", callback_data="go_to_main_start")
-markup.add(btn_back_to_main)
+    # 3. አድስ እና ወደ ዋና ሜኑ መመለሻ (መጨረሻ ላይ)
+    btn_refresh = types.InlineKeyboardButton("🔄 አድስ", callback_data="vendor_refresh")
+    btn_back_to_main = types.InlineKeyboardButton("🏠 ወደ ዋናው ሜኑ", callback_data="go_to_main_start")
+    
+    markup.add(btn_refresh, btn_back_to_main)
 
-# እና ይሄን handler ጨምር
+    # 4. ሁለቱንም መረጃዎች መመለስ
+    return summary_text, markup
+
+# --- ይህ ከፋንክሽኑ ውጭ መሆን አለበት ---
 @bot.callback_query_handler(func=lambda call: call.data == "go_to_main_start")
 def back_to_main_handler(call):
+    # ማንኛውንም የቆየ ፕሮሰስ ያጸዳል
     bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
-    # ዋናውን ሜኑ መልሰህ ላክ
-    bot.edit_message_text("ዋና ሜኑ", call.message.chat.id, call.message.message_id, reply_markup=main_menu_markup())
-
-    return summary_text, markup
+    
+    # ወደ ዋናው ሜኑ መመለስ (የ main_menu_markup ፋንክሽንህን እዚህ ይጠራዋል)
+    bot.edit_message_text(
+        "👋 ወደ ዋናው ሜኑ ተመልሰዋል።\nሚናዎን ይምረጡ፦", 
+        call.message.chat.id, 
+        call.message.message_id, 
+        reply_markup=main_menu_markup() # ዋናው ሜኑ መመለሻ ፋንክሽንህ
+    )
+    bot.answer_callback_query(call.id)
 
 
 
