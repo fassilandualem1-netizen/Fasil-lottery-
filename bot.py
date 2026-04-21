@@ -1815,6 +1815,52 @@ def process_balance_update(message):
 
 
 
+# --- የዴሊቨሪ መቆጣጠሪያ ገጽ ማሳያ ---
+@bot.callback_query_handler(func=lambda call: call.data == "admin_delivery_mgmt")
+def admin_delivery_mgmt_page(call):
+    try:
+        # ዳታቤዙን መጫን
+        db = load_data()
+        s = db.get('settings', {})
+        
+        # የዋጋ መረጃዎችን ከዳታቤዝ ማውጣት (ከሌሉ Default ዋጋ መጠቀም)
+        base = s.get('base_delivery', 30)
+        rain_v = s.get('rain_val', 25)
+        night_v = s.get('night_val', 15)
+        
+        # የ On/Off ሁኔታን በኢሞጂ ማሳየት
+        r_status = "🟢 በርቷል" if s.get('rain_mode') else "🔴 ጠፍቷል"
+        n_status = "🟢 በርቷል" if s.get('night_mode') else "🔴 ጠፍቷል"
+
+        text = (
+            "🚚 **የማጓጓዣ ዋጋ መቆጣጠሪያ**\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"💰 መነሻ ዋጋ፦ `{base} ETB`\n"
+            f"🌧️ የዝናብ ሁኔታ፦ `{r_status}` ({rain_v} ETB)\n"
+            f"🌙 የምሽት ሁኔታ፦ `{n_status}` ({night_v} ETB)\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "👇 ዋጋ ለመቀየር ወይም On/Off ለማድረግ በተኖቹን ይጠቀሙ፦"
+        )
+
+        # የቅድሙን የገጽ ማርካፕ መጥራት
+        markup = get_admin_settings_markup() 
+        
+        bot.edit_message_text(
+            text, 
+            call.message.chat.id, 
+            call.message.message_id, 
+            reply_markup=markup, 
+            parse_mode="Markdown"
+        )
+        bot.answer_callback_query(call.id)
+        
+    except Exception as e:
+        print(f"Error in delivery mgmt: {e}")
+        bot.answer_callback_query(call.id, "❌ ስህተት ተፈጥሯል!")
+
+
+
+
 
 
 
@@ -2396,7 +2442,7 @@ def show_enhanced_analytics(call):
 
 
 
-# 1. ዳግም ማስጀመሪያ መጀመሪያ - ማስጠንቀቂያ
+
 # 1. ዳግም ማስጀመሪያ መጀመሪያ - ማስጠንቀቂያ
 @bot.callback_query_handler(func=lambda call: call.data == "admin_system_reset")
 def confirm_reset_request(call):
