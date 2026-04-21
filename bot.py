@@ -985,6 +985,27 @@ def process_wallet_deduction(v_id, order_id):
 
 
 
+def calculate_dynamic_delivery_fee():
+    db = load_data()
+    s = db.get('settings', {})
+    
+    # ዳታቤዝ ውስጥ ካለ ያወጣዋል፣ ከሌለ መደበኛውን (30, 25, 15) ይወስዳል
+    base = float(s.get('base_delivery', 30))
+    rain_extra = float(s.get('rain_val', 25)) if s.get('rain_mode') else 0
+    night_extra = float(s.get('night_val', 15)) if s.get('night_mode') else 0
+    
+    total = base + rain_extra + night_extra
+    
+    # ለደንበኛው የሚታይ ዝርዝር
+    details = f"({base:.0f} መነሻ"
+    if rain_extra > 0: details += f" + 🌧️{rain_extra:.0f}"
+    if night_extra > 0: details += f" + 🌙{night_extra:.0f}"
+    details += ")"
+    
+    return total, details
+
+
+
 
 
 def check_admin(message):
@@ -1003,15 +1024,12 @@ def get_admin_dashboard(user_id):
         db = load_data()
         markup = types.InlineKeyboardMarkup(row_width=2)
 
-        # --- በተኖቹን መፍጠር ---
+        # --- 1. በተኖቹን መፍጠር ---
         btn_broadcast = types.InlineKeyboardButton("📢 ማስታወቂያ", callback_data="admin_broadcast")
         btn_fund = types.InlineKeyboardButton("💳 ብር መሙያ", callback_data="admin_add_funds")
         btn_balance = types.InlineKeyboardButton("📉 ክትትል", callback_data="admin_monitor_balance")
         btn_profit = types.InlineKeyboardButton("💰 ትርፍ", callback_data="admin_profit_track")
-        
-        # ስሙን እዚህ አስተካክለነዋል (ከታች ከምንጨምረው ጋር አንድ እንዲሆን)
         btn_system_reset = types.InlineKeyboardButton("🗑 Reset System", callback_data="admin_system_reset")
-
         btn_live_orders = types.InlineKeyboardButton("📋 ቀጥታ ትዕዛዝ", callback_data="admin_live_orders")
         btn_add_vendor = types.InlineKeyboardButton("➕ አዲስ ድርጅት", callback_data="admin_add_vendor")
         btn_add_rider = types.InlineKeyboardButton("➕ አዲስ driver", callback_data="admin_add_rider")
@@ -1020,26 +1038,53 @@ def get_admin_dashboard(user_id):
         btn_add_cats = types.InlineKeyboardButton("➕ አዲስ ምድብ", callback_data="admin_manage_cats")
         btn_riders = types.InlineKeyboardButton("🛵 driver", callback_data="admin_rider_status")
         btn_set_commission = types.InlineKeyboardButton("⚙️ ኮሚሽን", callback_data="admin_set_commission")
+        btn_delivery_settings = types.InlineKeyboardButton("🚚 ዴሊቨሪ ዋጋ/ሁኔታ", callback_data="admin_delivery_mgmt")
         btn_block = types.InlineKeyboardButton("🚫 አግድ/ፍቀድ", callback_data="admin_block_manager")
         btn_lock = types.InlineKeyboardButton("🔒 ሲስተም ዝጋ", callback_data="admin_system_lock")
         btn_stats = types.InlineKeyboardButton("📈 ሪፖርት", callback_data="admin_full_stats")
+        
+        # --- 2. ወደ ዋናው ሜኑ መመለሻ በተን ---
+        btn_back_to_main = types.InlineKeyboardButton("🏠 ወደ ዋናው ሜኑ", callback_data="go_to_main_start")
 
-        # --- ወደ Markup መጨመር ---
+        # --- 3. ወደ Markup መጨመር (በተዋረድ) ---
         markup.add(btn_broadcast)
         markup.add(btn_fund, btn_balance)
-        markup.add(btn_profit, btn_system_reset) # እዚህ ጋር ስሙ ተስተካክሏል
+        markup.add(btn_profit, btn_system_reset)
         markup.add(btn_live_orders)
+        
+        # የዴሊቨሪ መቆጣጠሪያው
+        markup.add(btn_delivery_settings) 
+        
         markup.add(btn_view_cats, btn_add_cats) 
         markup.add(btn_stats) 
         markup.add(btn_add_vendor, btn_add_rider)
         markup.add(btn_vendors, btn_riders)
         markup.add(btn_set_commission, btn_block)
         markup.add(btn_lock)
+        
+        # መመለሻው ሁልጊዜ መጨረሻ ላይ እንዲሆን
+        markup.add(btn_back_to_main)
 
         return markup
+
     except Exception as e:
         print(f"Error building dashboard: {e}")
         return None
+
+# --- መመለሻ Handler ---
+@bot.callback_query_handler(func=lambda call: call.data == "go_to_main_start")
+def back_to_main_handler(call):
+    # ማንኛውንም የቆየ የጥያቄ ሂደት ያጸዳል (ለምሳሌ ስም ወይም ቁጥር እየጠበቀ ከሆነ)
+    bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
+    
+    # ዋናውን ሜኑ መልሰህ ላክ (ይህ ፋንክሽን መኖሩን አረጋግጥ)
+    bot.edit_message_text(
+        "👋 ወደ ዋናው ሜኑ ተመልሰዋል።\nሚናዎን ይምረጡ፦", 
+        call.message.chat.id, 
+        call.message.message_id, 
+        reply_markup=main_menu_markup() # ዋናው ሜኑህን የሚመልስ ፋንክሽን
+    )
+
 
 
 
@@ -1095,7 +1140,21 @@ def get_vendor_dashboard_elements(v_id):
     )
     markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="vendor_refresh"))
     
+# ይህንን በተን በሁሉም ዳሽቦርዶች መጨረሻ ላይ ጨምረው
+btn_back_to_main = types.InlineKeyboardButton("🏠 ወደ ዋናው ሜኑ", callback_data="go_to_main_start")
+markup.add(btn_back_to_main)
+
+# እና ይሄን handler ጨምር
+@bot.callback_query_handler(func=lambda call: call.data == "go_to_main_start")
+def back_to_main_handler(call):
+    bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
+    # ዋናውን ሜኑ መልሰህ ላክ
+    bot.edit_message_text("ዋና ሜኑ", call.message.chat.id, call.message.message_id, reply_markup=main_menu_markup())
+
     return summary_text, markup
+
+
+
 
 
 
@@ -2379,6 +2438,28 @@ def perform_database_reset(message):
     else:
         bot.send_message(message.chat.id, "❌ የተሳሳተ ሚስጥራዊ ቁልፍ! ማጽዳቱ ተሰርዟል።")
 
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("edit_val_"))
+def ask_new_value(call):
+    field = call.data.replace("edit_val_", "")
+    msg = bot.send_message(call.message.chat.id, f"🔢 አዲሱን የ `{field}` ዋጋ በቁጥር ብቻ ያስገቡ፦")
+    bot.register_next_step_handler(msg, save_new_setting_value, field)
+
+def save_new_setting_value(message, field):
+    if not message.text.isdigit():
+        bot.send_message(message.chat.id, "❌ ስህተት፦ እባክዎ ቁጥር ብቻ ያስገቡ!")
+        return
+
+    db = load_data()
+    if 'settings' not in db: db['settings'] = {}
+    
+    db['settings'][field] = int(message.text)
+    save_data(db)
+    
+    bot.send_message(message.chat.id, f"✅ `{field}` ወደ {message.text} ብር ተቀይሯል!", 
+                     reply_markup=get_admin_settings_markup())
 
 
 
