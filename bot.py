@@ -256,6 +256,55 @@ def vendor_accept_order(call):
 
 
 
+def calculate_special_final(message, order_id):
+    try:
+        item_price = float(message.text) # ድርጅቱ የጻፈው የእቃ ዋጋ
+        db = load_data()
+        order = db['orders'].get(order_id)
+        
+        vendor = db['vendors_list'].get(order['vendor_id'])
+        user_data = db['users'].get(order['customer_id'])
+        
+        # 1. የርቀት ስሌት (KM Logic)
+        dist = calculate_distance(user_data['lat'], user_data['lon'], vendor['lat'], vendor['lon'])
+        delivery_fee = dist * 20 # በኪሎሜትር 20 ብር ብንል
+        
+        # 2. የሰዓት እና ዝናብ ክፍያ (Background ስሌት)
+        rain_bonus = 50 if db.get('settings', {}).get('is_raining') else 0
+        rush_hour_fee = 30 if db.get('settings', {}).get('is_rush_hour') else 0
+        
+        # 3. ኮሚሽን (10%)
+        commission = item_price * 0.10
+        
+        grand_total = item_price + delivery_fee + rain_bonus + rush_hour_fee + commission
+        
+        # ዳታውን አፕዴት ማድረግ
+        order['item_price'] = item_price
+        order['delivery_fee'] = delivery_fee + rain_bonus + rush_hour_fee
+        order['grand_total'] = grand_total
+        save_data(db)
+
+        # ለደንበኛው ማረጋገጫ መላክ
+        checkout_text = (
+            f"✅ **የልዩ ትዕዛዝ ዋጋ ተቆርጧል!**\n\n"
+            f"🛒 የእቃ ዋጋ፦ `{item_price:,.2f} ETB`\n"
+            f"🛵 የዴሊቨሪ ክፍያ፦ `{order['delivery_fee']:,.2f} ETB`\n"
+            f"🏢 የአገልግሎት ክፍያ፦ `{commission:,.2f} ETB`\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"💰 **ጠቅላላ ድምር፦ `{grand_total:,.2f} ETB`**\n\n"
+            f"ትዕዛዝዎን ማረጋገጥ ይፈልጋሉ?"
+        )
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("✅ ትዕዛዙን አረጋግጥ", callback_data=f"confirm_order_{order['vendor_id']}"))
+        
+        bot.send_message(order['customer_id'], checkout_text, reply_markup=markup, parse_mode="Markdown")
+        
+    except ValueError:
+        bot.send_message(message.chat.id, "❌ እባክዎ በትክክል ቁጥር ብቻ ያስገቡ!")
+
+
+
+
 def get_location_keyboard():
     markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
     button = types.KeyboardButton("📍 የድርጅትዎን መገኛ (Location) እዚህ ተጭነው ይላኩ", request_location=True)
@@ -1207,21 +1256,29 @@ def get_vendor_dashboard_elements(v_id):
 
 
 
-def customer_main_menu():
-    # resize_keyboard=True በተኖቹ በስልኩ መጠን ልክ እንዲሆኑ ያደርጋል
+def customer_main_menu(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     
-    # ዋና ዋና በተኖች
+    # ዋና ዋና የንግድ ስራዎች
     btn_shop = types.KeyboardButton("🛍️ እቃዎችን ግዛ")
+    btn_special = types.KeyboardButton("✍️ ልዩ ትዕዛዝ")
+    
+    # የክትትልና መረጃ መቀየሪያዎች
     btn_orders = types.KeyboardButton("📋 ትዕዛዞቼ")
-    btn_custom = types.KeyboardButton("✍️ ልዩ ትዕዛዝ")
-    btn_help = types.KeyboardButton("ℹ️ እርዳታና መረጃ")
+    btn_location = types.KeyboardButton("📍 አድራሻዬን ቀይር")
+    btn_phone = types.KeyboardButton("📞 ስልክ ቀይር")
+    btn_help = types.KeyboardButton("❓ እርዳታ")
     
-    # በተኖቹን መጨመር
-    markup.add(btn_shop, btn_orders)
-    markup.add(btn_custom, btn_help)
+    markup.add(btn_shop, btn_special)
+    markup.add(btn_orders, btn_location)
+    markup.add(btn_phone, btn_help)
     
-    return markup
+    bot.send_message(
+        message.chat.id, 
+        f"ሰላም {message.from_user.first_name} 👋! እንኳን ወደ **BDF Delivery** በደህና መጡ።\nዛሬ ምን ማዘዝ ይፈልጋሉ?", 
+        reply_markup=markup, 
+        parse_mode="Markdown"
+    )
 
 
 
@@ -1531,6 +1588,147 @@ def view_my_orders(message):
         bot.send_message(message.chat.id, "⚠️ ትዕዛዞችን በማምጣት ላይ ስህተት ተፈጥሯል።")
 
 
+
+
+@bot.message_handler(func=lambda message: message.text == "✍️ ልዩ ትዕዛዝ")
+def special_order_vendor_list(message):
+    try:
+        db = load_data()
+        vendors = db.get('vendors_list', {})
+        
+        if not vendors:
+            return bot.send_message(message.chat.id, "😔 በአሁኑ ሰዓት ምንም የተመዘገቡ ድርጅቶች የሉም።")
+
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        
+        # ሁሉንም ድርጅቶች በዝርዝር ማቅረብ
+        for v_id, v_info in vendors.items():
+            # በተኑ ላይ የድርጅቱን ስም ብቻ እናሳያለን
+            btn_text = f"🏢 {v_info['name']}"
+            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"spec_vendor_{v_id}"))
+
+        # መመለሻ በተን
+        markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data="go_to_main_start"))
+
+        bot.send_message(
+            message.chat.id, 
+            "✍️ **ልዩ ትዕዛዝ**\n\nየትኛው ድርጅት እንዲያገለግልዎት ይፈልጋሉ? እባክዎ ከታች ካሉት ድርጅቶች አንዱን ይምረጡ፦", 
+            reply_markup=markup, 
+            parse_mode="Markdown"
+        )
+
+    except Exception as e:
+        print(f"❌ Special Order Vendor List Error: {e}")
+        bot.send_message(message.chat.id, "⚠️ ይቅርታ፣ ድርጅቶችን በመጫን ላይ ስህተት ተፈጥሯል።")
+
+
+
+
+
+@bot.message_handler(func=lambda message: message.text == "📞 ስልክ ቀይር")
+def update_phone_start(message):
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+    btn = types.KeyboardButton("📲 አዲሱን ስልክ ቁጥሬን ላክ", request_contact=True)
+    markup.add(btn)
+    bot.send_message(message.chat.id, "እባክዎ አዲሱን ስልክ ቁጥርዎን ለመላክ ከታች ያለውን በተን ይጫኑ፦", reply_markup=markup)
+
+
+
+
+
+@bot.message_handler(func=lambda message: message.text == "📍 አድራሻዬን ቀይር")
+def update_location_start(message):
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+    btn = types.KeyboardButton("📍 አሁኑኑ ያለሁበትን ሎኬሽን ላክ", request_location=True)
+    markup.add(btn)
+    bot.send_message(message.chat.id, "እባክዎ አዲሱን አድራሻዎን ለመላክ ከታች ያለውን በተን ይጫኑ፦", reply_markup=markup)
+
+
+
+
+
+# --- 1. ደንበኛው እርዳታ ሲጫን ---
+@bot.message_handler(func=lambda message: message.text == "❓ እርዳታ")
+def help_request_start(message):
+    help_text = (
+        "👋 **የእርዳታ ማእከል**\n\n"
+        "እባክዎ የገጠመዎትን ችግር፣ ቅሬታ ወይም አስተያየት እዚህ ይጻፉልን። "
+        "አድሚን መረጃውን አይቶ በአፋጣኝ ያነጋግርዎታል።"
+    )
+    msg = bot.send_message(message.chat.id, help_text, parse_mode="Markdown")
+    # ደንበኛው የሚጽፈውን መልዕክት ለመቀበል ወደ ቀጣዩ ፋንክሽን መምራት
+    bot.register_next_step_handler(msg, process_help_message)
+
+# --- 2. የደንበኛውን መልዕክት ተቀብሎ ለአድሚን መላክ ---
+def process_help_message(message):
+    # ደንበኛው በስህተት ሜኑ ውስጥ ያሉ በተኖችን ቢጫን ሎጂኩ እንዲቆም
+    if message.text in ["🛍️ እቃዎችን ግዛ", "📋 ትዕዛዞቼ", "✍️ ልዩ ትዕዛዝ"]:
+        return
+
+    user_id = str(message.from_user.id)
+    user_msg = message.text
+    db = load_data()
+    
+    # የደንበኛውን ስልክ ከዳታቤዝ ማውጣት
+    user_data = db.get('users', {}).get(user_id, {})
+    phone = user_data.get('phone', "ያልተመዘገበ")
+    
+    # ለአድሚን የሚላክ የተሟላ መረጃ
+    admin_alert = (
+        f"🚨 **አዲስ የቅሬታ/እርዳታ መልዕክት!**\n\n"
+        f"👤 **ስም፦** {message.from_user.first_name}\n"
+        f"📞 **ስልክ፦** `{phone}`\n"
+        f"🆔 **User ID፦** `{user_id}`\n\n"
+        f"💬 **መልዕክት፦**\n_{user_msg}_"
+    )
+    
+    try:
+        # ለአድሚን ግሩፕ መላክ
+        bot.send_message(ADMIN_GROUP_ID, admin_alert, parse_mode="Markdown")
+        
+        # ለደንበኛው ማረጋገጫ መስጠት
+        bot.send_message(
+            message.chat.id, 
+            "✅ መልዕክትዎ ለአድሚን ደርሷል። ስለ ትዕግስትዎ እናመሰግናለን!"
+        )
+    except Exception as e:
+        print(f"Error sending help to admin: {e}")
+        bot.send_message(message.chat.id, "⚠️ ይቅርታ፣ መልዕክቱን መላክ አልተቻለም። እባክዎ በስልክ ይሞክሩ።")
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('spec_vendor_'))
+def special_order_text_get(call):
+    vendor_id = call.data.replace('spec_vendor_', '')
+    msg = bot.send_message(call.message.chat.id, "📝 እባክዎ የሚፈልጉትን ልዩ ትዕዛዝ ዝርዝር እዚህ ይጻፉልን...")
+    bot.register_next_step_handler(msg, lambda m: send_to_vendor_special(m, vendor_id))
+
+def send_to_vendor_special(message, vendor_id):
+    db = load_data()
+    order_id = f"SPEC-{int(time.time())}"
+    
+    # ትዕዛዙን መመዝገብ
+    db['orders'][order_id] = {
+        "order_id": order_id,
+        "customer_id": str(message.from_user.id),
+        "vendor_id": vendor_id,
+        "details": message.text,
+        "status": "Awaiting Vendor Price",
+        "time": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+    save_data(db)
+
+    # ለድርጅቱ (Vendor) መላክ
+    vendor_msg = (
+        f"🚨 **ልዩ ትዕዛዝ ደርሶዎታል!**\n\n"
+        f"📝 ዝርዝር: {message.text}\n\n"
+        f"እባክዎ እቃው ስንት ብር እንደሚሆን ዋጋውን ብቻ ይጻፉ፦"
+    )
+    msg = bot.send_message(vendor_id, vendor_msg)
+    # ድርጅቱ ዋጋ እንዲጽፍ መጠበቅ
+    bot.register_next_step_handler(msg, lambda m: calculate_special_final(m, order_id))
 
 
 
