@@ -1178,6 +1178,27 @@ def get_vendor_dashboard_elements(v_id):
 
 
 
+
+def customer_main_menu():
+    # resize_keyboard=True በተኖቹ በስልኩ መጠን ልክ እንዲሆኑ ያደርጋል
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    
+    # ዋና ዋና በተኖች
+    btn_shop = types.KeyboardButton("🛍️ እቃዎችን ግዛ")
+    btn_orders = types.KeyboardButton("📋 ትዕዛዞቼ")
+    btn_custom = types.KeyboardButton("✍️ ልዩ ትዕዛዝ")
+    btn_help = types.KeyboardButton("ℹ️ እርዳታና መረጃ")
+    
+    # በተኖቹን መጨመር
+    markup.add(btn_shop, btn_orders)
+    markup.add(btn_custom, btn_help)
+    
+    return markup
+
+
+
+
+
 # --- ይህ ከፋንክሽኑ ውጭ መሆን አለበት ---
 @bot.callback_query_handler(func=lambda call: call.data == "go_to_main_start")
 def back_to_main_handler(call):
