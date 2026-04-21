@@ -191,6 +191,27 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 
 
 
+
+
+import math
+from telebot import types
+
+# 📏 1. ርቀት መለኪያ ሎጂክ (በኪሎ ሜትር)
+def calculate_distance(lat1, lon1, lat2, lon2):
+    try:
+        if None in [lat1, lon1, lat2, lon2]: return -1
+        R = 6371 # የምድር ራዲየስ
+        dlat = math.radians(float(lat2) - float(lat1))
+        dlon = math.radians(float(lon2) - float(lon1))
+        a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        # 30% ለመንገድ መጨመር (ያንተ ሎጂክ)
+        return round((R * c) * 1.3, 2)
+    except:
+        return -1
+
+
+
 def notify_vendor_new_order(order_id):
     db = load_data()
     order = db.get('orders', {}).get(order_id)
@@ -1325,6 +1346,8 @@ def back_to_main_handler(call):
 
 
 
+
+
 # --- ስልክ ቁጥር መቀበያ ---
 @bot.message_handler(content_types=['contact'])
 def contact_handler(message):
@@ -1383,6 +1406,122 @@ def save_vendor_location(message):
         )
 
 
+
+@bot.message_handler(func=lambda message: message.text == "🛍️ እቃዎችን ግዛ")
+def shop_now_handler(message):
+    try:
+        db = load_data()
+        user_id_str = str(message.from_user.id)
+        
+        # 1. የደንበኛ ሎኬሽን ቼክ (ዳታቤዝህ ውስጥ 'users' በሚለው ቁልፍ መሆኑን አረጋግጥ)
+        user_data = db.get('users', {}).get(user_id_str, {})
+        u_lat = user_data.get('lat')
+        u_lon = user_data.get('lon')
+
+        if not u_lat or not u_lon:
+            return bot.send_message(message.chat.id, "❌ እባክዎ መጀመሪያ /start ብለው ሎኬሽንዎን ያጋሩ።")
+
+        # 2. ቬንደሮች መኖራቸውን ቼክ ማድረግ
+        vendors = db.get('vendors_list', {})
+        if not vendors:
+            return bot.send_message(message.chat.id, "😔 በአሁኑ ሰዓት ምንም የተመዘገቡ ድርጅቶች የሉም።")
+
+        markup = types.InlineKeyboardMarkup(row_width=1)
+        vendor_list_with_distance = []
+
+        # 3. ርቀት እያሰሉ ዝርዝር ማዘጋጀት
+        for v_id, v_info in vendors.items():
+            v_lat = v_info.get('lat')
+            v_lon = v_info.get('lon')
+            
+            dist = calculate_distance(u_lat, u_lon, v_lat, v_lon)
+            
+            # ርቀቱ ስህተት ካልሆነ ብቻ ጨምር
+            if dist != -1:
+                v_info['id'] = v_id
+                v_info['dist'] = dist
+                vendor_list_with_distance.append(v_info)
+
+        # 4. በቅርበት መደርደር (Sort)
+        sorted_vendors = sorted(vendor_list_with_distance, key=lambda x: x['dist'])
+
+        for v in sorted_vendors:
+            dist_km = v['dist'] / 1000 if v['dist'] >= 1000 else v['dist'] # ለሜትር እና ለኪሎሜትር ማስተካከያ
+            unit = "KM" if v['dist'] >= 1000 else "ሜትር"
+            
+            btn_text = f"🏢 {v['name']} ({dist_km:.1f} {unit} ርቀት)"
+            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"v_view_{v['id']}"))
+
+        # 5. Back Button (ወደ ዋናው ሜኑ መመለሻ)
+        markup.add(types.InlineKeyboardButton("⬅️ ወደ ዋናው ሜኑ ተመለስ", callback_data="go_to_main_start"))
+
+        bot.send_message(
+            message.chat.id, 
+            "🛵 **በአቅራቢያዎ ያሉ ድርጅቶች፦**\nየተደረደሩት ከእርስዎ ባላቸው ርቀት መሠረት ነው።", 
+            reply_markup=markup, 
+            parse_mode="Markdown"
+        )
+
+    except Exception as e:
+        print(f"❌ Shop Handler Error: {e}")
+        bot.send_message(message.chat.id, "⚠️ ይቅርታ፣ ሱቆችን በመጫን ላይ ስህተት ተፈጥሯል። እባክዎ ትንሽ ቆይተው ይሞክሩ።")
+
+
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('v_view_'))
+def view_vendor_categories(call):
+    try:
+        # 1. የቬንደሩን ID ከ callback_data ላይ መለየት
+        vendor_id = call.data.replace('v_view_', '')
+        db = load_data()
+        
+        # 2. የቬንደሩን መረጃ ማግኘት
+        vendor = db.get('vendors_list', {}).get(vendor_id)
+        
+        if not vendor:
+            return bot.answer_callback_query(call.id, "❌ ድርጅቱ አልተገኘም!")
+
+        v_name = vendor.get('name', 'ድርጅት')
+        items = vendor.get('items', {})
+
+        # 3. በዚያ ሱቅ ውስጥ ያሉትን ምድቦች (Categories) ብቻ ለይቶ ማውጣት
+        # set() የምንጠቀመው ተመሳሳይ ምድቦች እንዳይደጋገሙ ነው
+        categories = list(set([item.get('category', 'ሌሎች') for item in items.values()]))
+
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        
+        if categories:
+            for cat in categories:
+                # ደንበኛው ምድብ ሲመርጥ ወደ እቃዎቹ እንዲሄድ (v_cat_...)
+                markup.add(types.InlineKeyboardButton(f"📂 {cat}", callback_data=f"v_cat_{vendor_id}_{cat}"))
+        else:
+            return bot.answer_callback_query(call.id, "😔 ለጊዜው በዚህ ሱቅ ውስጥ ምንም እቃዎች የሉም።")
+
+        # 4. ወደ ኋላ መመለሻ በተን
+        markup.add(types.InlineKeyboardButton("⬅️ ወደ ሱቆች ዝርዝር ተመለስ", callback_data="back_to_shops"))
+
+        text = (
+            f"🏢 **ድርጅት፦ {v_name}**\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"እባክዎ መግዛት የሚፈልጉትን የምድብ አይነት ይምረጡ፦"
+        )
+
+        # ገጹን ሳያጠፋ እዛው ላይ እንዲቀየር (Edit)
+        bot.edit_message_text(
+            text, 
+            call.message.chat.id, 
+            call.message.message_id, 
+            reply_markup=markup, 
+            parse_mode="Markdown"
+        )
+
+    except Exception as e:
+        print(f"❌ View Category Error: {e}")
+        bot.answer_callback_query(call.id, "⚠️ ስህተት ተፈጥሯል!")
 
 
 
