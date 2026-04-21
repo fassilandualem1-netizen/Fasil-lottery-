@@ -181,6 +181,50 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 
 
 
+def notify_vendor_new_order(order_id):
+    db = load_data()
+    order = db.get('orders', {}).get(order_id)
+    v_id = order.get('vendor_id')
+    
+    text = (
+        f"🔔 **አዲስ ትዕዛዝ ደርሶዎታል!**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📦 **ትዕዛዝ ቁጥር፦** `{order_id}`\n"
+        f"💰 **ጠቅላላ ዋጋ፦** `{order.get('total_price')} ETB`\n"
+        f"📍 **ቦታ፦** {order.get('location_name', 'አልተጠቀሰም')}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"ትዕዛዙን መቀበል ይፈልጋሉ?"
+    )
+    
+    markup = types.InlineKeyboardMarkup()
+    # 'Accept' እና 'Cancel' በተኖች
+    markup.add(
+        types.InlineKeyboardButton("✅ እሺ ተቀበል", callback_data=f"accept_order_{order_id}"),
+        types.InlineKeyboardButton("❌ ሰርዝ", callback_data=f"cancel_order_{order_id}")
+    )
+    
+    bot.send_message(v_id, text, reply_markup=markup, parse_mode="Markdown")
+
+# --- ቬንደሩ 'እሺ' ሲል የሚሰራው ---
+@bot.callback_query_handler(func=lambda call: call.data.startswith("accept_order_"))
+def vendor_accept_order(call):
+    order_id = call.data.replace("accept_order_", "")
+    db = load_data()
+    order = db.get('orders', {}).get(order_id)
+    
+    if order:
+        order['status'] = 'Processing' # ሁኔታውን መቀየር
+        save_data(db)
+        
+        bot.edit_message_text(f"✅ ትዕዛዝ #{order_id} ተቀብለዋል። አሁን ለራይደር (Rider) ኖቲፊኬሽን ይላካል።", 
+                             call.message.chat.id, call.message.message_id)
+        
+        # እዚህ ጋር ለራይደሮች ኖቲፊኬሽን የሚልክ ፋንክሽን ይጠራል
+        # notify_riders_about_order(order_id)
+
+
+
+
 def get_location_keyboard():
     markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
     button = types.KeyboardButton("📍 የድርጅትዎን መገኛ (Location) እዚህ ተጭነው ይላኩ", request_location=True)
@@ -1100,6 +1144,29 @@ def back_to_admin(call):
 
 
 
+@bot.message_handler(content_types=['location'])
+def save_vendor_location(message):
+    user_id = str(message.from_user.id)
+    db = load_data()
+    
+    if user_id in db.get('vendors_list', {}):
+        db['vendors_list'][user_id]['lat'] = message.location.latitude
+        db['vendors_list'][user_id]['lon'] = message.location.longitude
+        save_data(db)
+        
+        # ሎኬሽን በተኑን አጥፍተን ምድብ እንዲመርጥ እንጠይቃለን
+        bot.send_message(
+            message.chat.id, 
+            "✅ ሎኬሽንዎ ተመዝግቧል!\nአሁን ደግሞ የድርጅትዎን አይነት (Category) ይምረጡ፦", 
+            reply_markup=get_category_markup()
+        )
+
+
+
+
+
+
+
 
 
 
@@ -1433,25 +1500,46 @@ def save_item_logic(call):
 
 
 
-
-
-
-@bot.message_handler(content_types=['location'])
-def save_vendor_location(message):
-    user_id = str(message.from_user.id)
-    db = load_data()
+@bot.callback_query_handler(func=lambda call: call.data.startswith("cancel_order_"))
+def confirm_cancel_request(call):
+    order_id = call.data.replace("cancel_order_", "")
     
-    if user_id in db.get('vendors_list', {}):
-        db['vendors_list'][user_id]['lat'] = message.location.latitude
-        db['vendors_list'][user_id]['lon'] = message.location.longitude
+    # የማረጋገጫ በተኖች
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("⚠️ አዎ፣ በእርግጥ ሰርዝ", callback_data=f"final_cancel_{order_id}"),
+        types.InlineKeyboardButton("🔙 አይ፣ ተመለስ", callback_data=f"accept_order_{order_id}") # ተመልሶ እንዲቀበል
+    )
+    
+    confirm_text = (
+        f"❗ **ትዕዛዝ ቁጥር #{order_id}ን ለመሰረዝ እየሞከሩ ነው።**\n\n"
+        f"ይህንን ትዕዛዝ ከሰረዙት ደንበኛው ይናደዳል! በእርግጥ መሰረዝ ይፈልጋሉ?"
+    )
+    
+    bot.edit_message_text(confirm_text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("final_cancel_"))
+def execute_final_cancel(call):
+    order_id = call.data.replace("final_cancel_", "")
+    db = load_data()
+    order = db.get('orders', {}).get(order_id)
+    
+    if order:
+        order['status'] = 'Cancelled'
         save_data(db)
         
-        # ሎኬሽን በተኑን አጥፍተን ምድብ እንዲመርጥ እንጠይቃለን
-        bot.send_message(
-            message.chat.id, 
-            "✅ ሎኬሽንዎ ተመዝግቧል!\nአሁን ደግሞ የድርጅትዎን አይነት (Category) ይምረጡ፦", 
-            reply_markup=get_category_markup()
-        )
+        bot.edit_message_text(f"❌ ትዕዛዝ #{order_id} ተሰርዟል።", call.message.chat.id, call.message.message_id)
+        
+        # ለደንበኛውም "ትዕዛዝዎ በቬንደሩ ምክንያት ተሰርዟል" የሚል ኖቲፊኬሽን እዚህ ጋር መላክ ይቻላል
+        # customer_id = order.get('customer_id')
+        # bot.send_message(customer_id, f"ይቅርታ፣ ትዕዛዝ #{order_id} በሱቁ ባለቤት ተሰርዟል።")
+
+
+
+
 
 
 
