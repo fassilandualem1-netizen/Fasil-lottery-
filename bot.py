@@ -522,16 +522,63 @@ def get_item_photo(message):
 
 
 
-
+# --- 1. ስም መቀበያ እና የመለኪያ ምርጫ ---
 def get_item_name(message):
     v_id = str(message.from_user.id)
-    if not message.text:
-        msg = bot.send_message(message.chat.id, "❌ እባክዎ የእቃውን ስም በጽሁፍ ይላኩ፦")
-        return bot.register_next_step_handler(msg, get_item_name)
+    if v_id not in item_creation_data: return
 
     item_creation_data[v_id]['name'] = message.text
-    msg = bot.send_message(message.chat.id, "💰 የዚህ እቃ **ዋጋ** ስንት ነው? (በቁጥር ብቻ)፦", parse_mode="Markdown")
-    bot.register_next_step_handler(msg, get_item_price)
+    
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    markup.add(
+        types.InlineKeyboardButton("Pcs (ፍሬ)", callback_data="set_unit_Pcs"),
+        types.InlineKeyboardButton("Kg (ኪሎ)", callback_data="set_unit_Kg"),
+        types.InlineKeyboardButton("Ltr (ሊትር)", callback_data="set_unit_Ltr")
+    )
+    
+    bot.send_message(message.chat.id, "📏 **የእቃው መለኪያ (Unit) ምንድነው?**", reply_markup=markup, parse_mode="Markdown")
+
+# --- 2. መለኪያውን መያዝ እና ዋጋ መጠየቅ ---
+@bot.callback_query_handler(func=lambda call: call.data.startswith("set_unit_"))
+def set_item_unit(call):
+    v_id = str(call.from_user.id)
+    unit = call.data.replace("set_unit_", "")
+    
+    if v_id in item_creation_data:
+        item_creation_data[v_id]['unit'] = unit
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        
+        msg = bot.send_message(call.message.chat.id, f"💰 **የአንድ {unit} ዋጋ ስንት ነው?** (በቁጥር ብቻ)፦")
+        bot.register_next_step_handler(msg, get_item_price)
+
+# --- 3. ዋጋ መቀበያ (ከነ መለኪያው ማሳያ) ---
+def get_item_price(message):
+    v_id = str(message.from_user.id)
+    if v_id not in item_creation_data: return
+
+    if not message.text.isdigit():
+        msg = bot.send_message(message.chat.id, "❌ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ፦")
+        return bot.register_next_step_handler(msg, get_item_price)
+
+    item_creation_data[v_id]['price'] = message.text
+    item = item_creation_data[v_id]
+    unit = item.get('unit', 'Pcs')
+
+    summary = (
+        f"🔍 **እቃውን ያረጋግጡ**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📦 **ስም፦** {item['name']}\n"
+        f"📏 **መለኪያ፦** {unit}\n"
+        f"💵 **ዋጋ፦** {item['price']} ETB / {unit}\n"
+        f"━━━━━━━━━━━━━━━━━━━━"
+    )
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("✅ አረጋግጥና መዝግብ", callback_data="confirm_final_save"))
+    markup.add(types.InlineKeyboardButton("❌ ሰርዝ", callback_data="vendor_refresh"))
+
+    bot.send_message(message.chat.id, summary, reply_markup=markup, parse_mode="Markdown")
+
 
 
 
@@ -1539,6 +1586,35 @@ def execute_final_cancel(call):
 
 
 
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("buy_item_"))
+def ask_quantity(call):
+    _, _, v_id, i_id = call.data.split("_")
+    db = load_data()
+    item = db['vendors_list'][v_id]['items'][i_id]
+    unit = item.get('unit', 'Pcs')
+
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    
+    # መለኪያው ኪሎ ከሆነ አማራጮችን መቀየር
+    if unit == "Kg" or unit == "Ltr":
+        options = ["0.5", "1", "1.5", "2", "5"]
+    else:
+        options = ["1", "2", "3", "5", "10"]
+        
+    btns = [types.InlineKeyboardButton(f"{opt} {unit}", callback_data=f"add_to_cart_{v_id}_{i_id}_{opt}") for opt in options]
+    
+    markup.add(*btns)
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data=f"view_store_{v_id}"))
+
+    bot.edit_message_text(
+        f"🛍 **እቃ፦ {item['name']}**\n"
+        f"💰 **ዋጋ፦ {item['price']} ETB / {unit}**\n\n"
+        f"🔢 ስንት {unit} ይፈልጋሉ? ከታች ይምረጡ፦",
+        call.message.chat.id, call.message.message_id,
+        reply_markup=markup, parse_mode="Markdown"
+    )
 
 
 
