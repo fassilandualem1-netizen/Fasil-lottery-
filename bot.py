@@ -1895,6 +1895,76 @@ def admin_delivery_mgmt_page(call):
 
 
 
+# --- 1. የዝናብ ሁኔታን On/Off ማድረጊያ ---
+@bot.callback_query_handler(func=lambda call: call.data == "toggle_rain")
+def toggle_rain_mode(call):
+    db = load_data()
+    # ያለበትን ሁኔታ መገልበጥ (True ከሆነ False፣ False ከሆነ True)
+    current_status = db['settings'].get('rain_mode', False)
+    db['settings']['rain_mode'] = not current_status
+    save_data(db)
+    
+    # ገጹን በራሱ አድስ (Refresh)
+    bot.answer_callback_query(call.id, "🌧️ የዝናብ ሁኔታ ተቀይሯል!")
+    admin_delivery_mgmt_page(call) # ገጹን ተመልሶ እንዲያሳየው መጥራት
+
+# --- 2. የምሽት ሁኔታን On/Off ማድረጊያ ---
+@bot.callback_query_handler(func=lambda call: call.data == "toggle_night")
+def toggle_night_mode(call):
+    db = load_data()
+    # ያለበትን ሁኔታ መገልበጥ
+    current_status = db['settings'].get('night_mode', False)
+    db['settings']['night_mode'] = not current_status
+    save_data(db)
+    
+    # ገጹን በራሱ አድስ (Refresh)
+    bot.answer_callback_query(call.id, "🌙 የምሽት ሁኔታ ተቀይሯል!")
+    admin_delivery_mgmt_page(call) # ገጹን ተመልሶ እንዲያሳየው መጥራት
+
+
+
+
+
+
+# --- 1. ዋጋ መቀበያ ሎጂክ (Generic Function) ---
+def update_delivery_value(message, key_name, display_name):
+    chat_id = message.chat.id
+    new_val = message.text
+
+    # በቁጥር መሆኑን ማረጋገጥ
+    if not new_val.isdigit():
+        msg = bot.send_message(chat_id, f"❌ ስህተት፦ እባክዎ የ{display_name} ዋጋን በቁጥር ብቻ ያስገቡ፦")
+        return bot.register_next_step_handler(msg, update_delivery_value, key_name, display_name)
+
+    db = load_data()
+    db['settings'][key_name] = int(new_val)
+    save_data(db)
+
+    bot.send_message(chat_id, f"✅ የ{display_name} ዋጋ ወደ **{new_val} ETB** ተቀይሯል!")
+    # ወደ ማጓጓዣ ገጹ እንዲመለስ ለማድረግ (አማራጭ)
+    # admin_delivery_mgmt_page(message) 
+
+# --- 2. የዋጋ መቀየሪያ ቁልፎች (Callbacks) ---
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("edit_val_"))
+def handle_price_edits(call):
+    chat_id = call.message.chat.id
+    data = call.data
+    
+    if data == "edit_val_base_delivery":
+        msg = bot.send_message(chat_id, "🔢 አዲሱን የ**መነሻ ማጓጓዣ** ዋጋ ያስገቡ፦")
+        bot.register_next_step_handler(msg, update_delivery_value, "base_delivery", "መነሻ")
+        
+    elif data == "edit_val_rain_val":
+        msg = bot.send_message(chat_id, "🔢 አዲሱን የ**ዝናብ ሁኔታ** ተጨማሪ ዋጋ ያስገቡ፦")
+        bot.register_next_step_handler(msg, update_delivery_value, "rain_val", "የዝናብ")
+        
+    elif data == "edit_val_night_val":
+        msg = bot.send_message(chat_id, "🔢 አዲሱን የ**ምሽት ሁኔታ** ተጨማሪ ዋጋ ያስገቡ፦")
+        bot.register_next_step_handler(msg, update_delivery_value, "night_val", "የምሽት")
+    
+    bot.answer_callback_query(call.id)
+
 
 
 
