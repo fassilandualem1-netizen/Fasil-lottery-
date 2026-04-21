@@ -103,6 +103,13 @@ def save_data(db):
 
 
 
+def is_user_complete(user_id):
+    db = load_data()
+    user = db.get('users', {}).get(str(user_id), {})
+    return user.get('phone') and user.get('lat')
+
+
+
 
 def process_order_settlement(order_id):
     with db_lock:
@@ -1267,13 +1274,23 @@ def send_welcome(message):
         text, markup = get_vendor_dashboard_elements(user_id)
         return bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
 
-    # 5. ተራ ደንበኛ ከሆነ
-    welcome_text = (
-        "እንኳን ወደ **BDF Delivery** በደህና መጡ! 👋\n\n"
-        "በቀላሉ የሚፈልጉትን እቃ ይዘዙ፣ ያሉበት እናደርሳለን።"
-    )
-    # ማሳሰቢያ፡ እዚህ ጋር የደንበኛውን main_menu_markup() መጨመር እንዳትረሳ
-    bot.send_message(chat_id, welcome_text, reply_markup=customer_main_menu(), parse_mode="Markdown")
+        # 5. ተራ ደንበኛ ከሆነ
+    # በመጀመሪያ መረጃው የተሟላ መሆኑን ቼክ እናደርጋለን
+    if is_user_complete(user_id):
+        # መረጃው የተሟላ ከሆነ (ነባር ደንበኛ)
+        welcome_text = (
+            f"እንኳን ደህና መጡ {message.from_user.first_name}! 👋\n\n"
+            "ምን ማዘዝ ይፈልጋሉ? ከታች ያሉትን አማራጮች ይጠቀሙ።"
+        )
+        bot.send_message(chat_id, welcome_text, reply_markup=customer_main_menu(), parse_mode="Markdown")
+    else:
+        # መረጃው ካልተሟላ (አዲስ ደንበኛ)
+        welcome_text = (
+            "እንኳን ወደ **BDF Delivery** በደህና መጡ! 👋\n\n"
+            "አገልግሎታችንን ለመጀመር እባክዎ መጀመሪያ ስልክ ቁጥርዎን እና ሎኬሽንዎን ያጋሩ።"
+        )
+        bot.send_message(chat_id, welcome_text, reply_markup=get_customer_registration_markup(), parse_mode="Markdown")
+
 
 
 # --- የተዋሃደ የአድሚን መመለሻ (ለ admin_main_menu እና go_to_main_start) ---
@@ -1301,6 +1318,49 @@ def back_to_main_handler(call):
         bot.edit_message_text("ወደ ዋናው ሜኑ ተመልሰዋል", chat_id, call.message.message_id, reply_markup=customer_main_menu())
     
     bot.answer_callback_query(call.id)
+
+
+
+
+
+
+
+# --- ስልክ ቁጥር መቀበያ ---
+@bot.message_handler(content_types=['contact'])
+def contact_handler(message):
+    if message.contact:
+        user_id = str(message.from_user.id)
+        phone = message.contact.phone_number
+        
+        # 1. ዳታቤዝ ላይ ስልኩን ሴቭ አድርግ (ለምሳሌ)
+        # save_user_data(user_id, phone=phone)
+        
+        # 2. ሎኬሽኑም መኖሩን ቼክ አድርግ
+        if is_user_complete(user_id):
+            text, markup = get_customer_dashboard(message.from_user.first_name)
+            bot.send_message(message.chat.id, "✅ ምዝገባ ተጠናቋል!", reply_markup=markup)
+        else:
+            bot.send_message(message.chat.id, "✅ ስልክዎ ተመዝግቧል። አሁን ደግሞ ሎኬሽንዎን (📍 ያለሁበትን ቦታ ላክ) የሚለውን ተጭነው ይላኩ።")
+
+# --- ሎኬሽን መቀበያ ---
+@bot.message_handler(content_types=['location'])
+def location_handler(message):
+    if message.location:
+        user_id = str(message.from_user.id)
+        lat = message.location.latitude
+        lon = message.location.longitude
+        
+        # 1. ዳታቤዝ ላይ ሎኬሽኑን ሴቭ አድርግ
+        # save_user_data(user_id, lat=lat, lon=lon)
+        
+        # 2. ስልኩም መኖሩን ቼክ አድርግ
+        if is_user_complete(user_id):
+            text, markup = get_customer_dashboard(message.from_user.first_name)
+            bot.send_message(message.chat.id, f"✅ እንኳን ደህና መጡ! \n{text}", reply_markup=markup, parse_mode="Markdown")
+        else:
+            bot.send_message(message.chat.id, "✅ ሎኬሽንዎ ተመዝግቧል። አሁን ደግሞ ስልክ ቁጥርዎን (📲 ስልክ ቁጥር ላክ) የሚለውን ተጭነው ይላኩ።")
+
+
 
 
 
