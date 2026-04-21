@@ -1470,6 +1470,146 @@ def shop_now_handler(message):
 
 
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith('v_cat_'))
+def view_category_items(call):
+    try:
+        # 1. ዳታውን መበለት (v_cat_VENDORID_CATEGORYNAME)
+        data_parts = call.data.split('_')
+        vendor_id = data_parts
+        cat_name = data_parts
+        
+        db = load_data()
+        user_id_str = str(call.from_user.id)
+        vendor = db.get('vendors_list', {}).get(vendor_id, {})
+        all_items = vendor.get('items', {})
+
+        # 2. በካርት ውስጥ ያለውን ዳታ ቼክ ማድረግ (ለቁጥሩ ማሳያ)
+        # በዳታቤዝህ 'carts' ውስጥ መኖሩን እናረጋግጣለን
+        user_cart = db.get('carts', {}).get(user_id_str, {})
+
+        # 3. የተመረጠው ካቴጎሪ ውስጥ ያሉ እቃዎችን ብቻ መለየት
+        items_in_cat = {k: v for k, v in all_items.items() if v.get('category') == cat_name}
+
+        if not items_in_cat:
+            return bot.answer_callback_query(call.id, "😔 በዚህ ምድብ ስር ምንም እቃዎች የሉም።")
+
+        markup = types.InlineKeyboardMarkup(row_width=1)
+        text = f"📂 **ምድብ፦ {cat_name}**\nሱቅ፦ {vendor.get('name')}\n\n"
+
+        for item_id, item_info in items_in_cat.items():
+            name = item_info.get('name')
+            price = item_info.get('price', 0)
+            qty = user_cart.get(item_id, 0) # በካርት ውስጥ ያለ ብዛት
+
+            text += f"🔹 **{name}** — `{price:,.2f} ETB`\n"
+
+            # [ - ] [ ቁጥር ] [ + ] በተኖችን መፍጠር
+            # callback_data አወቃቀር፦ cart_ACTION_VENDORID_CAT_ITEMID
+            btn_minus = types.InlineKeyboardButton("➖", callback_data=f"cart_minus_{vendor_id}_{cat_name}_{item_id}")
+            btn_qty = types.InlineKeyboardButton(f"{qty}", callback_data="no_action")
+            btn_plus = types.InlineKeyboardButton("➕", callback_data=f"cart_plus_{vendor_id}_{cat_name}_{item_id}")
+            
+            markup.row(btn_minus, btn_qty, btn_plus)
+
+        # 4. የታችኛው በተኖች (Check Out & Back)
+        markup.add(types.InlineKeyboardButton("🛒 ወደ ካርት ሂድ / ሂሳብ ክፈል", callback_data=f"view_cart_{vendor_id}"))
+        markup.add(types.InlineKeyboardButton("⬅️ ወደ ምድቦች ተመለስ", callback_data=f"v_view_{vendor_id}"))
+
+        bot.edit_message_text(
+            text, 
+            call.message.chat.id, 
+            call.message.message_id, 
+            reply_markup=markup, 
+            parse_mode="Markdown"
+        )
+
+    except Exception as e:
+        print(f"❌ View Category Items Error: {e}")
+        bot.answer_callback_query(call.id, "⚠️ ስህተት ተፈጥሯል!")
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('cart_'))
+def handle_cart_quantity_changes(call):
+    try:
+        # 1. ዳታውን መበለት (cart_ACTION_VENDORID_CAT_ITEMID)
+        parts = call.data.split('_')
+        action = parts   # plus ወይም minus
+        v_id = parts
+        cat = parts
+        i_id = parts
+        
+        user_id_str = str(call.from_user.id)
+        db = load_data()
+        
+        # 2. በዳታቤዝ ውስጥ ለዚህ ደንበኛ ካርት መኖሩን ማረጋገጥ
+        if 'carts' not in db: db['carts'] = {}
+        if user_id_str not in db['carts']: db['carts'][user_id_str] = {}
+        
+        current_qty = db['carts'][user_id_str].get(i_id, 0)
+
+        # ➕ ብዛት መጨመር
+        if action == 'plus':
+            current_qty += 1
+            db['carts'][user_id_str][i_id] = current_qty
+        
+        # ➖ ብዛት መቀነስ
+        elif action == 'minus':
+            if current_qty > 0:
+                current_qty -= 1
+                if current_qty == 0:
+                    # ብዛቱ 0 ከሆነ ከካርቱ ውስጥ ማጥፋት
+                    if i_id in db['carts'][user_id_str]:
+                        del db['carts'][user_id_str][i_id]
+                else:
+                    db['carts'][user_id_str][i_id] = current_qty
+            else:
+                return bot.answer_callback_query(call.id, "❌ ብዛቱ ከ 0 በታች ሊሆን አይችልም!")
+
+        # 3. ዳታውን ሴቭ ማድረግ
+        save_data(db)
+
+        # 4. ገጹ ሳይጠፋ በተኑን ብቻ ማደስ (UI Update)
+        # ለዚህ እቃ አዲስ በተኖችን መፍጠር
+        new_markup = types.InlineKeyboardMarkup(row_width=1)
+        
+        # የነበረውን ዝርዝር መልሰው እንዲያመጣ ለማድረግ 
+        # (በ v_cat_ ውስጥ የነበረውን ተመሳሳይ ሎጂክ እንጠቀማለን)
+        vendor = db.get('vendors_list', {}).get(v_id, {})
+        all_items = vendor.get('items', {})
+        items_in_cat = {k: v for k, v in all_items.items() if v.get('category') == cat}
+        user_cart = db['carts'][user_id_str]
+
+        for item_id, item_info in items_in_cat.items():
+            qty = user_cart.get(item_id, 0)
+            btn_minus = types.InlineKeyboardButton("➖", callback_data=f"cart_minus_{v_id}_{cat}_{item_id}")
+            btn_qty = types.InlineKeyboardButton(f"{qty}", callback_data="no_action")
+            btn_plus = types.InlineKeyboardButton("➕", callback_data=f"cart_plus_{v_id}_{cat}_{item_id}")
+            new_markup.row(btn_minus, btn_qty, btn_plus)
+
+        new_markup.add(types.InlineKeyboardButton("🛒 ወደ ካርት ሂድ / ሂሳብ ክፈል", callback_data=f"view_cart_{v_id}"))
+        new_markup.add(types.InlineKeyboardButton("⬅️ ወደ ምድቦች ተመለስ", callback_data=f"v_view_{v_id}"))
+
+        # 🔄 መልዕክቱን ሳያጠፋ በተኖቹን ብቻ መቀየር
+        bot.edit_message_reply_markup(
+            call.message.chat.id, 
+            call.message.message_id, 
+            reply_markup=new_markup
+        )
+        
+        # ከላይ ትንሽ ማሳወቂያ ማሳየት
+        bot.answer_callback_query(call.id, f"ተዘምኗል! ብዛት፦ {current_qty}")
+
+    except Exception as e:
+        print(f"❌ Cart Update Error: {e}")
+        bot.answer_callback_query(call.id, "⚠️ ስህተት ተፈጥሯል!")
+
+
+
+
+
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('v_view_'))
