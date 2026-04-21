@@ -2560,46 +2560,55 @@ def show_enhanced_analytics(call):
     vendors = db.get('vendors_list', {})
     riders = db.get('riders_list', {})
     orders = db.get('orders', {})
-    
+    s = db.get('settings', {}) # ሴቲንግን እዚህ ጋር እናወጣለን
+
     # የሂሳብ ስሌቶች
     total_vendor_deposit = sum(v.get('deposit_balance', 0) for v in vendors.values())
     total_rider_wallet = sum(r.get('wallet', 0) for r in riders.values())
     system_profit = db.get('total_profit', 0)
 
+    # የዴሊቨሪ እና ኮሚሽን ሁኔታዎች
+    r_mode = "🟢 በርቷል" if s.get('rain_mode') else "🔴 ጠፍቷል"
+    n_mode = "🟢 በርቷል" if s.get('night_mode') else "🔴 ጠፍቷል"
+    v_comm = s.get('vendor_commission_p', 5)
+    srv_fee = s.get('service_fee', 8)
+
     report = "📊 **ጥልቅ የቢዝነስ ትንታኔ (Full Analytics)**\n"
     report += "━━━━━━━━━━━━━━━━━━━━\n\n"
 
-    # 🏢 የድርጅቶች ሁኔታ (Vendors)
+    # 🚚 የማጓጓዣ እና ኮሚሽን ሁኔታ (አንተ የፈለግከው አዲስ ክፍል)
+    report += "⚙️ **የሲስተም ሁኔታ (Current Settings)**\n"
+    report += f"• የዝናብ ሁኔታ፦ {r_mode} (`+{s.get('rain_val', 0)} ETB`)\n"
+    report += f"• የምሽት ሁኔታ፦ {n_mode} (`+{s.get('night_val', 0)} ETB`)\n"
+    report += f"• የድርጅት ኮሚሽን፦ `{v_comm}%` | ሰርቪስ ፊ፦ `{srv_fee} ETB` \n"
+    report += "------------------------\n\n"
+
+    # 🏢 የድርጅቶች ሁኔታ
     report += "🏢 **የድርጅቶች ሁኔታ (Vendors)**\n"
     report += f"• ጠቅላላ ድርጅቶች፦ `{len(vendors)}` \n"
-    report += f"• አጠቃላይ ዲፖዚት፦ `{total_vendor_deposit}` ብር\n"
+    report += f"• አጠቃላይ ዲፖዚት፦ `{total_vendor_deposit:,.2f}` ብር\n"
     report += "------------------------\n\n"
 
-    # 🛵 የራይደሮች ሁኔታ (Drivers)
+    # 🛵 የራይደሮች ሁኔታ
     report += "🛵 **የራይደሮች ሁኔታ (Drivers)**\n"
     report += f"• ጠቅላላ ራይደሮች፦ `{len(riders)}` \n"
-    report += f"• አጠቃላይ ዋሌት፦ `{total_rider_wallet}` ብር\n"
     online_riders = sum(1 for r in riders.values() if r.get('status') == 'online')
     report += f"• አሁን በስራ ላይ (Online)፦ `{online_riders}`\n"
+    report += f"• አጠቃላይ ዋሌት፦ `{total_rider_wallet:,.2f}` ብር\n"
     report += "------------------------\n\n"
 
-    # 💰 የገንዘብ እና የትዕዛዝ ሁኔታ
+    # 💰 ፋይናንስ
     report += "💰 **ፋይናንስ እና ትዕዛዞች**\n"
     report += f"• የተሳኩ ትዕዛዞች፦ `{len(orders)}` \n"
-    report += f"• አጠቃላይ የሲስተም ትርፍ፦ `{system_profit}` ብር 💵\n"
-    report += "━━━━━━━━━━━━━━━━━━━━\n\n"
-
-    # 🏆 ምርጥ አፈጻጸም (Top Performers)
-    report += "🏆 **ምርጥ አፈጻጸም**\n"
-    # እዚህ ጋር ብዙ ትዕዛዝ ያላቸውን በቀጣይ በLogic መጨመር ይቻላል
-    report += "• ምርጥ ድርጅት፦ _ገና አልተለየም_\n"
-    report += "• ንቁ ራይደር፦ _ገና አልተለየም_\n"
+    report += f"• አጠቃላይ የሲስተም ትርፍ፦ `{system_profit:,.2f}` ብር 💵\n"
+    report += "━━━━━━━━━━━━━━━━━━━━"
 
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="admin_full_stats"))
     markup.add(types.InlineKeyboardButton("🔙 ወደ ዋናው ሜኑ", callback_data="admin_main_menu"))
 
     bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
 
 
 
