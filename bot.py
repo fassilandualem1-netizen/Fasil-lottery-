@@ -988,6 +988,25 @@ def process_wallet_deduction(v_id, order_id):
 
 
 
+def get_rating_markup(order_id):
+    markup = types.InlineKeyboardMarkup(row_width=5)
+    # አምስቱን ከዋክብት እንደ በተን ማቅረብ
+    btns = [
+        types.InlineKeyboardButton("⭐ 1", callback_data=f"rate_{order_id}_1"),
+        types.InlineKeyboardButton("⭐ 2", callback_data=f"rate_{order_id}_2"),
+        types.InlineKeyboardButton("⭐ 3", callback_data=f"rate_{order_id}_3"),
+        types.InlineKeyboardButton("⭐ 4", callback_data=f"rate_{order_id}_4"),
+        types.InlineKeyboardButton("⭐ 5", callback_data=f"rate_{order_id}_5")
+    ]
+    markup.add(*btns)
+    return markup
+
+
+
+
+
+
+
 def calculate_dynamic_delivery_fee():
     db = load_data()
     s = db.get('settings', {})
@@ -1104,7 +1123,7 @@ def get_vendor_dashboard_elements(v_id):
     db = load_data()
     v_id_str = str(v_id)
     v_info = db.get('vendors_list', {}).get(v_id_str, {})
-    
+
     # 🛡️ መረጃው ከሌለ ቀድሞ መመለስ
     if not v_info:
         return "❌ የድርጅት መረጃ አልተገኘም!", None
@@ -1114,6 +1133,11 @@ def get_vendor_dashboard_elements(v_id):
     items_dict = v_info.get('items', {})
     items_count = len(items_dict)
     
+    # ⭐ የሬቲንግ መረጃ (Star Rating)
+    avg_rating = v_info.get('rating_avg', 0.0)
+    # ውጤቱን ወደ ኮከብ ምልክት መቀየር (ለምሳሌ 4 ኮከብ ከሆነ 4 "⭐" እንዲያሳይ)
+    stars_icons = "⭐" * int(avg_rating) if avg_rating > 0 else "ገና አልተሰጠም"
+
     # ንቁ ትዕዛዞችን መቁጠር
     active_orders = 0 
     for order in db.get('orders', {}).values():
@@ -1123,6 +1147,7 @@ def get_vendor_dashboard_elements(v_id):
     summary_text = (
         f"🏠 **የድርጅት ዳሽቦርድ፦ {v_name}**\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🌟 **ደረጃ፦** `{stars_icons}` ({avg_rating:.1f})\n" # ሬቲንጉ እዚህ ጋር ተጨምሯል
         f"💰 **ቀሪ ባላንስ፦** `{balance:,.2f} ETB`\n"
         f"📦 **ንቁ ትዕዛዞች፦** `{active_orders}`\n"
         f"🛍 **ጠቅላላ እቃዎች፦** `{items_count}`\n"
@@ -1130,11 +1155,9 @@ def get_vendor_dashboard_elements(v_id):
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"👇 ስራ ለመጀመር ከታች ያሉትን በተኖች ይጠቀሙ፦"
     )
-    
-    # 1. ማርካፕ መፍጠር
+
     markup = types.InlineKeyboardMarkup(row_width=2)
-    
-    # 2. በተኖችን መጨመር
+
     markup.add(
         types.InlineKeyboardButton("➕ እቃ ጨምር", callback_data="vendor_add_item"),
         types.InlineKeyboardButton("📦 የእኔ እቃዎች", callback_data="vendor_my_items")
@@ -1143,15 +1166,17 @@ def get_vendor_dashboard_elements(v_id):
         types.InlineKeyboardButton("📈 የሽያጭ ታሪክ", callback_data="vendor_sales_history"),
         types.InlineKeyboardButton("⚙️ መቆጣጠሪያ", callback_data="vendor_settings")
     )
-    
-    # 3. አድስ እና ወደ ዋና ሜኑ መመለሻ (መጨረሻ ላይ)
+
     btn_refresh = types.InlineKeyboardButton("🔄 አድስ", callback_data="vendor_refresh")
     btn_back_to_main = types.InlineKeyboardButton("🏠 ወደ ዋናው ሜኑ", callback_data="go_to_main_start")
-    
+
     markup.add(btn_refresh, btn_back_to_main)
 
-    # 4. ሁለቱንም መረጃዎች መመለስ
     return summary_text, markup
+
+
+
+
 
 # --- ይህ ከፋንክሽኑ ውጭ መሆን አለበት ---
 @bot.callback_query_handler(func=lambda call: call.data == "go_to_main_start")
@@ -1356,6 +1381,41 @@ def toggle_shop_status(call):
         # ገጹን ሪፍሬሽ ማድረግ
         text, markup = get_vendor_settings_markup(v_id)
         bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("rate_"))
+def handle_customer_rating(call):
+    # ዳታውን መበለጥ (ለምሳሌ: rate_ORDER123_5)
+    _, order_id, stars = call.data.split("_")
+    stars = int(stars)
+    
+    db = load_data()
+    # የዚህን ትዕዛዝ ቬንደር መፈለግ
+    order = db.get('orders', {}).get(order_id)
+    if not order: return
+    
+    v_id = str(order.get('vendor_id'))
+    v_info = db['vendors_list'].get(v_id)
+    
+    if v_info:
+        # አዲስ አማካኝ ማስላት (አሮጌው ድምር + አዲሱ / ጠቅላላ ብዛት)
+        old_total_stars = v_info.get('total_stars_sum', 0)
+        old_count = v_info.get('reviews_count', 0)
+        
+        new_count = old_count + 1
+        new_sum = old_total_stars + stars
+        
+        db['vendors_list'][v_id]['reviews_count'] = new_count
+        db['vendors_list'][v_id]['total_stars_sum'] = new_sum
+        db['vendors_list'][v_id]['rating_avg'] = round(new_sum / new_count, 1)
+        
+        save_data(db)
+        
+    bot.edit_message_text("አመሰግናለን! ሬቲንግዎ ተመዝግቧል። 🙏", call.message.chat.id, call.message.message_id)
+    bot.answer_callback_query(call.id)
 
 
 
