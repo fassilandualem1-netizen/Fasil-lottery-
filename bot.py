@@ -1531,6 +1531,96 @@ def view_category_items(call):
 
 
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith('confirm_order_'))
+def final_order_confirmation(call):
+    try:
+        vendor_id = call.data.replace('confirm_order_', '')
+        user_id_str = str(call.from_user.id)
+        db = load_data()
+        
+        user_cart = db.get('carts', {}).get(user_id_str, {})
+        vendor = db.get('vendors_list', {}).get(vendor_id, {})
+        user_data = db.get('users', {}).get(user_id_str, {})
+
+        if not user_cart:
+            return bot.answer_callback_query(call.id, "🛒 ካርትዎ ባዶ ነው!")
+
+        # 1. የትዕዛዝ ቁጥር (Order ID) መፍጠር
+        order_id = f"BDF-{int(time.time())}"
+        
+        # 2. የሂሳብ ስሌቱን በድጋሚ ማጠቃለል (ለሪፖርት)
+        items_total = 0
+        order_summary = ""
+        for i_id, qty in user_cart.items():
+            item = vendor.get('items', {}).get(i_id, {})
+            items_total += item.get('price', 0) * qty
+            order_summary += f"• {item.get('name')} x{qty}\n"
+
+        # 3. ትዕዛዙን ዳታቤዝ ላይ መመዝገብ
+        new_order = {
+            "order_id": order_id,
+            "customer": {
+                "id": user_id_str,
+                "name": call.from_user.first_name,
+                "phone": user_data.get('phone'),
+                "lat": user_data.get('lat'),
+                "lon": user_data.get('lon')
+            },
+            "vendor_id": vendor_id,
+            "vendor_name": vendor.get('name'),
+            "items": user_cart,
+            "total_price": items_total, # እዚህ ላይ ዴሊቨሪውንም መጨመር ትችላለህ
+            "status": "Pending", # ገና በአድሚን አልተመደበም
+            "time": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        if 'orders' not in db: db['orders'] = {}
+        db['orders'][order_id] = new_order
+        
+        # ካርቱን ባዶ ማድረግ
+        del db['carts'][user_id_str]
+        save_data(db)
+
+        # 4. ለአድሚን የሚላክ መረጃ
+        admin_text = (
+            f"🔔 **አዲስ ትዕዛዝ ገብቷል!**\n\n"
+            f"🆔 Order ID: `{order_id}`\n"
+            f"👤 ደንበኛ: {call.from_user.first_name}\n"
+            f"📞 ስልክ: {user_data.get('phone')}\n"
+            f"🏢 ሱቅ: {vendor.get('name')}\n"
+            f"📝 ዝርዝር:\n{order_summary}\n"
+            f"📍 ሎኬሽን: /location_{order_id}\n\n"
+            f"እባክዎ ራይደር Assign ያድርጉ።"
+        )
+        # ለአድሚን ግሩፕ ወይም ቻት መላክ
+        bot.send_message(ADMIN_GROUP_ID, admin_text, parse_mode="Markdown")
+
+        # 5. ለሱቁ (Vendor) የሚላክ Notification
+        vendor_text = (
+            f"📦 **አዲስ ትዕዛዝ ደርሶዎታል!**\n"
+            f"ትዕዛዝ ቁጥር: `{order_id}`\n"
+            f"ዝርዝር:\n{order_summary}\n"
+            f"እባክዎ እቃውን ማዘጋጀት ይጀምሩ። ራይደር ሲመደብ እናሳውቅዎታለን።"
+        )
+        bot.send_message(vendor_id, vendor_text, parse_mode="Markdown")
+
+        # 6. ለደንበኛው ማረጋገጫ
+        bot.edit_message_text(
+            f"✅ **ትዕዛዝዎ ተሳክቷል!**\n\n"
+            f"ትዕዛዝ ቁጥር፦ `{order_id}`\n"
+            f"ራይደር ሲመደብ ወዲያውኑ እናሳውቅዎታለን። ስላዘዙ እናመሰግናለን! 🙏",
+            call.message.chat.id, call.message.message_id, parse_mode="Markdown"
+        )
+
+    except Exception as e:
+        print(f"❌ Order Confirmation Error: {e}")
+        bot.send_message(call.message.chat.id, "⚠️ ትዕዛዙን በማረጋገጥ ላይ ስህተት ተፈጥሯል።")
+
+
+
+
+
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith('cart_'))
 def handle_cart_quantity_changes(call):
     try:
