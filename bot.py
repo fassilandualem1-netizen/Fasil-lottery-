@@ -1438,7 +1438,7 @@ def back_to_main_handler(call):
 
 
 @bot.message_handler(func=lambda message: message.text == "🛍️ እቃዎችን ግዛ")
-def shop_now_start(message):
+def shop_list_start(message):
     db = load_data()
     vendors = db.get('vendors_list', {})
     
@@ -1447,107 +1447,82 @@ def shop_now_start(message):
 
     markup = types.InlineKeyboardMarkup(row_width=2)
     for v_id, v_info in vendors.items():
-        markup.add(types.InlineKeyboardButton(f"🏪 {v_info.get('name')}", callback_data=f"v_view_{v_id}"))
+        markup.add(types.InlineKeyboardButton(f"🏪 {v_info.get('name')}", callback_data=f"v_{v_id}"))
 
-    bot.send_message(
-        message.chat.id, 
-        "🏠 **እንኳን ወደ ገበያ በሰላም መጡ!**\n\nእባክዎ መግዛት የሚፈልጉበትን ሱቅ ይምረጡ፦", 
-        reply_markup=markup, 
-        parse_mode="Markdown"
-    )
+    bot.send_message(message.chat.id, "🛒 **እባክዎ መግዛት የሚፈልጉበትን ሱቅ ይምረጡ፦**", reply_markup=markup, parse_mode="Markdown")
 
 
 
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('v_view_'))
-def callback_view_categories(call):
-    vendor_id = call.data.replace('v_view_', '')
+@bot.callback_query_handler(func=lambda call: call.data.startswith('v_'))
+def show_items_detail(call):
+    vendor_id = call.data.replace('v_', '')
     db = load_data()
     vendor = db.get('vendors_list', {}).get(vendor_id)
-    
-    if not vendor: return bot.answer_callback_query(call.id, "ድርጅቱ አልተገኘም")
-
     items = vendor.get('items', {})
-    # በውስጡ ያሉትን ካታጎሪዎች ለይቶ ማውጣት
-    categories = list(set([i.get('category', 'ጠቅላላ') for i in items.values()]))
-    
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    for cat in categories:
-        markup.add(types.InlineKeyboardButton(f"📂 {cat}", callback_data=f"list_items_{vendor_id}_{cat}"))
-    
-    markup.add(types.InlineKeyboardButton("⬅️ ወደ ሱቆች ተመለስ", callback_data="back_to_shops"))
-    
-    bot.edit_message_text(
-        f"🏢 **{vendor.get('name')}**\n\nእባክዎ የምድብ አይነት ይምረጡ፦", 
-        call.message.chat.id, call.message.message_id, 
-        reply_markup=markup
-    )
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('list_items_'))
-def callback_list_items(call):
-    # data: list_items_VENDORID_CATEGORY
-    _, _, v_id, cat = call.data.split('_')
-    db = load_data()
-    items = db.get('vendors_list', {}).get(v_id, {}).get('items', {})
+    if not items:
+        return bot.answer_callback_query(call.id, "😔 ለጊዜው በዚህ ሱቅ ውስጥ እቃዎች የሉም።", show_alert=True)
 
     markup = types.InlineKeyboardMarkup(row_width=1)
+    text = f"🏪 **{vendor.get('name')}**\n━━━━━━━━━━━━━━━\n"
+    
     for i_id, i_info in items.items():
-        if i_info.get('category') == cat:
-            markup.add(types.InlineKeyboardButton(
-                f"{i_info.get('name')} - {i_info.get('price')} ETB", 
-                callback_data=f"pre_order_{v_id}_{i_id}"
-            ))
-    
-    markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data=f"v_view_{v_id}"))
-    bot.edit_message_text(f"📦 **የ{cat} ዝርዝር፦**", call.message.chat.id, call.message.message_id, reply_markup=markup)
+        text += f"🔹 {i_info.get('name')} - **{i_info.get('price')} ETB**\n"
+        markup.add(types.InlineKeyboardButton(f"➕ {i_info.get('name')} ግዛ", callback_data=f"buy_{vendor_id}_{i_id}"))
+
+    markup.add(types.InlineKeyboardButton("⬅️ ወደ ሱቆች ተመለስ", callback_data="back_to_shops"))
+
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('pre_order_'))
-def callback_ask_qty(call):
-    _, _, v_id, i_id = call.data.split('_')
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('buy_'))
+def ask_qty(call):
+    _, v_id, i_id = call.data.split('_')
     
-    markup = types.InlineKeyboardMarkup(row_width=3)
-    # ከ1-6 ፍሬ እንዲመርጥ በተን
-    btns = [types.InlineKeyboardButton(str(i), callback_data=f"final_buy_{v_id}_{i_id}_{i}") for i in range(1, 7)]
+    markup = types.InlineKeyboardMarkup(row_width=4)
+    # ፈጣን የብዛት ምርጫ (1-8)
+    btns = [types.InlineKeyboardButton(str(i), callback_data=f"conf_{v_id}_{i_id}_{i}") for i in range(1, 9)]
     markup.add(*btns)
-    
+    markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data=f"v_{v_id}"))
+
     bot.edit_message_text("🔢 **ስንት ፍሬ ይፈልጋሉ?**", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('final_buy_'))
-def callback_finalize(call):
-    _, _, v_id, i_id, qty = call.data.split('_')
-    user_id = str(call.from_user.id)
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('conf_'))
+def checkout_page(call):
+    _, v_id, i_id, qty = call.data.split('_')
     db = load_data()
-    
     vendor = db.get('vendors_list', {}).get(v_id)
     item = vendor.get('items', {}).get(i_id)
-    customer = db.get('customers', {}).get(user_id)
-    
-    total_price = int(item['price']) * int(qty)
+    customer = db.get('customers', {}).get(str(call.from_user.id), {})
 
-    # ለደንበኛው ማረጋገጫ
-    bot.answer_callback_query(call.id, "✅ ትዕዛዝዎ ተልኳል!")
-    bot.edit_message_text(
-        f"✅ **ትዕዛዝዎ ተሳክቷል!**\n\n"
-        f"🛍️ እቃ፦ {item['name']}\n"
+    total = int(item.get('price')) * int(qty)
+    
+    text = (
+        f"🏁 **ትዕዛዝ ማጠቃለያ (Checkout)**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🛍️ እቃ፦ {item.get('name')}\n"
         f"🔢 ብዛት፦ {qty}\n"
-        f"💰 ጠቅላላ፦ {total_price} ETB\n\n"
-        "ባለቤቱ በቅርቡ ይደውልልዎታል።", 
-        call.message.chat.id, call.message.message_id
+        f"💰 ጠቅላላ ዋጋ፦ **{total} ETB**\n\n"
+        f"👤 ስም፦ {customer.get('name')}\n"
+        f"📞 ስልክ፦ {customer.get('phone')}\n"
+        f"📍 አድራሻ፦ {customer.get('location', 'ተመዝግቧል')}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"ትዕዛዙ ትክክል ከሆነ '✅ ትዕዛዝ አረጋግጥ' የሚለውን ይጫኑ።"
     )
 
-    # ለባለቤቱ (Vendor) መረጃውን መላክ
-    if 'owner_id' in vendor:
-        order_msg = (
-            f"🔔 **አዲስ ትዕዛዝ ደርሶዎታል!**\n\n"
-            f"👤 ደንበኛ፦ {customer.get('name', 'ያልታወቀ')}\n"
-            f"📞 ስልክ፦ {customer.get('phone', 'የሌለው')}\n"
-            f"📦 እቃ፦ {item['name']}\n"
-            f"🔢 ብዛት፦ {qty}\n"
-            f"💰 ጠቅላላ፦ {total_price} ETB\n"
-            f"📍 አድራሻ፦ {customer.get('location', 'ያልተገለጸ')}"
-        )
-        bot.send_message(vendor['owner_id'], order_msg)
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("✅ ትዕዛዝ አረጋግጥ", callback_data=f"final_{v_id}_{i_id}_{qty}"))
+    markup.add(types.InlineKeyboardButton("❌ ሰርዝ", callback_data="back_to_shops"))
+
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
 
 
 @bot.message_handler(content_types=['contact', 'location'])
