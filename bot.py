@@ -1437,8 +1437,173 @@ def back_to_main_handler(call):
 
 
 
+@bot.message_handler(func=lambda message: message.text == "🛍️ እቃዎችን ግዛ")
+def shop_now_start(message):
+    db = load_data()
+    vendors = db.get('vendors_list', {})
+    
+    if not vendors:
+        return bot.send_message(message.chat.id, "😔 ለጊዜው የተመዘገቡ ሱቆች የሉም።")
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    for v_id, v_info in vendors.items():
+        markup.add(types.InlineKeyboardButton(f"🏪 {v_info.get('name')}", callback_data=f"v_view_{v_id}"))
+
+    bot.send_message(
+        message.chat.id, 
+        "🏠 **እንኳን ወደ ገበያ በሰላም መጡ!**\n\nእባክዎ መግዛት የሚፈልጉበትን ሱቅ ይምረጡ፦", 
+        reply_markup=markup, 
+        parse_mode="Markdown"
+    )
 
 
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('v_view_'))
+def callback_view_categories(call):
+    vendor_id = call.data.replace('v_view_', '')
+    db = load_data()
+    vendor = db.get('vendors_list', {}).get(vendor_id)
+    
+    if not vendor: return bot.answer_callback_query(call.id, "ድርጅቱ አልተገኘም")
+
+    items = vendor.get('items', {})
+    # በውስጡ ያሉትን ካታጎሪዎች ለይቶ ማውጣት
+    categories = list(set([i.get('category', 'ጠቅላላ') for i in items.values()]))
+    
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    for cat in categories:
+        markup.add(types.InlineKeyboardButton(f"📂 {cat}", callback_data=f"list_items_{vendor_id}_{cat}"))
+    
+    markup.add(types.InlineKeyboardButton("⬅️ ወደ ሱቆች ተመለስ", callback_data="back_to_shops"))
+    
+    bot.edit_message_text(
+        f"🏢 **{vendor.get('name')}**\n\nእባክዎ የምድብ አይነት ይምረጡ፦", 
+        call.message.chat.id, call.message.message_id, 
+        reply_markup=markup
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('list_items_'))
+def callback_list_items(call):
+    # data: list_items_VENDORID_CATEGORY
+    _, _, v_id, cat = call.data.split('_')
+    db = load_data()
+    items = db.get('vendors_list', {}).get(v_id, {}).get('items', {})
+
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for i_id, i_info in items.items():
+        if i_info.get('category') == cat:
+            markup.add(types.InlineKeyboardButton(
+                f"{i_info.get('name')} - {i_info.get('price')} ETB", 
+                callback_data=f"pre_order_{v_id}_{i_id}"
+            ))
+    
+    markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data=f"v_view_{v_id}"))
+    bot.edit_message_text(f"📦 **የ{cat} ዝርዝር፦**", call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('pre_order_'))
+def callback_ask_qty(call):
+    _, _, v_id, i_id = call.data.split('_')
+    
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    # ከ1-6 ፍሬ እንዲመርጥ በተን
+    btns = [types.InlineKeyboardButton(str(i), callback_data=f"final_buy_{v_id}_{i_id}_{i}") for i in range(1, 7)]
+    markup.add(*btns)
+    
+    bot.edit_message_text("🔢 **ስንት ፍሬ ይፈልጋሉ?**", call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('final_buy_'))
+def callback_finalize(call):
+    _, _, v_id, i_id, qty = call.data.split('_')
+    user_id = str(call.from_user.id)
+    db = load_data()
+    
+    vendor = db.get('vendors_list', {}).get(v_id)
+    item = vendor.get('items', {}).get(i_id)
+    customer = db.get('customers', {}).get(user_id)
+    
+    total_price = int(item['price']) * int(qty)
+
+    # ለደንበኛው ማረጋገጫ
+    bot.answer_callback_query(call.id, "✅ ትዕዛዝዎ ተልኳል!")
+    bot.edit_message_text(
+        f"✅ **ትዕዛዝዎ ተሳክቷል!**\n\n"
+        f"🛍️ እቃ፦ {item['name']}\n"
+        f"🔢 ብዛት፦ {qty}\n"
+        f"💰 ጠቅላላ፦ {total_price} ETB\n\n"
+        "ባለቤቱ በቅርቡ ይደውልልዎታል።", 
+        call.message.chat.id, call.message.message_id
+    )
+
+    # ለባለቤቱ (Vendor) መረጃውን መላክ
+    if 'owner_id' in vendor:
+        order_msg = (
+            f"🔔 **አዲስ ትዕዛዝ ደርሶዎታል!**\n\n"
+            f"👤 ደንበኛ፦ {customer.get('name', 'ያልታወቀ')}\n"
+            f"📞 ስልክ፦ {customer.get('phone', 'የሌለው')}\n"
+            f"📦 እቃ፦ {item['name']}\n"
+            f"🔢 ብዛት፦ {qty}\n"
+            f"💰 ጠቅላላ፦ {total_price} ETB\n"
+            f"📍 አድራሻ፦ {customer.get('location', 'ያልተገለጸ')}"
+        )
+        bot.send_message(vendor['owner_id'], order_msg)
+
+
+@bot.message_handler(content_types=['contact', 'location'])
+def handle_registration(message):
+    user_id = str(message.from_user.id)
+    db = load_data()
+    
+    if 'customers' not in db:
+        db['customers'] = {}
+    
+    if user_id not in db['customers']:
+        db['customers'][user_id] = {'name': message.from_user.first_name}
+
+    # ስልክ ቁጥር ሲላክ
+    if message.contact:
+        db['customers'][user_id]['phone'] = message.contact.phone_number
+        bot.send_message(message.chat.id, "✅ ስልክ ቁጥርዎ ተመዝግቧል!")
+
+    # ሎኬሽን ሲላክ
+    if message.location:
+        loc = {'lat': message.location.latitude, 'lon': message.location.longitude}
+        db['customers'][user_id]['location'] = loc
+        bot.send_message(message.chat.id, "✅ ሎኬሽንዎ ተመዝግቧል!")
+
+    save_data(db) # ዳታውን ሴቭ ማድረግ
+
+    # ሁለቱም መረጃዎች ከተሟሉ ወደ ዋና ሜኑ ይለፈው
+    user_data = db['customers'][user_id]
+    if 'phone' in user_data and 'location' in user_data:
+        bot.send_message(
+            message.chat.id, 
+            "እንኳን ደስ አለዎት! ምዝገባዎ ተጠናቋል። አሁን ማዘዝ ይችላሉ።", 
+            reply_markup=get_customer_main_markup()
+        )
+
+
+@bot.message_handler(func=lambda message: True)
+def handle_main_menu(message):
+    if message.text == "🛍️ እቃዎችን ግዛ":
+        list_shops(message) # ከላይ የሰራነው ሱቆችን የሚዘረዝረው
+        
+    elif message.text == "✍️ ልዩ ትዕዛዝ":
+        special_order_start(message) # የልዩ ትዕዛዝ መጀመሪያ
+        
+    elif message.text == "📋 ትዕዛዞቼ":
+        bot.reply_to(message, "እስካሁን ያዘዟቸው እቃዎች ዝርዝር እዚህ ይታያል። (በቅርብ ቀን...)")
+        
+    elif message.text == "📍 አድራሻዬን ቀይር" or message.text == "📞 ስልክ ቀይር":
+        bot.send_message(
+            message.chat.id, 
+            "መረጃዎን ለመቀየር እባክዎ አዲሱን መረጃ ይላኩ፦", 
+            reply_markup=get_customer_registration_markup()
+        )
+        
+    elif message.text == "❓ እርዳታ":
+        bot.send_message(message.chat.id, "እርዳታ ከፈለጉ በ @YourAdminUsername ያግኙን።")
 
 
 
