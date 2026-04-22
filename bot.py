@@ -307,9 +307,11 @@ def calculate_special_final(message, order_id):
 
 def get_location_keyboard():
     markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
-    button = types.KeyboardButton("📍 የድርጅትዎን መገኛ (Location) እዚህ ተጭነው ይላኩ", request_location=True)
+    # ጽሁፉን ለሁለቱም እንዲሆን "📍 ያለሁበትን መገኛ (Location) ላክ" ማድረግ ትችላለህ
+    button = types.KeyboardButton("📍 ያለሁበትን መገኛ (Location) ላክ", request_location=True)
     markup.add(button)
     return markup
+
 
 
 def save_commissions(message):
@@ -1256,29 +1258,26 @@ def get_vendor_dashboard_elements(v_id):
 
 
 
-def customer_main_menu(message):
+def get_customer_main_markup():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     
-    # ዋና ዋና የንግድ ስራዎች
-    btn_shop = types.KeyboardButton("🛍️ እቃዎችን ግዛ")
-    btn_special = types.KeyboardButton("✍️ ልዩ ትዕዛዝ")
+    # በተኖቹን መፍጠር
+    btns = [
+        types.KeyboardButton("🛍️ እቃዎችን ግዛ"),
+        types.KeyboardButton("✍️ ልዩ ትዕዛዝ"),
+        types.KeyboardButton("📋 ትዕዛዞቼ"),
+        types.KeyboardButton("📍 አድራሻዬን ቀይር"),
+        types.KeyboardButton("📞 ስልክ ቀይር"),
+        types.KeyboardButton("❓ እርዳታ")
+    ]
     
-    # የክትትልና መረጃ መቀየሪያዎች
-    btn_orders = types.KeyboardButton("📋 ትዕዛዞቼ")
-    btn_location = types.KeyboardButton("📍 አድራሻዬን ቀይር")
-    btn_phone = types.KeyboardButton("📞 ስልክ ቀይር")
-    btn_help = types.KeyboardButton("❓ እርዳታ")
+    # ማርክአፑ ላይ መጨመር
+    markup.add(btns, btns)
+    markup.add(btns, btns)
+    markup.add(btns, btns)
     
-    markup.add(btn_shop, btn_special)
-    markup.add(btn_orders, btn_location)
-    markup.add(btn_phone, btn_help)
-    
-    bot.send_message(
-        message.chat.id, 
-        f"ሰላም {message.from_user.first_name} 👋! እንኳን ወደ **BDF Delivery** በደህና መጡ።\nዛሬ ምን ማዘዝ ይፈልጋሉ?", 
-        reply_markup=markup, 
-        parse_mode="Markdown"
-    )
+    return markup
+
 
 
 
@@ -1312,62 +1311,47 @@ def send_welcome(message):
     user_id_str = str(user_id)
     db = load_data()
 
-    # 🔥 1. በግዴታ (Force) የቆዩ የጥያቄ ሂደቶችን ያቋርጣል
     bot.clear_step_handler_by_chat_id(chat_id=chat_id)
     
-    # ጽዳት፡ በምዝገባ ወቅት የተያዙ ጊዜያዊ ዳታዎችን ያጠፋል
     if user_id_str in item_creation_data:
         del item_creation_data[user_id_str]
 
-    # 2. ተጠቃሚውን ለብሮድካስት መመዝገብ
+    # 1. ብሮድካስት ምዝገባ
     if 'user_list' not in db: db['user_list'] = []
     if user_id not in db['user_list']:
         db['user_list'].append(user_id)
         save_data(db)
 
-    # 3. አድሚን ከሆነ
+    # 2. አድሚን ከሆነ
     if user_id in ADMIN_IDS:
         markup = get_admin_dashboard(user_id)
         return bot.send_message(
             chat_id, 
-            "👋 ሰላም ጌታዬ! እንኳን ወደ **BDF Delivery** መቆጣጠሪያ መጡ።\nከታች ያሉትን አማራጮች ተጠቅመው ሲስተሙን ያስተዳድሩ።",
+            "👋 ሰላም ጌታዬ! እንኳን ወደ **BDF Delivery** መቆጣጠሪያ መጡ።",
             reply_markup=markup,
             parse_mode="Markdown"
         )
 
-    # 4. ቬንደር (ድርጅት) ከሆነ
+    # 3. ቬንደር (ድርጅት) ከሆነ
     vendors_list = db.get('vendors_list', {})
     if user_id_str in vendors_list:
         v_info = vendors_list[user_id_str]
-
-        # ሎኬሽን ገና ካልላከ
         if 'lat' not in v_info or 'lon' not in v_info:
-            text = (
-                f"ሰላም {v_info.get('name', 'ባለቤት')}! 👋\n\n"
-                "ወደ BDF Delivery እንኳን በደህና መጡ። ስራ ከመጀመርዎ በፊት የድርጅቱን ትክክለኛ መገኛ (Location) መላክ አለብዎት።"
-            )
+            text = f"ሰላም {v_info.get('name', 'ባለቤት')}! 👋\n\nእባክዎ የድርጅቱን መገኛ (Location) ይላኩ።"
             return bot.send_message(chat_id, text, reply_markup=get_location_keyboard())
-
-        # ሎኬሽን ካለው ወደ ቬንደር ዳሽቦርድ
+        
         text, markup = get_vendor_dashboard_elements(user_id)
         return bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
 
-        # 5. ተራ ደንበኛ ከሆነ
-    # በመጀመሪያ መረጃው የተሟላ መሆኑን ቼክ እናደርጋለን
-    if is_user_complete(user_id):
-        # መረጃው የተሟላ ከሆነ (ነባር ደንበኛ)
-        welcome_text = (
-            f"እንኳን ደህና መጡ {message.from_user.first_name}! 👋\n\n"
-            "ምን ማዘዝ ይፈልጋሉ? ከታች ያሉትን አማራጮች ይጠቀሙ።"
-        )
-        bot.send_message(chat_id, welcome_text, reply_markup=customer_main_menu(), parse_mode="Markdown")
+    # 4. ተራ ደንበኛ ከሆነ (ከላይ ያሉት ካልሆኑ ብቻ ወደዚህ ያልፋል)
     else:
-        # መረጃው ካልተሟላ (አዲስ ደንበኛ)
-        welcome_text = (
-            "እንኳን ወደ **BDF Delivery** በደህና መጡ! 👋\n\n"
-            "አገልግሎታችንን ለመጀመር እባክዎ መጀመሪያ ስልክ ቁጥርዎን እና ሎኬሽንዎን ያጋሩ።"
-        )
-        bot.send_message(chat_id, welcome_text, reply_markup=get_customer_registration_markup(), parse_mode="Markdown")
+        if is_user_complete(user_id_str):
+            welcome_text = f"እንኳን ደህና መጡ {message.from_user.first_name}! 👋\n\nምን ማዘዝ ይፈልጋሉ?"
+            # እዚህ ጋር get_customer_main_markup() ማርክአፑን ብቻ እንዲመልስ አድርገህ ተጠቀም
+            bot.send_message(chat_id, welcome_text, reply_markup=get_customer_main_markup(), parse_mode="Markdown")
+        else:
+            welcome_text = "እንኳን ወደ **BDF Delivery** በደህና መጡ! 👋\n\nእባክዎ መጀመሪያ ስልክና ሎኬሽን ያጋሩ።"
+            bot.send_message(chat_id, welcome_text, reply_markup=get_customer_registration_markup(), parse_mode="Markdown")
 
 
 
@@ -1422,45 +1406,42 @@ def contact_handler(message):
         else:
             bot.send_message(message.chat.id, "✅ ስልክዎ ተመዝግቧል። አሁን ደግሞ ሎኬሽንዎን (📍 ያለሁበትን ቦታ ላክ) የሚለውን ተጭነው ይላኩ።")
 
-# --- ሎኬሽን መቀበያ ---
 @bot.message_handler(content_types=['location'])
-def location_handler(message):
-    if message.location:
-        user_id = str(message.from_user.id)
-        lat = message.location.latitude
-        lon = message.location.longitude
-        
-        # 1. ዳታቤዝ ላይ ሎኬሽኑን ሴቭ አድርግ
-        # save_user_data(user_id, lat=lat, lon=lon)
-        
-        # 2. ስልኩም መኖሩን ቼክ አድርግ
-        if is_user_complete(user_id):
-            text, markup = get_customer_dashboard(message.from_user.first_name)
-            bot.send_message(message.chat.id, f"✅ እንኳን ደህና መጡ! \n{text}", reply_markup=markup, parse_mode="Markdown")
-        else:
-            bot.send_message(message.chat.id, "✅ ሎኬሽንዎ ተመዝግቧል። አሁን ደግሞ ስልክ ቁጥርዎን (📲 ስልክ ቁጥር ላክ) የሚለውን ተጭነው ይላኩ።")
-
-
-
-
-
-
-@bot.message_handler(content_types=['location'])
-def save_vendor_location(message):
-    user_id = str(message.from_user.id)
+def unified_location_handler(message):
+    user_id_str = str(message.from_user.id)
     db = load_data()
-    
-    if user_id in db.get('vendors_list', {}):
-        db['vendors_list'][user_id]['lat'] = message.location.latitude
-        db['vendors_list'][user_id]['lon'] = message.location.longitude
+    lat = message.location.latitude
+    lon = message.location.longitude
+
+    # 1. ቬንደር መሆኑን ቼክ አድርግ
+    if user_id_str in db.get('vendors_list', {}):
+        db['vendors_list'][user_id_str]['lat'] = lat
+        db['vendors_list'][user_id_str]['lon'] = lon
         save_data(db)
-        
-        # ሎኬሽን በተኑን አጥፍተን ምድብ እንዲመርጥ እንጠይቃለን
         bot.send_message(
             message.chat.id, 
-            "✅ ሎኬሽንዎ ተመዝግቧል!\nአሁን ደግሞ የድርጅትዎን አይነት (Category) ይምረጡ፦", 
-            reply_markup=get_category_markup()
+            "✅ የድርጅትዎ ሎኬሽን ተመዝግቧል! አሁን የድርጅትዎን አይነት (Category) ይምረጡ፦", 
+            reply_markup=get_category_markup() # ይህ ለቬንደር ብቻ የሚመጣ ሜኑ ነው
         )
+
+    # 2. ደንበኛ መሆኑን ቼክ አድርግ
+    else:
+        if 'users' not in db: db['users'] = {}
+        if user_id_str not in db['users']: db['users'][user_id_str] = {}
+        
+        db['users'][user_id_str]['lat'] = lat
+        db['users'][user_id_str]['lon'] = lon
+        save_data(db)
+
+        # ስልክ ቁጥርም ካለው ቀጥታ ወደ ሜኑ፣ ካልሆነ ስልክ እንዲልክ መጠየቅ
+        if is_user_complete(user_id_str):
+            bot.send_message(message.chat.id, "✅ እንኳን ደህና መጡ!", reply_markup=get_customer_main_markup())
+        else:
+            # ስልክ ቁጥር መጠየቂያ በተን ያለው ማርክአፕ
+            markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+            markup.add(types.KeyboardButton("📲 ስልክ ቁጥር ላክ", request_contact=True))
+            bot.send_message(message.chat.id, "✅ ሎኬሽንዎ ተመዝግቧል። አሁን ደግሞ ስልክ ቁጥርዎን ይላኩ።", reply_markup=markup)
+
 
 
 
