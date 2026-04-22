@@ -39,6 +39,7 @@ db_lock = threading.Lock()
 
 def load_data():
     default_db = {
+        "users": {},
         "riders_list": {},     
         "vendors_list": {}, 
         "orders": {},          
@@ -1257,25 +1258,22 @@ def get_vendor_dashboard_elements(v_id):
 
 
 
-
 def get_customer_main_markup():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     
-    # በተኖቹን መፍጠር
-    btns = [
-        types.KeyboardButton("🛍️ እቃዎችን ግዛ"),
-        types.KeyboardButton("✍️ ልዩ ትዕዛዝ"),
-        types.KeyboardButton("📋 ትዕዛዞቼ"),
-        types.KeyboardButton("📍 አድራሻዬን ቀይር"),
-        types.KeyboardButton("📞 ስልክ ቀይር"),
-        types.KeyboardButton("❓ እርዳታ")
-    ]
-    
-    # ማርክአፑ ላይ መጨመር
-    markup.add(btns, btns)
-    markup.add(btns, btns)
-    markup.add(btns, btns)
-    
+    # በተኖቹን አንድ በአንድ ፍጠር
+    b1 = types.KeyboardButton("🛍️ እቃዎችን ግዛ")
+    b2 = types.KeyboardButton("✍️ ልዩ ትዕዛዝ")
+    b3 = types.KeyboardButton("📋 ትዕዛዞቼ")
+    b4 = types.KeyboardButton("📍 አድራሻዬን ቀይር")
+    b5 = types.KeyboardButton("📞 ስልክ ቀይር")
+    b6 = types.KeyboardButton("❓ እርዳታ")
+
+    # በትክክል ጨምራቸው
+    markup.add(b1, b2)
+    markup.add(b3, b4)
+    markup.add(b5, b6)
+
     return markup
 
 
