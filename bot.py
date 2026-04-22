@@ -30,11 +30,19 @@ def run_flask():
     app.run(host='0.0.0.0', port=PORT)
 
 import json
-from datetime import datetime
+import redis
 import threading
 import time
+from datetime import datetime
 
-# የዳታቤዝ መቆለፊያ (ለ Race Condition መከላከያ)
+# 1. Redis ግንኙነት (አካባቢህ ላይ የተጫነ መሆን አለበት)
+try:
+    r = redis.Redis(host='localhost', port=6379, decode_responses=True)
+except Exception as e:
+    print(f"❌ Redis Connection Error: {e}")
+    r = None
+
+# የዳታቤዝ መቆለፊያ
 db_lock = threading.Lock()
 
 def load_data():
@@ -43,9 +51,10 @@ def load_data():
         "vendors_list": {}, 
         "orders": {},          
         "carts": {},           
-        "categories": [],      
+        "items": {},           # 🛍️ ለእቃዎች ዝርዝር አስፈላጊ ነው
+        "users": {},           # 📍 ሎኬሽን ለመያዝ
+        "categories": ["ምግብ 🍔", "ሱፐርማርኬት 🛒", "ፋርማሲ 💊", "መጠጥ 🍷"],      
         "total_profit": 0,     
-        "user_list": [],       
         "stats": {
             "total_vendor_comm": 0.0,
             "total_rider_comm": 0.0,
@@ -57,49 +66,49 @@ def load_data():
             "rider_commission_fixed": 5,
             "service_fee": 8,
             "rider_fixed_fee": 30,       
-            "base_delivery": 50,
-            "rain_mode": False,   # ✅ አዲስ የታከለ
-            "rain_val": 25,       # ✅ አዲስ የታከለ
-            "night_mode": False,  # ✅ አዲስ የታከለ
-            "night_val": 15,      # ✅ አዲስ የታከለ
+            "base_delivery": 25,
+            "price_per_extra_km": 7,
+            "rain_mode": False,   
+            "rain_val": 25,       
+            "night_mode": False,  
+            "night_val": 15,      
             "system_locked": False 
         }
     }
 
-    try:
-        raw = redis.get("bdf_delivery_db")
-        if raw: 
-            loaded_db = json.loads(raw)
-            if not isinstance(loaded_db, dict):
-                loaded_db = default_db
-
-            # 🛠 ወሳኝ ክፍል፡ አዳዲስ ቁልፎች (እንደ stats ያሉት) በቆየው ዳታቤዝ ውስጥ 
-            # ከሌሉ እንዲጨመሩ (Merge) ያደርጋል
-            for key, value in default_db.items():
-                if key not in loaded_db:
-                    loaded_db[key] = value
+    with db_lock: # 🔒 ዳታው በሚነበብበት ጊዜ ሌላ ክፍል እንዳይቀይረው
+        try:
+            raw = r.get("bdf_delivery_db") if r else None
+            if raw: 
+                loaded_db = json.loads(raw)
                 
-                # በ settings ውስጥ ያሉ ንዑስ ቁልፎችንም ቼክ ለማድረግ
-                if key == "settings":
-                    for s_key, s_val in default_db["settings"].items():
-                        if s_key not in loaded_db["settings"]:
-                            loaded_db["settings"][s_key] = s_val
-                            
-            return loaded_db
-
-        return default_db
-    except Exception as e:
-        print(f"❌ Database Load Error: {e}")
-        return default_db
-
+                # 🛠 Merge Logic (አዳዲስ ቁልፎችን መጨመር)
+                for key, value in default_db.items():
+                    if key not in loaded_db:
+                        loaded_db[key] = value
+                    if key == "settings":
+                        for s_key, s_val in default_db["settings"].items():
+                            if s_key not in loaded_db["settings"]:
+                                loaded_db["settings"][s_key] = s_val
+                return loaded_db
+            
+            return default_db
+        except Exception as e:
+            print(f"❌ Database Load Error: {e}")
+            return default_db
 
 def save_data(db):
     """ዳታውን ወደ Redis ያስቀምጣል"""
-    try:
-        redis.set("bdf_delivery_db", json.dumps(db))
-    except Exception as e:
-        print(f"❌ Database Save Error: {e}")
-
+    with db_lock: # 🔒 ዳታው በሚቀመጥበት ጊዜ ሌላ ክፍል እንዳይነካው
+        try:
+            if r:
+                r.set("bdf_delivery_db", json.dumps(db))
+            else:
+                # Redis ከሌለ በፋይል እንዲቀመጥ (Backup)
+                with open("bdf_backup.json", "w", encoding="utf-8") as f:
+                    json.dump(db, f, indent=4)
+        except Exception as e:
+            print(f"❌ Database Save Error: {e}")
 
 
 
@@ -742,16 +751,18 @@ def get_item_management_markup(v_id, item_id):
 
 
 
+import time
 from datetime import datetime, timedelta
 
+# 1. ዋናው የሪፖርት ማመንጫ ፋንክሽን
 def get_detailed_report(v_id, period="day"):
     db = load_data()
     orders = db.get('orders', {})
     now = datetime.now()
-    
+
     total_sales = 0
-    total_revenue = 0
-    
+    total_revenue = 0.0
+
     # የጊዜ ገደቡን መወሰኛ
     if period == "day":
         start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -759,18 +770,24 @@ def get_detailed_report(v_id, period="day"):
     elif period == "week":
         start_date = now - timedelta(days=7)
         title = "የሳምንቱ (Weekly)"
-    else: # Month
+    else: # month
         start_date = now - timedelta(days=30)
         title = "የወሩ (Monthly)"
 
     for order_id, order in orders.items():
-        # ትዕዛዙ የዚህ ቬንደር ከሆነ እና የተሳካ (Delivered) ከሆነ
-        if str(order.get('vendor_id')) == str(v_id) and order.get('status') == 'Delivered':
-            order_time = datetime.fromtimestamp(order.get('timestamp', 0))
+        # ትዕዛዙ የዚህ ቬንደር ከሆነ እና የተሳካ (completed/Delivered) ከሆነ
+        # ማሳሰቢያ፡ እዚህ ጋር 'status' በዳታቤዝህ 'completed' ከሆነ እሱን ተጠቀም
+        if str(order.get('vendor_id')) == str(v_id) and order.get('status') in ['completed', 'Delivered']:
             
+            # ሰዓቱን ከ timestamp ወደ datetime መቀየር
+            # በዳታቤዝህ 'timestamp' ተብሎ ካልተቀመጠ time.time() ተጠቅመህ መመዝገብህን አረጋግጥ
+            o_timestamp = order.get('timestamp', time.time())
+            order_time = datetime.fromtimestamp(o_timestamp)
+
             if order_time >= start_date:
                 total_sales += 1
-                total_revenue += order.get('total_price', 0)
+                # ቬንደሩ የእቃውን ዋጋ ብቻ ነው ማየት ያለበት (ያለ ዴሊቨሪ)
+                total_revenue += float(order.get('item_price', 0))
 
     report_text = (
         f"📊 **{title} የሽያጭ ሪፖርት**\n"
@@ -780,17 +797,18 @@ def get_detailed_report(v_id, period="day"):
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"🕒 ሪፖርቱ የተዘጋጀው፦ {now.strftime('%H:%M')}"
     )
-    
-    # የሪፖርት መቀየሪያ በተኖች
+
+    # የሪፖርት መቀየሪያ በተኖች (Inline Buttons)
     markup = types.InlineKeyboardMarkup(row_width=3)
     markup.add(
-        types.InlineKeyboardButton("📅 የዛሬ", callback_data="rep_day"),
-        types.InlineKeyboardButton("🗓️ የሳምንት", callback_data="rep_week"),
-        types.InlineKeyboardButton("📆 የወር", callback_data="rep_month")
+        types.InlineKeyboardButton("📅 የዛሬ", callback_data=f"rep_day_{v_id}"),
+        types.InlineKeyboardButton("🗓️ የሳምንት", callback_data=f"rep_week_{v_id}"),
+        types.InlineKeyboardButton("📆 የወር", callback_data=f"rep_month_{v_id}")
     )
-    markup.add(types.InlineKeyboardButton("🏠 ወደ ዳሽቦርድ", callback_data="vendor_refresh"))
-    
+    markup.add(types.InlineKeyboardButton("🏠 ወደ ዋናው ዝርዝር", callback_data="vendor_main_menu"))
+
     return report_text, markup
+
 
 
 
@@ -1421,23 +1439,43 @@ def handle_customer_rating(call):
 
 
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("rep_") or call.data == "vendor_sales_report")
-def handle_report_switching(call):
-    v_id = call.from_user.id
+
+# 2. የቬንደሩ "የሽያጭ ታሪክ" በተን ሲጫን መጀመሪያ የሚመጣው
+@bot.callback_query_handler(func=lambda call: call.data == "vendor_sales_history")
+def vendor_report_start(call):
+    v_id = str(call.from_user.id)
+    # መጀመሪያ የዛሬውን ሪፖርት ያሳየዋል
+    report_text, markup = get_detailed_report(v_id, period="day")
     
-    # የትኛው ጊዜ እንደተመረጠ መለየት
-    period = "day" # Default
-    if "_" in call.data:
-        period = call.data.split("_")
-        
-    text, markup = get_detailed_report(v_id, period)
+    bot.edit_message_text(
+        report_text, 
+        call.message.chat.id, 
+        call.message.message_id, 
+        reply_markup=markup, 
+        parse_mode="Markdown"
+    )
+
+# 3. በተኖቹ ሲጫኑ ሪፖርቱን የሚያድሰው Handler
+@bot.callback_query_handler(func=lambda call: call.data.startswith('rep_'))
+def update_vendor_report(call):
+    # data format: rep_period_vid (ለምሳሌ rep_week_123456)
+    parts = call.data.split('_')
+    period = parts
+    v_id = parts
+    
+    report_text, markup = get_detailed_report(v_id, period)
     
     try:
-        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-    except:
-        bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
-
-
+        bot.edit_message_text(
+            report_text, 
+            call.message.chat.id, 
+            call.message.message_id, 
+            reply_markup=markup, 
+            parse_mode="Markdown"
+        )
+    except Exception:
+        # መልዕክቱ ካልተቀየረ (ያው ተመሳሳይ ሪፖርት ከሆነ) ስህተት እንዳይሰጠን
+        bot.answer_callback_query(call.id, "ሪፖርቱ ተዘምኗል!")
 
 
 
