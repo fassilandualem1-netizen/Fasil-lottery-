@@ -1288,6 +1288,22 @@ def get_customer_main_markup():
     return markup
 
 
+def get_customer_registration_markup():
+    # resize_keyboard በተኖቹ ትንሽ እንዲሆኑ ያደርጋል
+    # one_time_keyboard አንዴ ከተጫኑ በኋላ እንዲጠፉ ያደርጋል
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    
+    # 1. ስልክ ቁጥር መጠየቂያ በተን
+    phone_btn = types.KeyboardButton("📲 ስልክ ቁጥር ላክ", request_contact=True)
+    
+    # 2. ሎኬሽን መጠየቂያ በተን
+    location_btn = types.KeyboardButton("📍 ሎኬሽን ላክ", request_location=True)
+    
+    # በተኖቹን መጨመር
+    markup.add(phone_btn)
+    markup.add(location_btn)
+    
+    return markup
 
 
 
