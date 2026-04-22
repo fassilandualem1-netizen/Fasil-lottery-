@@ -29,30 +29,29 @@ def run_flask():
     # በ Render ላይ ስራ እንዲጀምር host እና port በትክክል መሰጠት አለባቸው
     app.run(host='0.0.0.0', port=PORT)
 
+
+
 import json
-import redis
+import os
 import threading
 import time
 from datetime import datetime
 
-# 1. Redis ግንኙነት (አካባቢህ ላይ የተጫነ መሆን አለበት)
-try:
-    r = redis.Redis(host='localhost', port=6379, decode_responses=True)
-except Exception as e:
-    print(f"❌ Redis Connection Error: {e}")
-    r = None
+# የዳታቤዝ ፋይል ስም
+DB_FILE = "bdf_database.json"
 
-# የዳታቤዝ መቆለፊያ
+# የዳታቤዝ መቆለፊያ (Race Condition ለመከላከል)
 db_lock = threading.Lock()
 
 def load_data():
+    # 1. መደበኛው የዳታቤዝ መዋቅር (Default Structure)
     default_db = {
         "riders_list": {},     
         "vendors_list": {}, 
         "orders": {},          
         "carts": {},           
-        "items": {},           # 🛍️ ለእቃዎች ዝርዝር አስፈላጊ ነው
-        "users": {},           # 📍 ሎኬሽን ለመያዝ
+        "items": {},           
+        "users": {},           
         "categories": ["ምግብ 🍔", "ሱፐርማርኬት 🛒", "ፋርማሲ 💊", "መጠጥ 🍷"],      
         "total_profit": 0,     
         "stats": {
@@ -76,13 +75,14 @@ def load_data():
         }
     }
 
-    with db_lock: # 🔒 ዳታው በሚነበብበት ጊዜ ሌላ ክፍል እንዳይቀይረው
+    with db_lock:
         try:
-            raw = r.get("bdf_delivery_db") if r else None
-            if raw: 
-                loaded_db = json.loads(raw)
+            # 2. ፋይሉ መኖሩን ማረጋገጥ
+            if os.path.exists(DB_FILE):
+                with open(DB_FILE, "r", encoding="utf-8") as f:
+                    loaded_db = json.load(f)
                 
-                # 🛠 Merge Logic (አዳዲስ ቁልፎችን መጨመር)
+                # 🛠 Merge Logic: አዳዲስ ቁልፎች ካሉ እንዲጨመሩ
                 for key, value in default_db.items():
                     if key not in loaded_db:
                         loaded_db[key] = value
@@ -92,23 +92,22 @@ def load_data():
                                 loaded_db["settings"][s_key] = s_val
                 return loaded_db
             
+            # ፋይሉ ከሌለ አዲስ ይፈጠራል
             return default_db
         except Exception as e:
             print(f"❌ Database Load Error: {e}")
             return default_db
 
 def save_data(db):
-    """ዳታውን ወደ Redis ያስቀምጣል"""
-    with db_lock: # 🔒 ዳታው በሚቀመጥበት ጊዜ ሌላ ክፍል እንዳይነካው
+    """ዳታውን ወደ JSON ፋይል ያስቀምጣል"""
+    with db_lock:
         try:
-            if r:
-                r.set("bdf_delivery_db", json.dumps(db))
-            else:
-                # Redis ከሌለ በፋይል እንዲቀመጥ (Backup)
-                with open("bdf_backup.json", "w", encoding="utf-8") as f:
-                    json.dump(db, f, indent=4)
+            with open(DB_FILE, "w", encoding="utf-8") as f:
+                json.dump(db, f, indent=4, ensure_ascii=False)
         except Exception as e:
             print(f"❌ Database Save Error: {e}")
+
+
 
 
 
