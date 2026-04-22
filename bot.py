@@ -1387,23 +1387,6 @@ def back_to_main_handler(call):
 
 
 
-# --- ስልክ ቁጥር መቀበያ ---
-@bot.message_handler(content_types=['contact'])
-def contact_handler(message):
-    if message.contact:
-        user_id = str(message.from_user.id)
-        phone = message.contact.phone_number
-        
-        # 1. ዳታቤዝ ላይ ስልኩን ሴቭ አድርግ (ለምሳሌ)
-        # save_user_data(user_id, phone=phone)
-        
-        # 2. ሎኬሽኑም መኖሩን ቼክ አድርግ
-        if is_user_complete(user_id):
-            text, markup = get_customer_dashboard(message.from_user.first_name)
-            bot.send_message(message.chat.id, "✅ ምዝገባ ተጠናቋል!", reply_markup=markup)
-        else:
-            bot.send_message(message.chat.id, "✅ ስልክዎ ተመዝግቧል። አሁን ደግሞ ሎኬሽንዎን (📍 ያለሁበትን ቦታ ላክ) የሚለውን ተጭነው ይላኩ።")
-
 @bot.message_handler(content_types=['location'])
 def unified_location_handler(message):
     user_id_str = str(message.from_user.id)
@@ -1416,10 +1399,18 @@ def unified_location_handler(message):
         db['vendors_list'][user_id_str]['lat'] = lat
         db['vendors_list'][user_id_str]['lon'] = lon
         save_data(db)
+        
+        # ✅ የድሮውን የሎኬሽን በተን ለማጥፋት ReplyKeyboardRemove እንጠቀማለን
         bot.send_message(
             message.chat.id, 
-            "✅ የድርጅትዎ ሎኬሽን ተመዝግቧል! አሁን የድርጅትዎን አይነት (Category) ይምረጡ፦", 
-            reply_markup=get_category_markup() # ይህ ለቬንደር ብቻ የሚመጣ ሜኑ ነው
+            "✅ የድርጅትዎ ሎኬሽን ተመዝግቧል!", 
+            reply_markup=types.ReplyKeyboardRemove() 
+        )
+        # ከዚያ አዲሱን ሜኑ ለብቻው እንልካለን
+        bot.send_message(
+            message.chat.id,
+            "አሁን የድርጅትዎን አይነት (Category) ይምረጡ፦",
+            reply_markup=get_category_markup()
         )
 
     # 2. ደንበኛ መሆኑን ቼክ አድርግ
@@ -1431,14 +1422,49 @@ def unified_location_handler(message):
         db['users'][user_id_str]['lon'] = lon
         save_data(db)
 
-        # ስልክ ቁጥርም ካለው ቀጥታ ወደ ሜኑ፣ ካልሆነ ስልክ እንዲልክ መጠየቅ
         if is_user_complete(user_id_str):
-            bot.send_message(message.chat.id, "✅ እንኳን ደህና መጡ!", reply_markup=get_customer_main_markup())
+            bot.send_message(
+                message.chat.id, 
+                "✅ ሎኬሽንዎ ተመዝግቧል! እንኳን ደህና መጡ።", 
+                reply_markup=get_customer_main_markup()
+            )
         else:
-            # ስልክ ቁጥር መጠየቂያ በተን ያለው ማርክአፕ
+            # ስልክ ለሌለው ደንበኛ ስልክ መጠየቂያውን ስንልክ የድሮው ሎኬሽን በተን በራሱ ይጠፋል
             markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
             markup.add(types.KeyboardButton("📲 ስልክ ቁጥር ላክ", request_contact=True))
             bot.send_message(message.chat.id, "✅ ሎኬሽንዎ ተመዝግቧል። አሁን ደግሞ ስልክ ቁጥርዎን ይላኩ።", reply_markup=markup)
+
+
+
+
+
+@bot.message_handler(content_types=['contact'])
+def contact_handler(message):
+    if message.contact:
+        user_id = str(message.from_user.id)
+        phone = message.contact.phone_number
+        db = load_data()
+        
+        # 1. ዳታቤዝ ላይ ስልኩን ሴቭ አድርግ
+        if 'users' not in db: db['users'] = {}
+        if user_id not in db['users']: db['users'][user_id] = {}
+        db['users'][user_id]['phone'] = phone
+        save_data(db)
+        
+        # 2. ሎኬሽኑም መኖሩን ቼክ አድርግ
+        if is_user_complete(user_id):
+            # ምዝገባው ካለቀ ዋናውን ሜኑ እንሰጣለን
+            bot.send_message(
+                message.chat.id, 
+                "✅ ምዝገባ ተጠናቋል! እንኳን ደህና መጡ።", 
+                reply_markup=get_customer_main_markup() # ማርክአፑን ብቻ የሚመልሰው ፋንክሽን
+            )
+        else:
+            # ሎኬሽን ገና ካልላከ
+            markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+            markup.add(types.KeyboardButton("📍 ያለሁበትን ቦታ ላክ", request_location=True))
+            bot.send_message(message.chat.id, "✅ ስልክዎ ተመዝግቧል። አሁን ደግሞ ሎኬሽንዎን ይላኩ።", reply_markup=markup)
+
 
 
 
