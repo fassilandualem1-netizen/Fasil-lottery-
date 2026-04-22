@@ -106,8 +106,19 @@ def save_data(db):
 
 def is_user_complete(user_id):
     db = load_data()
+    # 1. መጀመሪያ 'users' የሚባል ቁልፍ መኖሩን እናረጋግጣለን
+    if 'users' not in db:
+        return False
+    
+    # 2. የተጠቃሚውን ዳታ እናወጣለን
     user = db.get('users', {}).get(str(user_id), {})
-    return user.get('phone') and user.get('lat')
+    
+    # 3. ስልክ፣ ላቲቲውድ እና ሎንግቲውድ መኖራቸውን ቼክ እናደርጋለን
+    has_phone = user.get('phone') is not None
+    has_location = user.get('lat') is not None and user.get('lon') is not None
+    
+    return has_phone and has_location
+
 
 
 
@@ -1341,15 +1352,22 @@ def send_welcome(message):
         text, markup = get_vendor_dashboard_elements(user_id)
         return bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
 
-    # 4. ተራ ደንበኛ ከሆነ (ከላይ ያሉት ካልሆኑ ብቻ ወደዚህ ያልፋል)
+    # 4. ተራ ደንበኛ ከሆነ (ከላይ ያሉት ካልሆኑ ብቻ ወደዚህ 'else' ይገባል)
+    # ማሳሰቢያ፦ ይህ 'else' ከላይ ካለው 'if user_id_str in vendors_list' ጋር እኩል መስመር መሆን አለበት
     else:
+        # ዳታቤዝ ውስጥ 'users' መኖሩን ቼክ እናደርጋለን
+        if 'users' not in db: db['users'] = {}
+        if user_id_str not in db['users']:
+            db['users'][user_id_str] = {}
+            save_data(db)
+
         if is_user_complete(user_id_str):
             welcome_text = f"እንኳን ደህና መጡ {message.from_user.first_name}! 👋\n\nምን ማዘዝ ይፈልጋሉ?"
-            # እዚህ ጋር get_customer_main_markup() ማርክአፑን ብቻ እንዲመልስ አድርገህ ተጠቀም
             bot.send_message(chat_id, welcome_text, reply_markup=get_customer_main_markup(), parse_mode="Markdown")
         else:
             welcome_text = "እንኳን ወደ **BDF Delivery** በደህና መጡ! 👋\n\nእባክዎ መጀመሪያ ስልክና ሎኬሽን ያጋሩ።"
             bot.send_message(chat_id, welcome_text, reply_markup=get_customer_registration_markup(), parse_mode="Markdown")
+
 
 
 
