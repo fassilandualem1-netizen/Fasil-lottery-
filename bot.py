@@ -248,71 +248,77 @@ def notify_vendor_new_order(order_id):
     
     bot.send_message(v_id, text, reply_markup=markup, parse_mode="Markdown")
 
-# --- ቬንደሩ 'እሺ' ሲል የሚሰራው ---
-@bot.callback_query_handler(func=lambda call: call.data.startswith("accept_order_"))
-def vendor_accept_order(call):
-    order_id = call.data.replace("accept_order_", "")
-    db = load_data()
-    order = db.get('orders', {}).get(order_id)
-    
-    if order:
-        order['status'] = 'Processing' # ሁኔታውን መቀየር
-        save_data(db)
-        
-        bot.edit_message_text(f"✅ ትዕዛዝ #{order_id} ተቀብለዋል። አሁን ለራይደር (Rider) ኖቲፊኬሽን ይላካል።", 
-                             call.message.chat.id, call.message.message_id)
-        
-        # እዚህ ጋር ለራይደሮች ኖቲፊኬሽን የሚልክ ፋንክሽን ይጠራል
-        # notify_riders_about_order(order_id)
+
+
 
 
 
 
 def calculate_special_final(message, order_id):
     try:
-        item_price = float(message.text) # ድርጅቱ የጻፈው የእቃ ዋጋ
+        # የባለቤቱን ግብዓት ማረጋገጥ
+        item_price = float(message.text) 
         db = load_data()
         order = db['orders'].get(order_id)
         
+        if not order:
+            return bot.send_message(message.chat.id, "❌ ትዕዛዙ አልተገኘም!")
+
         vendor = db['vendors_list'].get(order['vendor_id'])
         user_data = db['users'].get(order['customer_id'])
-        
-        # 1. የርቀት ስሌት (KM Logic)
-        dist = calculate_distance(user_data['lat'], user_data['lon'], vendor['lat'], vendor['lon'])
-        delivery_fee = dist * 20 # በኪሎሜትር 20 ብር ብንል
-        
-        # 2. የሰዓት እና ዝናብ ክፍያ (Background ስሌት)
-        rain_bonus = 50 if db.get('settings', {}).get('is_raining') else 0
-        rush_hour_fee = 30 if db.get('settings', {}).get('is_rush_hour') else 0
-        
-        # 3. ኮሚሽን (10%)
-        commission = item_price * 0.10
-        
-        grand_total = item_price + delivery_fee + rain_bonus + rush_hour_fee + commission
-        
+        settings = db.get('settings', {})
+
+        # 1. የርቀት፣ የዝናብ እና የምሽት ስሌት ከዝርዝር መረጃ ጋር
+        # ከዚህ ቀደም የሰራነውን ፋንክሽን እዚህ እንጠራዋለን
+        delivery_fee, fee_details = calculate_dynamic_delivery_fee(
+            user_data['lat'], user_data['lon'], 
+            vendor['lat'], vendor['lon']
+        )
+
+        # 2. የአገልግሎት ክፍያ
+        service_fee = settings.get('service_fee', 8)
+
+        # 3. ጠቅላላ ድምር
+        grand_total = item_price + delivery_fee + service_fee
+
         # ዳታውን አፕዴት ማድረግ
         order['item_price'] = item_price
-        order['delivery_fee'] = delivery_fee + rain_bonus + rush_hour_fee
+        order['delivery_fee'] = delivery_fee
+        order['service_fee'] = service_fee
         order['grand_total'] = grand_total
+        order['status'] = "Price Quoted"
         save_data(db)
 
-        # ለደንበኛው ማረጋገጫ መላክ
+        # 4. ለደንበኛው ዝርዝር መረጃ መላክ
+        # እዚህ ጋር fee_details (ለምሳሌ፡ + 🌧️25) እንዲታይ ተደርጓል
         checkout_text = (
-            f"✅ **የልዩ ትዕዛዝ ዋጋ ተቆርጧል!**\n\n"
+            f"✅ **የልዩ ትዕዛዝ ዋጋ ዝርዝር**\n\n"
             f"🛒 የእቃ ዋጋ፦ `{item_price:,.2f} ETB`\n"
-            f"🛵 የዴሊቨሪ ክፍያ፦ `{order['delivery_fee']:,.2f} ETB`\n"
-            f"🏢 የአገልግሎት ክፍያ፦ `{commission:,.2f} ETB`\n"
+            f"🛵 የዴሊቨሪ ክፍያ፦ `{delivery_fee:,.2f} ETB` {fee_details}\n"
+            f"🏢 የአገልግሎት ክፍያ፦ `{service_fee:,.2f} ETB`\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
             f"💰 **ጠቅላላ ድምር፦ `{grand_total:,.2f} ETB`**\n\n"
             f"ትዕዛዝዎን ማረጋገጥ ይፈልጋሉ?"
         )
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("✅ ትዕዛዙን አረጋግጥ", callback_data=f"confirm_order_{order['vendor_id']}"))
         
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("✅ ትዕዛዙን አረጋግጥ", callback_data=f"confirm_spec_{order_id}"))
+        markup.add(types.InlineKeyboardButton("❌ ሰርዝ", callback_data=f"cancel_order_{order_id}"))
+
         bot.send_message(order['customer_id'], checkout_text, reply_markup=markup, parse_mode="Markdown")
         
+        # ለድርጅቱ ባለቤት ማረጋገጫ
+        bot.send_message(message.chat.id, "✅ ዋጋው ለደንበኛው ተልኳል። ምላሽ ሲሰጥ እናሳውቅዎታለን።")
+
     except ValueError:
-        bot.send_message(message.chat.id, "❌ እባክዎ በትክክል ቁጥር ብቻ ያስገቡ!")
+        bot.send_message(message.chat.id, "❌ እባክዎ በትክክል ቁጥር ብቻ ያስገቡ (ለምሳሌ: 250)!")
+    except Exception as e:
+        print(f"Error in special final: {e}")
+        bot.send_message(message.chat.id, "⚠️ ስህተት ተፈጥሯል፣ እባክዎ እንደገና ይሞክሩ።")
+
+
+
+
 
 
 
@@ -1098,24 +1104,38 @@ def get_rating_markup(order_id):
 
 
 
-def calculate_dynamic_delivery_fee():
+def calculate_dynamic_delivery_fee(u_lat, u_lon, v_lat, v_lon):
     db = load_data()
     s = db.get('settings', {})
+
+    # 1. ርቀቱን በKM እናሰላለን
+    dist_m = calculate_distance(u_lat, u_lon, v_lat, v_lon)
+    dist_km = dist_m / 1000
+
+    # 2. የዋጋ መለኪያዎች
+    base = float(s.get('base_delivery', 25)) # መነሻ 25 ብር
+    extra_per_km = 7 # ከ 1 ኪሜ በላይ ለሚጨምር
     
-    # ዳታቤዝ ውስጥ ካለ ያወጣዋል፣ ከሌለ መደበኛውን (30, 25, 15) ይወስዳል
-    base = float(s.get('base_delivery', 30))
+    # 3. የርቀት ዋጋ ስሌት
+    distance_fee = base
+    if dist_km > 1.0:
+        extra_dist = dist_km - 1.0
+        distance_fee += (extra_dist * extra_per_km)
+
+    # 4. ዝናብ እና ምሽት
     rain_extra = float(s.get('rain_val', 25)) if s.get('rain_mode') else 0
     night_extra = float(s.get('night_val', 15)) if s.get('night_mode') else 0
-    
-    total = base + rain_extra + night_extra
-    
-    # ለደንበኛው የሚታይ ዝርዝር
-    details = f"({base:.0f} መነሻ"
+
+    total = distance_fee + rain_extra + night_extra
+
+    # 5. ለደንበኛው የሚታይ ዝርዝር (በጣም ግልጽ በሆነ መንገድ)
+    details = f"({distance_fee:.1f} ብር ርቀት"
     if rain_extra > 0: details += f" + 🌧️{rain_extra:.0f}"
     if night_extra > 0: details += f" + 🌙{night_extra:.0f}"
     details += ")"
-    
-    return total, details
+
+    return round(total, 2), details
+
 
 
 
@@ -1741,33 +1761,109 @@ def process_help_message(message):
 @bot.callback_query_handler(func=lambda call: call.data.startswith('spec_vendor_'))
 def special_order_text_get(call):
     vendor_id = call.data.replace('spec_vendor_', '')
+    # የቆዩ ሜሴጆችን ማጥፋት ይቻላል
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+    
     msg = bot.send_message(call.message.chat.id, "📝 እባክዎ የሚፈልጉትን ልዩ ትዕዛዝ ዝርዝር እዚህ ይጻፉልን...")
     bot.register_next_step_handler(msg, lambda m: send_to_vendor_special(m, vendor_id))
 
 def send_to_vendor_special(message, vendor_id):
+    if message.text in ["/start", "⬅️ ተመለስ"]:
+        return # ኮዱን እዚህ ጋር ያቆመዋል
+
     db = load_data()
+    user_id_str = str(message.from_user.id)
     order_id = f"SPEC-{int(time.time())}"
     
-    # ትዕዛዙን መመዝገብ
+    # 1. ርቀቱን እና የዴሊቨሪ ዋጋውን አስቀድመን እናሰላለን
+    user_data = db.get('users', {}).get(user_id_str)
+    vendor_data = db.get('vendors_list', {}).get(vendor_id)
+    settings = db.get('settings', {})
+
+    if not user_data or not vendor_data:
+        return bot.send_message(message.chat.id, "⚠️ ይቅርታ፣ መረጃ ማግኘት አልተቻለም። እባክዎ እንደገና ይሞክሩ።")
+
+    # አዲሱን የ KM ስሌት ፋንክሽን እንጠቀማለን
+    delivery_fee = calculate_bdf_delivery_fee(
+        user_data['lat'], user_data['lon'],
+        vendor_data['lat'], vendor_data['lon'],
+        settings
+    )
+
+    # 2. ትዕዛዙን መመዝገብ
+    if 'orders' not in db: db['orders'] = {}
     db['orders'][order_id] = {
         "order_id": order_id,
-        "customer_id": str(message.from_user.id),
+        "customer_id": user_id_str,
         "vendor_id": vendor_id,
         "details": message.text,
         "status": "Awaiting Vendor Price",
+        "delivery_fee": delivery_fee, # ዴሊቨሪው እዚህ ጋር ተቀመጠ
         "time": time.strftime("%Y-%m-%d %H:%M:%S")
     }
     save_data(db)
 
-    # ለድርጅቱ (Vendor) መላክ
-    vendor_msg = (
-        f"🚨 **ልዩ ትዕዛዝ ደርሶዎታል!**\n\n"
-        f"📝 ዝርዝር: {message.text}\n\n"
-        f"እባክዎ እቃው ስንት ብር እንደሚሆን ዋጋውን ብቻ ይጻፉ፦"
+    # 3. ለደንበኛው ማረጋገጫ (ዋጋው ተልኳል የሚል)
+    bot.send_message(
+        message.chat.id, 
+        f"✅ **ትዕዛዝዎ ለድርጅቱ ተልኳል!**\n\n"
+        f"🛵 የዴሊቨሪ ክፍያ፦ `{delivery_fee:,.2f} ETB`\n"
+        f"⏳ አሁን የድርጅቱን ባለቤት የእቃውን ዋጋ እንዲጽፍልን እየጠበቅን ነው። ልክ እንደተቆረጠ እናሳውቅዎታለን።",
+        parse_mode="Markdown"
     )
-    msg = bot.send_message(vendor_id, vendor_msg)
-    # ድርጅቱ ዋጋ እንዲጽፍ መጠበቅ
-    bot.register_next_step_handler(msg, lambda m: calculate_special_final(m, order_id))
+
+    # 4. ለድርጅቱ (Vendor) መላክ
+    vendor_msg = (
+        f"🚨 **አዲስ ልዩ ትዕዛዝ ደርሶዎታል!**\n\n"
+        f"📝 ዝርዝር: {message.text}\n\n"
+        f"እባክዎ እቃው ስንት ብር እንደሚሆን **ዋጋውን ብቻ** ቁጥር በመጻፍ ይላኩ፦"
+    )
+    v_msg = bot.send_message(vendor_id, vendor_msg, parse_mode="Markdown")
+    bot.register_next_step_handler(v_msg, lambda m: calculate_special_final(m, order_id))
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('confirm_spec_'))
+def handle_confirm_special_order(call):
+    order_id = call.data.replace('confirm_spec_', '')
+    db = load_data()
+    order = db.get('orders', {}).get(order_id)
+
+    if not order:
+        return bot.answer_callback_query(call.id, "❌ ትዕዛዙ አልተገኘም!")
+
+    # 1. የትዕዛዙን ሁኔታ መቀየር
+    order['status'] = 'searching_rider'
+    save_data(db)
+
+    # 2. ለደንበኛው መልዕክት
+    bot.edit_message_text(
+        "✅ ትዕዛዝዎ ተረጋግጧል! አሁን ራይደር እየፈለግን ነው...",
+        call.message.chat.id,
+        call.message.message_id
+    )
+
+    # 3. ለሁሉም ራይደሮች (Drivers) ትዕዛዙን መበተን
+    riders = db.get('riders_list', {})
+    for r_id, r_info in riders.items():
+        # ራይደሩ ኦንላይን ከሆነ ብቻ ይላክለታል
+        if r_info.get('is_online', False):
+            rider_text = (
+                "🔔 **አዲስ የልዩ ትዕዛዝ ስራ!**\n\n"
+                f"📝 ዝርዝር፦ {order['order_text']}\n"
+                f"🛵 የዴሊቨሪ ክፍያ፦ `{order['delivery_fee']} ETB`\n"
+                f"📍 መነሻ፦ {db['vendors_list'][order['vendor_id']]['name']}\n"
+                "-----------------------\n"
+                "መስራት ይፈልጋሉ?"
+            )
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("🛵 ስራውን ተቀበል", callback_data=f"accept_order_{order_id}"))
+            bot.send_message(r_id, rider_text, reply_markup=markup, parse_mode="Markdown")
+
+    bot.answer_callback_query(call.id, "ትዕዛዙ ለራይደሮች ተልኳል!")
+
 
 
 
