@@ -1501,26 +1501,89 @@ def checkout_page(call):
     item = vendor.get('items', {}).get(i_id)
     customer = db.get('customers', {}).get(str(call.from_user.id), {})
 
-    total = int(item.get('price')) * int(qty)
+    # 📍 የርቀት ክፍያ ስሌት
+    u_loc = customer.get('location', {})
+    v_loc = vendor.get('location', {}) # የቬንደሩ ሎኬሽን ዳታቤዝ ውስጥ መኖሩን አረጋግጥ
+    
+    delivery_fee, fee_details = calculate_dynamic_delivery_fee(
+        u_loc.get('lat'), u_loc.get('lon'),
+        v_loc.get('lat'), v_loc.get('lon')
+    )
+
+    item_price = int(item.get('price')) * int(qty)
+    total_to_pay = item_price + delivery_fee
     
     text = (
         f"🏁 **ትዕዛዝ ማጠቃለያ (Checkout)**\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"🛍️ እቃ፦ {item.get('name')}\n"
-        f"🔢 ብዛት፦ {qty}\n"
-        f"💰 ጠቅላላ ዋጋ፦ **{total} ETB**\n\n"
+        f"🔢 ብዛት፦ {qty} (ሒሳብ: {item_price} ETB)\n"
+        f"🚚 ዴሊቨሪ፦ **{delivery_fee} ETB** {fee_details}\n"
+        f"💰 **ጠቅላላ የሚከፈል፦ {total_to_pay} ETB**\n\n"
         f"👤 ስም፦ {customer.get('name')}\n"
         f"📞 ስልክ፦ {customer.get('phone')}\n"
-        f"📍 አድራሻ፦ {customer.get('location', 'ተመዝግቧል')}\n"
+        f"📍 አድራሻ፦ ተመዝግቧል ✅\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"ትዕዛዙ ትክክል ከሆነ '✅ ትዕዛዝ አረጋግጥ' የሚለውን ይጫኑ።"
     )
 
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("✅ ትዕዛዝ አረጋግጥ", callback_data=f"final_{v_id}_{i_id}_{qty}"))
+    # ውሂቡን ወደ መጨረሻው ስቴፕ ለማስተላለፍ
+    markup.add(types.InlineKeyboardButton("✅ ትዕዛዝ አረጋግጥ", callback_data=f"final_{v_id}_{i_id}_{qty}_{delivery_fee}"))
     markup.add(types.InlineKeyboardButton("❌ ሰርዝ", callback_data="back_to_shops"))
 
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('final_'))
+def process_final_order(call):
+    # final_VENDORID_ITEMID_QTY_DELIVERYFEE
+    _, v_id, i_id, qty, del_fee = call.data.split('_')
+    db = load_data()
+    vendor = db.get('vendors_list', {}).get(v_id)
+    item = vendor.get('items', {}).get(i_id)
+    customer = db.get('customers', {}).get(str(call.from_user.id), {})
+    
+    item_total = int(item['price']) * int(qty)
+    
+    # 📉 ኮሚሽን ስሌት (ለምሳሌ 10%)
+    commission = item_total * 0.1 
+    
+    order_id = f"#{random.randint(1000, 9999)}"
+
+    # 1. ለቬንደሩ (የእቃው ሒሳብ እና ኮሚሽን ዝርዝር)
+    vendor_msg = (
+        f"🔔 **አዲስ ትዕዛዝ! ({order_id})**\n"
+        f"📦 እቃ፦ {item['name']} ({qty} ፍሬ)\n"
+        f"💰 ከእቃው፦ {item_total} ETB\n"
+        f"📉 ኮሚሽን፦ -{commission} ETB\n"
+        f"💵 ለርስዎ የሚገባ፦ {item_total - commission} ETB\n"
+        f"👤 ደንበኛ፦ {customer.get('name')} ({customer.get('phone')})"
+    )
+    if 'owner_id' in vendor:
+        bot.send_message(vendor['owner_id'], vendor_msg)
+
+    # 2. ለሾፌሮች ግሩፕ (የዴሊቨሪ ክፍያ ብቻ)
+    driver_group_id = db.get('settings', {}).get('driver_group_id')
+    u_loc = customer.get('location', {})
+    map_link = f"https://www.google.com/maps?q={u_loc.get('lat')},{u_loc.get('lon')}"
+
+    driver_msg = (
+        f"🚚 **አዲስ የዴሊቨሪ ስራ! ({order_id})**\n"
+        f"🏪 ሱቅ፦ {vendor['name']}\n"
+        f"📍 አድራሻ፦ [ካርታውን ክፈት]({map_link})\n"
+        f"💰 የዴሊቨሪ ክፍያ፦ **{del_fee} ETB**\n"
+        f"📞 ደንበኛ፦ {customer.get('phone')}\n"
+        f"---------------------------\n"
+        f"ስራውን ለመቀበል /accept_{order_id.replace('#','')}"
+    )
+    if driver_group_id:
+        bot.send_message(driver_group_id, driver_msg, parse_mode="Markdown")
+
+    # 3. ለደንበኛው ማረጋገጫ
+    bot.edit_message_text(f"✅ ትዕዛዝዎ ተልኳል! መለያ ቁጥር፦ {order_id}", call.message.chat.id, call.message.message_id)
 
 
 
