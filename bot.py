@@ -253,6 +253,55 @@ def notify_vendor_new_order(order_id):
 
 
 
+def notify_stakeholders_new_order(order_id):
+    db = load_data()
+    order = db.get('orders', {}).get(order_id)
+    if not order: return
+
+    v_id = order.get('vendor_id')
+    vendor_data = db.get('vendors_list', {}).get(v_id)
+    
+    # የቬንደሩ ባለቤት Chat ID (ይህ በምዝገባ ወቅት ሴቭ መደረግ አለበት)
+    vendor_chat_id = vendor_data.get('chat_id') 
+    
+    order_details = (
+        f"🔔 **አዲስ ትዕዛዝ!**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📦 **ትዕዛዝ ቁጥር፦** `{order_id}`\n"
+        f"🛍️ **እቃ፦** {order.get('item_name')}\n"
+        f"🔢 **ብዛት፦** {order.get('qty')}\n"
+        f"💰 **ጠቅላላ ዋጋ፦** `{order.get('total_price')} ETB`\n"
+        f"━━━━━━━━━━━━━━━━━━━━"
+    )
+
+    # 1. ለድርጅቱ ባለቤት (Vendor)
+    if vendor_chat_id:
+        v_markup = types.InlineKeyboardMarkup()
+        v_markup.add(
+            types.InlineKeyboardButton("✅ ተቀበል", callback_data=f"v_acc_{order_id}"),
+            types.InlineKeyboardButton("❌ ሰርዝ", callback_data=f"v_rej_{order_id}")
+        )
+        bot.send_message(vendor_chat_id, f"🏪 **ለእርስዎ የቀረበ ትዕዛዝ፦**\n\n{order_details}", reply_markup=v_markup, parse_mode="Markdown")
+
+    # 2. ለአድሚን (Admin) - አንተ ሁሉንም እንድታይ
+    ADMIN_CHAT_ID = "አንተ_ID" # የአንተን Chat ID እዚህ ተካ
+    bot.send_message(ADMIN_CHAT_ID, f"📢 **የአድሚን ክትትል፦**\n\n{order_details}\n🏪 ድርጅት፦ {vendor_data.get('name')}")
+
+    # 3. ለራይደሮች ግሩፕ (Riders Group)
+    RIDER_GROUP_ID = "የግሩፑ_ID" # የራይደሮች ግሩፕ ID
+    r_markup = types.InlineKeyboardMarkup()
+    r_markup.add(types.InlineKeyboardButton("🛵 ስራውን ልውሰድ", callback_data=f"r_take_{order_id}"))
+    
+    rider_text = (
+        f"🛵 **አዲስ የዴሊቨሪ ስራ!**\n"
+        f"🚩 ከ፦ {vendor_data.get('name')}\n"
+        f"💰 የዴሊቨሪ ክፍያ፦ **{order.get('delivery_fee')} ETB**\n"
+        f"━━━━━━━━━━━━━━━━━━━━"
+    )
+    bot.send_message(RIDER_GROUP_ID, rider_text, reply_markup=r_markup, parse_mode="Markdown")
+ 
+
+
 
 def calculate_special_final(message, order_id):
     try:
@@ -1643,6 +1692,17 @@ def process_final_order(call):
     bot.edit_message_text(f"✅ ትዕዛዝዎ ተልኳል! መለያ ቁጥር፦ {order_id}", call.message.chat.id, call.message.message_id)
 
 
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "back_to_shops")
+def cancel_and_go_back(call):
+    bot.answer_callback_query(call.id, "❌ ትዕዛዙ ተሰርዟል")
+    # እዚህ ጋር ሱቆችን የሚያሳየውን ፋንክሽንህን ጥራ (ለምሳሌ show_vendors)
+    bot.edit_message_text("ትዕዛዝዎ ተሰርዟል። ምን መግዛት ይፈልጋሉ?", 
+                          call.message.chat.id, call.message.message_id)
+    # ወይም ቀጥታ ወደ ዳሽቦርድ መልሰው
+    # send_customer_dashboard(call.message) 
 
 
 @bot.message_handler(content_types=['contact', 'location'])
