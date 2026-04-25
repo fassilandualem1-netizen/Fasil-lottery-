@@ -3265,53 +3265,49 @@ def view_live_orders(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('adm_manage_'))
 def admin_manage_single_order(call):
-    # 1. መረጃውን መበተን
-    parts = call.data.split('_')
-
-    # ቼክ እናድርግ፦ ዳታው በትክክል መከፈሉን (ቢያንስ 3 ክፍል)
-    if len(parts) < 3:
-        return bot.answer_callback_query(call.id, "⚠️ የተሳሳተ የትዕዛዝ መለያ!")
-
-    # ✅ ዋናው ማስተካከያ እዚህ ጋር ነው! መጨመር አለበት
-    order_id = parts 
-
-    db = load_data()
-    # 2. ትዕዛዙን በስትሪንግ መልክ መፈለግ
-    order = db.get('orders', {}).get(str(order_id))
-
-    if not order:
-        # አሁን ትክክለኛውን መለያ ቁጥር ይዞ ነው የማይገኘው የሚለው
-        return bot.answer_callback_query(call.id, f"⚠️ ትዕዛዝ {order_id} አልተገኘም!")
-
-    # 3. ዝርዝር መረጃ ለአድሚኑ
-    text = (
-        f"🛠 **ትዕዛዝ ማስተዳደሪያ፦** `{order_id}`\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🏬 **ድርጅት፦** {order.get('vendor_name', 'ያልታወቀ')}\n"
-        f"👤 **ደንበኛ፦** {order.get('customer_name', 'ያልታወቀ')}\n"
-        f"📞 **ስልክ፦** `{order.get('customer_phone', 'የለም')}`\n"
-        f"💰 **ዋጋ፦** {order.get('item_total', 0)} ETB\n"
-        f"🛵 **ራይደር፦** {order.get('rider_name', 'ገና አልተያዘም')}\n"
-        f"📊 **ሁኔታ፦** {order.get('status', 'Pending')}\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"እርምጃ ይምረጡ፦"
-    )
-
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    # ማስታወሻ፦ callback_data ርዝመቱ ከ 64 ፊደል እንዳይበልጥ order_id ብቻ እንጠቀማለን
-    markup.add(
-        types.InlineKeyboardButton("📞 ለደንበኛ ደውል", url=f"tel:{order.get('customer_phone', '')}"),
-        types.InlineKeyboardButton("❌ ትዕዛዙን ሰርዝ", callback_data=f"adm_can_{order_id}"),
-        types.InlineKeyboardButton("🛵 ራይደር ቀይር", callback_data=f"adm_re_{order_id}"),
-        types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_live_orders")
-    )
-
     try:
+        # 1. መረጃውን መበተን
+        parts = call.data.split('_')
+        if len(parts) < 3:
+            return bot.answer_callback_query(call.id, "⚠️ የተሳሳተ የትዕዛዝ መለያ!")
+
+        # ✅ መለያ ቁጥሩ የሚገኘው በ 2ኛው ኢንዴክስ ላይ ነው (adm_manage_ORDERID)
+        order_id = parts 
+
+        db = load_data()
+        # 2. ትዕዛዙን በዳታቤዝ ውስጥ መፈለግ
+        order = db.get('orders', {}).get(order_id)
+
+        if not order:
+            return bot.answer_callback_query(call.id, f"⚠️ ትዕዛዝ {order_id} አልተገኘም!", show_alert=True)
+
+        # 3. ዝርዝር መረጃ ለአድሚኑ
+        status_text = order.get('status', 'Pending')
+        text = (
+            f"🛠 **ትዕዛዝ ማስተዳደሪያ፦** `{order_id}`\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🏬 **ድርጅት፦** {order.get('vendor_name', 'ያልታወቀ')}\n"
+            f"👤 **ደንበኛ፦** {order.get('customer_name', 'ያልታወቀ')}\n"
+            f"📞 **ስልክ፦** `{order.get('customer_phone', 'የለም')}`\n"
+            f"💰 **ዋጋ፦** {order.get('item_total', 0)} ETB\n"
+            f"📊 **ሁኔታ፦** {status_text}\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"እርምጃ ይምረጡ፦"
+        )
+
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            types.InlineKeyboardButton("📞 ለደንበኛ ደውል", url=f"tel:{order.get('customer_phone', '')}"),
+            types.InlineKeyboardButton("❌ ትዕዛዙን ሰርዝ", callback_data=f"adm_can_{order_id}"),
+            types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_live_orders")
+        )
+
         bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-        bot.answer_callback_query(call.id) # Loading እንዲጠፋ
+        bot.answer_callback_query(call.id)
+
     except Exception as e:
         print(f"Admin View Error: {e}")
-
+        bot.answer_callback_query(call.id, "❌ ስህተት ተፈጥሯል")
 
 
 
