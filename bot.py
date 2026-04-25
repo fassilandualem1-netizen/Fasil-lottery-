@@ -3196,27 +3196,27 @@ def view_live_orders(call):
 
 
 
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith('adm_manage_'))
 def admin_manage_single_order(call):
-    # 1. መረጃውን መበተን (adm_manage_ORDERID)
+    # 1. መረጃውን መበተን
     parts = call.data.split('_')
-    
-    # ቼክ እናድርግ፦ ቢያንስ 3 ክፍሎች መኖር አለባቸው
+
+    # ቼክ እናድርግ፦ ዳታው በትክክል መከፈሉን (ቢያንስ 3 ክፍል)
     if len(parts) < 3:
         return bot.answer_callback_query(call.id, "⚠️ የተሳሳተ የትዕዛዝ መለያ!")
-    
-    order_id = parts # ትክክለኛውን ID እዚህ ጋር እንወስዳለን
-    
+
+    # ✅ ዋናው ማስተካከያ እዚህ ጋር ነው! መጨመር አለበት
+    order_id = parts 
+
     db = load_data()
-    # 2. ትዕዛዙን በስትሪንግ መልክ መፈለግ (በዳታቤዝህ አቀማመጥ መሰረት)
+    # 2. ትዕዛዙን በስትሪንግ መልክ መፈለግ
     order = db.get('orders', {}).get(str(order_id))
 
     if not order:
+        # አሁን ትክክለኛውን መለያ ቁጥር ይዞ ነው የማይገኘው የሚለው
         return bot.answer_callback_query(call.id, f"⚠️ ትዕዛዝ {order_id} አልተገኘም!")
 
     # 3. ዝርዝር መረጃ ለአድሚኑ
-    # ጽሁፉ እንዳይበላሽ Default Value (ለምሳሌ 'ያልታወቀ') እንጠቀም
     text = (
         f"🛠 **ትዕዛዝ ማስተዳደሪያ፦** `{order_id}`\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
@@ -3231,20 +3231,36 @@ def admin_manage_single_order(call):
     )
 
     markup = types.InlineKeyboardMarkup(row_width=2)
-    # አድሚኑ የሚወስዳቸው እርምጃዎች
+    # ማስታወሻ፦ callback_data ርዝመቱ ከ 64 ፊደል እንዳይበልጥ order_id ብቻ እንጠቀማለን
     markup.add(
         types.InlineKeyboardButton("📞 ለደንበኛ ደውል", url=f"tel:{order.get('customer_phone', '')}"),
-        types.InlineKeyboardButton("❌ ትዕዛዙን ሰርዝ", callback_data=f"adm_cancel_{order_id}"),
-        types.InlineKeyboardButton("🛵 ራይደር ቀይር", callback_data=f"adm_reassign_{order_id}"),
+        types.InlineKeyboardButton("❌ ትዕዛዙን ሰርዝ", callback_data=f"adm_can_{order_id}"),
+        types.InlineKeyboardButton("🛵 ራይደር ቀይር", callback_data=f"adm_re_{order_id}"),
         types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_live_orders")
     )
 
     try:
         bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+        bot.answer_callback_query(call.id) # Loading እንዲጠፋ
     except Exception as e:
         print(f"Admin View Error: {e}")
 
 
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('adm_can_'))
+def admin_cancel_order(call):
+    order_id = call.data.split('_')
+    db = load_data()
+    
+    if order_id in db.get('orders', {}):
+        db['orders'][order_id]['status'] = "Cancelled"
+        save_data(db)
+        bot.answer_callback_query(call.id, "✅ ትዕዛዙ ተሰርዟል!")
+        # ወደ ዝርዝሩ እንዲመለስ
+        view_live_orders(call)
+    else:
+        bot.answer_callback_query(call.id, "❌ ትዕዛዙ አልተገኘም!")
 
 
 
