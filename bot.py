@@ -1600,69 +1600,69 @@ def show_items_detail(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith('conf_'))
 def checkout_page(call):
     try:
-        # 1. ዳታውን በትክክል መበተን
-        data_parts = call.data.split('_')
-        
-        if len(data_parts) < 4:
-            return bot.answer_callback_query(call.id, "⚠️ ዳታው አልተሟላም!")
-
-        # ኢንዴክሶቹን በትክክል እንጥቀስ,,
-        v_id = data_parts
-        i_id = data_parts
-        qty = int(data_parts) # ወደ ቁጥር (Integer) መቀየር ግዴታ ነው
-        
+        # 1. ውሂቡን መበተን
+        parts = call.data.split('_')
+        if len(parts) < 4:
+            return bot.answer_callback_query(call.id, "⚠️ መረጃው አልተሟላም!")
+            
+        _, v_id, i_id, qty = parts
         db = load_data()
-        vendor = db.get('vendors_list', {}).get(v_id, {})
-        item = vendor.get('items', {}).get(i_id, {})
         
-        if not item:
-            return bot.answer_callback_query(call.id, "❌ እቃው አልተገኘም!")
+        # 2. ዳታዎችን ከዳታቤዝ ማውጣት
+        vendor = db.get('vendors_list', {}).get(v_id)
+        if not vendor:
+            return bot.answer_callback_query(call.id, "❌ ቬንደሩ አልተገኘም!")
+            
+        item = vendor.get('items', {}).get(i_id)
+        customer = db.get('users', {}).get(str(call.from_user.id), {}) # 'users' ባልከው መሠረት
 
-        # 2. የዋጋ ስሌት
-        price = float(item.get('price', 0))
-        # የዴሊቨሪ ፊ ከሴቲንግ ወይም ከቬንደሩ መውሰድ ትችላለህ
-        delivery_fee = float(db.get('settings', {}).get('default_delivery_fee', 50)) 
+        # 3. የርቀት እና የዴሊቨሪ ክፍያ ስሌት
+        u_loc = customer.get('location', {})
+        v_loc = vendor.get('location', {}) 
         
-        item_total = price * qty
-        grand_total = item_total + delivery_fee
+        # ሎኬሽኑ ከሌለ Default ዋጋ (ለምሳሌ 50) እንዲጠቀም እናድርገው
+        if u_loc.get('lat') and v_loc.get('lat'):
+            delivery_fee, fee_details = calculate_dynamic_delivery_fee(
+                u_loc.get('lat'), u_loc.get('lon'),
+                v_loc.get('lat'), v_loc.get('lon')
+            )
+        else:
+            # ሎኬሽን ከሌለ ከዳታቤዝ ሴቲንግ መውሰድ
+            delivery_fee = float(db.get('settings', {}).get('base_delivery', 50))
+            fee_details = "(መደበኛ ታሪፍ)"
 
-        # 3. ለደንበኛው የሚታይ ማጠቃለያ
+        # 4. የዋጋ ስሌት
+        item_price = int(item.get('price', 0)) * int(qty)
+        total_to_pay = item_price + delivery_fee
+        
         text = (
-            f"🛒 **ትዕዛዝ ማጠቃለያ**\n"
+            f"🏁 **ትዕዛዝ ማጠቃለያ (Checkout)**\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"🏬 **ድርጅት፦** {vendor.get('name')}\n"
-            f"📦 **እቃ፦** {item.get('name')}\n"
-            f"🔢 **ብዛት፦** {qty} {item.get('unit', 'ፍሬ')}\n"
-            f"💰 **የእቃ ዋጋ፦** {item_total} ETB\n"
-            f"🛵 **የማድረሻ ዋጋ፦** {delivery_fee} ETB\n"
+            f"🛍️ **እቃ፦** {item.get('name')}\n"
+            f"🔢 **ብዛት፦** {qty} (ሒሳብ: {item_price} ETB)\n"
+            f"🚚 **ዴሊቨሪ፦** **{delivery_fee} ETB** {fee_details}\n"
+            f"💰 **ጠቅላላ ድምር፦ {total_to_pay} ETB**\n\n"
+            f"👤 **ስም፦** {customer.get('name', 'ያልተጠቀሰ')}\n"
+            f"📞 **ስልክ፦** `{customer.get('phone', 'የለም')}`\n"
+            f"📍 **አድራሻ፦** ተመዝግቧል ✅\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"💵 **ጠቅላላ ድምር፦ {grand_total} ETB**\n\n"
-            f"ማዘዝዎን ያረጋግጣሉ?"
+            f"ትዕዛዙ ትክክል ከሆነ '✅ አረጋግጥ' የሚለውን ይጫኑ።"
         )
 
         markup = types.InlineKeyboardMarkup(row_width=2)
-        # 'final_' ወደሚለው ትዕዛዝ መመዝገቢያ የሚወስድ በተን
+        # ዳታውን ወደ 'final_' ማስተላለፍ
         confirm_data = f"final_{v_id}_{i_id}_{qty}_{delivery_fee}"
-        
         markup.add(
-            types.InlineKeyboardButton("✅ አረጋግጣለሁ", callback_data=confirm_data),
+            types.InlineKeyboardButton("✅ ትዕዛዝ አረጋግጥ", callback_data=confirm_data),
             types.InlineKeyboardButton("❌ ሰርዝ", callback_data=f"v_view_{v_id}")
         )
 
-        bot.edit_message_text(
-            text, 
-            call.message.chat.id, 
-            call.message.message_id, 
-            reply_markup=markup, 
-            parse_mode="Markdown"
-        )
-        
-        # በተኑ Loading ማሳየቱን እንዲያቆም
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
         bot.answer_callback_query(call.id)
 
     except Exception as e:
-        print(f"Checkout Error: {e}")
-        bot.answer_callback_query(call.id, "❌ ስህተት ተፈጥሯል፣ እባክዎ ደግመው ይሞክሩ።")
+        print(f"Checkout Page Error: {e}")
+        bot.answer_callback_query(call.id, "❌ ስህተት ተፈጥሯል")
 
 
 
@@ -1726,37 +1726,37 @@ def process_final_order(call):
         user_id = str(call.from_user.id)
         db = load_data()
         
-        # 2. አስፈላጊ መረጃዎችን ማውጣት
+        # 2. አስፈላጊ መረጃዎችን ከዳታቤዝ ማውጣት
         vendor = db.get('vendors_list', {}).get(v_id)
         if not vendor:
             return bot.answer_callback_query(call.id, "⚠️ ድርጅቱ አልተገኘም!")
             
         item = vendor.get('items', {}).get(i_id)
-        customer = db.get('customers', {}).get(user_id, {})
+        # በ load_data መሠረት 'users' ወይም 'customers' መጠቀምህን አረጋግጥ
+        customer = db.get('users', {}).get(user_id) or db.get('customers', {}).get(user_id, {})
         
-        # የዋጋ ስሌት
-        item_price = int(item.get('price', 0))
+        item_price = float(item.get('price', 0))
         item_total = item_price * int(qty)
         grand_total = item_total + float(del_fee)
         
-        # 📉 ኮሚሽን (ለምሳሌ 10%)
+        # 📉 ኮሚሽን ስሌት (ለምሳሌ 10%)
         commission = item_total * 0.1 
         
         # ልዩ መለያ (Unique ID) መፍጠር
         order_id = f"ORD-{int(time.time())}"
 
-        # 3. ትዕዛዙን በዳታቤዝ መመዝገብ (ለአድሚን ገጽ እንዲመች)
+        # 3. ትዕዛዙን በዳታቤዝ መመዝገብ (ለአድሚን ገጽ ወሳኝ ነው!)
         new_order = {
             "order_id": order_id,
             "customer_id": user_id,
             "customer_name": customer.get('name', call.from_user.first_name),
             "customer_phone": customer.get('phone', 'ያልተመዘገበ'),
             "vendor_id": v_id,
-            "vendor_name": vendor.get('name', 'ያልታወቀ ድርጅት'), # ለአድሚን ገጽ
+            "vendor_name": vendor.get('name', 'ያልታወቀ ድርጅት'), 
             "item_name": item.get('name', 'እቃ'),
             "qty": qty,
-            "item_total": grand_total, # አሁን '0 ETB' አይልም
-            "delivery_fee": del_fee,
+            "item_total": grand_total, 
+            "delivery_fee": float(del_fee),
             "status": "Pending",
             "timestamp": time.time()
         }
@@ -1765,31 +1765,30 @@ def process_final_order(call):
         db['orders'][order_id] = new_order
         save_data(db)
 
-        # 4. ለቬንደሩ ማሳወቂያ መላክ
+        # 4. ለቬንደሩ (የእቃው ሒሳብ እና ኮሚሽን ዝርዝር) ማሳወቂያ
         vendor_msg = (
             f"🔔 **አዲስ ትዕዛዝ! ({order_id})**\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
             f"📦 እቃ፦ {item['name']} ({qty} ፍሬ)\n"
-            f"💰 የእቃ ዋጋ፦ {item_total} ETB\n"
+            f"💰 ከእቃው፦ {item_total} ETB\n"
             f"📉 ኮሚሽን፦ -{commission} ETB\n"
             f"💵 ለርስዎ የሚገባ፦ {item_total - commission} ETB\n"
             f"👤 ደንበኛ፦ {new_order['customer_name']} ({new_order['customer_phone']})"
         )
-        if 'owner_id' in vendor:
-            try:
-                bot.send_message(vendor['owner_id'], vendor_msg, parse_mode="Markdown")
-            except:
-                print(f"Vendor {v_id} owner_id is invalid")
+        v_owner = vendor.get('owner_id') or vendor.get('chat_id')
+        if v_owner:
+            try: bot.send_message(v_owner, vendor_msg, parse_mode="Markdown")
+            except: print(f"Could not notify vendor {v_id}")
 
-        # 5. ለሾፌሮች ግሩፕ ማሳወቂያ
+        # 5. ለሾፌሮች ግሩፕ (የዴሊቨሪ ክፍያ ብቻ)
         driver_group_id = db.get('settings', {}).get('driver_group_id')
         if driver_group_id:
             u_loc = customer.get('location', {})
+            # የካርታ ሊንክ አሰራር
             map_link = f"https://www.google.com/maps?q={u_loc.get('lat', 0)},{u_loc.get('lon', 0)}"
             
             driver_msg = (
                 f"🚚 **አዲስ የዴሊቨሪ ስራ!**\n"
-                f"━━━━━━━━━━━━━━━━━━━━\n"
                 f"🏪 ሱቅ፦ {vendor['name']}\n"
                 f"📍 አድራሻ፦ [ካርታውን ክፈት]({map_link})\n"
                 f"💰 ክፍያ፦ **{del_fee} ETB**\n"
@@ -1799,17 +1798,17 @@ def process_final_order(call):
             )
             bot.send_message(driver_group_id, driver_msg, parse_mode="Markdown", disable_web_page_preview=False)
 
-        # 6. ለደንበኛው ማረጋገጫ መስጠት
+        # 6. ለደንበኛው ማረጋገጫ
         bot.edit_message_text(
-            f"✅ **ትዕዛዝዎ ተልኳል!**\n\nመለያ ቁጥር፦ `{order_id}`\n\nድርጅቱ ትዕዛዙን ሲያረጋግጥ እናሳውቅዎታለን።",
+            f"✅ **ትዕዛዝዎ ተልኳል!**\n\nመለያ ቁጥር፦ `{order_id}`\n\nድርጅቱ ሲያረጋግጥ እናሳውቅዎታለን።", 
             call.message.chat.id, 
             call.message.message_id,
             parse_mode="Markdown"
         )
-        bot.answer_callback_query(call.id, "✅ ተሳክቷል!")
+        bot.answer_callback_query(call.id, "✅ ትዕዛዝ ተመዝግቧል")
 
     except Exception as e:
-        print(f"Final Order Error: {e}")
+        print(f"Final Process Error: {e}")
         bot.answer_callback_query(call.id, "❌ ስህተት ተፈጥሯል")
 
 
