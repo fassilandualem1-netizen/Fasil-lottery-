@@ -529,42 +529,50 @@ def save_new_vendor(message, v_id, cat_name):
 def process_final_settlement(order_id):
     db = load_data()
     order = db.get('orders', {}).get(str(order_id))
-    
+
     if not order or order.get('status') == "Completed":
         return "⚠️ ትዕዛዙ አልተገኘም ወይም ቀድሞ ተጠናቅቋል።"
 
-    v_id = str(order['vendor_id'])
-    item_price = order['item_total']
-    
-    # የኮሚሽን መጠኖችን ማግኘት
-    v_comm_p = db.get('settings', {}).get('vendor_commission_p', 3)
-    r_fixed = db.get('settings', {}).get('rider_commission_fixed', 5)
-    s_fee = db.get('settings', {}).get('service_fee', 8)
+    # 1. መረጃዎችን ማውጣት (ባዶ እንዳይሆኑ ጥንቃቄ ተደርጓል)
+    v_id = str(order.get('vendor_id', ''))
+    # item_total በ Checkout ላይ የተሰላው መሆኑን አረጋግጥ
+    item_price = float(order.get('item_total', 0)) 
 
-    # ትርፍ ስሌት
+    # 2. የኮሚሽን ስሌቶች
+    settings = db.get('settings', {})
+    v_comm_p = settings.get('vendor_commission_p', 3)
+    r_fixed = settings.get('rider_commission_fixed', 5)
+    s_fee = settings.get('service_fee', 8)
+
     vendor_profit = item_price * (v_comm_p / 100)
     total_order_profit = vendor_profit + r_fixed + s_fee
-    
-    # --- ዳታቤዝ ማዘመን ---
-    # 1. ቬንደር ባላንስ
-    if v_id in db['vendors_list']:
-        db['vendors_list'][v_id]['deposit_balance'] -= (item_price + vendor_profit)
 
-    # 2. ትርፍ መመዝገቢያ (Stats)
-    if 'stats' not in db: # ለጥንቃቄ
-        db['stats'] = {"total_vendor_comm": 0, "total_rider_comm": 0, "total_customer_comm": 0, "total_orders": 0}
+    # --- ዳታቤዝ ማዘመን ---
     
+    # 1. ቬንደር ባላንስ (ስሙ 'ያልታወቀ' እንዳይል እዚህ ጋር ቼክ ይደረጋል)
+    if v_id in db.get('vendors_list', {}):
+        db['vendors_list'][v_id]['deposit_balance'] -= (item_price + vendor_profit)
+        # ለአድሚን ገጽ እንዲመች ስሙን እዚሁ ጋር እናረጋግጥ
+        order['vendor_name'] = db['vendors_list'][v_id].get('name', 'ያልታወቀ ድርጅት')
+
+    # 2. ስታቲስቲክስ (Stats)
+    if 'stats' not in db:
+        db['stats'] = {"total_vendor_comm": 0, "total_rider_comm": 0, "total_customer_comm": 0, "total_orders": 0}
+
     db['stats']['total_vendor_comm'] += vendor_profit
     db['stats']['total_rider_comm'] += r_fixed
     db['stats']['total_customer_comm'] += s_fee
     db['stats']['total_orders'] += 1
-    
+
     # 3. ጠቅላላ ትርፍ
     db['total_profit'] = db.get('total_profit', 0) + total_order_profit
-    
+
+    # 4. የትዕዛዙን ሁኔታ መቀየር
     order['status'] = "Completed"
-    save_data(db)
+    order['final_profit'] = total_order_profit # ለአድሚን ሪፖርት ይጠቅማል
     
+    save_data(db)
+
     return f"✅ ሂሳብ ተወራርዷል!\n💰 ትርፍ፦ {total_order_profit:.2f} ETB"
 
 
@@ -3105,24 +3113,38 @@ def view_live_orders(call):
         bot.answer_callback_query(call.id, "ተዘምኗል ✅")
 
 
+
+
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith('adm_manage_'))
 def admin_manage_single_order(call):
-    order_id = call.data.split('_')
+    # 1. መረጃውን መበተን (adm_manage_ORDERID)
+    parts = call.data.split('_')
+    
+    # ቼክ እናድርግ፦ ቢያንስ 3 ክፍሎች መኖር አለባቸው
+    if len(parts) < 3:
+        return bot.answer_callback_query(call.id, "⚠️ የተሳሳተ የትዕዛዝ መለያ!")
+    
+    order_id = parts # ትክክለኛውን ID እዚህ ጋር እንወስዳለን
+    
     db = load_data()
-    order = db.get('orders', {}).get(order_id)
+    # 2. ትዕዛዙን በስትሪንግ መልክ መፈለግ (በዳታቤዝህ አቀማመጥ መሰረት)
+    order = db.get('orders', {}).get(str(order_id))
 
     if not order:
-        return bot.answer_callback_query(call.id, "⚠️ ትዕዛዙ አልተገኘም!")
+        return bot.answer_callback_query(call.id, f"⚠️ ትዕዛዝ {order_id} አልተገኘም!")
 
-    # ዝርዝር መረጃ ለአድሚኑ
+    # 3. ዝርዝር መረጃ ለአድሚኑ
+    # ጽሁፉ እንዳይበላሽ Default Value (ለምሳሌ 'ያልታወቀ') እንጠቀም
     text = (
-        f"🛠 **ትዕዛዝ ማስተዳደሪያ፦ {order_id}**\n"
+        f"🛠 **ትዕዛዝ ማስተዳደሪያ፦** `{order_id}`\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🏬 ድርጅት፦ {order.get('vendor_name')}\n"
-        f"👤 ደንበኛ፦ {order.get('customer_name')}\n"
-        f"📞 ስልክ፦ `{order.get('customer_phone')}`\n"
-        f"🛵 ራይደር፦ {order.get('rider_name', 'አልተመደበም')}\n"
-        f"📊 ሁኔታ፦ {order.get('status')}\n"
+        f"🏬 **ድርጅት፦** {order.get('vendor_name', 'ያልታወቀ')}\n"
+        f"👤 **ደንበኛ፦** {order.get('customer_name', 'ያልታወቀ')}\n"
+        f"📞 **ስልክ፦** `{order.get('customer_phone', 'የለም')}`\n"
+        f"💰 **ዋጋ፦** {order.get('item_total', 0)} ETB\n"
+        f"🛵 **ራይደር፦** {order.get('rider_name', 'ገና አልተያዘም')}\n"
+        f"📊 **ሁኔታ፦** {order.get('status', 'Pending')}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"እርምጃ ይምረጡ፦"
     )
@@ -3130,13 +3152,17 @@ def admin_manage_single_order(call):
     markup = types.InlineKeyboardMarkup(row_width=2)
     # አድሚኑ የሚወስዳቸው እርምጃዎች
     markup.add(
-        types.InlineKeyboardButton("📞 ለደንበኛ ደውል", url=f"tel:{order.get('customer_phone')}"),
+        types.InlineKeyboardButton("📞 ለደንበኛ ደውል", url=f"tel:{order.get('customer_phone', '')}"),
         types.InlineKeyboardButton("❌ ትዕዛዙን ሰርዝ", callback_data=f"adm_cancel_{order_id}"),
         types.InlineKeyboardButton("🛵 ራይደር ቀይር", callback_data=f"adm_reassign_{order_id}"),
         types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_live_orders")
     )
 
-    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    try:
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    except Exception as e:
+        print(f"Admin View Error: {e}")
+
 
 
 
