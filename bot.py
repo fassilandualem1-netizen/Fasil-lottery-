@@ -2339,23 +2339,91 @@ def save_item_logic(call):
 
 
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("cancel_order_"))
-def confirm_cancel_request(call):
-    order_id = call.data.replace("cancel_order_", "")
-    
-    # የማረጋገጫ በተኖች
-    markup = types.InlineKeyboardMarkup()
+@bot.callback_query_handler(func=lambda call: call.data == "vendor_active_orders")
+def view_active_orders(call):
+    v_id = str(call.from_user.id) # የቬንደሩ መለያ
+    db = load_data()
+    all_orders = db.get('orders', {})
+
+    # የዚህ ቬንደር የሆኑና ገና ያልተሰሩ (Pending) ትዕዛዞችን መለየት
+    active_orders = {k: v for k, v in all_orders.items() 
+                     if str(v.get('vendor_id')) == v_id and v.get('status') == 'Pending'}
+
+    if not active_orders:
+        return bot.answer_callback_query(call.id, "📭 በአሁኑ ሰዓት አዲስ ትዕዛዝ የለም።")
+
+    # ጽሁፉን ማዘጋጀት
+    report = f"📋 **ንቁ ትዕዛዞች ({len(active_orders)})**\n"
+    report += "━━━━━━━━━━━━━━━━━━━━\n"
+
+    markup = types.InlineKeyboardMarkup(row_width=1)
+
+    for order_id, info in active_orders.items():
+        item = info.get('item_name', 'ያልታወቀ እቃ')
+        qty = info.get('qty', 1)
+        price = info.get('item_total', 0)
+        
+        report += f"🔹 `#{order_id}` | {item} ({qty}) | {price} ETB\n"
+        
+        # ለእያንዳንዱ ትዕዛዝ በተን መጨመር
+        markup.add(
+            types.InlineKeyboardButton(f"⚙️ መቆጣጠሪያ #{order_id}", callback_data=f"v_manage_ord_{order_id}")
+        )
+
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ዳሽቦርድ", callback_data="vendor_refresh"))
+
+    try:
+        bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    except:
+        bot.send_message(call.message.chat.id, report, reply_markup=markup, parse_mode="Markdown")
+
+# --- ትዕዛዙን መቀበያ ወይም መሰረዣ ገጽ ---
+@bot.callback_query_handler(func=lambda call: call.data.startswith("v_manage_ord_"))
+def manage_single_order(call):
+    order_id = call.data.replace("v_manage_ord_", "")
+    db = load_data()
+    order = db.get('orders', {}).get(order_id)
+
+    if not order:
+        return bot.answer_callback_query(call.id, "❌ ትዕዛዙ አልተገኘም!")
+
+    text = (
+        f"🛠 **ትዕዛዝ ማስተዳደሪያ፦ #{order_id}**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📦 እቃ፦ {order.get('item_name')}\n"
+        f"🔢 ብዛት፦ {order.get('qty')}\n"
+        f"💰 ዋጋ፦ {order.get('item_total')} ETB\n"
+        f"👤 ደንበኛ፦ {order.get('customer_name')}\n"
+        f"📞 ስልክ፦ `{order.get('customer_phone')}`\n"
+        f"━━━━━━━━━━━━━━━━━━━━"
+    )
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
-        types.InlineKeyboardButton("⚠️ አዎ፣ በእርግጥ ሰርዝ", callback_data=f"final_cancel_{order_id}"),
-        types.InlineKeyboardButton("🔙 አይ፣ ተመለስ", callback_data=f"accept_order_{order_id}") # ተመልሶ እንዲቀበል
+        types.InlineKeyboardButton("✅ ተቀበል (Accept)", callback_data=f"v_acc_{order_id}"),
+        types.InlineKeyboardButton("❌ እምቢ (Decline)", callback_data=f"cancel_order_{order_id}"),
+        types.InlineKeyboardButton("🔙 ተመለስ", callback_data="vendor_active_orders")
     )
+
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+# --- Accept የማድረጊያ ሎጂክ ---
+@bot.callback_query_handler(func=lambda call: call.data.startswith("v_acc_"))
+def accept_order_logic(call):
+    order_id = call.data.replace("v_acc_", "")
+    db = load_data()
     
-    confirm_text = (
-        f"❗ **ትዕዛዝ ቁጥር #{order_id}ን ለመሰረዝ እየሞከሩ ነው።**\n\n"
-        f"ይህንን ትዕዛዝ ከሰረዙት ደንበኛው ይናደዳል! በእርግጥ መሰረዝ ይፈልጋሉ?"
-    )
-    
-    bot.edit_message_text(confirm_text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    if order_id in db.get('orders', {}):
+        db['orders'][order_id]['status'] = 'Accepted'
+        save_data(db)
+        
+        bot.answer_callback_query(call.id, "✅ ትዕዛዙን ተቀብለዋል። ራይደር እየተፈለገ ነው...")
+        
+        # ደንበኛውን ማሳወቅ
+        customer_id = db['orders'][order_id].get('customer_id')
+        bot.send_message(customer_id, f"🎉 ትዕዛዝዎ #{order_id} በድርጅቱ ተቀባይነት አግኝቷል!")
+        
+        view_active_orders(call) # ወደ ዝርዝሩ ይመልሰዋል
 
 
 
