@@ -1588,18 +1588,52 @@ def show_items_detail(call):
 
 
 
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith('buy_'))
 def ask_qty(call):
-    _, v_id, i_id = call.data.split('_')
-    
-    markup = types.InlineKeyboardMarkup(row_width=4)
-    # ፈጣን የብዛት ምርጫ (1-8)
-    btns = [types.InlineKeyboardButton(str(i), callback_data=f"conf_{v_id}_{i_id}_{i}") for i in range(1, 9)]
-    markup.add(*btns)
-    markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data=f"v_{v_id}"))
+    try:
+        # 1. ዳታውን መበተን
+        _, v_id, i_id = call.data.split('_')
+        
+        # 2. ከዳታቤዝ የእቃውን መረጃ ማውጣት
+        db = load_data()
+        vendor = db.get('vendors_list', {}).get(v_id, {})
+        item = vendor.get('items', {}).get(i_id, {})
+        
+        if not item:
+            bot.answer_callback_query(call.id, "⚠️ ይቅርታ፣ እቃው አልተገኘም!")
+            return
 
-    bot.edit_message_text("🔢 **ስንት ፍሬ ይፈልጋሉ?**", call.message.chat.id, call.message.message_id, reply_markup=markup)
+        # 3. መለኪያውን (Unit) እና ስሙን ማዘጋጀት
+        item_name = item.get('name', 'እቃ')
+        unit = item.get('unit', 'ፍሬ') # በዳታቤዝህ unit ከሌለ 'ፍሬ' ይላል
+        
+        text = f"🔢 **{item_name}**\n\nስንት **{unit}** ይፈልጋሉ?"
+        
+        # 4. ቁጥሮቹን (Buttons) መገንባት
+        markup = types.InlineKeyboardMarkup(row_width=4)
+        
+        # እያንዳንዱ በተን ወደ 'conf_' (Checkout) የሚወስድ ዳታ ይኖረዋል
+        btns = []
+        for i in range(1, 9):
+            btn_data = f"conf_{v_id}_{i_id}_{i}"
+            btns.append(types.InlineKeyboardButton(str(i), callback_data=btn_data))
+        
+        markup.add(*btns)
+        
+        # ተመለስ በተን - ወደ ድርጅቱ እቃዎች ዝርዝር እንዲመለስ
+        markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data=f"v_view_{v_id}"))
+
+        bot.edit_message_text(
+            text, 
+            call.message.chat.id, 
+            call.message.message_id, 
+            reply_markup=markup, 
+            parse_mode="Markdown"
+        )
+        
+    except Exception as e:
+        print(f"Error in ask_qty: {e}")
+        bot.answer_callback_query(call.id, "❌ ስህተት ተፈጥሯል")
 
 
 
@@ -2107,6 +2141,9 @@ def get_item_photo(message):
     
     msg = bot.send_message(message.chat.id, "<b>ደረጃ 2/3: 📝 የእቃውን ስም ይጻፉ</b>", parse_mode="HTML")
     bot.register_next_step_handler(msg, get_item_name)
+
+
+
 
 # --- 3. ፎቶ መዝለያ (በተኑ ሲነካ) ---
 @bot.callback_query_handler(func=lambda call: call.data == "skip_photo_upload")
