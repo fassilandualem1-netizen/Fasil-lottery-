@@ -3049,55 +3049,94 @@ def monitor_all_balances(call):
 @bot.callback_query_handler(func=lambda call: call.data == "admin_live_orders")
 def view_live_orders(call):
     db = load_data()
-    # 'orders' ውስጥ ያሉትን ትዕዛዞች በሙሉ ይወስዳል
     all_orders = db.get('orders', {})
     
-    # ሁኔታቸው "Completed" ወይም "Cancelled" ያልሆኑትን ብቻ ለይቶ ማውጣት
+    # ሁኔታቸው ንቁ የሆኑትን መለየት
     active_orders = {k: v for k, v in all_orders.items() if v.get('status') not in ['Completed', 'Cancelled']}
 
-    if not active_orders:
-        # ምንም ትዕዛዝ ከሌለ ያለውን ሜሴጅ አጥፍቶ አዲስ ሜሴጅ ይልካል
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("🔄 እንደገና ሞክር", callback_data="admin_live_orders"))
-        markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
-        
-        try:
-            return bot.edit_message_text("📭 አሁን ላይ ምንም ቀጥታ ትዕዛዝ የለም።", call.message.chat.id, call.message.message_id, reply_markup=markup)
-        except:
-            return bot.answer_callback_query(call.id, "📭 ምንም ቀጥታ ትዕዛዝ የለም።")
+    # በተኖቹ በሁለት ረድፍ እንዲሆኑ (ቦታ ለመቆጠብ)
+    markup = types.InlineKeyboardMarkup(row_width=2) 
 
-    report = "📋 **የቀጥታ ትዕዛዞች ክትትል**\n\n"
+    if not active_orders:
+        markup.add(
+            types.InlineKeyboardButton("🔄 እንደገና ሞክር", callback_data="admin_live_orders"),
+            types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu")
+        )
+        try:
+            bot.edit_message_text("📭 አሁን ላይ ምንም ቀጥታ ትዕዛዝ የለም።", call.message.chat.id, call.message.message_id, reply_markup=markup)
+        except:
+            bot.answer_callback_query(call.id, "📭 ትዕዛዝ የለም")
+        return
+
+    report = "📋 **የቀጥታ ትዕዛዞች ክትትል**\n"
+    report += f"ቁጥር፦ {len(active_orders)} ንቁ ትዕዛዞች አሉ\n"
+    report += "━━━━━━━━━━━━━━━━━━━━\n"
+
+    # ትዕዛዞችን ለመሰብሰብ ጊዜያዊ ሊስት
+    order_btns = []
 
     for order_id, info in active_orders.items():
         status = info.get('status', 'Pending')
-        
-        # አይኮኖችን በሁኔታው መሰረት መቀየር
-        if status == "Pending": status_icon = "⏳"
-        elif status == "Accepted": status_icon = "✅"
-        elif status == "On Way": status_icon = "🛵"
-        else: status_icon = "📦"
+        status_icons = {"Pending": "⏳", "Accepted": "✅", "On Way": "🛵", "Preparing": "🍳"}
+        icon = status_icons.get(status, "📦")
 
-        # መረጃዎችን በጥንቃቄ ማውጣት
-        vendor = info.get('vendor_name', 'ያልታወቀ ድርጅት')
-        rider = info.get('rider_name', 'ገና አልተያዘም')
+        vendor = info.get('vendor_name', 'ያልታወቀ')
         price = info.get('item_total', 0)
         
-        report += f"{status_icon} **ትዕዛዝ ID፦** `{order_id}`\n"
-        report += f"🏢 **ድርጅት፦** {vendor}\n"
-        report += f"🛵 **ራይደር፦** {rider}\n"
-        report += f"📍 **ሁኔታ፦** {status}\n"
-        report += f"💰 **ዋጋ፦** {price} ETB\n"
-        report += "------------------------\n"
+        # ጽሁፉ ላይ አጭር መረጃ
+        report += f"{icon} `{order_id}` | {vendor} | {price} ETB\n"
+        
+        # በተኑን መፍጠር
+        order_btns.append(types.InlineKeyboardButton(f"⚙️ {order_id}", callback_data=f"adm_manage_{order_id}"))
 
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="admin_live_orders"))
-    markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
+    # ሁሉንም የትዕዛዝ በተኖች በአንድ ላይ መጨመር
+    markup.add(*order_btns)
+    
+    # የቁጥጥር በተኖች
+    report += "━━━━━━━━━━━━━━━━━━━━\n"
+    markup.row(
+        types.InlineKeyboardButton("🔄 አድስ", callback_data="admin_live_orders"),
+        types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu")
+    )
 
     try:
         bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
     except Exception as e:
-        print(f"Error updating live orders: {e}")
+        bot.answer_callback_query(call.id, "ተዘምኗል ✅")
 
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('adm_manage_'))
+def admin_manage_single_order(call):
+    order_id = call.data.split('_')
+    db = load_data()
+    order = db.get('orders', {}).get(order_id)
+
+    if not order:
+        return bot.answer_callback_query(call.id, "⚠️ ትዕዛዙ አልተገኘም!")
+
+    # ዝርዝር መረጃ ለአድሚኑ
+    text = (
+        f"🛠 **ትዕዛዝ ማስተዳደሪያ፦ {order_id}**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🏬 ድርጅት፦ {order.get('vendor_name')}\n"
+        f"👤 ደንበኛ፦ {order.get('customer_name')}\n"
+        f"📞 ስልክ፦ `{order.get('customer_phone')}`\n"
+        f"🛵 ራይደር፦ {order.get('rider_name', 'አልተመደበም')}\n"
+        f"📊 ሁኔታ፦ {order.get('status')}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"እርምጃ ይምረጡ፦"
+    )
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    # አድሚኑ የሚወስዳቸው እርምጃዎች
+    markup.add(
+        types.InlineKeyboardButton("📞 ለደንበኛ ደውል", url=f"tel:{order.get('customer_phone')}"),
+        types.InlineKeyboardButton("❌ ትዕዛዙን ሰርዝ", callback_data=f"adm_cancel_{order_id}"),
+        types.InlineKeyboardButton("🛵 ራይደር ቀይር", callback_data=f"adm_reassign_{order_id}"),
+        types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_live_orders")
+    )
+
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
 
 
