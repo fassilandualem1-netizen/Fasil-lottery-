@@ -483,6 +483,34 @@ def send_welcome(message):
 
 
 
+@bot.message_handler(content_types=['location'])
+def handle_vendor_location(message):
+    user_id = message.from_user.id
+    user_id_str = str(user_id)
+    db = load_data()
+
+    # 1. መጀመሪያ ቬንደር መሆኑን ቼክ እናደርጋለን
+    if user_id_str in db.get('vendors_list', {}):
+        # ሎኬሽኑን መመዝገብ
+        db['vendors_list'][user_id_str]['lat'] = message.location.latitude
+        db['vendors_list'][user_id_str]['lon'] = message.location.longitude
+        save_data(db)
+
+        bot.send_message(user_id, "✅ የድርጅቱ መገኛ በትክክል ተመዝግቧል!")
+        
+        # 2. አሁን ዳሽቦርዱን እናሳየዋለን
+        text, markup = get_vendor_dashboard_elements(user_id)
+        bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
+        
+    # 3. ደንበኛ ከሆነ ደግሞ ለሱ የሚሆን ሎኬሽን አያያዝ (አስፈላጊ ከሆነ)
+    elif user_id_str in db.get('users', {}):
+        db['users'][user_id_str]['lat'] = message.location.latitude
+        db['users'][user_id_str]['lon'] = message.location.longitude
+        save_data(db)
+        bot.send_message(user_id, "✅ መገኛዎ ተመዝግቧል።")
+        # የደንበኛውን ሜኑ እዚህ ጋር መጥራት ትችላለህ
+
+
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "vendor_refresh")
