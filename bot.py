@@ -349,6 +349,63 @@ def get_admin_dashboard(user_id):
         print(f"Error building dashboard: {e}")
         return None
 
+
+
+def get_vendor_dashboard_elements(user_id):
+    db = load_data()
+    user_id_str = str(user_id)
+    v_info = db.get('vendors_list', {}).get(user_id_str, {})
+    
+    v_name = v_info.get('name', 'ያልታወቀ ድርጅት')
+    # ባላንሱ ከዜሮ በታች ከሆነ በኔጋቲቭ ምልክቱ እንዲቀመጥ abs() አናደርገውም
+    v_balance = float(v_info.get('deposit_balance', 0.0))
+    v_rating = v_info.get('rating', 0.0)
+    
+    # የባላንስ ቀለም እና መረጃ መለያ
+    if v_balance < 0:
+        # ለምሳሌ -500.00 ETB ብሎ ያሳያል
+        balance_display = f"⚠️ አድሚኑ ሊከፍልዎት የሚገባ፦ {v_balance:,.2f} ETB"
+    elif v_balance > 0:
+        balance_display = f"💰 ቀሪ የቅድሚያ ክፍያ፦ {v_balance:,.2f} ETB"
+    else:
+        balance_display = f"💰 ባላንስ፦ 0.00 ETB"
+
+    all_items = db.get('items', [])
+    v_items_count = len([i for i in all_items if i.get('vendor_id') == user_id_str])
+    active_orders = 0 
+
+    text = (
+        f"🏠 **የድርጅት ዳሽቦርድ፦ {v_name}**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🌟 ደረጃ፦ {'ገና አልተሰጠም' if v_rating == 0 else f'⭐⭐⭐⭐ ({v_rating})'}\n"
+        f"💰 ሁኔታ፦ {balance_display}\n"
+        f"🔔 ንቁ ትዕዛዞች፦ {active_orders}\n"
+        f"🛍️ ጠቅላላ እቃዎች፦ {v_items_count}\n"
+        f"🟢 ሁኔታ፦ ክፍት (ለደንበኞች ይታያል)\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"👇 ስራ ለመጀመር ከታች ያሉትን በተኖች ይጠቀሙ፦"
+    )
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    # ... (የተቀሩት በተኖች እንደነበሩ ይቀጥላሉ)
+    markup.add(
+        types.InlineKeyboardButton("🔔 አዲስ ትዕዛዞች", callback_data="vendor_view_orders"),
+        types.InlineKeyboardButton("➕ እቃ ጨምር", callback_data="vendor_add_item")
+    )
+    markup.add(
+        types.InlineKeyboardButton("📦 የእኔ እቃዎች", callback_data="vendor_my_items"),
+        types.InlineKeyboardButton("📈 የሽያጭ ታሪክ", callback_data="vendor_sales_history")
+    )
+    markup.add(
+        types.InlineKeyboardButton("⚙️ መቆጣጠሪያ", callback_data="vendor_settings"),
+        types.InlineKeyboardButton("🔄 አድስ", callback_data="vendor_refresh")
+    )
+    markup.add(types.InlineKeyboardButton("🏠 ወደ ዋናው ሜኑ", callback_data="go_to_main"))
+    
+    return text, markup
+
+
+
 # --- መመለሻ Handler ---
 @bot.callback_query_handler(func=lambda call: call.data == "go_to_main_start")
 def back_to_main_handler(call):
@@ -442,6 +499,301 @@ def back_to_main_handler(call):
         call.message.message_id, 
         reply_markup=main_menu_markup() # ዋናው ሜኑህን የሚመልስ ፋንክሽን
     )
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "vendor_view_orders")
+def vendor_view_orders(call):
+    db = load_data()
+    v_id = str(call.from_user.id)
+    
+    # የዚህ ቬንደር የሆኑና በሂደት ላይ ያሉ ትዕዛዞችን መፈለግ
+    v_orders = [o for o in db.get('orders', []) if str(o['vendor_id']) == v_id and o['status'] in ['pending', 'accepted']]
+    
+    if not v_orders:
+        return bot.answer_callback_query(call.id, "በአሁኑ ሰዓት ንቁ ትዕዛዝ የለም።", show_alert=True)
+    
+    text = "📋 **ንቁ ትዕዛዞች፦**\n\n"
+    for o in v_orders:
+        text += f"🆔 #{o['order_id']} | 💰 {o['total_price']} ETB | 🕒 {o['status']}\n"
+    
+    bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+
+def process_order_pickup(order_id):
+    db = load_data()
+    for order in db['orders']:
+        if order['order_id'] == order_id:
+            vendor_id = str(order['vendor_id'])
+            total_price = order['total_price']
+            
+            # 1. የቬንደሩን ባላንስ መቀነስ (Negative እንዲሆን መፍቀድ)
+            current_bal = float(db['vendors_list'][vendor_id].get('deposit_balance', 0))
+            db['vendors_list'][vendor_id]['deposit_balance'] = current_bal - total_price
+            
+            # 2. የትዕዛዙን ሁኔታ መቀየር
+            order['status'] = 'picked_up'
+            save_data(db)
+            
+            # ለቬንደሩ ማሳወቅ
+            bot.send_message(vendor_id, f"📦 ትዕዛዝ #{order_id} በሾፌር ተረክቧል።\n📉 ባላንስዎ፦ {db['vendors_list'][vendor_id]['deposit_balance']} ETB")
+            break
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('v_acc_'))
+def vendor_accept_order(call):
+    order_id = call.data.replace('v_acc_', '')
+    db = load_data()
+    
+    # ትዕዛዙን መፈለግ
+    for order in db['orders']:
+        if order['order_id'] == order_id:
+            if order['status'] != 'pending':
+                return bot.answer_callback_query(call.id, "ይህ ትዕዛዝ ቀድሞ ተቀባይነት አግኝቷል።")
+            
+            order['status'] = 'accepted'
+            save_data(db)
+            
+            # ለቬንደሩ ማረጋገጫ
+            bot.edit_message_text(f"✅ ትዕዛዝ #{order_id} ተቀብለዋል። ሾፌር እየተፈለገ ነው...", 
+                                  call.message.chat.id, call.message.message_id)
+            
+            # ለሾፌሮች ማሳወቂያ መላክ (ይህ ቀጣይ ስራችን ነው)
+            # notify_drivers_of_order(order_id)
+            break
+    bot.answer_callback_query(call.id)
+
+
+def notify_vendor_new_order(order_id):
+    db = load_data()
+    order = next(o for o in db['orders'] if o['order_id'] == order_id)
+    vendor_id = order['vendor_id']
+    
+    items_text = ""
+    for item in order['items']:
+        items_text += f"🔹 {item['name']} (x{item['qty']})\n"
+
+    text = (
+        f"🔔 **አዲስ ትዕዛዝ መጥቷል!**\n"
+        f"🆔 ትዕዛዝ ቁጥር፦ #{order_id}\n\n"
+        f"📦 ዝርዝር፦\n{items_text}\n"
+        f"💰 ጠቅላላ ዋጋ፦ {order['total_price']} ETB\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"እቃው አሁን ይገኛል? (ካለህ 'ተቀበል' በል፣ ሾፌር ይታዘዝልሃል)"
+    )
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("✅ ተቀበል (Accept)", callback_data=f"v_acc_{order_id}"),
+        types.InlineKeyboardButton("❌ የለም (Reject)", callback_data=f"v_rej_{order_id}")
+    )
+    
+    bot.send_message(vendor_id, text, reply_markup=markup, parse_mode="Markdown")
+
+
+
+def finalize_vendor_accounting(order_id):
+    db = load_data()
+    order = next((o for o in db['orders'] if o['order_id'] == order_id), None)
+    
+    if order and order['status'] == 'completed':
+        vendor_id = str(order['vendor_id'])
+        total_price = float(order['total_price'])
+        
+        # የቬንደሩን መረጃ ማግኘት
+        v_info = db['vendors_list'].get(vendor_id)
+        if v_info:
+            current_bal = float(v_info.get('deposit_balance', 0))
+            
+            # አሁን ሂሳቡ ተቀነሰ (ወደ Negative ይሄዳል)
+            new_bal = current_bal - total_price
+            db['vendors_list'][vendor_id]['deposit_balance'] = new_bal
+            
+            save_data(db)
+            
+            # ለቬንደሩ ማሳወቂያ መላክ
+            bot.send_message(vendor_id, 
+                f"✅ **ሽያጭ ተጠናቋል!**\n"
+                f"🆔 ትዕዛዝ ቁጥር፦ #{order_id}\n"
+                f"💰 የተቀነሰ ሂሳብ፦ {total_price} ETB\n"
+                f"📉 የአሁኑ ባላንስዎ፦ {new_bal:,.2f} ETB", 
+                parse_mode="Markdown")
+
+
+# ቬንደሩ "እቃ ጨምር" ሲል ምድቦችን ያሳየዋል
+@bot.callback_query_handler(func=lambda call: call.data == "vendor_add_item")
+def start_add_item(call):
+    db = load_data()
+    categories = db.get('categories', [])
+    
+    if not categories:
+        return bot.answer_callback_query(call.id, "⚠️ መጀመሪያ አድሚኑ የምድብ ዝርዝር ማስገባት አለበት።", show_alert=True)
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    for cat in categories:
+        # እያንዳንዱን ምድብ በተን እናደርገዋለን
+        markup.add(types.InlineKeyboardButton(cat, callback_data=f"sel_cat_{cat}"))
+    
+    markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data="go_to_main_start"))
+    
+    bot.edit_message_text("📂 እቃው የትኛው ምድብ ውስጥ ነው? ይምረጡ፦", 
+                          call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+
+# ቬንደሩ ምድብ ሲመርጥ
+@bot.callback_query_handler(func=lambda call: call.data.startswith("sel_cat_"))
+def process_category_selection(call):
+    selected_cat = call.data.replace("sel_cat_", "")
+    user_id = str(call.from_user.id)
+    
+    # ጊዜያዊ ዳታ መያዣውን እናዘጋጃለን
+    item_creation_data[user_id] = {'category': selected_cat}
+    
+    msg = bot.send_message(call.message.chat.id, f"🎯 ምድብ፦ {selected_cat}\n\n📝 **ደረጃ 1/3፦** የእቃውን/ምግቡን ስም ይጻፉ፦")
+    bot.register_next_step_handler(msg, process_item_name)
+
+# 1. ስም መቀበያ
+def process_item_name(message):
+    user_id = str(message.from_user.id)
+    if message.text.startswith('/'): return # Middleware ካለህ ይሄ ይረዳሃል
+    
+    item_creation_data[user_id]['name'] = message.text
+    msg = bot.send_message(message.chat.id, "💰 **ደረጃ 2/3፦** የእቃውን ዋጋ በቁጥር ብቻ ያስገቡ (ለምሳሌ፦ 250)፦")
+    bot.register_next_step_handler(msg, process_item_price)
+
+# 2. ዋጋ መቀበያ
+def process_item_price(message):
+    user_id = str(message.from_user.id)
+    price = message.text
+    
+    if not price.isdigit():
+        msg = bot.send_message(message.chat.id, "⚠️ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ፦")
+        return bot.register_next_step_handler(msg, process_item_price)
+    
+    item_creation_data[user_id]['price'] = float(price)
+    msg = bot.send_message(message.chat.id, "📸 **ደረጃ 3/3፦** የእቃውን ፎቶ ይላኩ፦")
+    bot.register_next_step_handler(msg, process_item_photo)
+
+# 3. ፎቶ መቀበያ እና ዳታቤዝ ውስጥ ማስቀመጥ
+def process_item_photo(message):
+    user_id = str(message.from_user.id)
+    if not message.photo:
+        msg = bot.send_message(message.chat.id, "⚠️ እባክዎ የእቃውን ፎቶ ይላኩ፦")
+        return bot.register_next_step_handler(msg, process_item_photo)
+    
+    # ትልቁን ፎቶ እንወስዳለን
+    photo_id = message.photo[-1].file_id
+    item_creation_data[user_id]['photo'] = photo_id
+    
+    # ወደ ዳታቤዝ መመዝገብ
+    db = load_data()
+    if 'items' not in db: db['items'] = []
+    
+    new_item = {
+        'id': len(db['items']) + 1,
+        'vendor_id': user_id,
+        'category': item_creation_data[user_id]['category'],
+        'name': item_creation_data[user_id]['name'],
+        'price': item_creation_data[user_id]['price'],
+        'photo': photo_id,
+        'status': 'available'
+    }
+    
+    db['items'].append(new_item)
+    save_data(db)
+    
+    # መጨረሻ ላይ ለቬንደሩ ማሳወቅ
+    bot.send_message(message.chat.id, f"✅ እቃው በተሳካ ሁኔታ ተመዝግቧል!\n📂 ምድብ፦ {new_item['category']}\n📝 ስም፦ {new_item['name']}\n💰 ዋጋ፦ {new_item['price']} ETB")
+    
+    # ተመልሶ ወደ ዳሽቦርድ እንዲሄድ ማድረግ
+    text, markup = get_vendor_dashboard_elements(message.from_user.id)
+    bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+
+
+
+# 1. ዋጋ ከተቀበልን በኋላ የመመዘኛ መስፈርት (Unit) እንጠይቃለን
+def process_item_price(message):
+    user_id = str(message.from_user.id)
+    price = message.text
+    
+    if not price.replace('.', '', 1).isdigit():
+        msg = bot.send_message(message.chat.id, "⚠️ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ፦")
+        return bot.register_next_step_handler(msg, process_item_price)
+    
+    item_creation_data[user_id]['price'] = float(price)
+    
+    # የመመዘኛ መስፈርት መምረጫ በተኖች
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add("በቁጥር (Pcs)", "በኪሎ (Kg)", "በሊትር (Ltr)", "በጥቅል (Pack)")
+    
+    msg = bot.send_message(message.chat.id, "📏 እቃው በምን ይለካል? (ከታች ይምረጡ ወይም ይጻፉ)፦", reply_markup=markup)
+    bot.register_next_step_handler(msg, process_item_unit)
+
+# 2. ዩኒት መቀበያ
+def process_item_unit(message):
+    user_id = str(message.from_user.id)
+    item_creation_data[user_id]['unit'] = message.text
+    
+    # ፎቶን መዝለል የሚያስችል በተን (Inline)
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("📷 ፎቶ የለውም (ዝለል)", callback_data="skip_photo"))
+    
+    bot.send_message(message.chat.id, "📸 **ደረጃ 3/3፦** የእቃውን ፎቶ ይላኩ። ፎቶ ከሌለው 'ዝለል' የሚለውን ይጫኑ፦", reply_markup=markup)
+    # ማሳሰቢያ፦ እዚህ ጋር register_next_step አያስፈልግም፣ ፎቶው በ content_handler ይያዛል
+
+
+
+# ፎቶ ሲላክ
+@bot.message_handler(content_types=['photo'])
+def handle_item_photo(message):
+    user_id = str(message.from_user.id)
+    if user_id in item_creation_data:
+        photo_id = message.photo[-1].file_id
+        finalize_item_registration(message, photo_id)
+
+# ፎቶ በባዶው ሲታለፍ
+@bot.callback_query_handler(func=lambda call: call.data == "skip_photo")
+def skip_photo_handler(call):
+    finalize_item_registration(call.message, "no_photo")
+    bot.answer_callback_query(call.id, "ፎቶ ተዘልሏል")
+
+
+def finalize_item_registration(message, photo_id):
+    user_id = str(message.from_user.id if message.from_user else message.chat.id)
+    db = load_data()
+    
+    if 'items' not in db: db['items'] = []
+    
+    new_item = {
+        'id': len(db['items']) + 1,
+        'vendor_id': user_id,
+        'category': item_creation_data[user_id]['category'],
+        'name': item_creation_data[user_id]['name'],
+        'price': item_creation_data[user_id]['price'],
+        'unit': item_creation_data[user_id]['unit'],
+        'photo': photo_id,
+        'status': 'active' # ወዲያውኑ ለደንበኛ እንዲታይ
+    }
+    
+    db['items'].append(new_item)
+    save_data(db)
+    
+    # ማረጋገጫ መልዕክት
+    photo_msg = "❌ ፎቶ የለውም" if photo_id == "no_photo" else "✅ ፎቶ ተያይዟል"
+    bot.send_message(message.chat.id, 
+        f"✅ **እቃው ወዲያውኑ ለሽያጭ ቀርቧል!**\n\n"
+        f"📝 ስም፦ {new_item['name']}\n"
+        f"💰 ዋጋ፦ {new_item['price']} ETB / {new_item['unit']}\n"
+        f"🖼️ ፎቶ፦ {photo_msg}", 
+        reply_markup=types.ReplyKeyboardRemove(), parse_mode="Markdown")
+    
+    # ዳሽቦርዱን መልሰን እናሳያለን
+    text, markup = get_vendor_dashboard_elements(user_id)
+    bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+    
+    # ዳታውን እናጸዳለን
+    del item_creation_data[user_id]
+
 
 # 1. የራይደር ምዝገባ መጀመሪያ
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_rider")
