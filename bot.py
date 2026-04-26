@@ -406,7 +406,7 @@ def get_vendor_dashboard_elements(user_id):
 @bot.callback_query_handler(func=lambda call: call.data == "go_to_main_start")
 def back_to_main_handler(call):
     # ማንኛውንም የቆየ የጥያቄ ሂደት ያጸዳል (ለምሳሌ ስም ወይም ቁጥር እየጠበቀ ከሆነ)
-    @bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)# --- 1. ሁሉንም ጊዜያዊ ዳታዎች ማጽጃ ፋንክሽን ---
+    # --- 1. ሁሉንም ጊዜያዊ ዳታዎች ማጽጃ ፋንክሽን ---
 def reset_user_state(user_id):
     user_id_str = str(user_id)
     # የቆዩ የ step handler (ጥያቄዎችን) ያጸዳል
@@ -416,74 +416,84 @@ def reset_user_state(user_id):
     if user_id_str in item_creation_data:
         del item_creation_data[user_id_str]
     
-    # ሌሎች ጊዜያዊ ዳታዎች ካሉህ እዚህ ጋር መጨመር ትችላለህ
-    # ለምሳሌ፡ order_data[user_id_str] = {}
+    # የገንዘብ መሙያ ዳታ ካለ ማጽዳት
+    if user_id in temp_topup_data:
+        del temp_topup_data[user_id]
+    
+    print(f"🧹 State for {user_id} has been cleaned.")
 
-
-bot.message_handler(func=lambda message: message.text and message.text.startswith('/'), content_types=['text'])
+# --- 2. Interrupt Handler (ከላይ የተቀመጠው) ---
+@bot.message_handler(func=lambda message: message.text and message.text.startswith('/'), content_types=['text'])
 def handle_interrupt_commands(message):
-    """
-    ተጠቃሚው ማንኛውንም ኮማንድ (ለምሳሌ /start, /vendor) ሲልክ 
-    የቆመውን Step Handler ያጸዳል፣ ዳታውን Reset ያደርጋል።
-    """
     user_id = message.from_user.id
-    
-    # የቆየውን ሂደት ያጸዳል
     bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
-    
-    # ዳታውን ያጸዳል
     reset_user_state(user_id)
     
-    # አሁን ወደ ተላከው ኮማንድ እንዲሄድ እናደርጋለን
-    # ለምሳሌ /start ከሆነ ወደ start_cmd ይሄዳል
     if message.text == '/start':
-        return start_cmd(message) # start_cmd-ን እዚህ መጥራት አለብህ
+        return send_welcome(message) # እዚህ ጋር ስሙ 'send_welcome' መሆኑን አረጋግጥ
 
-# --- 2. START ኮማንድ ---
+# --- 3. START ኮማንድ ---
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_id = message.from_user.id
     user_id_str = str(user_id)
     db = load_data()
 
-    # ሁሉንም ነገር Reset ያደርጋል
     reset_user_state(user_id)
 
-    # ብሮድካስት ምዝገባ
     if 'user_list' not in db: db['user_list'] = []
     if user_id not in db['user_list']:
         db['user_list'].append(user_id)
         save_data(db)
 
-    # ሀ. አድሚን ከሆነ
+    # አድሚን ከሆነ
     if user_id in ADMIN_IDS:
         markup = get_admin_dashboard(user_id)
         return bot.send_message(user_id, "👋 ሰላም ጌታዬ! እንኳን ወደ **BDF Delivery** መቆጣጠሪያ መጡ።", reply_markup=markup, parse_mode="Markdown")
 
-    # ለ. ቬንደር (ድርጅት) ከሆነ
+    # ቬንደር ከሆነ
     vendors_list = db.get('vendors_list', {})
     if user_id_str in vendors_list:
         v_info = vendors_list[user_id_str]
-        # ሎኬሽን ከሌለው መጀመሪያ ሎኬሽን ይጠይቃል
         if 'lat' not in v_info or 'lon' not in v_info:
             return bot.send_message(user_id, f"ሰላም {v_info.get('name', 'ባለቤት')}! 👋\nእባክዎ መጀመሪያ የድርጅቱን መገኛ (Location) ይላኩ።", reply_markup=get_location_keyboard())
         
         text, markup = get_vendor_dashboard_elements(user_id)
         return bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
 
-    # ሐ. ደንበኛ ከሆነ
+    # ደንበኛ ከሆነ
     else:
         if 'users' not in db: db['users'] = {}
         if user_id_str not in db['users']:
             db['users'][user_id_str] = {}
             save_data(db)
 
+        # ስም እና ስልክ የሌለው ከሆነ ምዝገባ ይጠይቃል
         if is_user_complete(user_id_str):
             welcome_text = f"እንኳን ደህና መጡ {message.from_user.first_name}! 👋\nምን ማዘዝ ይፈልጋሉ?"
             bot.send_message(user_id, welcome_text, reply_markup=get_customer_main_markup(), parse_mode="Markdown")
         else:
             welcome_text = "እንኳን ወደ **BDF Delivery** በደህና መጡ! 👋\nእባክዎ መጀመሪያ ስልክና ሎኬሽን ያጋሩ።"
             bot.send_message(user_id, welcome_text, reply_markup=get_customer_registration_markup(), parse_mode="Markdown")
+
+# --- 4. የተዋሃደ የመመለሻ Handler ---
+@bot.callback_query_handler(func=lambda call: call.data in ["admin_main_menu", "go_to_main_start", "vendor_refresh"])
+def back_to_main_handler(call):
+    user_id = call.from_user.id
+    reset_user_state(user_id)
+    db = load_data()
+    
+    if user_id in ADMIN_IDS:
+        markup = get_admin_dashboard(user_id)
+        bot.edit_message_text("👋 ወደ አድሚን ዳሽቦርድ ተመልሰዋል።", user_id, call.message.message_id, reply_markup=markup)
+    elif str(user_id) in db.get('vendors_list', {}):
+        text, markup = get_vendor_dashboard_elements(user_id)
+        bot.edit_message_text(text, user_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    else:
+        bot.send_message(user_id, "ወደ ዋናው ሜኑ ተመልሰዋል", reply_markup=get_customer_main_markup())
+    
+    bot.answer_callback_query(call.id)
+
 
 # --- 3. የተዋሃደ የመመለሻ Handler ---
 @bot.callback_query_handler(func=lambda call: call.data in ["admin_main_menu", "go_to_main_start", "vendor_refresh"])
