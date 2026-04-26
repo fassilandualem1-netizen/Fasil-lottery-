@@ -1729,76 +1729,81 @@ def process_final_order(call):
         _, v_id, i_id, qty, del_fee = call.data.split('_')
         user_id = str(call.from_user.id)
         db = load_data()
-        
+
         # 2. አስፈላጊ መረጃዎችን ከዳታቤዝ ማውጣት
         vendor = db.get('vendors_list', {}).get(v_id)
         if not vendor:
             return bot.answer_callback_query(call.id, "⚠️ ድርጅቱ አልተገኘም!")
-            
+
         item = vendor.get('items', {}).get(i_id)
-        # በ load_data መሠረት 'users' ወይም 'customers' መጠቀምህን አረጋግጥ
+        if not item:
+            return bot.answer_callback_query(call.id, "⚠️ እቃው አልተገኘም!")
+
+        # የደንበኛ መረጃን ማውጣት (fallback ተጨምሮለታል)
         customer = db.get('users', {}).get(user_id) or db.get('customers', {}).get(user_id, {})
-        
+        c_name = customer.get('name') or call.from_user.full_name or "ደንበኛ"
+        c_phone = customer.get('phone') or "ያልተመዘገበ"
+
         item_price = float(item.get('price', 0))
         item_total = item_price * int(qty)
         grand_total = item_total + float(del_fee)
-        
-        # 📉 ኮሚሽን ስሌት (ለምሳሌ 10%)
-        commission = item_total * 0.1 
-        
-        # ልዩ መለያ (Unique ID) መፍጠር
-        order_id = f"ORD-{int(time.time())}"
 
-        # 3. ትዕዛዙን በዳታቤዝ መመዝገብ (ለአድሚን ገጽ ወሳኝ ነው!)
+        # 📉 ኮሚሽን ስሌት (10%)
+        commission = item_total * 0.1 
+
+        # ልዩ መለያ (Unique ID) - ሰረዝ ሳይሆን underscore (_) መጠቀም ለ split ይቀላል
+        order_id = f"ORD_{int(time.time())}"
+
+        # 3. ትዕዛዙን በዳታቤዝ መመዝገብ (Keys በትክክል ተስተካክለዋል)
         new_order = {
             "order_id": order_id,
             "customer_id": user_id,
-            "customer_name": customer.get('name', call.from_user.first_name),
-            "customer_phone": customer.get('phone', 'ያልተመዘገበ'),
+            "customer_name": c_name,
+            "customer_phone": c_phone,
             "vendor_id": v_id,
             "vendor_name": vendor.get('name', 'ያልታወቀ ድርጅት'), 
-            "item_name": item.get('name', 'እቃ'),
+            "item_name": item.get('name', 'ያልታወቀ እቃ'), 
             "qty": qty,
-            "item_total": grand_total, 
+            "item_total": item_total, # የእቃው ዋጋ ብቻ (ለቬንደሩ የሚታይ)
+            "grand_total": grand_total, # ጠቅላላ ዋጋ
             "delivery_fee": float(del_fee),
             "status": "Pending",
             "timestamp": time.time()
         }
-        
+
         if 'orders' not in db: db['orders'] = {}
         db['orders'][order_id] = new_order
         save_data(db)
 
-        # 4. ለቬንደሩ (የእቃው ሒሳብ እና ኮሚሽን ዝርዝር) ማሳወቂያ
-        vendor_msg = (
-            f"🔔 **አዲስ ትዕዛዝ! ({order_id})**\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"📦 እቃ፦ {item['name']} ({qty} ፍሬ)\n"
-            f"💰 ከእቃው፦ {item_total} ETB\n"
-            f"📉 ኮሚሽን፦ -{commission} ETB\n"
-            f"💵 ለርስዎ የሚገባ፦ {item_total - commission} ETB\n"
-            f"👤 ደንበኛ፦ {new_order['customer_name']} ({new_order['customer_phone']})"
-        )
+        # 4. ለቬንደሩ ማሳወቂያ
         v_owner = vendor.get('owner_id') or vendor.get('chat_id')
         if v_owner:
+            vendor_msg = (
+                f"🔔 **አዲስ ትዕዛዝ! (#{order_id})**\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"📦 እቃ፦ {new_order['item_name']} ({qty} ፍሬ)\n"
+                f"💰 ከእቃው፦ {item_total} ETB\n"
+                f"📉 ኮሚሽን፦ -{commission} ETB\n"
+                f"💵 ለርስዎ የሚገባ፦ {item_total - commission} ETB\n"
+                f"👤 ደንበኛ፦ {c_name} ({c_phone})"
+            )
             try: bot.send_message(v_owner, vendor_msg, parse_mode="Markdown")
             except: print(f"Could not notify vendor {v_id}")
 
-        # 5. ለሾፌሮች ግሩፕ (የዴሊቨሪ ክፍያ ብቻ)
+        # 5. ለሾፌሮች ግሩፕ
         driver_group_id = db.get('settings', {}).get('driver_group_id')
         if driver_group_id:
             u_loc = customer.get('location', {})
-            # የካርታ ሊንክ አሰራር
             map_link = f"https://www.google.com/maps?q={u_loc.get('lat', 0)},{u_loc.get('lon', 0)}"
-            
+
             driver_msg = (
                 f"🚚 **አዲስ የዴሊቨሪ ስራ!**\n"
-                f"🏪 ሱቅ፦ {vendor['name']}\n"
-                f"📍 አድራሻ፦ [ካርታውን ክፈት]({map_link})\n"
+                f"🏪 ሱቅ፦ {vendor.get('name')}\n"
+                f"📍 [አድራሻ በካርታ]({map_link})\n"
                 f"💰 ክፍያ፦ **{del_fee} ETB**\n"
-                f"📞 ደንበኛ፦ {new_order['customer_phone']}\n"
+                f"📞 ደንበኛ፦ {c_phone}\n"
                 f"---------------------------\n"
-                f"ለመቀበል፦ `/accept_{order_id.split('-')}`"
+                f"ለመቀበል፦ `/accept_{order_id}`" # split መወገድ ነበረበት፣ ተወግዷል
             )
             bot.send_message(driver_group_id, driver_msg, parse_mode="Markdown", disable_web_page_preview=False)
 
@@ -1814,7 +1819,6 @@ def process_final_order(call):
     except Exception as e:
         print(f"Final Process Error: {e}")
         bot.answer_callback_query(call.id, "❌ ስህተት ተፈጥሯል")
-
 
 
 
