@@ -1790,22 +1790,30 @@ def process_final_order(call):
             try: bot.send_message(v_owner, vendor_msg, parse_mode="Markdown")
             except: print(f"Could not notify vendor {v_id}")
 
-        # 5. ለሾፌሮች ግሩፕ
-        driver_group_id = db.get('settings', {}).get('driver_group_id')
-        if driver_group_id:
+                # 5. ለሁሉም ሾፌሮች በየግል ማሳወቅ
+        riders = db.get('riders', {}) # በዳታቤዝህ የሾፌሮች ዝርዝር ስም 'riders' ከሆነ
+        
+        if riders:
             u_loc = customer.get('location', {})
             map_link = f"https://www.google.com/maps?q={u_loc.get('lat', 0)},{u_loc.get('lon', 0)}"
 
             driver_msg = (
                 f"🚚 **አዲስ የዴሊቨሪ ስራ!**\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
                 f"🏪 ሱቅ፦ {vendor.get('name')}\n"
-                f"📍 [አድራሻ በካርታ]({map_link})\n"
                 f"💰 ክፍያ፦ **{del_fee} ETB**\n"
-                f"📞 ደንበኛ፦ {c_phone}\n"
-                f"---------------------------\n"
-                f"ለመቀበል፦ `/accept_{order_id}`" # split መወገድ ነበረበት፣ ተወግዷል
+                f"📍 [አድራሻ በካርታ]({map_link})\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"ለመቀበል፦ `/accept_{order_id}`"
             )
-            bot.send_message(driver_group_id, driver_msg, parse_mode="Markdown", disable_web_page_preview=False)
+            
+            for r_id, r_info in riders.items():
+                # ሾፌሩ ኦንላይን (active) ከሆነ ብቻ እንዲደርሰው ማድረግ ትችላለህ
+                if r_info.get('status') == 'Active': 
+                    try:
+                        bot.send_message(r_id, driver_msg, parse_mode="Markdown")
+                    except:
+                        print(f"Could not send to rider {r_id}")
 
         # 6. ለደንበኛው ማረጋገጫ
         bot.edit_message_text(
