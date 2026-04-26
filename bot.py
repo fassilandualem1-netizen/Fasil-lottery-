@@ -401,36 +401,41 @@ def get_vendor_dashboard_elements(user_id):
     return text, markup
 
 
-
-# --- መመለሻ Handler ---
-@bot.callback_query_handler(func=lambda call: call.data == "go_to_main_start")
-def back_to_main_handler(call):
-    # ማንኛውንም የቆየ የጥያቄ ሂደት ያጸዳል (ለምሳሌ ስም ወይም ቁጥር እየጠበቀ ከሆነ)
-    # --- 1. ሁሉንም ጊዜያዊ ዳታዎች ማጽጃ ፋንክሽን ---
+# --- 1. ሁሉንም ጊዜያዊ ዳታዎች ማጽጃ ፋንክሽን (መጀመሪያ ይሄ ይግባ) ---
 def reset_user_state(user_id):
     user_id_str = str(user_id)
     # የቆዩ የ step handler (ጥያቄዎችን) ያጸዳል
     bot.clear_step_handler_by_chat_id(chat_id=user_id)
-    
+
     # እቃ እየመዘገበ ከሆነ ዳታውን ያጠፋል
     if user_id_str in item_creation_data:
         del item_creation_data[user_id_str]
-    
+
     # የገንዘብ መሙያ ዳታ ካለ ማጽዳት
     if user_id in temp_topup_data:
         del temp_topup_data[user_id]
-    
+
     print(f"🧹 State for {user_id} has been cleaned.")
 
-# --- 2. Interrupt Handler (ከላይ የተቀመጠው) ---
+# --- 2. መመለሻ Handler (ይህንን ለብቻው ጨርሰው) ---
+@bot.callback_query_handler(func=lambda call: call.data == "go_to_main_start")
+def back_to_main_handler(call):
+    # መጀመሪያ ሁኔታውን Reset እናደርጋለን
+    reset_user_state(call.from_user.id)
+    # ከዛ ወደ ዋናው ሜኑ እንወስደዋለን
+    # እዚህ ጋር ሜኑህን የሚመልስ ኮድ ጨምር (ለምሳሌ send_welcome የሚለውን መጥራት)
+    bot.answer_callback_query(call.id, "ወደ ዋናው ሜኑ ተመልሰዋል!")
+    # ለምሳሌ፡ bot.edit_message_text("ዋና ሜኑ", call.message.chat.id, call.message.message_id)
+
+# --- 3. Interrupt Handler ---
 @bot.message_handler(func=lambda message: message.text and message.text.startswith('/'), content_types=['text'])
 def handle_interrupt_commands(message):
     user_id = message.from_user.id
     bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
     reset_user_state(user_id)
-    
+
     if message.text == '/start':
-        return send_welcome(message) # እዚህ ጋር ስሙ 'send_welcome' መሆኑን አረጋግጥ
+        return send_welcome(message) 
 
 # --- 3. START ኮማንድ ---
 @bot.message_handler(commands=['start'])
