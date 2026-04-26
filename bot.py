@@ -2037,6 +2037,64 @@ def v_edit_loc_start(call):
 
 
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith('v_manage_ord_'))
+def vendor_manage_order(call):
+    order_id = call.data.replace('v_manage_ord_', '')
+    db = load_data()
+    order = db.get('orders', {}).get(order_id)
+
+    if not order:
+        return bot.answer_callback_query(call.id, "⚠️ ትዕዛዙ አልተገኘም!")
+
+    text = (
+        f"📝 **የትዕዛዝ ዝርዝር፦ #{order_id}**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📦 እቃ፦ {order.get('item_name')}\n"
+        f"🔢 ብዛት፦ {order.get('qty')}\n"
+        f"💰 ዋጋ፦ {order.get('item_total')} ETB\n"
+        f"👤 ደንበኛ፦ {order.get('customer_name')}\n"
+        f"📞 ስልክ፦ {order.get('customer_phone')}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"እባክዎ ትዕዛዙን ያረጋግጡ፦"
+    )
+
+    markup = types.InlineKeyboardMarkup()
+    markup.row(
+        types.InlineKeyboardButton("✅ ትዕዛዝ ተቀበል", callback_data=f"v_accept_{order_id}"),
+        types.InlineKeyboardButton("❌ ሰርዝ", callback_data=f"v_cancel_{order_id}")
+    )
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ዝርዝር ተመለስ", callback_data="vendor_active_orders"))
+
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('v_accept_'))
+def vendor_confirm_acceptance(call):
+    order_id = call.data.replace('v_accept_', '')
+    db = load_data()
+    order = db.get('orders', {}).get(order_id)
+
+    if order['status'] != 'Pending':
+        return bot.answer_callback_query(call.id, "⚠️ ትዕዛዙ ቀድሞ ተቀባይነት አግኝቷል!")
+
+    # 1. ሁኔታውን መቀየር
+    order['status'] = 'Accepted by Vendor'
+    save_data(db)
+
+    # 2. ለሾፌሮች (Riders) ማሳወቂያ መላክ
+    # ማስታወሻ፦ ሾፌሮች በየግል User ID እንዲደርሳቸው በቀድሞው ኮድ መሰረት ይሰራል
+    notify_riders_about_new_task(order_id, order, db)
+
+    bot.answer_callback_query(call.id, "✅ ትዕዛዝ ተቀብለዋል! ለሾፌር ተልኳል።")
+    bot.edit_message_text(f"✅ ትዕዛዝ #{order_id} ተቀብለዋል፤ ሾፌር በመጠባበቅ ላይ ነው...", 
+                          call.message.chat.id, call.message.message_id)
+
+
+
+
+
 @bot.callback_query_handler(func=lambda call: call.data == "vendor_settings")
 def show_settings(call):
     v_id = call.from_user.id
