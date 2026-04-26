@@ -1100,6 +1100,50 @@ def finalize_item_registration(message, photo_id):
     del item_creation_data[user_id]
 
 
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("edit_price_"))
+def edit_item_price_start(call):
+    item_id = call.data.replace("edit_price_", "")
+    msg = bot.send_message(call.message.chat.id, "💰 እባክዎ አዲሱን ዋጋ በቁጥር ብቻ ያስገቡ፦")
+    # አዲሱን ዋጋ ለመቀበል ወደ ሚቀጥለው ፋንክሽን እንመራዋለን
+    bot.register_next_step_handler(msg, process_new_price, item_id)
+    bot.answer_callback_query(call.id)
+
+def process_new_price(message, item_id):
+    if not message.text.isdigit():
+        msg = bot.reply_to(message, "⚠️ እባክዎ ቁጥር ብቻ ያስገቡ!")
+        return bot.register_next_step_handler(msg, process_new_price, item_id)
+    
+    new_price = float(message.text)
+    db = load_data()
+    
+    # እቃውን ፈልጎ ዋጋውን መቀየር
+    for item in db.get('items', []):
+        if str(item.get('id')) == str(item_id):
+            item['price'] = new_price
+            save_data(db)
+            bot.send_message(message.chat.id, f"✅ ዋጋው ወደ {new_price} ETB ተቀይሯል!")
+            break
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("delete_item_"))
+def delete_item_handler(call):
+    item_id = call.data.replace("delete_item_", "")
+    db = load_data()
+    
+    # እቃውን ከዝርዝሩ ውስጥ ማስወጣት
+    initial_count = len(db.get('items', []))
+    db['items'] = [i for i in db.get('items', []) if str(i.get('id')) != str(item_id)]
+    
+    if len(db['items']) < initial_count:
+        save_data(db)
+        bot.edit_message_text("❌ እቃው በቋሚነት ተሰርዟል።", call.message.chat.id, call.message.message_id)
+    else:
+        bot.answer_callback_query(call.id, "⚠️ እቃው አልተገኘም")
+    
+    bot.answer_callback_query(call.id)
+
 # 1. የራይደር ምዝገባ መጀመሪያ
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_rider")
 def start_add_rider(call):
