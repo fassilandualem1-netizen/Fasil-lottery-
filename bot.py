@@ -989,38 +989,30 @@ def process_item_price(message):
 
 # 3. ፎቶ መቀበያ እና ዳታቤዝ ውስጥ ማስቀመጥ
 def process_item_photo(message):
-    user_id = str(message.from_user.id)
-    if not message.photo:
-        msg = bot.send_message(message.chat.id, "⚠️ እባክዎ የእቃውን ፎቶ ይላኩ፦")
-        return bot.register_next_step_handler(msg, process_item_photo)
+    user_id = message.from_user.id
+    user_id_str = str(user_id)
     
-    # ትልቁን ፎቶ እንወስዳለን
-    photo_id = message.photo[-1].file_id
-    item_creation_data[user_id]['photo'] = photo_id
+    # ⚠️ እዚህ ጋር ያለው ጽሁፍ በፎቶው ላይ ካለው ጋር አንድ አይነት መሆን አለበት
+    skip_text = "📸 ፎቶ የለውም (ዝለል)"
     
-    # ወደ ዳታቤዝ መመዝገብ
-    db = load_data()
-    if 'items' not in db: db['items'] = []
-    
-    new_item = {
-        'id': len(db['items']) + 1,
-        'vendor_id': user_id,
-        'category': item_creation_data[user_id]['category'],
-        'name': item_creation_data[user_id]['name'],
-        'price': item_creation_data[user_id]['price'],
-        'photo': photo_id,
-        'status': 'available'
-    }
-    
-    db['items'].append(new_item)
-    save_data(db)
-    
-    # መጨረሻ ላይ ለቬንደሩ ማሳወቅ
-    bot.send_message(message.chat.id, f"✅ እቃው በተሳካ ሁኔታ ተመዝግቧል!\n📂 ምድብ፦ {new_item['category']}\n📝 ስም፦ {new_item['name']}\n💰 ዋጋ፦ {new_item['price']} ETB")
-    
-    # ተመልሶ ወደ ዳሽቦርድ እንዲሄድ ማድረግ
-    text, markup = get_vendor_dashboard_elements(message.from_user.id)
-    bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+    # 1. ተጠቃሚው 'ዝለል' የሚለውን በተን ከተጫነ
+    if message.text == skip_text:
+        item_creation_data[user_id_str]['photo'] = "no_photo" 
+        bot.send_message(user_id, "✅ እቃው ያለ ፎቶ ተመዝግቧል።")
+        # እቃውን ዳታቤዝ ውስጥ ወደሚጨምረው ፋንክሽን ይሄዳል
+        return finalize_item_creation(message)
+
+    # 2. ተጠቃሚው ፎቶ ከላከ
+    elif message.content_type == 'photo':
+        file_id = message.photo[-1].file_id
+        item_creation_data[user_id_str]['photo'] = file_id
+        bot.send_message(user_id, "✅ ፎቶው ተቀብለናል!")
+        return finalize_item_creation(message)
+
+    # 3. ስህተት ነገር ከላከ
+    else:
+        msg = bot.send_message(user_id, "⚠️ እባክዎ ፎቶ ይላኩ ወይም 'ዝለል' የሚለውን ይጫኑ!")
+        bot.register_next_step_handler(msg, process_item_photo)
 
 
 
