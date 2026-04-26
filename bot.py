@@ -40,20 +40,22 @@ def reset_user_state(user_id):
         del temp_topup_data[user_id]
         
     print(f"🧹 State for {user_id} has been cleaned.")
-
-# --- 3. Global Middleware (ቁልፉ መፍትሄ ይሄ ነው) ---
+# --- 3. Global Middleware (የተስተካከለ) ---
 @bot.middleware_handler(update_types=['message'])
 def interrupt_handler(bot_instance, message):
     """
     ይህ Middleware ማንኛውም መልዕክት በ '/' (ኮማንድ) ከጀመረ 
     የጀመረውን የ next_step_handler ሂደት በሃይል ያቋርጣል።
     """
-    if message.text and message.text.startswith('/'):
-        # የጀመረውን ሂደት ያቋርጣል
-        bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
-        # ዳታውን ያጸዳል
-        reset_user_state(message.from_user.id)
-        # እዚህ ጋር 'return' አያስፈልግም፤ ቦቱ ኮማንዱን በቀጥታ ያስኬደዋል።
+    try:
+        if message.text and message.text.startswith('/'):
+            # የጀመረውን ሂደት ያቋርጣል
+            bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+            # ዳታውን ያጸዳል
+            reset_user_state(message.from_user.id)
+    except Exception as e:
+        print(f"⚠️ Middleware Error: {e}")
+    # Middleware ምንም አይነት 'return' ማድረግ የለበትም
 
 
 @app.route('/')
