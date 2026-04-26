@@ -436,111 +436,50 @@ def handle_interrupt_commands(message):
 
     if message.text == '/start':
         return send_welcome(message) 
-
-# --- ይህ ከፋንክሽኑ ውጭ መሆን አለበት ---
-@bot.callback_query_handler(func=lambda call: call.data == "go_to_main_start")
-def back_to_main_handler(call):
-    # ማንኛውንም የቆየ ፕሮሰስ ያጸዳል
-    bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
-    
-    # ወደ ዋናው ሜኑ መመለስ (የ main_menu_markup ፋንክሽንህን እዚህ ይጠራዋል)
-    bot.edit_message_text(
-        "👋 ወደ ዋናው ሜኑ ተመልሰዋል።\nሚናዎን ይምረጡ፦", 
-        call.message.chat.id, 
-        call.message.message_id, 
-        reply_markup=main_menu_markup() # ዋናው ሜኑ መመለሻ ፋንክሽንህ
-    )
-    bot.answer_callback_query(call.id)
-
-
-
-
-
-
-
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_id = message.from_user.id
-    chat_id = message.chat.id
     user_id_str = str(user_id)
     db = load_data()
 
-    bot.clear_step_handler_by_chat_id(chat_id=chat_id)
-    
-    if user_id_str in item_creation_data:
-        del item_creation_data[user_id_str]
+    # ሁሉንም ጊዜያዊ ዳታ እና Step Handler ያጸዳል
+    reset_user_state(user_id)
 
-    # 1. ብሮድካስት ምዝገባ
-    if 'user_list' not in db: db['user_list'] = []
-    if user_id not in db['user_list']:
-        db['user_list'].append(user_id)
-        save_data(db)
-
-    # 2. አድሚን ከሆነ
+    # 1. አድሚን ከሆነ
     if user_id in ADMIN_IDS:
         markup = get_admin_dashboard(user_id)
-        return bot.send_message(
-            chat_id, 
-            "👋 ሰላም ጌታዬ! እንኳን ወደ **BDF Delivery** መቆጣጠሪያ መጡ።",
-            reply_markup=markup,
-            parse_mode="Markdown"
-        )
+        return bot.send_message(user_id, "👋 ሰላም ጌታዬ! የ BDF መቆጣጠሪያ ፓነል ዝግጁ ነው።", reply_markup=markup, parse_mode="Markdown")
 
-    # 3. ቬንደር (ድርጅት) ከሆነ
+    # 2. ቬንደር (ድርጅት) መሆኑን ቼክ ማድረግ
     vendors_list = db.get('vendors_list', {})
     if user_id_str in vendors_list:
         v_info = vendors_list[user_id_str]
-        if 'lat' not in v_info or 'lon' not in v_info:
-            text = f"ሰላም {v_info.get('name', 'ባለቤት')}! 👋\n\nእባክዎ የድርጅቱን መገኛ (Location) ይላኩ።"
-            return bot.send_message(chat_id, text, reply_markup=get_location_keyboard())
         
+        # ⚠️ ቬንደሩ ሎኬሽን ካልላከ ዳሽቦርዱ አይመጣም፤ ስለዚህ መጀመሪያ ይሄን ቼክ እናደርጋለን
+        if 'lat' not in v_info or 'lon' not in v_info:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+            markup.add(types.KeyboardButton("📍 የድርጅቱን መገኛ ላክ", request_location=True))
+            return bot.send_message(user_id, 
+                f"ሰላም {v_info.get('name')}! 👋\n\nእባክዎ መጀመሪያ የድርጅቱን ትክክለኛ መገኛ (Location) በመጫን ይላኩ።", 
+                reply_markup=markup)
+        
+        # ሎኬሽን ካለው ቀጥታ ወደ ቬንደር ዳሽቦርድ
         text, markup = get_vendor_dashboard_elements(user_id)
-        return bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
+        return bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
 
-    # 4. ተራ ደንበኛ ከሆነ (ከላይ ያሉት ካልሆኑ ብቻ ወደዚህ 'else' ይገባል)
-    # ማሳሰቢያ፦ ይህ 'else' ከላይ ካለው 'if user_id_str in vendors_list' ጋር እኩል መስመር መሆን አለበት
+    # 3. ሾፌር መሆኑን ቼክ ማድረግ (ይህንም እዚህ ጋር እናስገባው)
+    drivers_list = db.get('drivers_list', {})
+    if user_id_str in drivers_list:
+        text, markup = get_driver_dashboard_elements(user_id) # የቅድሙን ዳሽቦርድ ፋንክሽን ጥራ
+        return bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
+
+    # 4. ደንበኛ ከሆነ
     else:
-        # ዳታቤዝ ውስጥ 'users' መኖሩን ቼክ እናደርጋለን
-        if 'users' not in db: db['users'] = {}
-        if user_id_str not in db['users']:
-            db['users'][user_id_str] = {}
-            save_data(db)
-
+        # ለደንበኛ የሚሆን ሎጂክ...
         if is_user_complete(user_id_str):
-            welcome_text = f"እንኳን ደህና መጡ {message.from_user.first_name}! 👋\n\nምን ማዘዝ ይፈልጋሉ?"
-            bot.send_message(chat_id, welcome_text, reply_markup=get_customer_main_markup(), parse_mode="Markdown")
+            bot.send_message(user_id, "እንኳን ደህና መጡ! ምን ማዘዝ ይፈልጋሉ?", reply_markup=get_customer_main_markup())
         else:
-            welcome_text = "እንኳን ወደ **BDF Delivery** በደህና መጡ! 👋\n\nእባክዎ መጀመሪያ ስልክና ሎኬሽን ያጋሩ።"
-            bot.send_message(chat_id, welcome_text, reply_markup=get_customer_registration_markup(), parse_mode="Markdown")
-
-
-
-
-# --- የተዋሃደ የአድሚን መመለሻ (ለ admin_main_menu እና go_to_main_start) ---
-@bot.callback_query_handler(func=lambda call: call.data in ["admin_main_menu", "go_to_main_start"])
-def back_to_main_handler(call):
-    user_id = call.from_user.id
-    chat_id = call.message.chat.id
-    
-    # የቆየ ፕሮሰስ ካለ ያጸዳል
-    bot.clear_step_handler_by_chat_id(chat_id=chat_id)
-    
-    # አድሚን ከሆነ ወደ አድሚን ዳሽቦርድ
-    if user_id in ADMIN_IDS:
-        markup = get_admin_dashboard(user_id)
-        bot.edit_message_text(
-            "👋 ወደ አድሚን ዳሽቦርድ ተመልሰዋል።",
-            chat_id, call.message.message_id, reply_markup=markup
-        )
-    # ቬንደር ከሆነ ወደ ቬንደር ዳሽቦርድ
-    elif str(user_id) in load_data().get('vendors_list', {}):
-        text, markup = get_vendor_dashboard_elements(user_id)
-        bot.edit_message_text(text, chat_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-    # ካልሆነ ወደ ደንበኛ ሜኑ
-    else:
-        bot.edit_message_text("ወደ ዋናው ሜኑ ተመልሰዋል", chat_id, call.message.message_id, reply_markup=customer_main_menu())
-    
-    bot.answer_callback_query(call.id)
+            bot.send_message(user_id, "ወደ BDF በደህና መጡ! ለመመዝገብ ስልክና ሎኬሽን ያጋሩ።", reply_markup=get_customer_registration_markup())
 
 
 
