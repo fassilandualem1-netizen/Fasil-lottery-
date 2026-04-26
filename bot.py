@@ -4,6 +4,10 @@ import os, json, math, threading, time
 from flask import Flask
 from upstash_redis import Redis
 
+
+apihelper.ENABLE_MIDDLEWARE = True
+
+
 # --- 1. ውቅረት ---
 TOKEN = "8663228906:AAFsTC0fKqAVEWMi7rk59iSdfVD-1vlJA0Y"
 CHANNEL_ID = -1003962139457 
