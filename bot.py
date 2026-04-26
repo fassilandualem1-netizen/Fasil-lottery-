@@ -1037,14 +1037,33 @@ def process_item_price(message):
 # 2. ዩኒት መቀበያ
 def process_item_unit(message):
     user_id = str(message.from_user.id)
-    item_creation_data[user_id]['unit'] = message.text
+    unit_input = message.text
+
+    # ዩኒቱን ለስሌት እንዲመች በቋሚ ስም መመዝገብ (Normalize)
+    if "ቁጥር" in unit_input or "Pcs" in unit_input:
+        unit = "Pcs"
+    elif "ኪሎ" in unit_input or "Kg" in unit_input:
+        unit = "Kg"
+    elif "ሊትር" in unit_input or "Ltr" in unit_input:
+        unit = "Ltr"
+    elif "ጥቅል" in unit_input or "Pack" in unit_input:
+        unit = "Pack"
+    else:
+        unit = unit_input # ቬንደሩ በራሱ የጻፈው ከሆነ
+
+    item_creation_data[user_id]['unit'] = unit
+
+    # ፎቶ መቀበያ ላይ 'ዝለል' በተን በ ReplyKeyboard ቢሆን ይመረጣል (ከፎቶ ጋር አብሮ እንዲታይ)
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add("📸 ፎቶ የለውም (ዝለል)")
+
+    msg = bot.send_message(message.chat.id, 
+        f"📏 መመዘኛው **{unit}** ተብሎ ተመዝግቧል።\n\n📸 **ደረጃ 3/3፦** የእቃውን ፎቶ ይላኩ። ፎቶ ከሌለው 'ዝለል' የሚለውን ይጫኑ፦", 
+        reply_markup=markup, 
+        parse_mode="Markdown")
     
-    # ፎቶን መዝለል የሚያስችል በተን (Inline)
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("📷 ፎቶ የለውም (ዝለል)", callback_data="skip_photo"))
-    
-    bot.send_message(message.chat.id, "📸 **ደረጃ 3/3፦** የእቃውን ፎቶ ይላኩ። ፎቶ ከሌለው 'ዝለል' የሚለውን ይጫኑ፦", reply_markup=markup)
-    # ማሳሰቢያ፦ እዚህ ጋር register_next_step አያስፈልግም፣ ፎቶው በ content_handler ይያዛል
+    # ፎቶውን ወይም 'ዝለል' የሚለውን ጽሁፍ ለመቀበል register እናደርጋለን
+    bot.register_next_step_handler(msg, process_item_photo)
 
 
 
