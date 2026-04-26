@@ -357,37 +357,44 @@ def get_vendor_dashboard_elements(user_id):
     v_info = db.get('vendors_list', {}).get(user_id_str, {})
     
     v_name = v_info.get('name', 'ያልታወቀ ድርጅት')
-    # ባላንሱ ከዜሮ በታች ከሆነ በኔጋቲቭ ምልክቱ እንዲቀመጥ abs() አናደርገውም
     v_balance = float(v_info.get('deposit_balance', 0.0))
     v_rating = v_info.get('rating', 0.0)
     
-    # የባላንስ ቀለም እና መረጃ መለያ
+    # 1. የባላንስ ማሳያ
     if v_balance < 0:
-        # ለምሳሌ -500.00 ETB ብሎ ያሳያል
         balance_display = f"⚠️ አድሚኑ ሊከፍልዎት የሚገባ፦ {v_balance:,.2f} ETB"
     elif v_balance > 0:
         balance_display = f"💰 ቀሪ የቅድሚያ ክፍያ፦ {v_balance:,.2f} ETB"
     else:
         balance_display = f"💰 ባላንስ፦ 0.00 ETB"
 
+    # 2. የእቃዎች ብዛት
     all_items = db.get('items', [])
-    v_items_count = len([i for i in all_items if i.get('vendor_id') == user_id_str])
-    active_orders = 0 
+    v_items_count = len([i for i in all_items if str(i.get('vendor_id')) == user_id_str])
+    
+    # 3. ንቁ ትዕዛዞች (Pending, Accepted ወይም Picked_up የሆኑትን ብቻ ይቆጥራል)
+    all_orders = db.get('orders', [])
+    active_orders = len([o for o in all_orders if str(o.get('vendor_id')) == user_id_str and o.get('status') in ['pending', 'accepted', 'picked_up']])
+
+    # 4. የድርጅቱ ክፍት/ዝግ መሆን ሁኔታ
+    is_open = v_info.get('is_open', True)
+    status_text = "🟢 ክፍት (ለደንበኞች ይታያል)" if is_open else "🔴 ተዘግቷል (ትዕዛዝ አይቀበልም)"
 
     text = (
         f"🏠 **የድርጅት ዳሽቦርድ፦ {v_name}**\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🌟 ደረጃ፦ {'ገና አልተሰጠም' if v_rating == 0 else f'⭐⭐⭐⭐ ({v_rating})'}\n"
+        f"🌟 ደረጃ፦ {'ገና አልተሰጠም' if v_rating == 0 else f'⭐ {v_rating}'}\n"
         f"💰 ሁኔታ፦ {balance_display}\n"
-        f"🔔 ንቁ ትዕዛዞች፦ {active_orders}\n"
-        f"🛍️ ጠቅላላ እቃዎች፦ {v_items_count}\n"
-        f"🟢 ሁኔታ፦ ክፍት (ለደንበኞች ይታያል)\n"
+        f"🔔 ንቁ ትዕዛዞች፦ `{active_orders}`\n"
+        f"🛍️ ጠቅላላ እቃዎች፦ `{v_items_count}`\n"
+        f"📊 ሁኔታ፦ {status_text}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"👇 ስራ ለመጀመር ከታች ያሉትን በተኖች ይጠቀሙ፦"
     )
 
     markup = types.InlineKeyboardMarkup(row_width=2)
-    # ... (የተቀሩት በተኖች እንደነበሩ ይቀጥላሉ)
+    
+    # በተኖችን መጨመር
     markup.add(
         types.InlineKeyboardButton("🔔 አዲስ ትዕዛዞች", callback_data="vendor_view_orders"),
         types.InlineKeyboardButton("➕ እቃ ጨምር", callback_data="vendor_add_item")
@@ -400,7 +407,7 @@ def get_vendor_dashboard_elements(user_id):
         types.InlineKeyboardButton("⚙️ መቆጣጠሪያ", callback_data="vendor_settings"),
         types.InlineKeyboardButton("🔄 አድስ", callback_data="vendor_refresh")
     )
-    markup.add(types.InlineKeyboardButton("🏠 ወደ ዋናው ሜኑ", callback_data="go_to_main"))
+    markup.add(types.InlineKeyboardButton("🏠 ወደ ዋናው ሜኑ", callback_data="go_to_main_start"))
     
     return text, markup
 
@@ -499,6 +506,31 @@ def back_to_main_handler(call):
         call.message.message_id, 
         reply_markup=main_menu_markup() # ዋናው ሜኑህን የሚመልስ ፋንክሽን
     )
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "vendor_refresh")
+def vendor_refresh_handler(call):
+    user_id = call.from_user.id
+    db = load_data()
+    
+    # አዳዲስ መረጃዎችን ከዳታቤዝ እናመጣለን
+    text, markup = get_vendor_dashboard_elements(user_id)
+    
+    try:
+        # ሜሴጁን edit እናደርገዋለን
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=text,
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
+        # ለተጠቃሚው ትንሽ ማሳወቂያ ከላይ እንዲመጣለት
+        bot.answer_callback_query(call.id, "🔄 መረጃው ታድሷል!")
+        
+    except Exception as e:
+        # ለውጥ ከሌለ edit ማድረግ ስለማይችል የሚመጣውን error ለመከላከል
+        bot.answer_callback_query(call.id, "ምንም አዲስ ለውጥ የለም።")
 
 
 
