@@ -16,9 +16,44 @@ bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 app = Flask(__name__) # ስሙን 'app' ብንለው ይሻላል
 
-
-# --- 2. ጊዜያዊ ዳታ መያዣዎች (እዚህ ጋር አስገባው) ---
+# --- 1. ጊዜያዊ ዳታ መያዣዎች (ከኮድህ መጀመሪያ ላይ ይሁኑ) ---
 item_creation_data = {} 
+temp_topup_data = {}
+
+# --- 2. ሁሉንም ነገር Reset ማድረጊያ ፋንክሽን ---
+def reset_user_state(user_id):
+    """
+    ተጠቃሚው ሂደቱን ሲያቋርጥ ወይም ኮማንድ ሲልክ 
+    ጊዜያዊ መረጃዎችን ለማጽዳት ያገለግላል።
+    """
+    user_id_str = str(user_id)
+    
+    # ቴሌግራም የሚጠብቃቸውን ጥያቄዎች (Next Step Handlers) ያጸዳል
+    bot.clear_step_handler_by_chat_id(chat_id=user_id)
+    
+    # የቬንደር እቃ መመዝገቢያ ዳታን ያጸዳል
+    if user_id_str in item_creation_data:
+        del item_creation_data[user_id_str]
+    
+    # የገንዘብ መሙያ (Top-up) ዳታን ያጸዳል
+    if user_id in temp_topup_data:
+        del temp_topup_data[user_id]
+        
+    print(f"🧹 State for {user_id} has been cleaned.")
+
+# --- 3. Global Middleware (ቁልፉ መፍትሄ ይሄ ነው) ---
+@bot.middleware_handler(update_types=['message'])
+def interrupt_handler(bot_instance, message):
+    """
+    ይህ Middleware ማንኛውም መልዕክት በ '/' (ኮማንድ) ከጀመረ 
+    የጀመረውን የ next_step_handler ሂደት በሃይል ያቋርጣል።
+    """
+    if message.text and message.text.startswith('/'):
+        # የጀመረውን ሂደት ያቋርጣል
+        bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+        # ዳታውን ያጸዳል
+        reset_user_state(message.from_user.id)
+        # እዚህ ጋር 'return' አያስፈልግም፤ ቦቱ ኮማንዱን በቀጥታ ያስኬደዋል።
 
 
 @app.route('/')
