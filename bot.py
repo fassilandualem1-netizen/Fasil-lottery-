@@ -401,6 +401,31 @@ def get_vendor_dashboard_elements(user_id):
     return text, markup
 
 
+
+@bot.callback_query_handler(func=lambda call: call.data in ["vendor_refresh", "go_to_main_start"])
+def vendor_dashboard_fast_fix(call):
+    user_id = call.from_user.id
+    user_id_str = str(user_id)
+    
+    # 1. መዘግየቱን ለማጥፋት (Clock ምልክቱን ለማንሳት)
+    bot.answer_callback_query(call.id)
+    
+    # 2. የቆየ ጥያቄ ካለ ማጽዳት
+    bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
+    reset_user_state(user_id)
+    
+    # 3. ዳታውን መጫን
+    text, markup = get_vendor_dashboard_elements(user_id)
+    
+    try:
+        # መጀመሪያ የነበረውን መልዕክት ለመቀየር ይሞክራል (ፈጣን ነው)
+        bot.edit_message_text(text, user_id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    except Exception:
+        # 'edit' ካልሰራ (ለምሳሌ ፎቶ የነበረበት መልዕክት ከሆነ) የድሮውን አጥፍቶ አዲስ ይልካል
+        bot.delete_message(user_id, call.message.message_id)
+        bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
+
+
 # --- 1. ሁሉንም ጊዜያዊ ዳታዎች ማጽጃ ፋንክሽን (መጀመሪያ ይሄ ይግባ) ---
 def reset_user_state(user_id):
     user_id_str = str(user_id)
