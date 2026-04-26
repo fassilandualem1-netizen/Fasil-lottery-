@@ -1389,6 +1389,10 @@ def get_vendor_dashboard_elements(v_id):
 
     markup = types.InlineKeyboardMarkup(row_width=2)
 
+    
+    markup.add(
+types.InlineKeyboardButton("📋 አዲስ ትዕዛዞች", callback_data="vendor_active_orders"))
+
     markup.add(
         types.InlineKeyboardButton("➕ እቃ ጨምር", callback_data="vendor_add_item"),
         types.InlineKeyboardButton("📦 የእኔ እቃዎች", callback_data="vendor_my_items")
@@ -1963,6 +1967,37 @@ def handle_vendor_refresh(call):
         # መልዕክቱ መቀየር ካልቻለ (ለምሳሌ ዳታው ተመሳሳይ ከሆነ) አዲስ መላክ
         bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
 
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "vendor_active_orders")
+def show_active_orders_to_vendor(call):
+    v_id = str(call.from_user.id)
+    db = load_data()
+    all_orders = db.get('orders', {})
+
+    # የዚህ ቬንደር የሆኑና ገና ያልተሰሩ (Pending) ትዕዛዞችን ብቻ መለየት
+    active_orders = {k: v for k, v in all_orders.items() 
+                     if str(v.get('vendor_id')) == v_id and v.get('status') == 'Pending'}
+
+    if not active_orders:
+        return bot.answer_callback_query(call.id, "📭 አዲስ ትዕዛዝ የለም።")
+
+    report = "📋 **አዲስ ትዕዛዞች ዝርዝር**\n━━━━━━━━━━━━━━━━━━━━\n"
+    markup = types.InlineKeyboardMarkup(row_width=1)
+
+    for order_id, info in active_orders.items():
+        item = info.get('item_name', 'ያልታወቀ')
+        price = info.get('item_total', 0)
+        report += f"🔹 `#{order_id}` | {item} | {price} ETB\n"
+        
+        # ለእያንዳንዱ ትዕዛዝ መቆጣጠሪያ በተን
+        markup.add(types.InlineKeyboardButton(f"⚙️ ትዕዛዝ #{order_id} አስተዳድር", callback_data=f"v_manage_ord_{order_id}"))
+
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ዳሽቦርድ", callback_data="vendor_refresh"))
+
+    bot.edit_message_text(report, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
 
 
