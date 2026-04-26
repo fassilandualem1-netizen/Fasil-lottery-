@@ -502,6 +502,144 @@ def back_to_main_handler(call):
 
 
 
+@bot.callback_query_handler(func=lambda call: call.data == "vendor_settings")
+def vendor_settings_handler(call):
+    db = load_data()
+    v_id = str(call.from_user.id)
+    v_info = db.get('vendors_list', {}).get(v_id, {})
+    
+    # ሁኔታውን ማረጋገጥ (ክፍት/ዝግ)
+    is_open = v_info.get('is_open', True)
+    status_text = "🟢 ክፍት (ትዕዛዝ ይቀበላል)" if is_open else "🔴 ዝግ (ትዕዛዝ አይቀበልም)"
+    toggle_btn_text = "🔴 ድርጅቱን ዝጋ" if is_open else "🟢 ድርጅቱን ክፈት"
+
+    text = (
+        f"⚙️ **የድርጅት መቆጣጠሪያ፦ {v_info.get('name')}**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📊 የአሁኑ ሁኔታ፦ {status_text}\n"
+        f"📍 መገኛ (Location)፦ ተመዝግቧል ✅\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"ምን ማስተካከል ይፈልጋሉ?"
+    )
+
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        types.InlineKeyboardButton(toggle_btn_text, callback_data="vendor_toggle_open"),
+        types.InlineKeyboardButton("📍 መገኛ (Location) ቀይር", callback_data="vendor_update_loc"),
+        types.InlineKeyboardButton("📝 ስም ቀይር", callback_data="vendor_change_name"),
+        types.InlineKeyboardButton("🏠 ወደ ዳሽቦርድ", callback_data="go_to_main_start")
+    )
+
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, 
+                          reply_markup=markup, parse_mode="Markdown")
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "vendor_toggle_open")
+def toggle_vendor_open(call):
+    db = load_data()
+    v_id = str(call.from_user.id)
+    
+    if v_id in db['vendors_list']:
+        # ሁኔታውን ይገለብጠዋል
+        current_status = db['vendors_list'][v_id].get('is_open', True)
+        db['vendors_list'][v_id]['is_open'] = not current_status
+        save_data(db)
+        
+        new_status = "ተከፍቷል" if not current_status else "ተዘግቷል"
+        bot.answer_callback_query(call.id, f"✅ ድርጅቱ {new_status}!", show_alert=True)
+        
+        # ገጹን አፕዴት እናድርገው
+        vendor_settings_handler(call)
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "vendor_update_loc")
+def vendor_update_loc_start(call):
+    # ኪቦርዱን እንዲልክለት እንጠይቃለን
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add(types.KeyboardButton("📍 አዲሱን መገኛ ላክ", request_location=True))
+    
+    msg = bot.send_message(call.message.chat.id, "እባክዎ አዲሱን የድርጅቱን መገኛ በተኑን በመጫን ይላኩ፦", reply_markup=markup)
+    # ይህንን የሚቀበለው ከላይ በሰራኸው የ Location Handler ውስጥ ነው
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "vendor_sales_history")
+def vendor_sales_history_handler(call):
+    db = load_data()
+    v_id = str(call.from_user.id)
+    
+    completed_orders = [o for o in db.get('orders', []) 
+                        if str(o.get('vendor_id')) == v_id and o.get('status') == 'completed']
+    
+    if not completed_orders:
+        return bot.answer_callback_query(call.id, "📊 እስካሁን የተጠናቀቀ ሽያጭ የለም።", show_alert=True)
+
+    # የሽያጭ ማጠቃለያ
+    total_sales = sum(float(o['total_price']) for o in completed_orders)
+    total_net = sum(float(o.get('net_to_vendor', o['total_price'])) for o in completed_orders)
+
+    report_text = (
+        f"📈 **የሽያጭ ታሪክ ሪፖርት (GC)**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🛍️ ጠቅላላ ትዕዛዞች፦ `{len(completed_orders)}`\n"
+        f"💰 ጠቅላላ የሽያጭ ዋጋ፦ `{total_sales:,.2f} ETB`\n"
+        f"💵 ለርስዎ የሚገባው (Net)፦ `{total_net:,.2f} ETB`\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📜 **የመጨረሻዎቹ ዝርዝሮች፦**\n\n"
+    )
+
+    # የመጨረሻዎቹን 5 ዝርዝሮች ማሳየት
+    for o in completed_orders[-5:]:
+        report_text += (
+            f"🆔 #{o['order_id']} | 📅 {o.get('completed_at', 'N/A')}\n"
+            f"💵 ዋጋ፦ {o['total_price']} ETB\n"
+            f"📉 ኮሚሽን፦ -{o.get('commission_taken', 0):,.2f}\n"
+            f"💳 ሁኔታ፦ {'✅ የተከፈለ' if o.get('payment_status') == 'Paid' else '⏳ ያልተከፈለ'}\n"
+            f"--------------------------\n"
+        )
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🏠 ወደ ዳሽቦርድ", callback_data="go_to_main_start"))
+    
+    bot.edit_message_text(report_text, call.message.chat.id, call.message.message_id, 
+                          reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+from datetime import datetime
+
+def complete_order_and_record_sales(order_id):
+    db = load_data()
+    # ትዕዛዙን መፈለግ
+    for order in db.get('orders', []):
+        if str(order['order_id']) == str(order_id):
+            if order['status'] == 'completed': return # አስቀድሞ ከተጠናቀቀ
+
+            total = float(order['total_price'])
+            # 1. ኮሚሽን ማስላት (ለምሳሌ 10%)
+            commission_rate = 0.10 
+            commission_amount = total * commission_rate
+            
+            # 2. ሰዓቱን በፈረንጅ (GC) መመዝገብ
+            order['completed_at'] = datetime.now().strftime("%Y-%m-%d %H:%M")
+            order['commission_taken'] = commission_amount
+            order['net_to_vendor'] = total - commission_amount
+            order['payment_status'] = 'Pending' # አድሚኑ ገና ለቬንደሩ አልከፈለውም
+            order['status'] = 'completed'
+            
+            # 3. የቬንደሩን ባላንስ መቀነስ (አሁን ኔጋቲቭ ይሆናል)
+            v_id = str(order['vendor_id'])
+            current_bal = float(db['vendors_list'][v_id].get('deposit_balance', 0))
+            db['vendors_list'][v_id]['deposit_balance'] = current_bal - total
+            
+            save_data(db)
+            break
+
+
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "vendor_my_items")
 def view_vendor_items(call):
