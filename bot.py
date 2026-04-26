@@ -5,8 +5,6 @@ from flask import Flask
 from upstash_redis import Redis
 
 
-apihelper.ENABLE_MIDDLEWARE = True
-
 
 # --- 1. ውቅረት ---
 TOKEN = "8663228906:AAFsTC0fKqAVEWMi7rk59iSdfVD-1vlJA0Y"
@@ -44,22 +42,7 @@ def reset_user_state(user_id):
         del temp_topup_data[user_id]
         
     print(f"🧹 State for {user_id} has been cleaned.")
-# --- 3. Global Middleware (የተስተካከለ) ---
-@bot.middleware_handler(update_types=['message'])
-def interrupt_handler(bot_instance, message):
-    """
-    ይህ Middleware ማንኛውም መልዕክት በ '/' (ኮማንድ) ከጀመረ 
-    የጀመረውን የ next_step_handler ሂደት በሃይል ያቋርጣል።
-    """
-    try:
-        if message.text and message.text.startswith('/'):
-            # የጀመረውን ሂደት ያቋርጣል
-            bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
-            # ዳታውን ያጸዳል
-            reset_user_state(message.from_user.id)
-    except Exception as e:
-        print(f"⚠️ Middleware Error: {e}")
-    # Middleware ምንም አይነት 'return' ማድረግ የለበትም
+
 
 
 @app.route('/')
@@ -423,7 +406,7 @@ def get_vendor_dashboard_elements(user_id):
 @bot.callback_query_handler(func=lambda call: call.data == "go_to_main_start")
 def back_to_main_handler(call):
     # ማንኛውንም የቆየ የጥያቄ ሂደት ያጸዳል (ለምሳሌ ስም ወይም ቁጥር እየጠበቀ ከሆነ)
-    bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)# --- 1. ሁሉንም ጊዜያዊ ዳታዎች ማጽጃ ፋንክሽን ---
+    @bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)# --- 1. ሁሉንም ጊዜያዊ ዳታዎች ማጽጃ ፋንክሽን ---
 def reset_user_state(user_id):
     user_id_str = str(user_id)
     # የቆዩ የ step handler (ጥያቄዎችን) ያጸዳል
@@ -435,6 +418,26 @@ def reset_user_state(user_id):
     
     # ሌሎች ጊዜያዊ ዳታዎች ካሉህ እዚህ ጋር መጨመር ትችላለህ
     # ለምሳሌ፡ order_data[user_id_str] = {}
+
+
+bot.message_handler(func=lambda message: message.text and message.text.startswith('/'), content_types=['text'])
+def handle_interrupt_commands(message):
+    """
+    ተጠቃሚው ማንኛውንም ኮማንድ (ለምሳሌ /start, /vendor) ሲልክ 
+    የቆመውን Step Handler ያጸዳል፣ ዳታውን Reset ያደርጋል።
+    """
+    user_id = message.from_user.id
+    
+    # የቆየውን ሂደት ያጸዳል
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+    
+    # ዳታውን ያጸዳል
+    reset_user_state(user_id)
+    
+    # አሁን ወደ ተላከው ኮማንድ እንዲሄድ እናደርጋለን
+    # ለምሳሌ /start ከሆነ ወደ start_cmd ይሄዳል
+    if message.text == '/start':
+        return start_cmd(message) # start_cmd-ን እዚህ መጥራት አለብህ
 
 # --- 2. START ኮማንድ ---
 @bot.message_handler(commands=['start'])
