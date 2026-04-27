@@ -974,6 +974,26 @@ def get_empty_item_data():
     }
 
 
+@bot.callback_query_handler(func=lambda call: call.data == "vendor_add_item")
+def trigger_card_method_creation(call):
+    user_id = str(call.from_user.id)
+    
+    # 1. ቴሌግራም መልስ እንዲሰጥ (Loading ምልክቱን ለማጥፋት)
+    bot.answer_callback_query(call.id)
+    
+    # 2. የድሮ ጥያቄዎችን አጽዳ
+    bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
+    
+    # 3. ጊዜያዊ ዳታውን ባዶ አድርግ
+    item_creation_temp[user_id] = get_empty_item_data()
+    
+    # 4. አዲሱን ባዶ "Card" ላክ
+    text, markup = render_item_card(user_id)
+    
+    # የድሮውን ዳሽቦርድ አጥፍቶ ካርዱን እንዲያመጣው
+    bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+
+
 def render_item_card(user_id, message_id=None):
     data = item_creation_temp.get(str(user_id), get_empty_item_data())
     
