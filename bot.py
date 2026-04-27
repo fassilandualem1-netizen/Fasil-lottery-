@@ -538,6 +538,13 @@ def handle_vendor_location(message):
 
 
 
+@bot.message_handler(content_types=['photo'])
+def get_photo_id(message):
+    # ቦቱ የፎቶውን ID ይልክልሃል
+    photo_id = message.photo[-1].file_id
+    bot.reply_to(message, f"የዚህ ፎቶ File ID፦\n\n`{photo_id}`", parse_mode="Markdown")
+
+
 @bot.callback_query_handler(func=lambda call: call.data == "vendor_refresh")
 def vendor_refresh_handler(call):
     user_id = call.from_user.id
