@@ -1036,6 +1036,23 @@ def finalize_vendor_accounting(order_id):
 
 
 
+@bot.callback_query_handler(func=lambda call: call.data == "vendor_add_item")
+def trigger_add_item(call):
+    user_id = str(call.from_user.id)
+    # 1. አዲስ ባዶ ዳታ ማዘጋጀት
+    item_creation_temp[user_id] = get_empty_item_data()
+    
+    # 2. የምዝገባ ካርዱን መልክ ማዘጋጀት
+    text, markup = render_item_card(user_id)
+    
+    # 3. ለቬንደሩ ካርዱን መላክ
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, 
+                          reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+
 
 
 
