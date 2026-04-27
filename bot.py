@@ -958,235 +958,123 @@ def finalize_vendor_accounting(order_id):
                 parse_mode="Markdown")
 
 
-# ቬንደሩ "እቃ ጨምር" ሲል ምድቦችን ያሳየዋል
-@bot.callback_query_handler(func=lambda call: call.data == "vendor_add_item")
-def start_add_item(call):
-    db = load_data()
-    categories = db.get('categories', [])
-    
-    if not categories:
-        return bot.answer_callback_query(call.id, "⚠️ መጀመሪያ አድሚኑ የምድብ ዝርዝር ማስገባት አለበት።", show_alert=True)
 
+
+
+# መረጃውን በጊዜያዊነት ለመያዝ
+item_creation_temp = {} 
+
+def get_empty_item_data():
+    return {
+        'name': None,
+        'price': None,
+        'unit': None,
+        'photo': "no_photo",
+        'category': "ሌላ"
+    }
+
+
+def render_item_card(user_id, message_id=None):
+    data = item_creation_temp.get(str(user_id), get_empty_item_data())
+    
+    text = (
+        "📦 **አዲስ እቃ ምዝገባ**\n"
+        "━━━━━━━━━━━━━━━\n"
+        f"📝 ስም፦ {data['name'] if data['name'] else '❌ አልተሞላም'}\n"
+        f"💰 ዋጋ፦ {data['price'] if data['price'] else '❌ አልተሞላም'}\n"
+        f"📏 መመዘኛ፦ {data['unit'] if data['unit'] else '❌ አልተሞላም'}\n"
+        "━━━━━━━━━━━━━━━\n"
+        "💡 *እባክዎ ከታች ያሉትን በተኖች ተጠቅመው መረጃዎቹን ይሙሉ*"
+    )
+    
     markup = types.InlineKeyboardMarkup(row_width=2)
-    for cat in categories:
-        # እያንዳንዱን ምድብ በተን እናደርገዋለን
-        markup.add(types.InlineKeyboardButton(cat, callback_data=f"sel_cat_{cat}"))
+    markup.add(
+        types.InlineKeyboardButton("📝 ስም ሙላ", callback_data="set_name"),
+        types.InlineKeyboardButton("💰 ዋጋ ሙላ", callback_data="set_price")
+    )
+    markup.add(
+        types.InlineKeyboardButton("📏 ዩኒት ምረጥ", callback_data="set_unit"),
+        types.InlineKeyboardButton("📸 ፎቶ ጨምር", callback_data="set_photo")
+    )
     
-    markup.add(types.InlineKeyboardButton("⬅️ ተመለስ", callback_data="go_to_main_start"))
+    # ሁሉም ከተሞላ ብቻ "መዝግብ" በተን እንዲመጣ
+    if data['name'] and data['price'] and data['unit']:
+        markup.add(types.InlineKeyboardButton("✅ ሁሉንም መዝግብ", callback_data="final_save_item"))
     
-    bot.edit_message_text("📂 እቃው የትኛው ምድብ ውስጥ ነው? ይምረጡ፦", 
-                          call.message.chat.id, call.message.message_id, reply_markup=markup)
+    markup.add(types.InlineKeyboardButton("🗑️ ሰርዝ", callback_data="cancel_item"))
+
+    return text, markup
 
 
-# ቬንደሩ ምድብ ሲመርጥ
-@bot.callback_query_handler(func=lambda call: call.data.startswith("sel_cat_"))
-def process_category_selection(call):
-    selected_cat = call.data.replace("sel_cat_", "")
+@bot.callback_query_handler(func=lambda call: call.data in ["set_name", "set_price", "set_unit", "final_save_item", "cancel_item"])
+def handle_item_creation(call):
     user_id = str(call.from_user.id)
     
-    # ጊዜያዊ ዳታ መያዣውን እናዘጋጃለን
-    item_creation_data[user_id] = {'category': selected_cat}
-    
-    msg = bot.send_message(call.message.chat.id, f"🎯 ምድብ፦ {selected_cat}\n\n📝 **ደረጃ 1/3፦** የእቃውን/ምግቡን ስም ይጻፉ፦")
-    bot.register_next_step_handler(msg, process_item_name)
+    if call.data == "set_name":
+        msg = bot.send_message(call.message.chat.id, "🔤 የእቃውን ስም ይጻፉ፦")
+        bot.register_next_step_handler(msg, save_temp_name, call.message.message_id)
+        
+    elif call.data == "set_price":
+        msg = bot.send_message(call.message.chat.id, "💰 ዋጋውን በቁጥር ብቻ ያስገቡ፦")
+        bot.register_next_step_handler(msg, save_temp_price, call.message.message_id)
 
-# 1. ስም መቀበያ
-def process_item_name(message):
+    elif call.data == "set_unit":
+        # ዩኒት ሲነካ በተን ማሳየት (አንተ እንዳልከው)
+        unit_markup = types.InlineKeyboardMarkup(row_width=2)
+        unit_markup.add(
+            types.InlineKeyboardButton("1 Pcs", callback_data="u_Pcs"),
+            types.InlineKeyboardButton("1 Kg", callback_data="u_Kg"),
+            types.InlineKeyboardButton("1 Ltr", callback_data="u_Ltr"),
+            types.InlineKeyboardButton("1 Pack", callback_data="u_Pack")
+        )
+        bot.edit_message_text("📏 መመዘኛውን ይምረጡ፦", call.message.chat.id, call.message.message_id, reply_markup=unit_markup)
+
+    elif call.data == "final_save_item":
+        # እዚህ ጋር ወደ ዳታቤዝህ Save ታደርገዋለህ
+        bot.answer_callback_query(call.id, "✅ እቃው በትክክል ተመዝግቧል!")
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        # አድሚን ዳሽቦርድ መመለስ ትችላለህ
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("u_"))
+def save_temp_unit(call):
+    user_id = str(call.from_user.id)
+    unit = call.data.replace("u_", "")
+    
+    if user_id not in item_creation_temp:
+        item_creation_temp[user_id] = get_empty_item_data()
+        
+    item_creation_temp[user_id]['unit'] = unit
+    
+    # ወዲያውኑ ወደ ካርዱ ይመለሳል
+    text, markup = render_item_card(user_id)
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+def save_temp_name(message, card_msg_id):
     user_id = str(message.from_user.id)
-    if message.text.startswith('/'): return # Middleware ካለህ ይሄ ይረዳሃል
+    if user_id not in item_creation_temp: item_creation_temp[user_id] = get_empty_item_data()
     
-    item_creation_data[user_id]['name'] = message.text
-    msg = bot.send_message(message.chat.id, "💰 **ደረጃ 2/3፦** የእቃውን ዋጋ በቁጥር ብቻ ያስገቡ (ለምሳሌ፦ 250)፦")
-    bot.register_next_step_handler(msg, process_item_price)
+    item_creation_temp[user_id]['name'] = message.text
+    bot.delete_message(message.chat.id, message.message_id) # የተጻፈውን መልዕክት ማጽዳት
+    
+    # ካርዱን ማደስ
+    text, markup = render_item_card(user_id)
+    bot.edit_message_text(text, message.chat.id, card_msg_id, reply_markup=markup, parse_mode="Markdown")
 
-# 2. ዋጋ መቀበያ
-def process_item_price(message):
+def save_temp_price(message, card_msg_id):
     user_id = str(message.from_user.id)
-    price = message.text
-    
-    if not price.isdigit():
-        msg = bot.send_message(message.chat.id, "⚠️ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ፦")
-        return bot.register_next_step_handler(msg, process_item_price)
-    
-    item_creation_data[user_id]['price'] = float(price)
-    msg = bot.send_message(message.chat.id, "📸 **ደረጃ 3/3፦** የእቃውን ፎቶ ይላኩ፦")
-    bot.register_next_step_handler(msg, process_item_photo)
-
-# 3. ፎቶ መቀበያ እና ዳታቤዝ ውስጥ ማስቀመጥ
-def process_item_photo(message):
-    user_id = message.from_user.id
-    user_id_str = str(user_id)
-    
-    # ⚠️ እዚህ ጋር ያለው ጽሁፍ በፎቶው ላይ ካለው ጋር አንድ አይነት መሆን አለበት
-    skip_text = "📸 ፎቶ የለውም (ዝለል)"
-    
-    # 1. ተጠቃሚው 'ዝለል' የሚለውን በተን ከተጫነ
-    if message.text == skip_text:
-        item_creation_data[user_id_str]['photo'] = "no_photo" 
-        bot.send_message(user_id, "✅ እቃው ያለ ፎቶ ተመዝግቧል።")
-        # እቃውን ዳታቤዝ ውስጥ ወደሚጨምረው ፋንክሽን ይሄዳል
-        return finalize_item_creation(message)
-
-    # 2. ተጠቃሚው ፎቶ ከላከ
-    elif message.content_type == 'photo':
-        file_id = message.photo[-1].file_id
-        item_creation_data[user_id_str]['photo'] = file_id
-        bot.send_message(user_id, "✅ ፎቶው ተቀብለናል!")
-        return finalize_item_creation(message)
-
-    # 3. ስህተት ነገር ከላከ
-    else:
-        msg = bot.send_message(user_id, "⚠️ እባክዎ ፎቶ ይላኩ ወይም 'ዝለል' የሚለውን ይጫኑ!")
-        bot.register_next_step_handler(msg, process_item_photo)
-
-
-
-# 1. ዋጋ ከተቀበልን በኋላ የመመዘኛ መስፈርት (Unit) እንጠይቃለን
-def process_item_price(message):
-    user_id = str(message.from_user.id)
-    price = message.text
-    
-    if not price.replace('.', '', 1).isdigit():
-        msg = bot.send_message(message.chat.id, "⚠️ እባክዎ ዋጋውን በቁጥር ብቻ ያስገቡ፦")
-        return bot.register_next_step_handler(msg, process_item_price)
-    
-    item_creation_data[user_id]['price'] = float(price)
-    
-    # የመመዘኛ መስፈርት መምረጫ በተኖች
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    markup.add("በቁጥር (Pcs)", "በኪሎ (Kg)", "በሊትር (Ltr)", "በጥቅል (Pack)")
-    
-    msg = bot.send_message(message.chat.id, "📏 እቃው በምን ይለካል? (ከታች ይምረጡ ወይም ይጻፉ)፦", reply_markup=markup)
-    bot.register_next_step_handler(msg, process_item_unit)
-
-# 2. ዩኒት መቀበያ
-def process_item_unit(message):
-    user_id = str(message.from_user.id)
-    unit_input = message.text
-
-    # ዩኒቱን ለስሌት እንዲመች በቋሚ ስም መመዝገብ (Normalize)
-    if "ቁጥር" in unit_input or "Pcs" in unit_input:
-        unit = "Pcs"
-    elif "ኪሎ" in unit_input or "Kg" in unit_input:
-        unit = "Kg"
-    elif "ሊትር" in unit_input or "Ltr" in unit_input:
-        unit = "Ltr"
-    elif "ጥቅል" in unit_input or "Pack" in unit_input:
-        unit = "Pack"
-    else:
-        unit = unit_input # ቬንደሩ በራሱ የጻፈው ከሆነ
-
-    item_creation_data[user_id]['unit'] = unit
-
-    # ፎቶ መቀበያ ላይ 'ዝለል' በተን በ ReplyKeyboard ቢሆን ይመረጣል (ከፎቶ ጋር አብሮ እንዲታይ)
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    markup.add("📸 ፎቶ የለውም (ዝለል)")
-
-    msg = bot.send_message(message.chat.id, 
-        f"📏 መመዘኛው **{unit}** ተብሎ ተመዝግቧል።\n\n📸 **ደረጃ 3/3፦** የእቃውን ፎቶ ይላኩ። ፎቶ ከሌለው 'ዝለል' የሚለውን ይጫኑ፦", 
-        reply_markup=markup, 
-        parse_mode="Markdown")
-    
-    # ፎቶውን ወይም 'ዝለል' የሚለውን ጽሁፍ ለመቀበል register እናደርጋለን
-    bot.register_next_step_handler(msg, process_item_photo)
-
-
-
-# ፎቶ ሲላክ
-@bot.message_handler(content_types=['photo'])
-def handle_item_photo(message):
-    user_id = str(message.from_user.id)
-    if user_id in item_creation_data:
-        photo_id = message.photo[-1].file_id
-        finalize_item_registration(message, photo_id)
-
-# ፎቶ በባዶው ሲታለፍ
-@bot.callback_query_handler(func=lambda call: call.data == "skip_photo")
-def skip_photo_handler(call):
-    finalize_item_registration(call.message, "no_photo")
-    bot.answer_callback_query(call.id, "ፎቶ ተዘልሏል")
-
-
-def finalize_item_registration(message, photo_id):
-    user_id = str(message.from_user.id if message.from_user else message.chat.id)
-    db = load_data()
-    
-    if 'items' not in db: db['items'] = []
-    
-    new_item = {
-        'id': len(db['items']) + 1,
-        'vendor_id': user_id,
-        'category': item_creation_data[user_id]['category'],
-        'name': item_creation_data[user_id]['name'],
-        'price': item_creation_data[user_id]['price'],
-        'unit': item_creation_data[user_id]['unit'],
-        'photo': photo_id,
-        'status': 'active' # ወዲያውኑ ለደንበኛ እንዲታይ
-    }
-    
-    db['items'].append(new_item)
-    save_data(db)
-    
-    # ማረጋገጫ መልዕክት
-    photo_msg = "❌ ፎቶ የለውም" if photo_id == "no_photo" else "✅ ፎቶ ተያይዟል"
-    bot.send_message(message.chat.id, 
-        f"✅ **እቃው ወዲያውኑ ለሽያጭ ቀርቧል!**\n\n"
-        f"📝 ስም፦ {new_item['name']}\n"
-        f"💰 ዋጋ፦ {new_item['price']} ETB / {new_item['unit']}\n"
-        f"🖼️ ፎቶ፦ {photo_msg}", 
-        reply_markup=types.ReplyKeyboardRemove(), parse_mode="Markdown")
-    
-    # ዳሽቦርዱን መልሰን እናሳያለን
-    text, markup = get_vendor_dashboard_elements(user_id)
-    bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
-    
-    # ዳታውን እናጸዳለን
-    del item_creation_data[user_id]
-
-
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("edit_price_"))
-def edit_item_price_start(call):
-    item_id = call.data.replace("edit_price_", "")
-    msg = bot.send_message(call.message.chat.id, "💰 እባክዎ አዲሱን ዋጋ በቁጥር ብቻ ያስገቡ፦")
-    # አዲሱን ዋጋ ለመቀበል ወደ ሚቀጥለው ፋንክሽን እንመራዋለን
-    bot.register_next_step_handler(msg, process_new_price, item_id)
-    bot.answer_callback_query(call.id)
-
-def process_new_price(message, item_id):
     if not message.text.isdigit():
-        msg = bot.reply_to(message, "⚠️ እባክዎ ቁጥር ብቻ ያስገቡ!")
-        return bot.register_next_step_handler(msg, process_new_price, item_id)
+        msg = bot.send_message(message.chat.id, "⚠️ እባክዎ ቁጥር ብቻ ያስገቡ!")
+        return bot.register_next_step_handler(msg, save_temp_price, card_msg_id)
+
+    item_creation_temp[user_id]['price'] = message.text
+    bot.delete_message(message.chat.id, message.message_id)
     
-    new_price = float(message.text)
-    db = load_data()
-    
-    # እቃውን ፈልጎ ዋጋውን መቀየር
-    for item in db.get('items', []):
-        if str(item.get('id')) == str(item_id):
-            item['price'] = new_price
-            save_data(db)
-            bot.send_message(message.chat.id, f"✅ ዋጋው ወደ {new_price} ETB ተቀይሯል!")
-            break
+    text, markup = render_item_card(user_id)
+    bot.edit_message_text(text, message.chat.id, card_msg_id, reply_markup=markup, parse_mode="Markdown")
 
 
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("delete_item_"))
-def delete_item_handler(call):
-    item_id = call.data.replace("delete_item_", "")
-    db = load_data()
-    
-    # እቃውን ከዝርዝሩ ውስጥ ማስወጣት
-    initial_count = len(db.get('items', []))
-    db['items'] = [i for i in db.get('items', []) if str(i.get('id')) != str(item_id)]
-    
-    if len(db['items']) < initial_count:
-        save_data(db)
-        bot.edit_message_text("❌ እቃው በቋሚነት ተሰርዟል።", call.message.chat.id, call.message.message_id)
-    else:
-        bot.answer_callback_query(call.id, "⚠️ እቃው አልተገኘም")
-    
-    bot.answer_callback_query(call.id)
 
 # 1. የራይደር ምዝገባ መጀመሪያ
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_rider")
