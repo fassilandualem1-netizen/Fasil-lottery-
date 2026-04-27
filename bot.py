@@ -452,15 +452,21 @@ def back_to_main_handler(call):
     bot.answer_callback_query(call.id, "ወደ ዋናው ሜኑ ተመልሰዋል!")
     # ለምሳሌ፡ bot.edit_message_text("ዋና ሜኑ", call.message.chat.id, call.message.message_id)
 
-# --- 3. Interrupt Handler ---
+# 1. መጀመሪያ ማንኛውንም ትዕዛዝ ሰብሮ የሚገባው Interceptor
 @bot.message_handler(func=lambda message: message.text and message.text.startswith('/'), content_types=['text'])
 def handle_interrupt_commands(message):
     user_id = message.from_user.id
+    # ማንኛውንም ቀጣይ ስቴፕ ሰብሮ ያጠፋል
     bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
     reset_user_state(user_id)
 
+    # ትዕዛዙ /start ከሆነ ወደ ዋናው ዳሽቦርድ ይልከዋል
     if message.text == '/start':
-        return send_welcome(message) 
+        return send_welcome(message)
+    
+    # ሌላ ኮማንድ ካለህ እዚህ መጨመር ትችላለህ (ለምሳሌ /help)
+
+# 2. ዋናው የ /start እና የዳሽቦርድ ክፍል
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_id = message.from_user.id
@@ -479,32 +485,28 @@ def send_welcome(message):
     vendors_list = db.get('vendors_list', {})
     if user_id_str in vendors_list:
         v_info = vendors_list[user_id_str]
-        
-        # ⚠️ ቬንደሩ ሎኬሽን ካልላከ ዳሽቦርዱ አይመጣም፤ ስለዚህ መጀመሪያ ይሄን ቼክ እናደርጋለን
         if 'lat' not in v_info or 'lon' not in v_info:
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
             markup.add(types.KeyboardButton("📍 የድርጅቱን መገኛ ላክ", request_location=True))
             return bot.send_message(user_id, 
                 f"ሰላም {v_info.get('name')}! 👋\n\nእባክዎ መጀመሪያ የድርጅቱን ትክክለኛ መገኛ (Location) በመጫን ይላኩ።", 
                 reply_markup=markup)
-        
-        # ሎኬሽን ካለው ቀጥታ ወደ ቬንደር ዳሽቦርድ
         text, markup = get_vendor_dashboard_elements(user_id)
         return bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
 
-    # 3. ሾፌር መሆኑን ቼክ ማድረግ (ይህንም እዚህ ጋር እናስገባው)
+    # 3. ሾፌር መሆኑን ቼክ ማድረግ
     drivers_list = db.get('drivers_list', {})
     if user_id_str in drivers_list:
-        text, markup = get_driver_dashboard_elements(user_id) # የቅድሙን ዳሽቦርድ ፋንክሽን ጥራ
+        text, markup = get_driver_dashboard_elements(user_id) 
         return bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
 
     # 4. ደንበኛ ከሆነ
     else:
-        # ለደንበኛ የሚሆን ሎጂክ...
         if is_user_complete(user_id_str):
             bot.send_message(user_id, "እንኳን ደህና መጡ! ምን ማዘዝ ይፈልጋሉ?", reply_markup=get_customer_main_markup())
         else:
             bot.send_message(user_id, "ወደ BDF በደህና መጡ! ለመመዝገብ ስልክና ሎኬሽን ያጋሩ።", reply_markup=get_customer_registration_markup())
+
 
 
 
