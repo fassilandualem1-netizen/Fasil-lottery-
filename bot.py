@@ -182,6 +182,19 @@ def calculate_distance(lat1, lon1, lat2, lon2):
         return -1
 
 
+def command_breaker(func):
+    def wrapper(message, *args, **kwargs):
+        # ማንኛውም መልዕክት ሲመጣ መጀመሪያ ትዕዛዝ መሆኑን ያያል
+        if message.text and message.text.startswith('/'):
+            bot.clear_step_handler_by_chat_id(message.chat.id)
+            return send_welcome(message) # ወደ start ይወስደዋል
+        
+        # ትዕዛዝ ካልሆነ ግን ዋናውን ፋንክሽን ያሰራዋል
+        return func(message, *args, **kwargs)
+    return wrapper
+
+
+@command_breaker
 def save_commissions(message):
     try:
         # 1. ጽሁፉን በኮማ መከፋፈል እና ማጽዳት
