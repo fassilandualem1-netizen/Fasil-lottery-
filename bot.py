@@ -1212,16 +1212,42 @@ def save_temp_price(message, card_msg_id):
 
 def save_temp_photo(message, card_msg_id):
     user_id = str(message.from_user.id)
+    chat_id = message.chat.id
+
+    # 1. ተጠቃሚው ሌላ ትዕዛዝ (Command) ከላከ ምዝገባውን ማቋረጥ
+    if message.content_type == 'text' and message.text.startswith('/'):
+        bot.clear_step_handler_by_chat_id(chat_id)
+        bot.send_message(chat_id, "⚠️ የምዝገባ ሂደት ተቋርጧል።")
+        # እዚህ ጋር እንደ አስፈላጊነቱ የ start_cmd(message) መጥራት ትችላለህ
+        return
+
+    # 2. ፎቶ ካልሆነ መልእክት ልኮ ይቆማል (Loop አያደርግም)
     if message.content_type != 'photo':
-        msg = bot.send_message(message.chat.id, "⚠️ ፎቶ ብቻ ይላኩ፦")
-        return bot.register_next_step_handler(msg, save_temp_photo, card_msg_id)
-    
-    bot.delete_message(message.chat.id, message.message_id)
-    item_creation_temp[user_id]['photo'] = message.photo[-1].file_id
-    
-    bot.delete_message(message.chat.id, card_msg_id)
-    text, markup = render_item_card(user_id)
-    bot.send_photo(message.chat.id, item_creation_temp[user_id]['photo'], caption=text, reply_markup=markup, parse_mode="Markdown")
+        bot.send_message(chat_id, "⚠️ ስህተት፦ እባክዎ ፎቶ ብቻ ይላኩ። ድጋሚ ለመሞከር '📸 ፎቶ ጨምር' የሚለውን በተን ይጫኑ።")
+        return 
+
+    # 3. ፎቶው በትክክል ከመጣ
+    try:
+        # የላከውን ፎቶ አጥፍቶ በካርዱ ውስጥ ለመክተት
+        bot.delete_message(chat_id, message.message_id)
+        
+        if user_id not in item_creation_temp:
+            item_creation_temp[user_id] = get_empty_item_data()
+            
+        item_creation_temp[user_id]['photo'] = message.photo[-1].file_id
+
+        # አሮጌውን ካርድ ማጥፋት
+        bot.delete_message(chat_id, card_msg_id)
+        
+        # አዲሱን ካርድ በፎቶ መላክ
+        text, markup = render_item_card(user_id)
+        bot.send_photo(chat_id, item_creation_temp[user_id]['photo'], caption=text, reply_markup=markup, parse_mode="Markdown")
+        
+    except Exception as e:
+        print(f"Photo Save Error: {e}")
+        bot.send_message(chat_id, "❌ ፎቶውን መጫን አልተቻለም። እባክዎ ድጋሚ ይሞክሩ።")
+
+
 
 def refresh_card(chat_id, message_id, user_id):
     text, markup = render_item_card(user_id)
