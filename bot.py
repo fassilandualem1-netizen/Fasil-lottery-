@@ -514,26 +514,30 @@ def handle_vendor_location(message):
     user_id_str = str(user_id)
     db = load_data()
 
-    # 1. መጀመሪያ ቬንደር መሆኑን ቼክ እናደርጋለን
+    # 1. ቬንደር ከሆነ
     if user_id_str in db.get('vendors_list', {}):
-        # ሎኬሽኑን መመዝገብ
         db['vendors_list'][user_id_str]['lat'] = message.location.latitude
         db['vendors_list'][user_id_str]['lon'] = message.location.longitude
         save_data(db)
 
-        bot.send_message(user_id, "✅ የድርጅቱ መገኛ በትክክል ተመዝግቧል!")
-        
+        # እዚህ ጋር ReplyKeyboardRemove() ስላከልን ከታች ያለው ትልቅ በተን ይጠፋል
+        bot.send_message(user_id, "✅ የድርጅቱ መገኛ በትክክል ተመዝግቧል!", 
+                         reply_markup=types.ReplyKeyboardRemove())
+
         # 2. አሁን ዳሽቦርዱን እናሳየዋለን
         text, markup = get_vendor_dashboard_elements(user_id)
         bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
-        
-    # 3. ደንበኛ ከሆነ ደግሞ ለሱ የሚሆን ሎኬሽን አያያዝ (አስፈላጊ ከሆነ)
+
+    # 3. ደንበኛ ከሆነ
     elif user_id_str in db.get('users', {}):
         db['users'][user_id_str]['lat'] = message.location.latitude
         db['users'][user_id_str]['lon'] = message.location.longitude
         save_data(db)
-        bot.send_message(user_id, "✅ መገኛዎ ተመዝግቧል።")
-        # የደንበኛውን ሜኑ እዚህ ጋር መጥራት ትችላለህ
+        
+        bot.send_message(user_id, "✅ መገኛዎ ተመዝግቧል።", 
+                         reply_markup=types.ReplyKeyboardRemove())
+        # የደንበኛ ሜኑ ካለህ እዚህ መጥራት ትችላለህ
+
 
 
 
