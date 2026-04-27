@@ -968,52 +968,43 @@ def finalize_vendor_accounting(order_id):
 
 
 
-# መረጃውን በጊዜያዊነት ለመያዝ
+
+
+
+
+
+
+import time
+
+# 1. ጊዜያዊ ዳታ መያዣ
 item_creation_temp = {} 
 
 def get_empty_item_data():
     return {
-        'name': None,
-        'price': None,
-        'unit': None,
+        'name': None, 
+        'price': None, 
+        'unit': None, 
         'photo': "no_photo",
-        'category': "ሌላ"
+        'category': None
     }
 
-
-@bot.callback_query_handler(func=lambda call: call.data == "vendor_add_item")
-def trigger_card_method_creation(call):
-    user_id = str(call.from_user.id)
-    
-    # 1. ቴሌግራም መልስ እንዲሰጥ (Loading ምልክቱን ለማጥፋት)
-    bot.answer_callback_query(call.id)
-    
-    # 2. የድሮ ጥያቄዎችን አጽዳ
-    bot.clear_step_handler_by_chat_id(chat_id=call.message.chat.id)
-    
-    # 3. ጊዜያዊ ዳታውን ባዶ አድርግ
-    item_creation_temp[user_id] = get_empty_item_data()
-    
-    # 4. አዲሱን ባዶ "Card" ላክ
-    text, markup = render_item_card(user_id)
-    
-    # የድሮውን ዳሽቦርድ አጥፍቶ ካርዱን እንዲያመጣው
-    bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
-
-
-def render_item_card(user_id, message_id=None):
-    data = item_creation_temp.get(str(user_id), get_empty_item_data())
-    
+# 2. የካርዱ መልክ (View)
+def render_item_card(user_id):
+    # Error Handling: ዳታው ከጠፋ ባዶ እንዳይሆን ቼክ ያደርጋል
+    if str(user_id) not in item_creation_temp:
+        item_creation_temp[str(user_id)] = get_empty_item_data()
+        
+    data = item_creation_temp[str(user_id)]
     text = (
         "📦 **አዲስ እቃ ምዝገባ**\n"
         "━━━━━━━━━━━━━━━\n"
         f"📝 ስም፦ {data['name'] if data['name'] else '❌ አልተሞላም'}\n"
         f"💰 ዋጋ፦ {data['price'] if data['price'] else '❌ አልተሞላም'}\n"
         f"📏 መመዘኛ፦ {data['unit'] if data['unit'] else '❌ አልተሞላም'}\n"
+        f"📁 ምድብ፦ {data['category'] if data['category'] else '❌ አልተመረጠም'}\n"
         "━━━━━━━━━━━━━━━\n"
-        "💡 *እባክዎ ከታች ያሉትን በተኖች ተጠቅመው መረጃዎቹን ይሙሉ*"
+        "💡 *እባክዎ መረጃዎቹን ይሙሉ*"
     )
-    
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
         types.InlineKeyboardButton("📝 ስም ሙላ", callback_data="set_name"),
@@ -1021,153 +1012,143 @@ def render_item_card(user_id, message_id=None):
     )
     markup.add(
         types.InlineKeyboardButton("📏 ዩኒት ምረጥ", callback_data="set_unit"),
-        types.InlineKeyboardButton("📸 ፎቶ ጨምር", callback_data="set_photo")
+        types.InlineKeyboardButton("📁 ምድብ ምረጥ", callback_data="set_category")
     )
+    markup.add(types.InlineKeyboardButton("📸 ፎቶ ጨምር", callback_data="set_photo"))
     
-    # ሁሉም ከተሞላ ብቻ "መዝግብ" በተን እንዲመጣ
-    if data['name'] and data['price'] and data['unit']:
-        markup.add(types.InlineKeyboardButton("✅ ሁሉንም መዝግብ", callback_data="final_save_item"))
+    if data['name'] and data['price'] and data['unit'] and data['category']:
+        markup.add(types.InlineKeyboardButton("✅ አሁኑኑ መዝግብ", callback_data="final_save_item"))
     
     markup.add(types.InlineKeyboardButton("🗑️ ሰርዝ", callback_data="cancel_item"))
-
     return text, markup
 
-
-
-@bot.callback_query_handler(func=lambda call: call.data in ["set_name", "set_price", "set_unit", "set_photo", "final_save_item", "cancel_item"])
+# 3. የካርድ በተኖች Handler
+@bot.callback_query_handler(func=lambda call: call.data in ["set_name", "set_price", "set_unit", "set_photo", "set_category", "final_save_item", "cancel_item"])
 def handle_item_creation(call):
     user_id = str(call.from_user.id)
     chat_id = call.message.chat.id
-    message_id = call.message.message_id
+    msg_id = call.message.message_id
+
+    # ዳታው በድንገት ከጠፋ ድጋሚ መፍጠር (Anti-Crash)
+    if user_id not in item_creation_temp:
+        item_creation_temp[user_id] = get_empty_item_data()
 
     if call.data == "set_name":
         msg = bot.send_message(chat_id, "🔤 የእቃውን ስም ይጻፉ፦")
-        bot.register_next_step_handler(msg, save_temp_name, message_id)
-
+        bot.register_next_step_handler(msg, save_temp_name, msg_id)
+    
     elif call.data == "set_price":
         msg = bot.send_message(chat_id, "💰 ዋጋውን በቁጥር ብቻ ያስገቡ፦")
-        bot.register_next_step_handler(msg, save_temp_price, message_id)
+        bot.register_next_step_handler(msg, save_temp_price, msg_id)
 
     elif call.data == "set_unit":
-        unit_markup = types.InlineKeyboardMarkup(row_width=2)
-        unit_markup.add(
+        u_markup = types.InlineKeyboardMarkup(row_width=2)
+        u_markup.add(
             types.InlineKeyboardButton("1 Pcs", callback_data="u_Pcs"),
             types.InlineKeyboardButton("1 Kg", callback_data="u_Kg"),
             types.InlineKeyboardButton("1 Ltr", callback_data="u_Ltr"),
             types.InlineKeyboardButton("1 Pack", callback_data="u_Pack")
         )
-        bot.edit_message_text("📏 መመዘኛውን ይምረጡ፦", chat_id, message_id, reply_markup=unit_markup)
+        bot.edit_message_text("📏 መመዘኛውን ይምረጡ፦", chat_id, msg_id, reply_markup=u_markup)
+
+    elif call.data == "set_category":
+        c_markup = types.InlineKeyboardMarkup(row_width=2)
+        c_markup.add(
+            types.InlineKeyboardButton("🍔 ምግብ", callback_data="cat_ምግብ"),
+            types.InlineKeyboardButton("🥤 መጠጥ", callback_data="cat_መጠጥ"),
+            types.InlineKeyboardButton("🛒 ሸቀጣ ሸቀጥ", callback_data="cat_ሸቀጣ ሸቀጥ")
+        )
+        bot.edit_message_text("📁 እባክዎ የምድብ አይነት ይምረጡ፦", chat_id, msg_id, reply_markup=c_markup)
 
     elif call.data == "set_photo":
-        msg = bot.send_message(chat_id, "📸 እባክዎ የእቃውን ፎቶ ይላኩ፦")
-        bot.register_next_step_handler(msg, save_temp_photo, message_id)
+        msg = bot.send_message(chat_id, "📸 የእቃውን ፎቶ ይላኩ፦")
+        bot.register_next_step_handler(msg, save_temp_photo, msg_id)
 
     elif call.data == "final_save_item":
-        # እዚህ ጋር ዳታውን ወደ ዳታቤዝህ (Supabase/JSON) ሴቭ ታደርጋለህ
         db = load_data()
-        new_item = item_creation_temp.get(user_id)
-        new_item['vendor_id'] = user_id
+        data = item_creation_temp.get(user_id)
+        
+        if data.get('photo') == "no_photo":
+            data['photo'] = "AgACAgQAAxkBAAIQuWnvRzZDouhzKJCyjtBXqIom5iAWAAKmDGsbL-95U0EGfE3EbI2KAQADAgADeQADOwQ" 
+
+        data.update({'vendor_id': user_id, 'id': f"itm_{int(time.time())}", 'status': 'available'})
         
         if 'items' not in db: db['items'] = []
-        db['items'].append(new_item)
+        db['items'].append(data)
         save_data(db)
         
-        bot.answer_callback_query(call.id, "✅ እቃው በትክክል ተመዝግቧል!")
-        bot.delete_message(chat_id, message_id)
-        item_creation_temp.pop(user_id, None) # ጊዜያዊ ዳታውን ማጽዳት
+        bot.answer_callback_query(call.id, f"✅ {data['name']} ተመዝግቧል!", show_alert=True)
+        bot.delete_message(chat_id, msg_id)
+        item_creation_temp.pop(user_id, None)
         
-        # ወደ ቬንደር ዳሽቦርድ መመለስ
-        text, markup = get_vendor_dashboard_elements(user_id)
-        bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
+        t, m = get_vendor_dashboard_elements(user_id)
+        bot.send_message(chat_id, t, reply_markup=m, parse_mode="Markdown")
 
     elif call.data == "cancel_item":
+        # Clear Step Handler: ተጠቃሚው "ሰርዝ" ካለ ጽሁፍ መጠበቁን ያቆማል
+        bot.clear_step_handler_by_chat_id(chat_id)
         item_creation_temp.pop(user_id, None)
-        bot.answer_callback_query(call.id, "❌ ምዝገባው ተሰርዟል።")
-        bot.delete_message(chat_id, message_id)
+        bot.delete_message(chat_id, msg_id)
 
-# --- ከኢንድንቴሽን ውጭ መሆን ያለባቸው Helper Functions ---
-
-def save_temp_photo(message, card_msg_id):
-    user_id = str(message.from_user.id)
-    if message.content_type != 'photo':
-        msg = bot.send_message(message.chat.id, "⚠️ እባክዎ ፎቶ ብቻ ይላኩ!")
-        return bot.register_next_step_handler(msg, save_temp_photo, card_msg_id)
-
-    photo_id = message.photo[-1].file_id
-    if user_id not in item_creation_temp: item_creation_temp[user_id] = get_empty_item_data()
-    item_creation_temp[user_id]['photo'] = photo_id
-
-    bot.delete_message(message.chat.id, message.message_id)
-    refresh_card(message.chat.id, card_msg_id, user_id)
-
-def refresh_card(chat_id, message_id, user_id):
-    text, markup = render_item_card(user_id)
-    data = item_creation_temp.get(user_id, {})
-    
-    try:
-        if data.get('photo') == "no_photo":
-            bot.edit_message_text(text, chat_id, message_id, reply_markup=markup, parse_mode="Markdown")
-        else:
-            # ፎቶ ካለ Caption-ኡን ነው Edit የምናደርገው
-            bot.edit_message_caption(text, chat_id, message_id, reply_markup=markup, parse_mode="Markdown")
-    except:
-        bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
-
-
-
-
-def update_card_message(chat_id, message_id, user_id):
-    text, markup = render_item_card(user_id)
-    data = item_creation_temp.get(user_id, {})
-    
-    try:
-        # ፎቶ ከሌለ ቴክስቱን Edit ያደርጋል
-        if data.get('photo') == "no_photo":
-            bot.edit_message_text(text, chat_id, message_id, reply_markup=markup, parse_mode="Markdown")
-        else:
-            # ፎቶ ካለ ግን Caption-ኡን Edit ያደርጋል
-            bot.edit_message_caption(text, chat_id, message_id, reply_markup=markup, parse_mode="Markdown")
-    except:
-        # ስህተት ቢፈጠር አዲስ ይልካል
-        bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
-
+# --- 1. የዩኒት መቀበያ Handler (ተጨምሯል) ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith("u_"))
 def save_temp_unit(call):
     user_id = str(call.from_user.id)
-    unit = call.data.replace("u_", "")
-    
-    if user_id not in item_creation_temp:
-        item_creation_temp[user_id] = get_empty_item_data()
-        
-    item_creation_temp[user_id]['unit'] = unit
-    
-    # ወዲያውኑ ወደ ካርዱ ይመለሳል
-    text, markup = render_item_card(user_id)
-    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    if user_id not in item_creation_temp: item_creation_temp[user_id] = get_empty_item_data()
+    item_creation_temp[user_id]['unit'] = call.data.replace("u_", "")
+    refresh_card(call.message.chat.id, call.message.message_id, user_id)
 
+# --- የተቀሩት Helper Functions ---
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("cat_"))
+def save_temp_category(call):
+    user_id = str(call.from_user.id)
+    if user_id not in item_creation_temp: item_creation_temp[user_id] = get_empty_item_data()
+    item_creation_temp[user_id]['category'] = call.data.replace("cat_", "")
+    refresh_card(call.message.chat.id, call.message.message_id, user_id)
 
 def save_temp_name(message, card_msg_id):
     user_id = str(message.from_user.id)
+    bot.delete_message(message.chat.id, message.message_id)
     if user_id not in item_creation_temp: item_creation_temp[user_id] = get_empty_item_data()
-    
     item_creation_temp[user_id]['name'] = message.text
-    bot.delete_message(message.chat.id, message.message_id) # የተጻፈውን መልዕክት ማጽዳት
-    
-    # ካርዱን ማደስ
-    text, markup = render_item_card(user_id)
-    bot.edit_message_text(text, message.chat.id, card_msg_id, reply_markup=markup, parse_mode="Markdown")
+    refresh_card(message.chat.id, card_msg_id, user_id)
 
 def save_temp_price(message, card_msg_id):
     user_id = str(message.from_user.id)
     if not message.text.isdigit():
-        msg = bot.send_message(message.chat.id, "⚠️ እባክዎ ቁጥር ብቻ ያስገቡ!")
+        msg = bot.send_message(message.chat.id, "⚠️ ቁጥር ብቻ ያስገቡ፦")
         return bot.register_next_step_handler(msg, save_temp_price, card_msg_id)
-
-    item_creation_temp[user_id]['price'] = message.text
     bot.delete_message(message.chat.id, message.message_id)
+    item_creation_temp[user_id]['price'] = message.text
+    refresh_card(message.chat.id, card_msg_id, user_id)
+
+def save_temp_photo(message, card_msg_id):
+    user_id = str(message.from_user.id)
+    if message.content_type != 'photo':
+        msg = bot.send_message(message.chat.id, "⚠️ ፎቶ ብቻ ይላኩ፦")
+        return bot.register_next_step_handler(msg, save_temp_photo, card_msg_id)
     
+    bot.delete_message(message.chat.id, message.message_id)
+    item_creation_temp[user_id]['photo'] = message.photo[-1].file_id
+    
+    bot.delete_message(message.chat.id, card_msg_id)
     text, markup = render_item_card(user_id)
-    bot.edit_message_text(text, message.chat.id, card_msg_id, reply_markup=markup, parse_mode="Markdown")
+    bot.send_photo(message.chat.id, item_creation_temp[user_id]['photo'], caption=text, reply_markup=markup, parse_mode="Markdown")
+
+def refresh_card(chat_id, message_id, user_id):
+    text, markup = render_item_card(user_id)
+    data = item_creation_temp.get(user_id, {})
+    try:
+        if data.get('photo') == "no_photo":
+            bot.edit_message_text(text, chat_id, message_id, reply_markup=markup, parse_mode="Markdown")
+        else:
+            bot.edit_message_caption(text, chat_id, message_id, reply_markup=markup, parse_mode="Markdown")
+    except: pass
+
+
+
+
 
 
 
