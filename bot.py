@@ -1281,6 +1281,7 @@ def refresh_card(chat_id, message_id, user_id):
 
 
 # 1. የራይደር ምዝገባ መጀመሪያ
+@command_breaker
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_rider")
 def start_add_rider(call):
     msg = bot.send_message(call.message.chat.id, "🆔 የራይደሩን (Driver) Telegram User ID ያስገቡ፦")
@@ -1319,6 +1320,7 @@ def save_new_rider(message, r_id):
 temp_topup_data = {}
 
 # 1. ባላንስ መሙያ በተን ሲነካ
+@command_breaker
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_funds")
 def start_topup(call):
     msg = bot.send_message(call.message.chat.id, "🆔 ባላንስ ሊሞላለት ወይም ሊቀነስለት የሚገባውን ሰው (Rider/Vendor) Telegram ID ያስገቡ፦")
@@ -1358,6 +1360,7 @@ def find_user_for_topup(message):
     bot.register_next_step_handler(msg, process_balance_update)
 
 # 3. የሂሳብ ማስተካከያውን መተግበር
+@command_breaker
 def process_balance_update(message):
     try:
         amount = float(message.text.strip())
@@ -1459,6 +1462,7 @@ def admin_delivery_mgmt_page(call):
 
 
 # --- 1. የዝናብ ሁኔታን On/Off ማድረጊያ ---
+@command_breaker
 @bot.callback_query_handler(func=lambda call: call.data == "toggle_rain")
 def toggle_rain_mode(call):
     db = load_data()
@@ -1490,6 +1494,7 @@ def toggle_night_mode(call):
 
 
 # --- 1. ዋጋ መቀበያ ሎጂክ (Generic Function) ---
+@command_breaker
 def update_delivery_value(message, key_name, display_name):
     chat_id = message.chat.id
     new_val = message.text
@@ -1508,7 +1513,7 @@ def update_delivery_value(message, key_name, display_name):
     # admin_delivery_mgmt_page(message) 
 
 # --- 2. የዋጋ መቀየሪያ ቁልፎች (Callbacks) ---
-
+@command_breaker
 @bot.callback_query_handler(func=lambda call: call.data.startswith("edit_val_"))
 def handle_price_edits(call):
     chat_id = call.message.chat.id
@@ -1532,6 +1537,7 @@ def handle_price_edits(call):
 
 
 # መጀመሪያ ID ለመቀበል
+@command_breaker
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_vendor")
 def start_add_vendor(call):
     db = load_data()
@@ -1550,7 +1556,7 @@ def start_add_vendor(call):
 
 
 
-
+@command_breaker
 @bot.callback_query_handler(func=lambda call: call.data.startswith('set_cat_'))
 def set_vendor_category(call):
     user_id = str(call.from_user.id)
@@ -1572,6 +1578,7 @@ def set_vendor_category(call):
 
 
 # ምድብ ከተመረጠ በኋላ ID መጠየቂያ
+@command_breaker
 @bot.callback_query_handler(func=lambda call: call.data.startswith("select_cat_for_vendor:"))
 def get_id_after_cat(call):
     # .split(":") ካደረግን በኋላ ሁለተኛውን (index 1) ብቻ ነው የምንፈልገው
@@ -1620,6 +1627,7 @@ def save_new_vendor(message, v_id, cat_name_list):
 
 
 # 1. 'ምድብ' መጨመር ሲመረጥ
+@command_breaker
 @bot.callback_query_handler(func=lambda call: call.data == "admin_view_categories")
 def admin_categories_menu(call):
     db = load_data()
@@ -1639,6 +1647,7 @@ def admin_categories_menu(call):
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
 # 2. የምድብ ስም መቀበያ
+@command_breaker
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_cat")
 def ask_category_name(call):
     msg = bot.send_message(call.message.chat.id, "✏️ የምድቡን ስም ይጻፉ (ለምሳሌ፦ ሱፐርማርኬት)፦")
@@ -1678,6 +1687,7 @@ def view_all_categories(call):
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
 # 2. 'አዲስ ምድብ' - ስም መቀበያ
+@command_breaker
 @bot.callback_query_handler(func=lambda call: call.data == "admin_manage_cats")
 def ask_new_cat_name(call):
     msg = bot.send_message(call.message.chat.id, "✏️ ለመጨመር የሚፈልጉትን የምድብ ስም ይጻፉ፦\n(ለምሳሌ፦ 🍔 ምግብ ቤት ወይም 💊 መድኃኒት ቤት)")
@@ -1725,6 +1735,7 @@ def toggle_system_lock(call):
 
 
 # 1. ማገጃ ሜኑ
+@command_breaker
 @bot.callback_query_handler(func=lambda call: call.data == "admin_block_manager")
 def start_block_process(call):
     msg = bot.send_message(call.message.chat.id, "🚫 ለማገድ ወይም ለመፍቀድ የተጠቃሚውን (Rider/Vendor) ID ያስገቡ፦")
@@ -1765,6 +1776,7 @@ def process_block_unblock(message):
 
 
 # 1. ማስታወቂያ ለመላክ መጠየቂያ
+@command_breaker
 @bot.callback_query_handler(func=lambda call: call.data == "admin_broadcast")
 def start_broadcast(call):
     msg = bot.send_message(call.message.chat.id, "📢 ለሁሉም ተጠቃሚዎች የሚተላለፈውን ማስታወቂያ ይጻፉ፦\n\n(ማስታወሻ፡ መልዕክቱ ለሁሉም ተመዝጋቢዎች ይደርሳል)")
@@ -1904,6 +1916,7 @@ def list_all_entities(call):
 
 
 # 1. የኮሚሽን ማስተካከያ መጀመሪያ
+@command_breaker
 @bot.callback_query_handler(func=lambda call: call.data == "admin_set_commission")
 def start_commission_settings(call):
     text = "⚙️ የኮሚሽን ማስተካከያ\n\nእባክዎ 3 ቁጥሮችን በኮማ ይላኩ (ለምሳሌ፦ 3, 5, 8)"
@@ -2119,6 +2132,7 @@ def show_enhanced_analytics(call):
 
 
 # 1. ዳግም ማስጀመሪያ መጀመሪያ - ማስጠንቀቂያ
+@command_breaker
 @bot.callback_query_handler(func=lambda call: call.data == "admin_system_reset")
 def confirm_reset_request(call):
     markup = types.InlineKeyboardMarkup()
@@ -2134,7 +2148,11 @@ def confirm_reset_request(call):
     
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
+
+
+
 # 2. ሚስጥራዊ ኮድ መጠየቅ
+@command_breaker
 @bot.callback_query_handler(func=lambda call: call.data == "admin_final_reset_confirm")
 def ask_secret_code(call):
     msg = bot.send_message(call.message.chat.id, "🔐 ለማጽዳት ሚስጥራዊ ቁልፉን ያስገቡ (ለምሳሌ፦ `RESET123`)፦")
@@ -2167,7 +2185,7 @@ def perform_database_reset(message):
 
 
 
-
+@command_breaker
 @bot.callback_query_handler(func=lambda call: call.data.startswith("edit_val_"))
 def ask_new_value(call):
     field = call.data.replace("edit_val_", "")
