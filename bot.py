@@ -1052,9 +1052,50 @@ def handle_item_creation(call):
     elif call.data == "final_save_item":
         # እዚህ ጋር ወደ ዳታቤዝህ Save ታደርገዋለህ
         bot.answer_callback_query(call.id, "✅ እቃው በትክክል ተመዝግቧል!")
-        bot.delete_message(call.message.chat.id, call.message.message_id)
+bot.delete_message(call.message.chat.id, call.message.message_id)
+    
+    elif call.data == "set_photo":
+    msg = bot.send_message(call.message.chat.id, "📸 እባክዎ የእቃውን ፎቶ ይላኩ፦")
+    bot.register_next_step_handler(msg, save_temp_photo, call.message.message_id)
+
+# ከዛ ይሄን ፋንክሽን ከታች ጨምር
+def save_temp_photo(message, card_msg_id):
+    user_id = str(message.from_user.id)
+    if message.content_type != 'photo':
+        msg = bot.send_message(message.chat.id, "⚠️ እባክዎ ፎቶ ብቻ ይላኩ!")
+        return bot.register_next_step_handler(msg, save_temp_photo, card_msg_id)
+
+    # የፎቶውን ID መያዝ
+    photo_id = message.photo[-1].file_id
+    item_creation_temp[user_id]['photo'] = photo_id
+    
+    bot.delete_message(message.chat.id, message.message_id)
+    text, markup = render_item_card(user_id)
+    bot.edit_message_text(text, message.chat.id, card_msg_id, reply_markup=markup, parse_mode="Markdown")
+
+    elif call.data == "cancel_item":
+    item_creation_temp.pop(user_id, None) # ዳታውን አጥፋው
+    bot.answer_callback_query(call.id, "❌ ምዝገባው ተሰርዟል።")
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+        
         # አድሚን ዳሽቦርድ መመለስ ትችላለህ
 
+
+
+def update_card_message(chat_id, message_id, user_id):
+    text, markup = render_item_card(user_id)
+    data = item_creation_temp.get(user_id, {})
+    
+    try:
+        # ፎቶ ከሌለ ቴክስቱን Edit ያደርጋል
+        if data.get('photo') == "no_photo":
+            bot.edit_message_text(text, chat_id, message_id, reply_markup=markup, parse_mode="Markdown")
+        else:
+            # ፎቶ ካለ ግን Caption-ኡን Edit ያደርጋል
+            bot.edit_message_caption(text, chat_id, message_id, reply_markup=markup, parse_mode="Markdown")
+    except:
+        # ስህተት ቢፈጠር አዲስ ይልካል
+        bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("u_"))
 def save_temp_unit(call):
