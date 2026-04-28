@@ -1324,35 +1324,60 @@ def refresh_card(chat_id, message_id, user_id):
 
 
 # 1. የራይደር ምዝገባ መጀመሪያ
+# 1. የራይደር ምዝገባ መጀመሪያ
 @command_breaker
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_rider")
 def start_add_rider(call):
-    msg = bot.send_message(call.message.chat.id, "🆔 የራይደሩን (Driver) Telegram User ID ያስገቡ፦")
+    msg = bot.send_message(call.message.chat.id, "🆔 የራይደሩን (Driver) Telegram User ID ያስገቡ፦\n\n(ለመሰረዝ /start ይበሉ)")
     bot.register_next_step_handler(msg, process_rider_id)
 
 def process_rider_id(message):
     r_id = message.text.strip()
+    if r_id == "/start": return bot.send_message(message.chat.id, "⚠️ ተቋርጧል።")
+    
     if not r_id.isdigit():
         msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ ID ቁጥር መሆን አለበት። ድጋሚ ያስገቡ፦")
         return bot.register_next_step_handler(msg, process_rider_id)
     
     msg = bot.send_message(message.chat.id, "👤 የራይደሩን ሙሉ ስም ያስገቡ፦")
-    bot.register_next_step_handler(msg, lambda m: save_new_rider(m, r_id))
+    bot.register_next_step_handler(msg, process_rider_name, r_id)
 
-def save_new_rider(message, r_id):
+# አዲስ የተጨመረ - ስም መቀበያ
+def process_rider_name(message, r_id):
     name = message.text.strip()
-    db = load_data()
+    if name == "/start": return bot.send_message(message.chat.id, "⚠️ ተቋርጧል።")
     
+    msg = bot.send_message(message.chat.id, f"📞 የራይደር {name} ስልክ ቁጥር ያስገቡ፦")
+    bot.register_next_step_handler(msg, save_new_rider, r_id, name)
+
+def save_new_rider(message, r_id, name):
+    phone = message.text.strip()
+    if phone == "/start": return bot.send_message(message.chat.id, "⚠️ ተቋርጧል።")
+    
+    db = load_data()
     if 'riders_list' not in db: db['riders_list'] = {}
     
-    db['riders_list'][r_id] = {
+    # --- አውቶማቲክ የታርጋ/መለያ ቁጥር አሰጣጥ (Driver 1, 2...) ---
+    rider_count = len(db['riders_list']) + 1
+    auto_plate = f"Driver {rider_count}"
+    
+    db['riders_list'][str(r_id)] = {
         "name": name,
+        "phone": phone,
+        "plate_no": auto_plate, # ቦቱ የሰጠው መለያ
         "wallet": 0,
         "status": "offline",
-        "is_active": True
+        "is_active": True,
+        "registered_at": datetime.now().strftime("%Y-%m-%d %H:%M")
     }
     save_data(db)
-    bot.send_message(message.chat.id, f"✅ ራይደር '{name}' በትክክል ተመዝግቧል!")
+    
+    bot.send_message(message.chat.id, 
+                     f"✅ **ራይደር በትክክል ተመዝግቧል!**\n\n"
+                     f"👤 ስም፦ {name}\n"
+                     f"📞 ስልክ፦ {phone}\n"
+                     f"🔢 መለያ፦ {auto_plate}\n"
+                     f"🆔 User ID፦ {r_id}")
 
 
 
@@ -1360,56 +1385,75 @@ def save_new_rider(message, r_id):
 
 
 # ለገንዘብ ዝውውር ጊዜያዊ መረጃ መያዣ
-temp_topup_data = {}
+Temp_topup_data = {}
 
 # 1. ባላንስ መሙያ በተን ሲነካ
 @command_breaker
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_funds")
 def start_topup(call):
-    msg = bot.send_message(call.message.chat.id, "🆔 ባላንስ ሊሞላለት ወይም ሊቀነስለት የሚገባውን ሰው (Rider/Vendor) Telegram ID ያስገቡ፦")
+    msg = bot.send_message(call.message.chat.id, "🆔 ባላንስ ሊሞላለት ወይም ሊቀነስለት የሚገባውን ሰው (Rider/Vendor) Telegram ID ያስገቡ፦\n\n(ለመሰረዝ /start ይበሉ)")
     bot.register_next_step_handler(msg, find_user_for_topup)
 
 # 2. ተጠቃሚውን መፈለግ
 def find_user_for_topup(message):
     uid = message.text.strip()
-    db = load_data()
     
+    # የ /start ቼክ
+    if uid == "/start":
+        return bot.send_message(message.chat.id, "⚠️ የባላንስ ማስተካከያ ሂደት ተቋርጧል።")
+        
+    db = load_data()
     user_data = None
     role = ""
     
-    if uid in db['vendors_list']:
+    # በሁለቱም ዝርዝር ውስጥ መፈለግ
+    if uid in db.get('vendors_list', {}):
         user_data = db['vendors_list'][uid]
         role = "vendor"
-    elif uid in db['riders_list']:
+    elif uid in db.get('riders_list', {}):
         user_data = db['riders_list'][uid]
         role = "rider"
         
     if not user_data:
-        bot.send_message(message.chat.id, "❌ በዚህ ID የተመዘገበ ራይደር ወይም ድርጅት አልተገኘም።")
-        return
+        msg = bot.send_message(message.chat.id, "❌ በዚህ ID የተመዘገበ ራይደር ወይም ድርጅት አልተገኘም። እባክዎ ID በትክክል ያስገቡ፦")
+        return bot.register_next_step_handler(msg, find_user_for_topup)
 
     temp_topup_data[message.chat.id] = {'target_id': uid, 'role': role}
     
-    text = f"👤 ተጠቃሚ፦ {user_data['name']}\n"
-    text += f"🎭 ሚና፦ {role.capitalize()}\n"
+    # የአሁኑን ባላንስ ማውጣት (ባዶ ከሆነ 0 እንዲል)
+    curr_bal = 0
     if role == "vendor":
-        text += f"💰 የአሁኑ ዲፖዚት፦ {user_data['deposit_balance']} ብር\n\n"
-        text += "እባክዎ የሚጨምሩትን የብር መጠን ያስገቡ፦"
+        curr_bal = user_data.get('deposit_balance', 0)
+        label = "💰 የአሁኑ ዲፖዚት"
     else:
-        text += f"💳 የአሁኑ ዋሌት፦ {user_data['wallet']} ብር\n\n"
-        text += "ብር ለመሙላት (ለምሳሌ: 500) \nለመቀነስ ደግሞ የይለይ ምልክት ይጠቀሙ (ለምሳሌ: -200) ያስገቡ፦"
+        curr_bal = user_data.get('wallet', 0)
+        label = "💳 የአሁኑ ዋሌት"
 
-    msg = bot.send_message(message.chat.id, text)
+    text = (
+        f"👤 ተጠቃሚ፦ **{user_data.get('name', 'ያልታወቀ')}**\n"
+        f"🎭 ሚና፦ {role.capitalize()}\n"
+        f"{label}፦ {curr_bal} ብር\n"
+        "━━━━━━━━━━━━━━━\n"
+        "📝 ብር ለመጨመር (ለምሳሌ፦ 500)\n"
+        "📝 ለመቀነስ የይለይ ምልክት (ለምሳሌ፦ -200) ያስገቡ፦"
+    )
+
+    msg = bot.send_message(message.chat.id, text, parse_mode="Markdown")
     bot.register_next_step_handler(msg, process_balance_update)
 
 # 3. የሂሳብ ማስተካከያውን መተግበር
 @command_breaker
 def process_balance_update(message):
+    admin_id = message.chat.id
+    val_text = message.text.strip()
+
+    if val_text == "/start":
+        if admin_id in temp_topup_data: del temp_topup_data[admin_id]
+        return bot.send_message(admin_id, "⚠️ ሂደት ተቋርጧል።")
+
     try:
-        amount = float(message.text.strip())
-        admin_id = message.chat.id
+        amount = float(val_text)
         t_data = temp_topup_data.get(admin_id)
-        
         if not t_data: return
 
         db = load_data()
@@ -1417,40 +1461,40 @@ def process_balance_update(message):
         role = t_data['role']
         
         if role == "vendor":
-            # ለድርጅት ሁሌም መደመር ነው (Pre-payment)
+            # ድርጅት ውስጥ ቁልፉ (Key) መኖሩን ቼክ ማድረግ
+            if 'deposit_balance' not in db['vendors_list'][target_id]:
+                db['vendors_list'][target_id]['deposit_balance'] = 0
+            
             db['vendors_list'][target_id]['deposit_balance'] += amount
             new_bal = db['vendors_list'][target_id]['deposit_balance']
-            msg_text = f"✅ ለድርጅቱ {amount} ብር ተጨምሯል። አዲስ ዲፖዚት፦ {new_bal} ብር"
-            
         else:
-            # ለራይደር መደመርም መቀነስም ይቻላል
+            # ራይደር ውስጥ ቁልፉ መኖሩን ቼክ ማድረግ
+            if 'wallet' not in db['riders_list'][target_id]:
+                db['riders_list'][target_id]['wallet'] = 0
+                
             db['riders_list'][target_id]['wallet'] += amount
             new_bal = db['riders_list'][target_id]['wallet']
-            if amount > 0:
-                msg_text = f"✅ ለራይደሩ {amount} ብር ተሞልቷል። አዲስ ዋሌት፦ {new_bal} ብር"
-            else:
-                msg_text = f"✅ ከራይደሩ ዋሌት {abs(amount)} ብር ተቀንሷል። ቀሪ ዋሌት፦ {new_bal} ብር"
 
         save_data(db)
+        
+        action = "ተጨምሯል" if amount > 0 else "ተቀንሷል"
+        msg_text = f"✅ ለ{role} {abs(amount)} ብር {action}።\n💰 አዲስ ባላንስ፦ {new_bal} ብር"
         bot.send_message(admin_id, msg_text)
         
-        # ለተጠቃሚው ማሳወቂያ መላክ (Notification)
+        # ለተጠቃሚው ማሳወቂያ መላክ
         try:
-            bot.send_message(target_id, f"🔔 የሂሳብ ማስተካከያ ተደርጓል!\nየአሁኑ ባላንስዎ፦ {new_bal} ብር")
-        except:
-            pass # ተጠቃሚው ቦቱን ካቆመው ስህተት እንዳይሰጥ
+            bot.send_message(target_id, f"🔔 የሂሳብ ማስተካከያ ተደርጓል!\n💰 የአሁኑ ባላንስዎ፦ {new_bal} ብር")
+        except: pass 
             
-        
-        del temp_topup_data[admin_id]
+        if admin_id in temp_topup_data: del temp_topup_data[admin_id]
         
     except ValueError:
-        msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ እባክዎ በትክክል ቁጥር ያስገቡ (ለምሳሌ፦ 500 ወይም -200)፦")
+        msg = bot.send_message(admin_id, "⚠️ ስህተት፡ እባክዎ በትክክል ቁጥር ብቻ ያስገቡ (ለምሳሌ፦ 500)፦")
         bot.register_next_step_handler(msg, process_balance_update)
-    
     except Exception as e:
-        # ማንኛውም ሌላ ስህተት ቢፈጠር ሲስተሙ እንዳይቆም ይረዳል
-        print(f"Error in balance update: {e}")
-        bot.send_message(message.chat.id, "❌ የቴክኒክ ስህተት አጋጥሟል። እባክዎ እንደገና ይሞክሩ።")
+        print(f"Error: {e}")
+        bot.send_message(admin_id, "❌ ስህተት ተፈጥሯል።")
+
 
 
 
@@ -1579,92 +1623,84 @@ def handle_price_edits(call):
 
 
 
-# መጀመሪያ ID ለመቀበል
-@command_breaker
+# 1. ድርጅት መመዝገቢያ መጀመሪያ (ምድብ ማስመረጫ)
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_vendor")
 def start_add_vendor(call):
     db = load_data()
     categories = db.get('categories', [])
-    
+
     if not categories:
         return bot.answer_callback_query(call.id, "⚠️ ድርጅት ከመመዝገብዎ በፊት መጀመሪያ 'አዲስ ምድብ' (Category) ይፍጠሩ!", show_alert=True)
-    
-    # የምድብ ምርጫ በተኖች
-    markup = types.InlineKeyboardMarkup()
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
     for cat in categories:
-        markup.add(types.InlineKeyboardButton(cat, callback_data=f"select_cat_for_vendor:{cat}"))
-    
-    bot.edit_message_text("📂 ለድርጅቱ ምድብ ይምረጡ፦", call.message.chat.id, call.message.message_id, reply_markup=markup)
+        # callback_data ላይ 'sel_cat_v:' መሆኑን እርግጠኛ ሁን
+        markup.add(types.InlineKeyboardButton(cat, callback_data=f"sel_cat_v:{cat}"))
 
+    bot.edit_message_text("📂 ለድርጅቱ ምድብ (ዘርፍ) ይምረጡ፦", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
-
-
-@command_breaker
-@bot.callback_query_handler(func=lambda call: call.data.startswith('set_cat_'))
-def set_vendor_category(call):
-    user_id = str(call.from_user.id)
-    category = call.data.replace('set_cat_', '')
-    db = load_data()
-    
-    if user_id in db.get('vendors_list', {}):
-        db['vendors_list'][user_id]['category'] = category
-        save_data(db)
-        
-        bot.answer_callback_query(call.id, f"ምድብ፦ {category} ተመርጧል")
-        bot.delete_message(call.message.chat.id, call.message.message_id) # ምርጫውን ማጥፋት
-        
-        # አሁን ዳሽቦርዱን አሳየው
-        text, markup = get_vendor_dashboard_elements(user_id)
-        bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
-
-
-
-
-# ምድብ ከተመረጠ በኋላ ID መጠየቂያ
-@command_breaker
-@bot.callback_query_handler(func=lambda call: call.data.startswith("select_cat_for_vendor:"))
+# 2. ምድብ ከተመረጠ በኋላ ID መጠየቂያ
+@bot.callback_query_handler(func=lambda call: call.data.startswith("sel_cat_v:"))
 def get_id_after_cat(call):
-    # .split(":") ካደረግን በኋላ ሁለተኛውን (index 1) ብቻ ነው የምንፈልገው
-    parts = call.data.split(":")
-    cat_name = parts # እውነተኛውን የምድብ ስም ብቻ ለመውሰድ
+    # ✅ ስህተቱ እዚህ ነበር፤ split አድርገን index 1 መውሰድ አለብን
+    actual_cat = call.data.split(":")
+
+    msg = bot.send_message(call.message.chat.id, f"🆔 የ[{actual_cat}] ባለቤት Telegram ID (ቁጥር) ያስገቡ፦\n\n(ለመሰረዝ /start ይበሉ)")
+    bot.register_next_step_handler(msg, process_vendor_id, actual_cat)
+
+# 3. ID መቀበያ
+def process_vendor_id(message, actual_cat):
+    text = message.text.strip()
     
-    msg = bot.send_message(call.message.chat.id, f"🆔 የ[{cat_name}] ባለቤት Telegram ID ያስገቡ፦")
-    bot.register_next_step_handler(msg, lambda m: process_vendor_id(m, cat_name))
+    # የ /start ቼክ
+    if text == "/start":
+        return bot.send_message(message.chat.id, "⚠️ የምዝገባ ሂደት ተቋርጧል።")
 
-def process_vendor_id(message, cat_name):
-    v_id = message.text.strip()
-    if not v_id.isdigit():
+    if not text.isdigit():
         msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ ID ቁጥር መሆን አለበት። ድጋሚ ያስገቡ፦")
-        return bot.register_next_step_handler(msg, lambda m: process_vendor_id(m, cat_name))
+        return bot.register_next_step_handler(msg, process_vendor_id, actual_cat)
 
-    msg = bot.send_message(message.chat.id, "🏢 የድርጅቱን ስም ያስገቡ፦")
-    bot.register_next_step_handler(msg, lambda m: save_new_vendor(m, v_id, cat_name))
+    v_id = text
+    msg = bot.send_message(message.chat.id, "🏢 የድርጅቱን ስም (ንግድ ስም) ያስገቡ፦")
+    bot.register_next_step_handler(msg, process_vendor_name, v_id, actual_cat)
 
-def save_new_vendor(message, v_id, cat_name_list):
+# 4. ስም መቀበያ
+def process_vendor_name(message, v_id, actual_cat):
     v_name = message.text.strip()
-    db = load_data()
+    
+    if v_name == "/start":
+        return bot.send_message(message.chat.id, "⚠️ የምዝገባ ሂደት ተቋርጧል።")
 
+    msg = bot.send_message(message.chat.id, f"📞 የ '{v_name}' ስልክ ቁጥር ያስገቡ፦")
+    bot.register_next_step_handler(msg, save_new_vendor, v_id, v_name, actual_cat)
+
+# 5. የመጨረሻው ሴቭ ማድረጊያ
+def save_new_vendor(message, v_id, v_name, actual_cat):
+    v_phone = message.text.strip()
+    
+    if v_phone == "/start":
+        return bot.send_message(message.chat.id, "⚠️ የምዝገባ ሂደት ተቋርጧል።")
+
+    db = load_data()
     if 'vendors_list' not in db: db['vendors_list'] = {}
 
-    # 1. የምድቡን ስም ብቻ ነጥሎ ማውጣት (ያንን ረጅም ዝርዝር ለማጥፋት)
-    # cat_name_list ['select_cat_for_vendor', '🍔 ምግብ ቤት'] ከሆነ 
-    # እኛ የምንፈልገው index 1 ላይ ያለውን ብቻ ነው
-    actual_cat = cat_name_list if isinstance(cat_name_list, list) else cat_name_list
-
-    # 2. ዳታውን በሁለቱም Key (ስም) ማስቀመጥ (ለጥንቃቄ)
-    db['vendors_list'][v_id] = {
-        "vendor_name": v_name, # ሪፖርቱ የሚፈልገው ይሄን ሊሆን ይችላል
-        "name": v_name,        # ለሌላ ቦታ ካስፈለገህ
+    # ዳታውን በ User ID ቁልፍነት መመዝገብ
+    db['vendors_list'][str(v_id)] = {
+        "name": v_name,
+        "phone": v_phone,
         "category": actual_cat,
+        "status": "active",
         "deposit_balance": 0,
-        "items": {},
-        "is_active": True
+        "items": {}, 
+        "registered_at": datetime.now().strftime("%Y-%m-%d %H:%M")
     }
-    
+
     save_data(db)
-    
-    # እዚህ ጋር መልዕክቱ ሲላክም ትክክለኛውን የምድብ ስም ብቻ እንዲያሳይ
-    bot.send_message(message.chat.id, f"✅ ድርጅት '{v_name}' በምድብ '{actual_cat}' ተመዝግቧል!")
+    bot.send_message(message.chat.id, f"✅ **ድርጅት ተመዝግቧል!**\n\n🏢 ስም፦ {v_name}\n🆔 ID፦ {v_id}\n📁 ዘርፍ፦ {actual_cat}\n📞 ስልክ፦ {v_phone}")
+
+
+
+
 
 
 
