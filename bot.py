@@ -1641,19 +1641,22 @@ def start_add_vendor(call):
 # 1. ምድብ ሲመረጥ (Force Cleanup እዚህ ይጀምራል)
 @bot.callback_query_handler(func=lambda call: call.data.startswith("sel_cat_v:"))
 def get_id_after_cat(call):
-    # ዳታውን እንቆርጣለን
+    # 1. ዳታውን በ ":" እንቆርጣለን
     raw_parts = call.data.split(":")
     
-    # Force: ሁለተኛውን ክፍል ብቻ እንነጥላለን፣ ከዚያም ማንኛውንም ቅንፍ እና ኮቴ እናጠፋለን
+    # 2. ✅ ትልቁ ማስተካከያ እዚህ ነው! 
+    # ከሊስቱ ውስጥ ሁለተኛውን index (ማለትም ዘርፉን ብቻ) እንነጥላለን
     if len(raw_parts) > 1:
-        actual_cat = str(raw_parts).replace("[", "").replace("]", "").replace("'", "").strip()
+        actual_cat = raw_parts
     else:
-        actual_cat = str(raw_parts).replace("[", "").replace("]", "").replace("'", "").strip()
+        actual_cat = raw_parts
 
-    # ለበለጠ እርግጠኝነት 'sel_cat_v' የሚል ጽሁፍ ካለ እናጠፋዋለን
-    actual_cat = actual_cat.replace("sel_cat_v", "").replace(",", "").strip()
+    # 3. አሁን ማንኛውንም ተረፍራፊ ቅንፍ ወይም ኮቴ እናጠፋለን
+    # str(raw_parts) የሚለውን ትተን str(actual_cat) ተክተናል
+    actual_cat = str(actual_cat).replace("[", "").replace("]", "").replace("'", "").strip()
 
-    msg = bot.send_message(call.message.chat.id, f"🆔 የ [{actual_cat}] ባለቤት Telegram ID ያስገቡ፦")
+    # 4. መልዕክቱን እንልካለን (እዚህ ጋር ቅንፉ መጥፋቱን አረጋግጥ)
+    msg = bot.send_message(call.message.chat.id, f"🆔 የ {actual_cat} ባለቤት Telegram ID ያስገቡ፦")
     bot.register_next_step_handler(msg, process_vendor_id, actual_cat)
 
 # 2. ID መቀበያ
