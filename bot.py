@@ -1173,12 +1173,24 @@ def render_item_card(user_id):
 def handle_category_selection(call):
     user_id = str(call.from_user.id)
     db = load_data()
+    
+    # የቬንደሩን መረጃ ማምጣት
     vendor_main_cat = db.get('vendors_list', {}).get(user_id, {}).get('category')
+
+    # 🛠 ጥንቃቄ፦ ዳታው በስህተት በሊስት መልክ ቢመጣም ወደ ጽሁፍ ይቀይረዋል
+    if isinstance(vendor_main_cat, list):
+        vendor_main_cat = vendor_main_cat
 
     if not vendor_main_cat:
         return bot.answer_callback_query(call.id, "❌ የድርጅትዎ ዋና ምድብ አልተገኘም!", show_alert=True)
 
-    subs = SUB_CATEGORIES.get(vendor_main_cat, ["አጠቃላይ"])
+    # 🔍 እዚህ ጋር ስሙ በ SUB_CATEGORIES ውስጥ መኖሩን ቼክ ያደርጋል
+    subs = SUB_CATEGORIES.get(vendor_main_cat)
+
+    if not subs:
+        # ለዲባግ እንዲረዳህ ስሙን በደንብ ያሳየሃል
+        return bot.answer_callback_query(call.id, f"⚠️ ለ '{vendor_main_cat}' ንዑስ ምድብ አልተዘጋጀም።", show_alert=True)
+
     c_markup = types.InlineKeyboardMarkup(row_width=2)
     for sub in subs:
         c_markup.add(types.InlineKeyboardButton(sub, callback_data=f"save_sub:{sub}"))
@@ -1191,15 +1203,15 @@ def handle_category_selection(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("save_sub:"))
 def save_sub_category(call):
     user_id = str(call.from_user.id)
-    
-    # ✅ እዚህ ጋር መኖሩን እርግጠኛ ሁን። ያቺን ቃል ብቻ እንዲወስድ ያደርጋል
-    sub_cat = call.data.split(":") 
+    # ✅ እዚህ ጋርም መጨመርህን እርግጠኛ ሁን
+    sub_cat = call.data.split(":")
 
     if user_id not in item_creation_temp:
         item_creation_temp[user_id] = get_empty_item_data()
 
     item_creation_temp[user_id]['category'] = sub_cat
     refresh_card(call.message.chat.id, call.message.message_id, user_id)
+
 
 
 # --- 6. የካርድ በተኖች Handler (ስም፣ ዋጋ፣ ዩኒት...) ---
@@ -1628,7 +1640,9 @@ def start_add_vendor(call):
 # 2. ምድብ ከተመረጠ በኋላ ID መጠየቂያ
 @bot.callback_query_handler(func=lambda call: call.data.startswith("sel_cat_v:"))
 def get_id_after_cat(call):
-    # ✅ እዚህ ጋርም ጨምርበት (ምድቡን በትክክል እንዲያውቅ)
+    # ✅ ትክክለኛው ማስተካከያ መጨመር ነው
+    # ይህ ካልሆነ actual_cat የሚሆነው ['sel_cat_v', '🍴ምግብ ቤት'] ነው
+    # ካለ ግን '🍴ምግብ ቤት' ብቻ ይሆናል
     actual_cat = call.data.split(":") 
 
     msg = bot.send_message(call.message.chat.id, f"🆔 የ[{actual_cat}] ባለቤት Telegram ID (ቁጥር) ያስገቡ፦\n\n(ለመሰረዝ /start ይበሉ)")
