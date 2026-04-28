@@ -1131,6 +1131,45 @@ def trigger_add_item(call):
 
 
 
+# 1. ቬንደሩ 'ምድብ ምረጥ' ሲል ንዑስ ምድቦችን ብቻ አውጥቶ እንዲያሳይ
+@bot.callback_query_handler(func=lambda call: call.data == "set_category")
+def handle_category_selection(call):
+    user_id = str(call.from_user.id)
+    db = load_data()
+    
+    # ቬንደሩ መጀመሪያ ሲመዘገብ የተሰጠው ዋና ምድብ (ለምሳሌ 'ምግብ ቤት')
+    vendor_main_cat = db.get('vendors_list', {}).get(user_id, {}).get('category')
+    
+    if not vendor_main_cat:
+        return bot.answer_callback_query(call.id, "❌ የድርጅትዎ ዋና ምድብ አልተገኘም!", show_alert=True)
+
+    # 💡 ቁልፉ ቦታ እዚህ ጋር ነው፡- ከ SUB_CATEGORIES ውስጥ ንዑስ ምድቦቹን ብቻ ይወስዳል
+    subs = SUB_CATEGORIES.get(vendor_main_cat, ["አጠቃላይ"])
+
+    c_markup = types.InlineKeyboardMarkup(row_width=2)
+    for sub in subs:
+        # ምርጫዎቹን ለቬንደሩ ያሳያል
+        c_markup.add(types.InlineKeyboardButton(sub, callback_data=f"save_sub:{sub}"))
+    
+    c_markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="refresh_card_only"))
+    
+    bot.edit_message_text(f"📁 የ[{vendor_main_cat}] ንዑስ ምድብ ይምረጡ፦", 
+                          call.message.chat.id, call.message.message_id, reply_markup=c_markup)
+
+# 2. ቬንደሩ የመረጠውን ንዑስ ምድብ በጊዜያዊነት ሴቭ የሚያደርገው (አገናኙ)
+@bot.callback_query_handler(func=lambda call: call.data.startswith("save_sub:"))
+def save_sub_category(call):
+    user_id = str(call.from_user.id)
+    sub_cat = call.data.split(":") # የተመረጠውን ስም ይለያል
+    
+    # ጊዜያዊ ዳታው ውስጥ ይከታል
+    if user_id not in item_creation_temp:
+        item_creation_temp[user_id] = get_empty_item_data()
+        
+    item_creation_temp[user_id]['category'] = sub_cat
+    
+    # መረጃውን ይዞ ወደ ዋናው ካርድ ይመለሳል
+    refresh_card(call.message.chat.id, call.message.message_id, user_id)
 
 
 
