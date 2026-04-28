@@ -1641,11 +1641,27 @@ def start_add_vendor(call):
 # 2. ምድብ ከተመረጠ በኋላ ID መጠየቂያ
 @bot.callback_query_handler(func=lambda call: call.data.startswith("sel_cat_v:"))
 def get_id_after_cat(call):
-    # ✅ ትክክለኛው ማስተካከያ፡ መጨመር አለበት
-    # ይህ 'sel_cat_v:🛍️ ሱፐርማርኬት' የሚለውን ቆርጦ '🛍️ ሱፐርማርኬት' ብቻ ያደርገዋል
-    actual_cat = call.data.split(":") 
+    # 1. መጀመሪያ ዳታውን በ ":" እንቆርጠዋለን
+    raw_parts = call.data.split(":")
+    
+    # 2. Force Method: ሁለተኛውን ክፍል ብቻ እንወስዳለን
+    # raw_parts=['sel_cat_v', '🛍️ ሱፐርማርኬት'] ከሆነ 🛍️ ሱፐርማርኬት ብቻ ይቀራል
+    if len(raw_parts) > 1:
+        actual_cat = raw_parts
+    else:
+        actual_cat = raw_parts
 
-    msg = bot.send_message(call.message.chat.id, f"🆔 የ[{actual_cat}] ባለቤት Telegram ID (ቁጥር) ያስገቡ፦\n\n(ለመሰረዝ /start ይበሉ)")
+    # 3. ለበለጠ ጥንቃቄ፡ ዳታው በስህተት አሁንም ሊስት ከሆነ ወደ String እንቀይረዋለን
+    if isinstance(actual_cat, list):
+        actual_cat = actual_cat
+
+    # 4. አሁን መልዕክቱ ላይ [ ] መጥፋቱን እዚህ ጋር ቼክ ማድረግ ትችላለህ
+    msg = bot.send_message(
+        call.message.chat.id, 
+        f"🆔 የ [{actual_cat}] ባለቤት Telegram ID (ቁጥር) ያስገቡ፦\n\n⚠️ ቅንፍ መጥፋቱን ያረጋግጡ!"
+    )
+    
+    # ዳታውን ወደ ቀጣዩ ፋንክሽን እናስተላልፋለን
     bot.register_next_step_handler(msg, process_vendor_id, actual_cat)
 
 # 3. ID መቀበያ
