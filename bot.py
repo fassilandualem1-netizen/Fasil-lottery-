@@ -1638,81 +1638,68 @@ def start_add_vendor(call):
 
     bot.edit_message_text("📂 ለድርጅቱ ምድብ (ዘርፍ) ይምረጡ፦", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
-# 2. ምድብ ከተመረጠ በኋላ ID መጠየቂያ
+# 1. ምድብ ሲመረጥ (Force Cleanup እዚህ ይጀምራል)
 @bot.callback_query_handler(func=lambda call: call.data.startswith("sel_cat_v:"))
 def get_id_after_cat(call):
-    # 1. መጀመሪያ ዳታውን በ ":" እንቆርጠዋለን
+    # ዳታውን እንቆርጣለን
     raw_parts = call.data.split(":")
     
-    # 2. Force Method: ሁለተኛውን ክፍል ብቻ እንወስዳለን
-    # raw_parts=['sel_cat_v', '🛍️ ሱፐርማርኬት'] ከሆነ 🛍️ ሱፐርማርኬት ብቻ ይቀራል
+    # Force: ሁለተኛውን ክፍል ብቻ እንነጥላለን፣ ከዚያም ማንኛውንም ቅንፍ እና ኮቴ እናጠፋለን
     if len(raw_parts) > 1:
-        actual_cat = raw_parts
+        actual_cat = str(raw_parts).replace("[", "").replace("]", "").replace("'", "").strip()
     else:
-        actual_cat = raw_parts
+        actual_cat = str(raw_parts).replace("[", "").replace("]", "").replace("'", "").strip()
 
-    # 3. ለበለጠ ጥንቃቄ፡ ዳታው በስህተት አሁንም ሊስት ከሆነ ወደ String እንቀይረዋለን
-    if isinstance(actual_cat, list):
-        actual_cat = actual_cat
+    # ለበለጠ እርግጠኝነት 'sel_cat_v' የሚል ጽሁፍ ካለ እናጠፋዋለን
+    actual_cat = actual_cat.replace("sel_cat_v", "").replace(",", "").strip()
 
-    # 4. አሁን መልዕክቱ ላይ [ ] መጥፋቱን እዚህ ጋር ቼክ ማድረግ ትችላለህ
-    msg = bot.send_message(
-        call.message.chat.id, 
-        f"🆔 የ [{actual_cat}] ባለቤት Telegram ID (ቁጥር) ያስገቡ፦\n\n⚠️ ቅንፍ መጥፋቱን ያረጋግጡ!"
-    )
-    
-    # ዳታውን ወደ ቀጣዩ ፋንክሽን እናስተላልፋለን
+    msg = bot.send_message(call.message.chat.id, f"🆔 የ [{actual_cat}] ባለቤት Telegram ID ያስገቡ፦")
     bot.register_next_step_handler(msg, process_vendor_id, actual_cat)
 
-# 3. ID መቀበያ
+# 2. ID መቀበያ
 def process_vendor_id(message, actual_cat):
-    text = message.text.strip()
-    if text == "/start": return bot.send_message(message.chat.id, "⚠️ የምዝገባ ሂደት ተቋርጧል።")
-
-    if not text.isdigit():
-        msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ ID ቁጥር መሆን አለበት። ድጋሚ ያስገቡ፦")
+    v_id = message.text.strip()
+    if v_id == "/start": return
+    
+    if not v_id.isdigit():
+        msg = bot.send_message(message.chat.id, "⚠️ ID ቁጥር መሆን አለበት። ድጋሚ ያስገቡ፦")
         return bot.register_next_step_handler(msg, process_vendor_id, actual_cat)
 
-    v_id = text
     msg = bot.send_message(message.chat.id, "🏢 የድርጅቱን ስም ያስገቡ፦")
     bot.register_next_step_handler(msg, process_vendor_name, v_id, actual_cat)
 
-# 4. ስም መቀበያ
+# 3. ስም መቀበያ
 def process_vendor_name(message, v_id, actual_cat):
     v_name = message.text.strip()
-    if v_name == "/start": return bot.send_message(message.chat.id, "⚠️ የምዝገባ ሂደት ተቋርጧል።")
+    if v_name == "/start": return
+    
+    msg = bot.send_message(message.chat.id, f"📞 የ '{v_name}' ስልክ ያስገቡ፦")
+    bot.register_next_step_handler(msg, save_new_vendor_final, v_id, v_name, actual_cat)
 
-    msg = bot.send_message(message.chat.id, f"📞 የ '{v_name}' ስልክ ቁጥር ያስገቡ፦")
-    bot.register_next_step_handler(msg, save_new_vendor, v_id, v_name, actual_cat)
-
-# 5. የመጨረሻው ሴቭ ማድረጊያ
-def save_new_vendor(message, v_id, v_name, actual_cat):
+# 4. የመጨረሻው ሴቭ (Force String Conversion)
+def save_new_vendor_final(message, v_id, v_name, actual_cat):
     v_phone = message.text.strip()
-    if v_phone == "/start": return bot.send_message(message.chat.id, "⚠️ የምዝገባ ሂደት ተቋርጧል።")
-
-    # ✅ ዳታቤዝ ውስጥ ከመግባቱ በፊት ዳታው ሊስት ከሆነ እንዲያጠራው እናረጋግጥ
-    # ይህ ለጥንቃቄ ነው
-    if isinstance(actual_cat, list):
-        # ሊስት ሆኖ ከመጣ የመጀመሪያውን ወይም ሁለተኛውን ንጹህ ጽሁፍ ይወስዳል
-        actual_cat = actual_cat if len(actual_cat) > 1 else actual_cat
+    if v_phone == "/start": return
 
     db = load_data()
     if 'vendors_list' not in db: db['vendors_list'] = {}
 
+    # የመጨረሻው የጥራት ምርመራ (String Force)
+    # እዚህ ጋር actual_cat በምንም ተአምር ሊስት መሆን አይችልም
+    final_cat = str(actual_cat).strip()
+
     db['vendors_list'][str(v_id)] = {
         "name": v_name,
         "phone": v_phone,
-        "category": str(actual_cat), # ✅ ሁሌም ጽሁፍ መሆኑን ለማረጋገጥ str() ጨምሬያለሁ
+        "category": final_cat, # ✅ ንጹህ ጽሁፍ
         "status": "active",
         "deposit_balance": 0,
         "items": {}, 
         "registered_at": datetime.now().strftime("%Y-%m-%d %H:%M")
     }
-
     save_data(db)
     
-    # አሁን እዚህ መልዕክት ላይ ቅንፉ ይጠፋል
-    bot.send_message(message.chat.id, f"✅ **ድርጅት ተመዝግቧል!**\n\n🏢 ስም፦ {v_name}\n🆔 ID፦ {v_id}\n📁 ዘርፍ፦ {actual_cat}\n📞 ስልክ፦ {v_phone}")
+    bot.send_message(message.chat.id, f"✅ **ድርጅት ተመዝግቧል!**\n\n🏢 ስም፦ {v_name}\n📁 ዘርፍ፦ {final_cat}")
 
 
 
