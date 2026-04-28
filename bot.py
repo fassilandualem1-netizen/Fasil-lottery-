@@ -159,6 +159,13 @@ item_creation_temp = {}
 
 
 
+db = load_data()
+v_id = "8443303643" # የአንተ ID
+vendor_info = db.get('vendors_list', {}).get(v_id, {})
+print(f"የተመዘገበው ምድብ፦ {vendor_info.get('category')}")
+print(f"የዳታ አይነት፦ {type(vendor_info.get('category'))}")
+
+
 import math
 import json
 from datetime import datetime
