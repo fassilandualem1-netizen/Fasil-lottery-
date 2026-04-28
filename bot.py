@@ -296,6 +296,18 @@ def check_admin(message):
         return False
     return True
 
+from telebot import types
+
+# ቦቱ ሲነሳ ሜኑ በተኑን እንዲያስተካክል
+def set_bot_menu(bot):
+    main_menu_commands = [
+        types.BotCommand("start", "ቦቱን ለመጀመር / Reset"),
+        types.BotCommand("help", "እርዳታ ለማግኘት")
+    ]
+    bot.set_my_commands(main_menu_commands)
+
+# ቦቱን በምታነሳበት ጊዜ ጥራው
+set_bot_menu(bot)
 
 
 
