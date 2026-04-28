@@ -1253,7 +1253,7 @@ def handle_item_creation(call):
         bot.edit_message_text("📏 መመዘኛውን ይምረጡ፦", chat_id, msg_id, reply_markup=u_markup)
 
     # --- የካርድ በተኖች Handler ውስጥ ያለውን 'set_category' ብቻ ቀይረው ---
-        elif call.data == "set_category":
+    elif call.data == "set_category":
         user_id = str(call.from_user.id)
         db = load_data()
         
