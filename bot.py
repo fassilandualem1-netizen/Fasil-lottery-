@@ -1641,22 +1641,25 @@ def start_add_vendor(call):
 # 1. ምድብ ሲመረጥ (Force Cleanup እዚህ ይጀምራል)
 @bot.callback_query_handler(func=lambda call: call.data.startswith("sel_cat_v:"))
 def get_id_after_cat(call):
-    # 1. ዳታውን በ ":" እንቆርጣለን
-    raw_parts = call.data.split(":")
+    # 1. መጀመሪያ ዳታውን ወደ ጽሁፍ (String) እንቀይረዋለን
+    data_str = str(call.data)
     
-    # 2. ✅ ትልቁ ማስተካከያ እዚህ ነው! 
-    # ከሊስቱ ውስጥ 2ኛውን (index 1) ብቻ ነው መውሰድ ያለብህ
-    if len(raw_parts) > 1:
-        actual_cat = raw_parts # 👈 እዚህ ጋር መኖሩን አረጋግጥ!
-    else:
-        actual_cat = raw_parts
+    # 2. FORCE CLEANUP: የማይፈለጉትን ቃላት በሙሉ እዚህ ጋር እናጥፋለን
+    # 'sel_cat_v:' የሚለውን ያጠፋል
+    clean_cat = data_str.replace("sel_cat_v:", "")
+    
+    # ሊስት ሆኖ ከመጣ 'sel_cat_v', የሚለውን እና ቅንፎችን ያጠፋል
+    clean_cat = clean_cat.replace("sel_cat_v", "").replace("[", "").replace("]", "").replace("'", "").replace(",", "")
+    
+    # ትርፍ ባዶ ቦታ ካለ እናጽዳ
+    actual_cat = clean_cat.strip()
 
-    # 3. አሁን ማንኛውንም ተረፍራፊ ቅንፍ ወይም ኮቴ እናጠፋለን
-    # str(actual_cat) አሁን '🛍️ ሱፐርማርኬት' ብቻ ስለሆነ ንጹህ ይሆናል
-    actual_cat = str(actual_cat).replace("[", "").replace("]", "").replace("'", "").strip()
-
-    # 4. መልዕክቱን እንልካለን
-    msg = bot.send_message(call.message.chat.id, f"🆔 የ {actual_cat} ባለቤት Telegram ID ያስገቡ፦")
+    # 3. መልዕክቱን እንልካለን
+    # አሁን በምንም ተአምር 'sel_cat_v' ወይም ኮማ ሊመጣ አይችልም
+    msg = bot.send_message(
+        call.message.chat.id, 
+        f"🆔 የ {actual_cat} ባለቤት Telegram ID ያስገቡ፦"
+    )
     bot.register_next_step_handler(msg, process_vendor_id, actual_cat)
 
 # 2. ID መቀበያ
