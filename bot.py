@@ -1645,17 +1645,17 @@ def get_id_after_cat(call):
     raw_parts = call.data.split(":")
     
     # 2. ✅ ትልቁ ማስተካከያ እዚህ ነው! 
-    # ከሊስቱ ውስጥ ሁለተኛውን index (ማለትም ዘርፉን ብቻ) እንነጥላለን
+    # ከሊስቱ ውስጥ 2ኛውን (index 1) ብቻ ነው መውሰድ ያለብህ
     if len(raw_parts) > 1:
-        actual_cat = raw_parts
+        actual_cat = raw_parts # 👈 እዚህ ጋር መኖሩን አረጋግጥ!
     else:
         actual_cat = raw_parts
 
     # 3. አሁን ማንኛውንም ተረፍራፊ ቅንፍ ወይም ኮቴ እናጠፋለን
-    # str(raw_parts) የሚለውን ትተን str(actual_cat) ተክተናል
+    # str(actual_cat) አሁን '🛍️ ሱፐርማርኬት' ብቻ ስለሆነ ንጹህ ይሆናል
     actual_cat = str(actual_cat).replace("[", "").replace("]", "").replace("'", "").strip()
 
-    # 4. መልዕክቱን እንልካለን (እዚህ ጋር ቅንፉ መጥፋቱን አረጋግጥ)
+    # 4. መልዕክቱን እንልካለን
     msg = bot.send_message(call.message.chat.id, f"🆔 የ {actual_cat} ባለቤት Telegram ID ያስገቡ፦")
     bot.register_next_step_handler(msg, process_vendor_id, actual_cat)
 
