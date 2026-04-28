@@ -1652,9 +1652,9 @@ def start_add_vendor(call):
 # 2. ምድብ ከተመረጠ በኋላ ID መጠየቂያ
 @bot.callback_query_handler(func=lambda call: call.data.startswith("sel_cat_v:"))
 def get_id_after_cat(call):
-    # ✅ ትክክለኛው ማስተካከያ መጨመር ነው
-    # ይህ ካልሆነ actual_cat የሚሆነው ['sel_cat_v', '🍴ምግብ ቤት'] ነው
-    # ካለ ግን '🍴ምግብ ቤት' ብቻ ይሆናል
+    # ✅ ትልቅ ስህተት እዚህ ነበር፡ መጨመር አለበት
+    # ከዚህ በፊት actual_cat የሚሆነው ['sel_cat_v', '🛍️ ሱፐርማርኬት'] ነበር
+    # አሁን ግን '🛍️ ሱፐርማርኬት' ብቻ ይሆናል
     actual_cat = call.data.split(":") 
 
     msg = bot.send_message(call.message.chat.id, f"🆔 የ[{actual_cat}] ባለቤት Telegram ID (ቁጥር) ያስገቡ፦\n\n(ለመሰረዝ /start ይበሉ)")
@@ -1663,10 +1663,7 @@ def get_id_after_cat(call):
 # 3. ID መቀበያ
 def process_vendor_id(message, actual_cat):
     text = message.text.strip()
-    
-    # የ /start ቼክ
-    if text == "/start":
-        return bot.send_message(message.chat.id, "⚠️ የምዝገባ ሂደት ተቋርጧል።")
+    if text == "/start": return bot.send_message(message.chat.id, "⚠️ የምዝገባ ሂደት ተቋርጧል።")
 
     if not text.isdigit():
         msg = bot.send_message(message.chat.id, "⚠️ ስህተት፡ ID ቁጥር መሆን አለበት። ድጋሚ ያስገቡ፦")
@@ -1679,9 +1676,7 @@ def process_vendor_id(message, actual_cat):
 # 4. ስም መቀበያ
 def process_vendor_name(message, v_id, actual_cat):
     v_name = message.text.strip()
-    
-    if v_name == "/start":
-        return bot.send_message(message.chat.id, "⚠️ የምዝገባ ሂደት ተቋርጧል።")
+    if v_name == "/start": return bot.send_message(message.chat.id, "⚠️ የምዝገባ ሂደት ተቋርጧል።")
 
     msg = bot.send_message(message.chat.id, f"📞 የ '{v_name}' ስልክ ቁጥር ያስገቡ፦")
     bot.register_next_step_handler(msg, save_new_vendor, v_id, v_name, actual_cat)
@@ -1689,14 +1684,15 @@ def process_vendor_name(message, v_id, actual_cat):
 # 5. የመጨረሻው ሴቭ ማድረጊያ
 def save_new_vendor(message, v_id, v_name, actual_cat):
     v_phone = message.text.strip()
-    
-    if v_phone == "/start":
-        return bot.send_message(message.chat.id, "⚠️ የምዝገባ ሂደት ተቋርጧል።")
+    if v_phone == "/start": return bot.send_message(message.chat.id, "⚠️ የምዝገባ ሂደት ተቋርጧል።")
 
     db = load_data()
     if 'vendors_list' not in db: db['vendors_list'] = {}
 
-    # ዳታውን በ User ID ቁልፍነት መመዝገብ
+    # ✅ ዳታው ዳታቤዝ ውስጥ ከመግባቱ በፊት ለጥንቃቄ እንደገና ቼክ ይደረጋል
+    if isinstance(actual_cat, list):
+        actual_cat = actual_cat if len(actual_cat) > 1 else actual_cat
+
     db['vendors_list'][str(v_id)] = {
         "name": v_name,
         "phone": v_phone,
@@ -1708,8 +1704,8 @@ def save_new_vendor(message, v_id, v_name, actual_cat):
     }
 
     save_data(db)
+    # አሁን እዚህ ጋር ያ ቅንፍ ['...'] መጥፋት አለበት!
     bot.send_message(message.chat.id, f"✅ **ድርጅት ተመዝግቧል!**\n\n🏢 ስም፦ {v_name}\n🆔 ID፦ {v_id}\n📁 ዘርፍ፦ {actual_cat}\n📞 ስልክ፦ {v_phone}")
-
 
 
 
