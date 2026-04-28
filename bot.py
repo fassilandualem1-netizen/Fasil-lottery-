@@ -745,60 +745,74 @@ def complete_order_and_record_sales(order_id):
 
 
 # 1. የቬንደር እቃዎችን በዝርዝር ማሳያ
+
 @bot.callback_query_handler(func=lambda call: call.data == "vendor_my_items")
-def view_vendor_items(call):
+def view_vendor_categories(call):
     db = load_data()
     v_id = str(call.from_user.id)
     
     # የዚህ ቬንደር የሆኑ እቃዎችን መለየት
     my_items = [i for i in db.get('items', []) if str(i.get('vendor_id')) == v_id]
-    
+
     if not my_items:
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("➕ እቃ ጨምር", callback_data="vendor_add_item"))
-        markup.add(types.InlineKeyboardButton("⬅️ ወደ ዳሽቦርድ", callback_data="go_to_vendor_dashboard"))
         return bot.edit_message_text("📦 እስካሁን ምንም የተመዘገበ እቃ የለም።", 
                                     call.message.chat.id, call.message.message_id, reply_markup=markup)
 
-    bot.answer_callback_query(call.id, "ዝርዝር እየተጫነ ነው...")
+    # እቃዎቹ ያሉባቸውን ምድቦች ብቻ ለይቶ ማውጣት (set የሚጠቀመው እንዳይደጋገሙ ነው)
+    categories = sorted(list(set(i.get('category', 'ያልተመደበ') for i in my_items)))
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    for cat in categories:
+        # የምድብ ስሙን ወደ callback_data እንልካለን
+        markup.add(types.InlineKeyboardButton(f"📁 {cat}", callback_data=f"v_view_cat_{cat}"))
     
-    # አሮጌውን ዳሽቦርድ እናጥፋውና ዝርዝሩን መላክ እንጀምር
+    markup.add(types.InlineKeyboardButton("⬅️ ወደ ዳሽቦርድ", callback_data="go_to_vendor_dashboard"))
+    
+    bot.edit_message_text("📍 እቃዎችን ለማየት ምድብ ይምረጡ፦", 
+                          call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("v_view_cat_"))
+def show_items_in_category(call):
+    selected_cat = call.data.replace("v_view_cat_", "")
+    db = load_data()
+    v_id = str(call.from_user.id)
+    
+    # በምድቡ ስር ያሉትን እቃዎች ብቻ መለየት
+    cat_items = [i for i in db.get('items', []) 
+                 if str(i.get('vendor_id')) == v_id and i.get('category') == selected_cat]
+
     bot.delete_message(call.message.chat.id, call.message.message_id)
 
-    for item in my_items:
+    for item in cat_items:
         item_id = item['id']
-        # 'status' ከሌለ 'active' እንደሆነ እንቆጥረዋለን
         is_active = item.get('status', 'active') == 'active'
-        
         status_icon = "🟢" if is_active else "🔴"
-        status_text = "አለ" if is_active else "አልቋል"
         toggle_label = "🔴 አልቋል በል" if is_active else "🟢 አለ በል"
-        
+
         caption = (
             f"🛍️ **እቃ፦ {item['name']}**\n"
-            f"💰 ዋጋ፦ {item['price']} ETB / {item.get('unit', 'Pcs')}\n"
-            f"📊 ሁኔታ፦ {status_icon} {status_text}\n"
-            f"📂 ምድብ፦ {item.get('category', 'ያልታወቀ')}\n"
+            f"💰 ዋጋ፦ {item['price']} ETB\n"
+            f"📊 ሁኔታ፦ {status_icon} {'አለ' if is_active else 'አልቋል'}\n"
             f"━━━━━━━━━━━━━━━━━━━━"
         )
-        
+
         markup = types.InlineKeyboardMarkup(row_width=2)
-        btn_toggle = types.InlineKeyboardButton(toggle_label, callback_data=f"tog_itm_{item_id}")
-        btn_edit = types.InlineKeyboardButton("✏️ ዋጋ ቀይር", callback_data=f"edit_prc_{item_id}")
-        btn_del = types.InlineKeyboardButton("🗑️ አጥፋ", callback_data=f"del_itm_{item_id}")
-        
-        markup.add(btn_toggle)
-        markup.add(btn_edit, btn_del)
-        
-        # ፎቶ ካለው በፎቶ ካልሆነ በጽሁፍ ይልካል
+        markup.add(types.InlineKeyboardButton(toggle_label, callback_data=f"tog_itm_{item_id}"))
+        markup.add(types.InlineKeyboardButton("✏️ ዋጋ", callback_data=f"edit_prc_{item_id}"),
+                   types.InlineKeyboardButton("🗑️ አጥፋ", callback_data=f"del_itm_{item_id}"))
+
         if item.get('photo') and item['photo'] != "no_photo":
             bot.send_photo(call.message.chat.id, item['photo'], caption=caption, reply_markup=markup, parse_mode="Markdown")
         else:
             bot.send_message(call.message.chat.id, caption, reply_markup=markup, parse_mode="Markdown")
 
-    # መጨረሻ ላይ መመለሻ በተን
-    bot.send_message(call.message.chat.id, "ከላይ ያሉትን እቃዎች ማስተካከል ይችላሉ።", 
-                     reply_markup=get_back_to_dashboard_markup())
+    # ወደ ምድብ መመለሻ በተን
+    back_markup = types.InlineKeyboardMarkup()
+    back_markup.add(types.InlineKeyboardButton("🔙 ወደ ምድቦች ተመለስ", callback_data="vendor_my_items"))
+    bot.send_message(call.message.chat.id, f"እነዚህ የ '{selected_cat}' ምድብ እቃዎች ናቸው።", reply_markup=back_markup)
 
 # 2. የእቃውን ሁኔታ (አለ/አልቋል) መቀያየሪያ
 @bot.callback_query_handler(func=lambda call: call.data.startswith("tog_itm_"))
