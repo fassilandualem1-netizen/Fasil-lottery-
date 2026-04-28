@@ -750,28 +750,30 @@ def complete_order_and_record_sales(order_id):
 def view_vendor_categories(call):
     db = load_data()
     v_id = str(call.from_user.id)
-    
+
     # የዚህ ቬንደር የሆኑ እቃዎችን መለየት
     my_items = [i for i in db.get('items', []) if str(i.get('vendor_id')) == v_id]
 
     if not my_items:
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("➕ እቃ ጨምር", callback_data="vendor_add_item"))
+        markup.add(types.InlineKeyboardButton("⬅️ ወደ ዳሽቦርድ", callback_data="go_to_vendor_dashboard"))
         return bot.edit_message_text("📦 እስካሁን ምንም የተመዘገበ እቃ የለም።", 
                                     call.message.chat.id, call.message.message_id, reply_markup=markup)
 
-    # እቃዎቹ ያሉባቸውን ምድቦች ብቻ ለይቶ ማውጣት (set የሚጠቀመው እንዳይደጋገሙ ነው)
+    # እቃዎቹ ያሉባቸውን ምድቦች ብቻ ለይቶ ማውጣት
     categories = sorted(list(set(i.get('category', 'ያልተመደበ') for i in my_items)))
 
     markup = types.InlineKeyboardMarkup(row_width=2)
     for cat in categories:
-        # የምድብ ስሙን ወደ callback_data እንልካለን
         markup.add(types.InlineKeyboardButton(f"📁 {cat}", callback_data=f"v_view_cat_{cat}"))
-    
+
     markup.add(types.InlineKeyboardButton("⬅️ ወደ ዳሽቦርድ", callback_data="go_to_vendor_dashboard"))
-    
+
     bot.edit_message_text("📍 እቃዎችን ለማየት ምድብ ይምረጡ፦", 
                           call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("v_view_cat_"))
@@ -1179,14 +1181,36 @@ def handle_item_creation(call):
         )
         bot.edit_message_text("📏 መመዘኛውን ይምረጡ፦", chat_id, msg_id, reply_markup=u_markup)
 
+    # --- የካርድ በተኖች Handler ውስጥ ያለውን 'set_category' ብቻ ቀይረው ---
     elif call.data == "set_category":
+        db = load_data()
+        # አድሚኑ የመዘገባቸውን ምድቦች ከዳታቤዝ ይስባል
+        categories = db.get('categories', ["🍔 ምግብ", "🥤 መጠጥ"]) 
+
         c_markup = types.InlineKeyboardMarkup(row_width=2)
-        c_markup.add(
-            types.InlineKeyboardButton("🍔 ምግብ", callback_data="cat_ምግብ"),
-            types.InlineKeyboardButton("🥤 መጠጥ", callback_data="cat_መጠጥ"),
-            types.InlineKeyboardButton("🛒 ሸቀጣ ሸቀጥ", callback_data="cat_ሸቀጣ ሸቀጥ")
-        )
+        for cat in categories:
+            # አድሚኑ የጨመራቸው አዳዲስ ምድቦች እዚህ ጋር በተን ይሆናሉ
+            c_markup.add(types.InlineKeyboardButton(cat, callback_data=f"cat_{cat}"))
+        
+        # ተጠቃሚው መምረጥ ካልፈለገ ወደ ካርዱ እንዲመለስ
+        c_markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="refresh_card_only"))
+        
         bot.edit_message_text("📁 እባክዎ የምድብ አይነት ይምረጡ፦", chat_id, msg_id, reply_markup=c_markup)
+
+# --- ይህ ደግሞ የተቀየረው የሴቭ ማድረጊያ ፋንክሽን ---
+@bot.callback_query_handler(func=lambda call: call.data.startswith("cat_"))
+def save_temp_category(call):
+    user_id = str(call.from_user.id)
+    if user_id not in item_creation_temp: 
+        item_creation_temp[user_id] = get_empty_item_data()
+    
+    # የተመረጠውን ምድብ ስም ይይዛል
+    selected_cat = call.data.replace("cat_", "")
+    item_creation_temp[user_id]['category'] = selected_cat
+    
+    # ምድቡን መርጦ እንደጨረሰ ወዲያውኑ ወደ ካርዱ ይመልሰዋል
+    refresh_card(call.message.chat.id, call.message.message_id, user_id)
+
 
     elif call.data == "set_photo":
         msg = bot.send_message(chat_id, "📸 የእቃውን ፎቶ ይላኩ፦")
