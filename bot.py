@@ -1253,21 +1253,29 @@ def handle_item_creation(call):
         bot.edit_message_text("📏 መመዘኛውን ይምረጡ፦", chat_id, msg_id, reply_markup=u_markup)
 
     # --- የካርድ በተኖች Handler ውስጥ ያለውን 'set_category' ብቻ ቀይረው ---
-    elif call.data == "set_category":
+        elif call.data == "set_category":
+        user_id = str(call.from_user.id)
         db = load_data()
-        # አድሚኑ የመዘገባቸውን ምድቦች ከዳታቤዝ ይስባል
-        categories = db.get('categories', ["🍔 ምግብ", "🥤 መጠጥ"]) 
+        
+        # 1. ቬንደሩ መጀመሪያ በአድሚን የተመዘገበበትን ዋና ዘርፍ መለየት
+        vendor_main_cat = db.get('vendors_list', {}).get(user_id, {}).get('category')
+        
+        if not vendor_main_cat:
+            bot.answer_callback_query(call.id, "❌ ድርጅትዎ አልተመዘገበም!", show_alert=True)
+            return
+
+        # 2. ከ SUB_CATEGORIES ላይ የዛን ዘርፍ ንዑስ ምድቦች ብቻ መውሰድ
+        subs = SUB_CATEGORIES.get(vendor_main_cat, ["አጠቃላይ"])
 
         c_markup = types.InlineKeyboardMarkup(row_width=2)
-        for cat in categories:
-            # አድሚኑ የጨመራቸው አዳዲስ ምድቦች እዚህ ጋር በተን ይሆናሉ
-            c_markup.add(types.InlineKeyboardButton(cat, callback_data=f"cat_{cat}"))
+        for sub in subs:
+            # 💡 እዚህ ጋር 'save_sub:' የሚል መለያ መጠቀማችንን አስተውል
+            c_markup.add(types.InlineKeyboardButton(sub, callback_data=f"save_sub:{sub}"))
         
-        # ተጠቃሚው መምረጥ ካልፈለገ ወደ ካርዱ እንዲመለስ
         c_markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="refresh_card_only"))
         
-        bot.edit_message_text("📁 እባክዎ የምድብ አይነት ይምረጡ፦", chat_id, msg_id, reply_markup=c_markup)
-
+        bot.edit_message_text(f"📁 የ[{vendor_main_cat}] ንዑስ ምድብ ይምረጡ፦", 
+                              chat_id, msg_id, reply_markup=c_markup)
 
 
     elif call.data == "set_photo":
@@ -1299,6 +1307,24 @@ def handle_item_creation(call):
         bot.clear_step_handler_by_chat_id(chat_id)
         item_creation_temp.pop(user_id, None)
         bot.delete_message(chat_id, msg_id)
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("save_sub:"))
+def save_sub_category(call):
+    user_id = str(call.from_user.id)
+    sub_cat = call.data.split(":")
+    
+    if user_id not in item_creation_temp:
+        item_creation_temp[user_id] = get_empty_item_data()
+        
+    item_creation_temp[user_id]['category'] = sub_cat
+    
+    # ተመልሶ ካርዱን እንዲያድሰው
+    refresh_card(call.message.chat.id, call.message.message_id, user_id)
+
+
+
 
 # --- 1. የዩኒት መቀበያ Handler (ተጨምሯል) ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith("u_"))
