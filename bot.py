@@ -1117,6 +1117,7 @@ def finalize_vendor_accounting(order_id):
 
 
 
+# --- 1. ባዶ ዳታ ማዘጋጃ ---
 def get_empty_item_data():
     return {
         'name': None, 
@@ -1137,10 +1138,11 @@ def trigger_add_item(call):
 
 # --- 3. የካርዱ መልክ (Render Card) ---
 def render_item_card(user_id):
-    if str(user_id) not in item_creation_temp:
-        item_creation_temp[str(user_id)] = get_empty_item_data()
+    u_id = str(user_id)
+    if u_id not in item_creation_temp:
+        item_creation_temp[u_id] = get_empty_item_data()
 
-    data = item_creation_temp[str(user_id)]
+    data = item_creation_temp[u_id]
     text = (
         "📦 **አዲስ እቃ ምዝገባ**\n"
         "━━━━━━━━━━━━━━━\n"
@@ -1162,6 +1164,7 @@ def render_item_card(user_id):
     )
     markup.add(types.InlineKeyboardButton("📸 ፎቶ ጨምር", callback_data="set_photo"))
 
+    # ሁሉም ከተሞላ ብቻ 'መዝግብ' በተን ይታያል
     if data['name'] and data['price'] and data['unit'] and data['category']:
         markup.add(types.InlineKeyboardButton("✅ አሁኑኑ መዝግብ", callback_data="final_save_item"))
 
@@ -1173,22 +1176,23 @@ def render_item_card(user_id):
 def handle_category_selection(call):
     user_id = str(call.from_user.id)
     db = load_data()
-    
-    # የቬንደሩን መረጃ ማምጣት
+
+    # የቬንደሩን ዋና ዘርፍ ማግኘት
     vendor_main_cat = db.get('vendors_list', {}).get(user_id, {}).get('category')
 
-    # 🛠 ጥንቃቄ፦ ዳታው በስህተት በሊስት መልክ ቢመጣም ወደ ጽሁፍ ይቀይረዋል
-    if isinstance(vendor_main_cat, list):
+    # ✅ ዳታው በሊስት መልክ ከመጣ ወደ ጽሁፍ ይቀይረዋል
+    if isinstance(vendor_main_cat, list) and len(vendor_main_cat) > 0:
         vendor_main_cat = vendor_main_cat
+    elif isinstance(vendor_main_cat, list):
+        vendor_main_cat = None
 
     if not vendor_main_cat:
-        return bot.answer_callback_query(call.id, "❌ የድርጅትዎ ዋና ምድብ አልተገኘም!", show_alert=True)
+        return bot.answer_callback_query(call.id, "❌ የድርጅትዎ ዋና ምድብ አልተገኘም! አድሚን ጋር ድጋሚ ይመዝገቡ።", show_alert=True)
 
-    # 🔍 እዚህ ጋር ስሙ በ SUB_CATEGORIES ውስጥ መኖሩን ቼክ ያደርጋል
+    # ከ SUB_CATEGORIES ውስጥ ንዑስ ምድቦችን መፈለግ
     subs = SUB_CATEGORIES.get(vendor_main_cat)
 
     if not subs:
-        # ለዲባግ እንዲረዳህ ስሙን በደንብ ያሳየሃል
         return bot.answer_callback_query(call.id, f"⚠️ ለ '{vendor_main_cat}' ንዑስ ምድብ አልተዘጋጀም።", show_alert=True)
 
     c_markup = types.InlineKeyboardMarkup(row_width=2)
@@ -1199,12 +1203,15 @@ def handle_category_selection(call):
     bot.edit_message_text(f"📁 የ[{vendor_main_cat}] ንዑስ ምድብ ይምረጡ፦", 
                           call.message.chat.id, call.message.message_id, reply_markup=c_markup)
 
-# --- 5. የመረጥነውን ንዑስ ምድብ ሴቭ ማድረጊያ (Save Sub Category) ---
+# --- 5. የመረጥነውን ንዑስ ምድብ ሴቭ ማድረጊያ ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith("save_sub:"))
 def save_sub_category(call):
     user_id = str(call.from_user.id)
-    # ✅ እዚህ ጋርም መጨመርህን እርግጠኛ ሁን
-    sub_cat = call.data.split(":")
+    # ✅ ስህተቱ እዚህ ነበር፤ ተጨምሯል
+    try:
+        sub_cat = call.data.split(":")
+    except IndexError:
+        return
 
     if user_id not in item_creation_temp:
         item_creation_temp[user_id] = get_empty_item_data()
@@ -1212,9 +1219,7 @@ def save_sub_category(call):
     item_creation_temp[user_id]['category'] = sub_cat
     refresh_card(call.message.chat.id, call.message.message_id, user_id)
 
-
-
-# --- 6. የካርድ በተኖች Handler (ስም፣ ዋጋ፣ ዩኒት...) ---
+# --- 6. የካርድ በተኖች Handler ---
 @bot.callback_query_handler(func=lambda call: call.data in ["set_name", "set_price", "set_unit", "set_photo", "final_save_item", "cancel_item", "refresh_card_only"])
 def handle_item_creation(call):
     user_id = str(call.from_user.id)
@@ -1249,19 +1254,20 @@ def handle_item_creation(call):
     elif call.data == "final_save_item":
         db = load_data()
         data = item_creation_temp.get(user_id)
-        
-        if data.get('photo') == "no_photo":
-            data['photo'] = "AgACAgQAAxkBAAIQuWnvRzZDouhzKJCyjtBXqIom5iAWAAKmDGsbL-95U0EGfE3EbI2KAQADAgADeQADOwQ" 
+        if not data: return
 
         item_id = f"itm_{int(time.time())}"
         data.update({'vendor_id': user_id, 'id': item_id, 'status': 'available'})
 
-        # በቬንደሩ ስር እቃውን ሴቭ ማድረግ
+        if user_id not in db['vendors_list']:
+             return bot.answer_callback_query(call.id, "❌ መረጃዎ አልተገኘም!", show_alert=True)
+
         if 'items' not in db['vendors_list'][user_id]:
             db['vendors_list'][user_id]['items'] = {}
-        db['vendors_list'][user_id]['items'][item_id] = data
         
+        db['vendors_list'][user_id]['items'][item_id] = data
         save_data(db)
+        
         bot.answer_callback_query(call.id, f"✅ {data['name']} ተመዝግቧል!", show_alert=True)
         bot.delete_message(chat_id, msg_id)
         item_creation_temp.pop(user_id, None)
@@ -1271,7 +1277,7 @@ def handle_item_creation(call):
         item_creation_temp.pop(user_id, None)
         bot.delete_message(chat_id, msg_id)
 
-# --- 7. ረዳት ፋንክሽኖች (Next Step Handlers) ---
+# --- 7. ረዳት ፋንክሽኖች ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith("u_"))
 def save_temp_unit(call):
     user_id = str(call.from_user.id)
@@ -1280,40 +1286,46 @@ def save_temp_unit(call):
 
 def save_temp_name(message, card_msg_id):
     user_id = str(message.from_user.id)
-    bot.delete_message(message.chat.id, message.message_id)
+    try: bot.delete_message(message.chat.id, message.message_id)
+    except: pass
     item_creation_temp[user_id]['name'] = message.text
     refresh_card(message.chat.id, card_msg_id, user_id)
 
 def save_temp_price(message, card_msg_id):
     user_id = str(message.from_user.id)
     if not message.text.isdigit():
-        msg = bot.send_message(message.chat.id, "⚠️ ቁጥር ብቻ ያስገቡ፦")
+        msg = bot.send_message(message.chat.id, "⚠️ ዋጋ በቁጥር ብቻ ይሁን፦")
         return bot.register_next_step_handler(msg, save_temp_price, card_msg_id)
-    bot.delete_message(message.chat.id, message.message_id)
+    try: bot.delete_message(message.chat.id, message.message_id)
+    except: pass
     item_creation_temp[user_id]['price'] = message.text
     refresh_card(message.chat.id, card_msg_id, user_id)
 
 def save_temp_photo(message, card_msg_id):
     user_id = str(message.from_user.id)
     if message.content_type != 'photo':
-        bot.send_message(message.chat.id, "⚠️ እባክዎ ፎቶ ብቻ ይላኩ።")
-        return 
-    bot.delete_message(message.chat.id, message.message_id)
+        msg = bot.send_message(message.chat.id, "⚠️ እባክዎ ፎቶ ይላኩ፦")
+        return bot.register_next_step_handler(msg, save_temp_photo, card_msg_id)
+    
+    try: bot.delete_message(message.chat.id, message.message_id)
+    except: pass
+    
     item_creation_temp[user_id]['photo'] = message.photo[-1].file_id
     bot.delete_message(message.chat.id, card_msg_id)
+    
     text, markup = render_item_card(user_id)
     bot.send_photo(message.chat.id, item_creation_temp[user_id]['photo'], caption=text, reply_markup=markup, parse_mode="Markdown")
 
 def refresh_card(chat_id, message_id, user_id):
     text, markup = render_item_card(user_id)
-    data = item_creation_temp.get(user_id, {})
+    data = item_creation_temp.get(str(user_id), {})
     try:
         if data.get('photo') == "no_photo":
             bot.edit_message_text(text, chat_id, message_id, reply_markup=markup, parse_mode="Markdown")
         else:
             bot.edit_message_caption(text, chat_id, message_id, reply_markup=markup, parse_mode="Markdown")
-    except: pass
-
+    except Exception as e:
+        print(f"Refresh Card Error: {e}")
 
 
 
