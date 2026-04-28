@@ -1626,7 +1626,7 @@ def start_add_vendor(call):
     bot.edit_message_text("📂 ለድርጅቱ ምድብ (ዘርፍ) ይምረጡ፦", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
 # 2. ምድብ ከተመረጠ በኋላ ID መጠየቂያ
-@bot.callback_query_handler(func=lambda @bot.callback_query_handler(func=lambda call: call.data.startswith("sel_cat_v:"))
+@bot.callback_query_handler(func=lambda call: call.data.startswith("sel_cat_v:"))
 def get_id_after_cat(call):
     # ✅ እዚህ ጋርም ጨምርበት (ምድቡን በትክክል እንዲያውቅ)
     actual_cat = call.data.split(":") 
