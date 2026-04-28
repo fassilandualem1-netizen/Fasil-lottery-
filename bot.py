@@ -21,6 +21,8 @@ app = Flask(__name__) # ስሙን 'app' ብንለው ይሻላል
 # --- 1. ጊዜያዊ ዳታ መያዣዎች (ከኮድህ መጀመሪያ ላይ ይሁኑ) ---
 item_creation_data = {} 
 temp_topup_data = {}
+admin_temp_registration = {}
+
 
 # --- 2. ሁሉንም ነገር Reset ማድረጊያ ፋንክሽን ---
 def reset_user_state(user_id):
@@ -1171,7 +1173,6 @@ def render_item_card(user_id):
     )
     markup.add(types.InlineKeyboardButton("📸 ፎቶ ጨምር", callback_data="set_photo"))
 
-    # ሁሉም ከተሞላ ብቻ 'መዝግብ' በተን ይታያል
     if data['name'] and data['price'] and data['unit'] and data['category']:
         markup.add(types.InlineKeyboardButton("✅ አሁኑኑ መዝግብ", callback_data="final_save_item"))
 
@@ -1184,21 +1185,16 @@ def handle_category_selection(call):
     user_id = str(call.from_user.id)
     db = load_data()
 
-    # የቬንደሩን ዋና ዘርፍ ማግኘት
     vendor_main_cat = db.get('vendors_list', {}).get(user_id, {}).get('category')
 
-    # ✅ ዳታው በሊስት መልክ ከመጣ ወደ ጽሁፍ ይቀይረዋል
-    if isinstance(vendor_main_cat, list) and len(vendor_main_cat) > 0:
-        vendor_main_cat = vendor_main_cat
-    elif isinstance(vendor_main_cat, list):
-        vendor_main_cat = None
+    # ✅ ዳታው በሊስት መልክ ቢመጣም የመጀመሪያውን ጽሁፍ እንዲወስድ (Fixed)
+    if isinstance(vendor_main_cat, list):
+        vendor_main_cat = vendor_main_cat if len(vendor_main_cat) > 0 else None
 
     if not vendor_main_cat:
-        return bot.answer_callback_query(call.id, "❌ የድርጅትዎ ዋና ምድብ አልተገኘም! አድሚን ጋር ድጋሚ ይመዝገቡ።", show_alert=True)
+        return bot.answer_callback_query(call.id, "❌ የድርጅትዎ ዋና ምድብ አልተገኘም!", show_alert=True)
 
-    # ከ SUB_CATEGORIES ውስጥ ንዑስ ምድቦችን መፈለግ
     subs = SUB_CATEGORIES.get(vendor_main_cat)
-
     if not subs:
         return bot.answer_callback_query(call.id, f"⚠️ ለ '{vendor_main_cat}' ንዑስ ምድብ አልተዘጋጀም።", show_alert=True)
 
@@ -1214,7 +1210,7 @@ def handle_category_selection(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("save_sub:"))
 def save_sub_category(call):
     user_id = str(call.from_user.id)
-    # ✅ ስህተቱ እዚህ ነበር፤ ተጨምሯል
+    # ✅ ስህተቱ እዚህ ነበር ተጨምሯል (Fixed)
     try:
         sub_cat = call.data.split(":")
     except IndexError:
@@ -1235,15 +1231,12 @@ def handle_item_creation(call):
 
     if call.data == "refresh_card_only":
         refresh_card(chat_id, msg_id, user_id)
-
     elif call.data == "set_name":
         msg = bot.send_message(chat_id, "🔤 የእቃውን ስም ይጻፉ፦")
         bot.register_next_step_handler(msg, save_temp_name, msg_id)
-
     elif call.data == "set_price":
         msg = bot.send_message(chat_id, "💰 ዋጋውን በቁጥር ብቻ ያስገቡ፦")
         bot.register_next_step_handler(msg, save_temp_price, msg_id)
-
     elif call.data == "set_unit":
         u_markup = types.InlineKeyboardMarkup(row_width=2)
         u_markup.add(
@@ -1253,32 +1246,24 @@ def handle_item_creation(call):
             types.InlineKeyboardButton("1 Pack", callback_data="u_Pack")
         )
         bot.edit_message_text("📏 መመዘኛውን ይምረጡ፦", chat_id, msg_id, reply_markup=u_markup)
-
     elif call.data == "set_photo":
         msg = bot.send_message(chat_id, "📸 የእቃውን ፎቶ ይላኩ፦")
         bot.register_next_step_handler(msg, save_temp_photo, msg_id)
-
     elif call.data == "final_save_item":
         db = load_data()
         data = item_creation_temp.get(user_id)
         if not data: return
-
         item_id = f"itm_{int(time.time())}"
         data.update({'vendor_id': user_id, 'id': item_id, 'status': 'available'})
-
         if user_id not in db['vendors_list']:
              return bot.answer_callback_query(call.id, "❌ መረጃዎ አልተገኘም!", show_alert=True)
-
         if 'items' not in db['vendors_list'][user_id]:
             db['vendors_list'][user_id]['items'] = {}
-        
         db['vendors_list'][user_id]['items'][item_id] = data
         save_data(db)
-        
         bot.answer_callback_query(call.id, f"✅ {data['name']} ተመዝግቧል!", show_alert=True)
         bot.delete_message(chat_id, msg_id)
         item_creation_temp.pop(user_id, None)
-
     elif call.data == "cancel_item":
         bot.clear_step_handler_by_chat_id(chat_id)
         item_creation_temp.pop(user_id, None)
@@ -1313,13 +1298,10 @@ def save_temp_photo(message, card_msg_id):
     if message.content_type != 'photo':
         msg = bot.send_message(message.chat.id, "⚠️ እባክዎ ፎቶ ይላኩ፦")
         return bot.register_next_step_handler(msg, save_temp_photo, card_msg_id)
-    
     try: bot.delete_message(message.chat.id, message.message_id)
     except: pass
-    
     item_creation_temp[user_id]['photo'] = message.photo[-1].file_id
     bot.delete_message(message.chat.id, card_msg_id)
-    
     text, markup = render_item_card(user_id)
     bot.send_photo(message.chat.id, item_creation_temp[user_id]['photo'], caption=text, reply_markup=markup, parse_mode="Markdown")
 
@@ -1332,7 +1314,7 @@ def refresh_card(chat_id, message_id, user_id):
         else:
             bot.edit_message_caption(text, chat_id, message_id, reply_markup=markup, parse_mode="Markdown")
     except Exception as e:
-        print(f"Refresh Card Error: {e}")
+        pass
 
 
 
@@ -1340,7 +1322,8 @@ def refresh_card(chat_id, message_id, user_id):
 
 
 
-# 1. የራይደር ምዝገባ መጀመሪያ
+
+
 # 1. የራይደር ምዝገባ መጀመሪያ
 @command_breaker
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_rider")
@@ -1651,7 +1634,6 @@ def start_add_vendor(call):
 
     markup = types.InlineKeyboardMarkup(row_width=2)
     for cat in categories:
-        # callback_data ላይ 'sel_cat_v:' መሆኑን እርግጠኛ ሁን
         markup.add(types.InlineKeyboardButton(cat, callback_data=f"sel_cat_v:{cat}"))
 
     bot.edit_message_text("📂 ለድርጅቱ ምድብ (ዘርፍ) ይምረጡ፦", call.message.chat.id, call.message.message_id, reply_markup=markup)
@@ -1659,9 +1641,8 @@ def start_add_vendor(call):
 # 2. ምድብ ከተመረጠ በኋላ ID መጠየቂያ
 @bot.callback_query_handler(func=lambda call: call.data.startswith("sel_cat_v:"))
 def get_id_after_cat(call):
-    # ✅ ትልቅ ስህተት እዚህ ነበር፡ መጨመር አለበት
-    # ከዚህ በፊት actual_cat የሚሆነው ['sel_cat_v', '🛍️ ሱፐርማርኬት'] ነበር
-    # አሁን ግን '🛍️ ሱፐርማርኬት' ብቻ ይሆናል
+    # ✅ ትክክለኛው ማስተካከያ፡ መጨመር አለበት
+    # ይህ 'sel_cat_v:🛍️ ሱፐርማርኬት' የሚለውን ቆርጦ '🛍️ ሱፐርማርኬት' ብቻ ያደርገዋል
     actual_cat = call.data.split(":") 
 
     msg = bot.send_message(call.message.chat.id, f"🆔 የ[{actual_cat}] ባለቤት Telegram ID (ቁጥር) ያስገቡ፦\n\n(ለመሰረዝ /start ይበሉ)")
@@ -1677,7 +1658,7 @@ def process_vendor_id(message, actual_cat):
         return bot.register_next_step_handler(msg, process_vendor_id, actual_cat)
 
     v_id = text
-    msg = bot.send_message(message.chat.id, "🏢 የድርጅቱን ስም (ንግድ ስም) ያስገቡ፦")
+    msg = bot.send_message(message.chat.id, "🏢 የድርጅቱን ስም ያስገቡ፦")
     bot.register_next_step_handler(msg, process_vendor_name, v_id, actual_cat)
 
 # 4. ስም መቀበያ
@@ -1693,17 +1674,19 @@ def save_new_vendor(message, v_id, v_name, actual_cat):
     v_phone = message.text.strip()
     if v_phone == "/start": return bot.send_message(message.chat.id, "⚠️ የምዝገባ ሂደት ተቋርጧል።")
 
+    # ✅ ዳታቤዝ ውስጥ ከመግባቱ በፊት ዳታው ሊስት ከሆነ እንዲያጠራው እናረጋግጥ
+    # ይህ ለጥንቃቄ ነው
+    if isinstance(actual_cat, list):
+        # ሊስት ሆኖ ከመጣ የመጀመሪያውን ወይም ሁለተኛውን ንጹህ ጽሁፍ ይወስዳል
+        actual_cat = actual_cat if len(actual_cat) > 1 else actual_cat
+
     db = load_data()
     if 'vendors_list' not in db: db['vendors_list'] = {}
-
-    # ✅ ዳታው ዳታቤዝ ውስጥ ከመግባቱ በፊት ለጥንቃቄ እንደገና ቼክ ይደረጋል
-    if isinstance(actual_cat, list):
-        actual_cat = actual_cat if len(actual_cat) > 1 else actual_cat
 
     db['vendors_list'][str(v_id)] = {
         "name": v_name,
         "phone": v_phone,
-        "category": actual_cat,
+        "category": str(actual_cat), # ✅ ሁሌም ጽሁፍ መሆኑን ለማረጋገጥ str() ጨምሬያለሁ
         "status": "active",
         "deposit_balance": 0,
         "items": {}, 
@@ -1711,8 +1694,10 @@ def save_new_vendor(message, v_id, v_name, actual_cat):
     }
 
     save_data(db)
-    # አሁን እዚህ ጋር ያ ቅንፍ ['...'] መጥፋት አለበት!
+    
+    # አሁን እዚህ መልዕክት ላይ ቅንፉ ይጠፋል
     bot.send_message(message.chat.id, f"✅ **ድርጅት ተመዝግቧል!**\n\n🏢 ስም፦ {v_name}\n🆔 ID፦ {v_id}\n📁 ዘርፍ፦ {actual_cat}\n📞 ስልክ፦ {v_phone}")
+
 
 
 
@@ -1724,20 +1709,24 @@ def save_new_vendor(message, v_id, v_name, actual_cat):
 @bot.callback_query_handler(func=lambda call: call.data == "admin_view_categories")
 def admin_categories_menu(call):
     db = load_data()
-    # 'categories' የሚባል ቁልፍ ዳታቤዝ ውስጥ መኖሩን ቼክ ያደርጋል
     cats = db.get('categories', [])
 
-    text = "📁 **የተመዘገቡ የምድብ አይነቶች**\n\n"
+    text = "📁 **የተመዘገቡ የምድብ አይነቶች**\n"
+    text += "━━━━━━━━━━━━━━━\n\n"
+    
     if not cats:
-        text += "ገና ምንም ምድብ አልተመዘገበም። እባክዎ አዲስ ምድብ ይጨምሩ።"
+        text += "ገና ምንም ምድብ አልተመዘገበም።"
     else:
         for i, c in enumerate(cats, 1):
             text += f"{i}. {c}\n"
 
-    markup = types.InlineKeyboardMarkup()
-    # ወጥ የሆነ Callback ዳታ 'admin_add_cat' እንጠቀማለን
-    markup.add(types.InlineKeyboardButton("➕ አዲስ ምድብ ጨምር", callback_data="admin_add_cat"))
-    markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
+    text += "\n⚠️ *ማሳሰቢያ፦ እዚህ የሚመዘግቡት ስም 'SUB_CATEGORIES' ውስጥ ካለው ጋር አንድ መሆን አለበት።*"
+
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        types.InlineKeyboardButton("➕ አዲስ ምድብ ጨምር", callback_data="admin_add_cat"),
+        types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu")
+    )
 
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, 
                           reply_markup=markup, parse_mode="Markdown")
@@ -1745,35 +1734,35 @@ def admin_categories_menu(call):
 # --- 2. አዲስ የምድብ ስም መቀበያ ---
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_cat")
 def ask_category_name(call):
-    msg = bot.send_message(call.message.chat.id, "✏️ ለመጨመር የሚፈልጉትን የምድብ ስም ይጻፉ፦\n(ለምሳሌ፦ 🍔 ምግብ ቤት ወይም 🛍️ ሱፐርማርኬት)")
-    # ቀጣዩን ስቴፕ ወደ save_category_logic እንመራዋለን
+    # ተጠቃሚው ግራ እንዳይጋባ ያለውን መልዕክት አጥፍተን አዲስ እንልካለን
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+    msg = bot.send_message(call.message.chat.id, "✏️ ለመጨመር የሚፈልጉትን የምድብ ስም ይጻፉ፦\n\n💡 ምሳሌ፦ `🛍️ ሱፐርማርኬት` ወይም `🍴 ምግብ ቤት`")
     bot.register_next_step_handler(msg, save_category_logic)
 
 # --- 3. ምድቡን ዳታቤዝ ላይ የማስቀመጫ ሎጂክ ---
 def save_category_logic(message):
     new_cat = message.text.strip()
     
-    # ተጠቃሚው ትእዛዝ ከላከ ሂደቱን ማቆም
     if new_cat.startswith('/'):
         bot.send_message(message.chat.id, "⚠️ የምድብ ምዝገባ ተቋርጧል።")
         return
 
     db = load_data()
 
-    # 'categories' ሊስት መኖሩን ማረጋገጥ
     if 'categories' not in db:
         db['categories'] = []
 
-    # ምድቡ አስቀድሞ መኖሩን ቼክ ማድረግ
     if new_cat in db['categories']:
         bot.send_message(message.chat.id, f"⚠️ '{new_cat}' ቀደም ብሎ ተመዝግቧል።")
     else:
         db['categories'].append(new_cat)
         save_data(db)
-        bot.send_message(message.chat.id, f"✅ ምድብ '{new_cat}' በተሳካ ሁኔታ ተመዝግቧል።")
-
-    # ምዝገባው ካለቀ በኋላ ዝርዝሩን በድጋሚ እንዲያሳየው ከፈለግክ
-    # admin_view_categories_refresh(message.chat.id) መጥራት ትችላለህ
+        
+        # ስኬት መልዕክት ከነ በተኑ
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🔙 ወደ ዝርዝር ተመለስ", callback_data="admin_view_categories"))
+        bot.send_message(message.chat.id, f"✅ ምድብ **'{new_cat}'** በተሳካ ሁኔታ ተመዝግቧል!", 
+                         reply_markup=markup, parse_mode="Markdown")
 
 
 
