@@ -155,7 +155,7 @@ SUB_CATEGORIES = {
 }
 
 # ቬንደሩ መረጃውን ሞልቶ እስኪጨርስ በጊዜያዊነት የምንይዝበት
-temp_item_data = {} 
+item_creation_temp = {}  
 
 
 
@@ -1115,16 +1115,7 @@ def finalize_vendor_accounting(order_id):
 
 
 
-# --- 1. የንዑስ ምድብ ዝርዝር (ከላይ መኖሩን እርግጠኛ ሁን) ---
-SUB_CATEGORIES = {
-    "ምግብ ቤት": ["የፍስክ ምግቦች", "የፆም ምግቦች", "ፈጣን ምግቦች", "ፓስታና መኮሮኒ", "የባህል ምግቦች", "መጠጥ"],
-    "ሱፐርማርኬት": ["አትክልትና ፍራፍሬ", "የታሸጉ ምግቦች", "የወተት ተዋጽኦ", "የንጽህና እቃዎች", "ቅመማ ቅመም"],
-    "መጠጥ": ["ቢራ", "ለስላሳ መጠጦች", "ወይንና ውስኪ", "ጁስና የታሸገ ውሃ"],
-    "ፋርማሲ": ["የህመም ማስታገሻ", "የህጻናት እቃዎች", "የመጀመሪያ እርዳታ", "ቪታሚኖች"],
-    "ኮስሞቲክስ": ["ሽቶ", "ሜካፕ", "የቆዳ እንክብካቤ", "የፀጉር እቃዎች"]
-}
 
-item_creation_temp = {} 
 
 def get_empty_item_data():
     return {
@@ -1200,14 +1191,16 @@ def handle_category_selection(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("save_sub:"))
 def save_sub_category(call):
     user_id = str(call.from_user.id)
-    # ማስተካከያ፡ split ካደረግን በኋላ ሁለተኛውን እንወስዳለን
-    sub_cat = call.data.split(":")
+    
+    # ✅ እዚህ ጋር መኖሩን እርግጠኛ ሁን። ያቺን ቃል ብቻ እንዲወስድ ያደርጋል
+    sub_cat = call.data.split(":") 
 
     if user_id not in item_creation_temp:
         item_creation_temp[user_id] = get_empty_item_data()
 
     item_creation_temp[user_id]['category'] = sub_cat
     refresh_card(call.message.chat.id, call.message.message_id, user_id)
+
 
 # --- 6. የካርድ በተኖች Handler (ስም፣ ዋጋ፣ ዩኒት...) ---
 @bot.callback_query_handler(func=lambda call: call.data in ["set_name", "set_price", "set_unit", "set_photo", "final_save_item", "cancel_item", "refresh_card_only"])
@@ -1633,10 +1626,10 @@ def start_add_vendor(call):
     bot.edit_message_text("📂 ለድርጅቱ ምድብ (ዘርፍ) ይምረጡ፦", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
 # 2. ምድብ ከተመረጠ በኋላ ID መጠየቂያ
-@bot.callback_query_handler(func=lambda call: call.data.startswith("sel_cat_v:"))
+@bot.callback_query_handler(func=lambda @bot.callback_query_handler(func=lambda call: call.data.startswith("sel_cat_v:"))
 def get_id_after_cat(call):
-    # ✅ ስህተቱ እዚህ ነበር፤ split አድርገን index 1 መውሰድ አለብን
-    actual_cat = call.data.split(":")
+    # ✅ እዚህ ጋርም ጨምርበት (ምድቡን በትክክል እንዲያውቅ)
+    actual_cat = call.data.split(":") 
 
     msg = bot.send_message(call.message.chat.id, f"🆔 የ[{actual_cat}] ባለቤት Telegram ID (ቁጥር) ያስገቡ፦\n\n(ለመሰረዝ /start ይበሉ)")
     bot.register_next_step_handler(msg, process_vendor_id, actual_cat)
