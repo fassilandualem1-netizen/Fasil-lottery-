@@ -1197,19 +1197,6 @@ def handle_item_creation(call):
         
         bot.edit_message_text("📁 እባክዎ የምድብ አይነት ይምረጡ፦", chat_id, msg_id, reply_markup=c_markup)
 
-# --- ይህ ደግሞ የተቀየረው የሴቭ ማድረጊያ ፋንክሽን ---
-@bot.callback_query_handler(func=lambda call: call.data.startswith("cat_"))
-def save_temp_category(call):
-    user_id = str(call.from_user.id)
-    if user_id not in item_creation_temp: 
-        item_creation_temp[user_id] = get_empty_item_data()
-    
-    # የተመረጠውን ምድብ ስም ይይዛል
-    selected_cat = call.data.replace("cat_", "")
-    item_creation_temp[user_id]['category'] = selected_cat
-    
-    # ምድቡን መርጦ እንደጨረሰ ወዲያውኑ ወደ ካርዱ ይመልሰዋል
-    refresh_card(call.message.chat.id, call.message.message_id, user_id)
 
 
     elif call.data == "set_photo":
@@ -1250,13 +1237,19 @@ def save_temp_unit(call):
     item_creation_temp[user_id]['unit'] = call.data.replace("u_", "")
     refresh_card(call.message.chat.id, call.message.message_id, user_id)
 
-# --- የተቀሩት Helper Functions ---
 
+# --- ይህ ደግሞ የተቀየረው የሴቭ ማድረጊያ ፋንክሽን ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith("cat_"))
 def save_temp_category(call):
     user_id = str(call.from_user.id)
-    if user_id not in item_creation_temp: item_creation_temp[user_id] = get_empty_item_data()
-    item_creation_temp[user_id]['category'] = call.data.replace("cat_", "")
+    if user_id not in item_creation_temp: 
+        item_creation_temp[user_id] = get_empty_item_data()
+    
+    # የተመረጠውን ምድብ ስም ይይዛል
+    selected_cat = call.data.replace("cat_", "")
+    item_creation_temp[user_id]['category'] = selected_cat
+    
+    # ምድቡን መርጦ እንደጨረሰ ወዲያውኑ ወደ ካርዱ ይመልሰዋል
     refresh_card(call.message.chat.id, call.message.message_id, user_id)
 
 def save_temp_name(message, card_msg_id):
