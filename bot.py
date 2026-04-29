@@ -1226,17 +1226,34 @@ def handle_category_selection(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("save_sub:"))
 def save_sub_category(call):
     user_id = str(call.from_user.id)
-    # ✅ ስህተቱ እዚህ ነበር ተጨምሯል (Fixed)
-    try:
-        sub_cat = call.data.split(":")
-    except IndexError:
-        return
+    
+    # 1. መጀመሪያ ዳታውን እንቀበላለን
+    raw_data = call.data
+    
+    # 2. ✅ FORCE CLEANUP: 'save_sub:' የሚለውን አጥፍቶ ንጹህ ጽሁፉን ብቻ መውሰድ
+    # split ብቻውን ሊስት ስለሚፈጥር እኛ በቀጥታ ጽሁፉን እንነጥላለን
+    if ":" in raw_data:
+        sub_cat = raw_data.split(":")
+    else:
+        sub_cat = raw_data
 
+    # 3. ለበለጠ ጥንቃቄ፡ ማንኛውንም አይነት ቅንፍ ወይም ኮቴ በሃይል እናጠፋለን
+    import re
+    sub_cat = re.sub(r"[\[\]']", "", str(sub_cat)).strip()
+
+    # 4. በጊዜያዊ ማህደረ ትውስታ ውስጥ ማስቀመጥ
     if user_id not in item_creation_temp:
         item_creation_temp[user_id] = get_empty_item_data()
 
+    # አሁን 'sub_cat' ንጹህ ጽሁፍ (ለምሳሌ፦ "ቁርስ") ብቻ ነው
     item_creation_temp[user_id]['category'] = sub_cat
+
+    # 5. ውጤቱን ለቬንደሩ በትንሽ መልዕክት ማሳየት
+    bot.answer_callback_query(call.id, f"✅ ምድብ፦ {sub_cat} ተመርጧል")
+
+    # 6. ካርዱን ማደስ
     refresh_card(call.message.chat.id, call.message.message_id, user_id)
+
 
 # --- 6. የካርድ በተኖች Handler ---
 @bot.callback_query_handler(func=lambda call: call.data in ["set_name", "set_price", "set_unit", "set_photo", "final_save_item", "cancel_item", "refresh_card_only"])
