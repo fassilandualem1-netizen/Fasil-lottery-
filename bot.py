@@ -1227,29 +1227,30 @@ def handle_category_selection(call):
 def save_sub_category(call):
     user_id = str(call.from_user.id)
     
-    # 1. መጀመሪያ ዳታውን እንቀበላለን
-    raw_data = call.data
-    
-    # 2. ✅ FORCE CLEANUP: 'save_sub:' የሚለውን አጥፍቶ ንጹህ ጽሁፉን ብቻ መውሰድ
-    # split ብቻውን ሊስት ስለሚፈጥር እኛ በቀጥታ ጽሁፉን እንነጥላለን
-    if ":" in raw_data:
-        sub_cat = raw_data.split(":")
+    # 1. ጽሁፉን ብቻ ነጥሎ መውሰድ (Force Selection)
+    # 'save_sub:የፆም ምግቦች' ከሆነ 'የፆም ምግቦች'ን ብቻ ይወስዳል
+    raw_data = call.data.split(":")
+    if len(raw_data) > 1:
+        clean_sub = raw_data # ሁለተኛውን ክፍል ብቻ
     else:
-        sub_cat = raw_data
+        clean_sub = raw_data
 
-    # 3. ለበለጠ ጥንቃቄ፡ ማንኛውንም አይነት ቅንፍ ወይም ኮቴ በሃይል እናጠፋለን
+    # 2. ለበለጠ እርግጠኝነት ማንኛውንም ምልክት በሃይል እናጥፋ (Regex Force)
     import re
-    sub_cat = re.sub(r"[\[\]']", "", str(sub_cat)).strip()
+    clean_sub = re.sub(r"[\[\]']", "", str(clean_sub)).strip()
+
+    # 3. ዳታቤዝ ውስጥ ከመግባቱ በፊት 'save_sub' የሚል ጽሁፍ መኖሩን ቼክ አድርጎ ማጥፋት
+    clean_sub = clean_sub.replace("save_sub", "").replace(",", "").strip()
 
     # 4. በጊዜያዊ ማህደረ ትውስታ ውስጥ ማስቀመጥ
     if user_id not in item_creation_temp:
         item_creation_temp[user_id] = get_empty_item_data()
 
-    # አሁን 'sub_cat' ንጹህ ጽሁፍ (ለምሳሌ፦ "ቁርስ") ብቻ ነው
-    item_creation_temp[user_id]['category'] = sub_cat
+    # አሁን clean_sub ፍጹም ንጹህ ጽሁፍ ነው
+    item_creation_temp[user_id]['category'] = clean_cat = clean_sub
 
-    # 5. ውጤቱን ለቬንደሩ በትንሽ መልዕክት ማሳየት
-    bot.answer_callback_query(call.id, f"✅ ምድብ፦ {sub_cat} ተመርጧል")
+    # 5. ቦቱ በተኑ ላይ ትንሽ ምልክት እንዲያሳይ
+    bot.answer_callback_query(call.id, f"✅ {clean_sub} ተመርጧል")
 
     # 6. ካርዱን ማደስ
     refresh_card(call.message.chat.id, call.message.message_id, user_id)
