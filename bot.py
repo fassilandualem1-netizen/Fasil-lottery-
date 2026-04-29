@@ -1928,119 +1928,74 @@ def send_broadcast_messages(message):
 
 
 
-@bot.callback_query_handler(func=lambda call: call.data == "admin_rider_status")
-def view_riders_status(call):
+@bot.callback_query_handler(func=lambda call: call.data == "admin_list_drivers")
+def list_only_drivers(call):
     try:
         db = load_data()
         riders = db.get('riders_list', {})
-        
-        if not riders:
-            markup = types.InlineKeyboardMarkup()
-            markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_main_menu"))
-            return bot.edit_message_text("⚠️ እስካሁን ምንም ራይደር አልተመዘገበም።", 
-                                        call.message.chat.id, 
-                                        call.message.message_id, 
-                                        reply_markup=markup)
 
-        report = "🛵 **የራይደሮች ሁኔታ ዝርዝር**\n\n"
-        
-        online_count = 0
-        for r_id, info in riders.items():
-            # ሁኔታውን በኢሞጂ ለማሳየት
-            status = info.get('status', 'offline')
-            is_active = info.get('is_active', True)
-            
-            status_icon = "🟢" if status == "online" else "🔴"
-            if status == "online": online_count += 1
-            
-            active_icon = "✅ ንቁ" if is_active else "🚫 የታገደ"
-            
-            report += f"{status_icon} **{info['name']}**\n"
-            report += f"   🆔 ID: `{r_id}`\n"
-            report += f"   💳 ዋሌት: `{info.get('wallet', 0)}` ብር\n"
-            report += f"   🔒 ሁኔታ: {active_icon}\n"
-            report += "------------------------\n"
-        
-        report += f"\n📊 ጠቅላላ ራይደሮች፦ {len(riders)}\n✅ አሁን ኦንላይን፦ {online_count}"
+        report = "🛵 **የተመዘገቡ ራይደሮች (Drivers)**\n"
+        report += "━━━━━━━━━━━━━━━━━━━━\n\n"
+
+        if not riders:
+            report += "⚠️ እስካሁን ምንም ራይደር አልተመዘገበም።"
+        else:
+            for r_id, info in riders.items():
+                status_icon = "🟢" if info.get('status') == "online" else "🔴"
+                report += (
+                    f"{status_icon} **{info.get('name', 'N/A')}**\n"
+                    f"   📞 ስልክ፦ `{info.get('phone', 'N/A')}`\n"
+                    f"   💳 ዋሌት፦ `{info.get('wallet', 0)}` ብር\n"
+                    f"   🔒 ሁኔታ፦ {'✅ ንቁ' if info.get('is_active', True) else '🚫 የታገደ'}\n"
+                    f"   🆔 ID፦ `{r_id}`\n"
+                    f"------------------------\n"
+                )
 
         markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("🔄 አድስ", callback_data="admin_rider_status"))
-        markup.add(types.InlineKeyboardButton("🔙 ወደ ኋላ", callback_data="admin_main_menu"))
+        markup.add(types.InlineKeyboardButton("🔙 ወደ ዋናው ሜኑ", callback_data="admin_main_menu"))
 
-        bot.edit_message_text(report, 
-                             call.message.chat.id, 
-                             call.message.message_id, 
-                             reply_markup=markup, 
-                             parse_mode="Markdown")
-                             
+        bot.edit_message_text(report, call.message.chat.id, call.message.message_id, 
+                             reply_markup=markup, parse_mode="Markdown")
     except Exception as e:
-        print(f"Rider Status Error: {e}")
-        bot.answer_callback_query(call.id, "❌ መረጃውን መጫን አልተቻለም።")
+        print(f"Driver List Error: {e}")
+
 
 
 
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_list_vendors")
-def list_all_entities(call):
+def list_only_vendors(call):
     try:
         db = load_data()
         vendors = db.get('vendors_list', {})
-        riders = db.get('riders_list', {})
-        
-        # ርዕስ
-        report = "📋 **BDF የተመዘገቡ አካላት ዝርዝር**\n"
+
+        report = "🏢 **የተመዘገቡ ድርጅቶች (Vendors)**\n"
         report += "━━━━━━━━━━━━━━━━━━━━\n\n"
-        
-        # 🏢 የድርጅቶች (Vendors) ዝርዝር
-        report += "🏢 **የድርጅቶች ዝርዝር (Vendors)**\n"
+
         if not vendors:
-            report += "_👉 እስካሁን ምንም ድርጅት አልተመዘገበም_\n"
+            report += "⚠️ እስካሁን ምንም ድርጅት አልተመዘገበም።"
         else:
             for v_id, info in vendors.items():
-                # ምድቡን ማጽዳት (Tuple/List ከሆነ ወደ String ይቀይረዋል)
                 cat = info.get('category', 'ምድብ የሌለው')
-                if isinstance(cat, (list, tuple)):
-                    cat = cat[-1] # ንጹህ ስሙን ብቻ ይወስዳል
-                
-                # አቀራረብ
-                report += f"🔹 **{info.get('name', 'ስም የሌለው')}**\n"
-                report += f"   📁 ምድብ፦ `{cat}`\n"
-                report += f"   🆔 ID፦ `{v_id}`\n"
-                report += f"   💰 ባላንስ፦ `{info.get('deposit_balance', 0)}` ብር\n"
-                report += "------------------------\n"
+                if isinstance(cat, (list, tuple)): cat = cat[-1]
 
-        report += "\n" # ክፍተት
-        
-        # 🛵 የራይደሮች (Drivers) ዝርዝር
-        report += "🛵 **የራይደሮች ዝርዝር (Drivers)**\n"
-        if not riders:
-            report += "_👉 እስካሁን ምንም ራይደር አልተመዘገበም_\n"
-        else:
-            for r_id, info in riders.items():
-                # ሁኔታ (Online/Offline)
-                status_icon = "🟢" if info.get('status') == "online" else "🔴"
-                
-                report += f"{status_icon} **{info.get('name', 'ስም የሌለው')}**\n"
-                report += f"   🆔 ID፦ `{r_id}`\n"
-                report += f"   💳 ዋሌት፦ `{info.get('wallet', 0)}` ብር\n"
-                report += "------------------------\n"
+                report += (
+                    f"🏢 **{info.get('name', 'N/A')}**\n"
+                    f"   📞 ስልክ፦ `{info.get('phone', 'N/A')}`\n"
+                    f"   📁 ምድብ፦ `{cat}`\n"
+                    f"   💰 ባላንስ፦ `{info.get('deposit_balance', 0)}` ብር\n"
+                    f"   🆔 ID፦ `{v_id}`\n"
+                    f"------------------------\n"
+                )
 
-        # የመመለሻ በተን
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("🔙 ወደ ዋናው ሜኑ", callback_data="admin_main_menu"))
-        
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=report,
-            reply_markup=markup,
-            parse_mode="Markdown"
-        )
-        
+
+        bot.edit_message_text(report, call.message.chat.id, call.message.message_id, 
+                             reply_markup=markup, parse_mode="Markdown")
     except Exception as e:
-        print(f"List Display Error: {e}")
-        bot.answer_callback_query(call.id, "❌ ዝርዝሩን ማሳየት አልተቻለም።")
+        print(f"Vendor List Error: {e}")
 
 
 
