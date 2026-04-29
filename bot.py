@@ -1185,41 +1185,41 @@ def handle_category_selection(call):
     user_id = str(call.from_user.id)
     db = load_data()
 
-    # 1. ዳታውን ከዳታቤዝ እናገኛለን
+    # 1. የቬንደሩን ዋና ዘርፍ ከዳታቤዝ እናገኛለን
     vendor_raw_cat = db.get('vendors_list', {}).get(user_id, {}).get('category')
 
-    # 2. FORCE CLEANUP: ቅንፍን፣ ኮቴን እና ትርፍ ባዶ ቦታን (Space) እናጠፋለን
+    # 2. FORCE CLEANUP: ቅንፍን፣ ኮቴን እና ትርፍ ባዶ ቦታን በሃይል እናጠፋለን
     import re
-    # ማንኛውንም ጽሁፍ ያልሆነ ምልክት (ከኢሞጂ ውጭ) እናጸዳለን
     clean_name = re.sub(r"[\[\]']", "", str(vendor_raw_cat)).strip()
-    
-    # 3. በ SUB_CATEGORIES ውስጥ ያለውን ቁልፍ (Key) ፈልጎ ከ clean_name ጋር ማመሳሰል
-    # ይህ በspace ምክንያት የሚመጣን ስህተት ይከላከላል
+
+    # 3. በ SUB_CATEGORIES ውስጥ ተዛማጁን ዘርፍ መፈለግ
+    # '🍴 ምግብ ቤት' እና '🍴ምግብ ቤት' አንድ አይነት መሆናቸውን በSpace-Insensitive መንገድ ያረጋግጣል
     matched_key = None
     for key in SUB_CATEGORIES.keys():
-        # ባዶ ቦታን አጥፍተን እናነጻጽራለን (ለምሳሌ "🍴ምግብቤት" == "🍴ምግብቤት")
         if key.replace(" ", "") == clean_name.replace(" ", ""):
             matched_key = key
             break
 
+    # ዘርፉ ካልተገኘ ለቬንደሩ ማስጠንቀቂያ ይሰጣል
     if not matched_key:
         return bot.answer_callback_query(call.id, f"⚠️ ለ '{clean_name}' ንዑስ ምድብ አልተዘጋጀም።", show_alert=True)
 
-    # 4. ንዑስ ምድቦችን ማውጣት
+    # 4. የዛኑ ዘርፍ ንዑስ ምድቦችን ብቻ ማውጣት
     subs = SUB_CATEGORIES.get(matched_key)
-    
+
     c_markup = types.InlineKeyboardMarkup(row_width=2)
     for sub in subs:
-        # callback_data ውስን ስለሆነ ስሙን አሳጥረን መላክ ይቻላል
-        c_markup.add(types.InlineKeyboardButton(sub, callback_data=f"save_sub:{sub[:15]}"))
+        # ✅ ማስተካከያ፦ [:15] መቁረጫው ተነስቷል፤ ሙሉውን ስም ለ save_sub ይልካል
+        c_markup.add(types.InlineKeyboardButton(sub, callback_data=f"save_sub:{sub}"))
 
     c_markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="refresh_card_only"))
-    
+
+    # 5. ለተጠቃሚው ማሳየት
+    msg_text = f"📁 የ [{matched_key}] ንዑስ ምድብ ይምረጡ፦"
     try:
-        bot.edit_message_text(f"📁 የ [{matched_key}] ንዑስ ምድብ ይምረጡ፦", 
-                              call.message.chat.id, call.message.message_id, reply_markup=c_markup)
+        bot.edit_message_text(msg_text, call.message.chat.id, call.message.message_id, reply_markup=c_markup)
     except:
-        bot.send_message(call.message.chat.id, f"📁 የ [{matched_key}] ንዑስ ምድብ ይምረጡ፦", reply_markup=c_markup)
+        bot.send_message(call.message.chat.id, msg_text, reply_markup=c_markup)
 
 
 # --- 5. የመረጥነውን ንዑስ ምድብ ሴቭ ማድረጊያ ---
