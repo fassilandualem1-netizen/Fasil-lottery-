@@ -710,42 +710,52 @@ def vendor_update_loc_start(call):
 def vendor_sales_history_handler(call):
     db = load_data()
     v_id = str(call.from_user.id)
-    
+
+    # ዳታውን ፊልተር ማድረግ
     completed_orders = [o for o in db.get('orders', []) 
                         if str(o.get('vendor_id')) == v_id and o.get('status') == 'completed']
-    
+
     if not completed_orders:
         return bot.answer_callback_query(call.id, "📊 እስካሁን የተጠናቀቀ ሽያጭ የለም።", show_alert=True)
 
-    # የሽያጭ ማጠቃለያ
-    total_sales = sum(float(o['total_price']) for o in completed_orders)
-    total_net = sum(float(o.get('net_to_vendor', o['total_price'])) for o in completed_orders)
+    # ስሌቶች
+    total_sales = sum(float(o.get('total_price', 0)) for o in completed_orders)
+    total_net = sum(float(o.get('net_to_vendor', o.get('total_price', 0))) for o in completed_orders)
 
     report_text = (
-        f"📈 **የሽያጭ ታሪክ ሪፖርት (GC)**\n"
+        f"📈 *የሽያጭ ታሪክ ሪፖርት (GC)*\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"🛍️ ጠቅላላ ትዕዛዞች፦ `{len(completed_orders)}`\n"
-        f"💰 ጠቅላላ የሽያጭ ዋጋ፦ `{total_sales:,.2f} ETB`\n"
-        f"💵 ለርስዎ የሚገባው (Net)፦ `{total_net:,.2f} ETB`\n"
+        f"💰 ጠቅላላ ሽያጭ፦ `{total_sales:,.2f} ETB`\n"
+        f"💵 የተጣራ ገቢ (Net)፦ `{total_net:,.2f} ETB`\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📜 **የመጨረሻዎቹ ዝርዝሮች፦**\n\n"
+        f"📜 *የመጨረሻዎቹ 5 ዝርዝሮች፦*\n\n"
     )
 
-    # የመጨረሻዎቹን 5 ዝርዝሮች ማሳየት
     for o in completed_orders[-5:]:
+        # ቼክ ለማድረግ እንዲመች
+        pay_status = "✅ የተከፈለ" if o.get('payment_status') == 'Paid' else "⏳ ያልተከፈለ"
         report_text += (
-            f"🆔 #{o['order_id']} | 📅 {o.get('completed_at', 'N/A')}\n"
+            f"🆔 `#{o['order_id']}` | 📅 {o.get('completed_at', 'N/A')}\n"
             f"💵 ዋጋ፦ {o['total_price']} ETB\n"
-            f"📉 ኮሚሽን፦ -{o.get('commission_taken', 0):,.2f}\n"
-            f"💳 ሁኔታ፦ {'✅ የተከፈለ' if o.get('payment_status') == 'Paid' else '⏳ ያልተከፈለ'}\n"
+            f"💳 ሁኔታ፦ {pay_status}\n"
             f"--------------------------\n"
         )
 
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🏠 ወደ ዳሽቦርድ", callback_data="go_to_main_start"))
-    
-    bot.edit_message_text(report_text, call.message.chat.id, call.message.message_id, 
-                          reply_markup=markup, parse_mode="Markdown")
+    markup = InlineKeyboardMarkup()
+    # "ወደ ኋላ" በተኑ በትክክል እንዲሰራ
+    markup.add(InlineKeyboardButton("⬅️ ወደ ኋላ ተመለስ", callback_data="go_to_main_start"))
+
+    try:
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=report_text,
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        print(f"Error updating message: {e}")
 
 
 
