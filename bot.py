@@ -1185,26 +1185,42 @@ def handle_category_selection(call):
     user_id = str(call.from_user.id)
     db = load_data()
 
-    vendor_main_cat = db.get('vendors_list', {}).get(user_id, {}).get('category')
+    # 1. ዳታውን ከዳታቤዝ እናገኛለን
+    vendor_raw_cat = db.get('vendors_list', {}).get(user_id, {}).get('category')
 
-    # ✅ ዳታው በሊስት መልክ ቢመጣም የመጀመሪያውን ጽሁፍ እንዲወስድ (Fixed)
-    if isinstance(vendor_main_cat, list):
-        vendor_main_cat = vendor_main_cat if len(vendor_main_cat) > 0 else None
+    # 2. FORCE CLEANUP: ቅንፍን፣ ኮቴን እና ትርፍ ባዶ ቦታን (Space) እናጠፋለን
+    import re
+    # ማንኛውንም ጽሁፍ ያልሆነ ምልክት (ከኢሞጂ ውጭ) እናጸዳለን
+    clean_name = re.sub(r"[\[\]']", "", str(vendor_raw_cat)).strip()
+    
+    # 3. በ SUB_CATEGORIES ውስጥ ያለውን ቁልፍ (Key) ፈልጎ ከ clean_name ጋር ማመሳሰል
+    # ይህ በspace ምክንያት የሚመጣን ስህተት ይከላከላል
+    matched_key = None
+    for key in SUB_CATEGORIES.keys():
+        # ባዶ ቦታን አጥፍተን እናነጻጽራለን (ለምሳሌ "🍴ምግብቤት" == "🍴ምግብቤት")
+        if key.replace(" ", "") == clean_name.replace(" ", ""):
+            matched_key = key
+            break
 
-    if not vendor_main_cat:
-        return bot.answer_callback_query(call.id, "❌ የድርጅትዎ ዋና ምድብ አልተገኘም!", show_alert=True)
+    if not matched_key:
+        return bot.answer_callback_query(call.id, f"⚠️ ለ '{clean_name}' ንዑስ ምድብ አልተዘጋጀም።", show_alert=True)
 
-    subs = SUB_CATEGORIES.get(vendor_main_cat)
-    if not subs:
-        return bot.answer_callback_query(call.id, f"⚠️ ለ '{vendor_main_cat}' ንዑስ ምድብ አልተዘጋጀም።", show_alert=True)
-
+    # 4. ንዑስ ምድቦችን ማውጣት
+    subs = SUB_CATEGORIES.get(matched_key)
+    
     c_markup = types.InlineKeyboardMarkup(row_width=2)
     for sub in subs:
-        c_markup.add(types.InlineKeyboardButton(sub, callback_data=f"save_sub:{sub}"))
+        # callback_data ውስን ስለሆነ ስሙን አሳጥረን መላክ ይቻላል
+        c_markup.add(types.InlineKeyboardButton(sub, callback_data=f"save_sub:{sub[:15]}"))
 
     c_markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="refresh_card_only"))
-    bot.edit_message_text(f"📁 የ[{vendor_main_cat}] ንዑስ ምድብ ይምረጡ፦", 
-                          call.message.chat.id, call.message.message_id, reply_markup=c_markup)
+    
+    try:
+        bot.edit_message_text(f"📁 የ [{matched_key}] ንዑስ ምድብ ይምረጡ፦", 
+                              call.message.chat.id, call.message.message_id, reply_markup=c_markup)
+    except:
+        bot.send_message(call.message.chat.id, f"📁 የ [{matched_key}] ንዑስ ምድብ ይምረጡ፦", reply_markup=c_markup)
+
 
 # --- 5. የመረጥነውን ንዑስ ምድብ ሴቭ ማድረጊያ ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith("save_sub:"))
