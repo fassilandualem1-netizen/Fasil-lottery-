@@ -1660,17 +1660,25 @@ def handle_price_edits(call):
 # 1. ድርጅት መመዝገቢያ መጀመሪያ (ምድብ ማስመረጫ)
 @bot.callback_query_handler(func=lambda call: call.data == "admin_add_vendor")
 def start_add_vendor(call):
-    db = load_data()
-    categories = db.get('categories', [])
+    # ከዳታቤዝ ከመጥራት ይልቅ በቀጥታ ከ SUB_CATEGORIES ቁልፎቹን እንወስዳለን
+    # ይሄ ቬንደሩና አድሚኑ የሚጠቀሙት ስም አንድ አይነት መሆኑን ያረጋግጣል
+    categories = list(SUB_CATEGORIES.keys())
 
     if not categories:
-        return bot.answer_callback_query(call.id, "⚠️ ድርጅት ከመመዝገብዎ በፊት መጀመሪያ 'አዲስ ምድብ' (Category) ይፍጠሩ!", show_alert=True)
+        return bot.answer_callback_query(call.id, "⚠️ ምንም አይነት ምድብ አልተገኘም!", show_alert=True)
 
     markup = types.InlineKeyboardMarkup(row_width=2)
     for cat in categories:
+        # 'cat' አሁን ፍጹም ንጹህ እና ከ SUB_CATEGORIES ጋር የሚገጥም ነው
         markup.add(types.InlineKeyboardButton(cat, callback_data=f"sel_cat_v:{cat}"))
 
-    bot.edit_message_text("📂 ለድርጅቱ ምድብ (ዘርፍ) ይምረጡ፦", call.message.chat.id, call.message.message_id, reply_markup=markup)
+    # 'ወደ ኋላ' መመለሻ በተን መጨመር ከፈለግክ
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="admin_panel"))
+
+    bot.edit_message_text("📂 ለድርጅቱ ምድብ (ዘርፍ) ይምረጡ፦", 
+                          call.message.chat.id, 
+                          call.message.message_id, 
+                          reply_markup=markup)
 
 # 1. ምድብ ሲመረጥ (Force Cleanup እዚህ ይጀምራል)
 @bot.callback_query_handler(func=lambda call: call.data.startswith("sel_cat_v:"))
