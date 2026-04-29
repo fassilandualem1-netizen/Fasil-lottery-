@@ -1285,19 +1285,35 @@ def handle_item_creation(call):
         bot.register_next_step_handler(msg, save_temp_photo, msg_id)
     elif call.data == "final_save_item":
         db = load_data()
+        user_id = str(call.from_user.id)
         data = item_creation_temp.get(user_id)
-        if not data: return
+        
+        if not data: 
+            return bot.answer_callback_query(call.id, "❌ መረጃው አልተገኘም!", show_alert=True)
+
         item_id = f"itm_{int(time.time())}"
         data.update({'vendor_id': user_id, 'id': item_id, 'status': 'available'})
-        if user_id not in db['vendors_list']:
-             return bot.answer_callback_query(call.id, "❌ መረጃዎ አልተገኘም!", show_alert=True)
+
+        # 1. ዳታቤዙን ማዘጋጀት (ካለ ባዶ መሆኑን ማረጋገጥ)
+        if 'items' not in db: db['items'] = []
+        if 'vendors_list' not in db: db['vendors_list'] = {}
+        if user_id not in db['vendors_list']: db['vendors_list'][user_id] = {'items': {}}
+
+        # 2. ዕቃውን በሁለት መልክ ሴቭ ማድረግ
+        # ሀ. ለ ማሳያ ኮድህ (List መልክ)
+        db['items'].append(data)
+        
+        # ለ. ለ ቬንደር ዳሽቦርድ (Dictionary መልክ)
         if 'items' not in db['vendors_list'][user_id]:
             db['vendors_list'][user_id]['items'] = {}
         db['vendors_list'][user_id]['items'][item_id] = data
+
         save_data(db)
+        
         bot.answer_callback_query(call.id, f"✅ {data['name']} ተመዝግቧል!", show_alert=True)
         bot.delete_message(chat_id, msg_id)
         item_creation_temp.pop(user_id, None)
+
     elif call.data == "cancel_item":
         bot.clear_step_handler_by_chat_id(chat_id)
         item_creation_temp.pop(user_id, None)
