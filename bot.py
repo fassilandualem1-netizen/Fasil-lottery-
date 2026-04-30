@@ -579,100 +579,69 @@ def list_vendors_by_category(call):
 
 # 1. ደንበኛው ድርጅቱን ሲመርጥ በመጀመሪያ ንዑስ ምድቦችን (Sub-categories) ማሳያ
 @bot.callback_query_handler(func=lambda call: call.data.startswith("view_vendor_prods_"))
-def view_vendor_sub_categories(call):
+def show_fixed_sub_categories(call):
     bot.answer_callback_query(call.id)
     v_id = str(call.data.replace("view_vendor_prods_", "")).strip()
     db = load_data()
     
-    # በዳታቤዝ ውስጥ ያሉትን ሁሉንም እቃዎች መፈተሽ
-    all_prods = db.get('products', {})
-    if not all_prods:
-        all_prods = {str(i.get('id')): i for i in db.get('items', [])}
+    # 1. የድርጅቱን ዋና ዘርፍ ማግኘት (ለምሳሌ፦ 🍴 ምግብ ቤት)
+    vendor_info = db.get('vendors_list', {}).get(v_id, {})
+    main_cat = vendor_info.get('category', '')
 
-    # 🛠 FORCE: የዚህ ድርጅት እቃዎች ያሉባቸውን ንዑስ ምድቦች ብቻ ለይቶ ማውጣት
-    vendor_subs = set()
-    for p_info in all_prods.values():
-        if str(p_info.get('vendor_id', '')).strip() == v_id:
-            # ቬንደሩ እቃውን ሲመዘግብ የመረጠውን ንዑስ ምድብ ይወስዳል
-            sub_cat = p_info.get('category', 'ሌሎች')
-            vendor_subs.add(sub_cat)
-
-    if not vendor_subs:
-        return bot.answer_callback_query(call.id, "⚠️ ይቅርታ፣ ድርጅቱ እስካሁን ዕቃ አልጫነም!", show_alert=True)
+    # 2. ከ SUB_CATEGORIES ውስጥ ቋሚ ዝርዝሮችን ማውጣት
+    subs = SUB_CATEGORIES.get(main_cat, [])
+    
+    # የኢሞጂ ልዩነት ካለ በሃይል መፈለጊያ
+    if not subs:
+        import re
+        clean_main = re.sub(r"[🍴🛍️🍹💊💄👕\s]", "", main_cat).strip()
+        for key in SUB_CATEGORIES.keys():
+            if re.sub(r"[🍴🛍️🍹💊💄👕\s]", "", key).strip() == clean_main:
+                subs = SUB_CATEGORIES[key]
+                break
 
     markup = types.InlineKeyboardMarkup(row_width=2)
-    for sub in sorted(list(vendor_subs)):
-        # ለእያንዳንዱ ንዑስ ምድብ በተን እንሰራለን (v_sub_ID:SubName)
-        markup.add(types.InlineKeyboardButton(f"📁 {sub}", callback_data=f"v_sub_{v_id}:{sub}"))
+    
+    # 3. ሁሉንም ቋሚ ንዑስ ምድቦች በተን ማድረግ
+    for sub in subs:
+        markup.add(types.InlineKeyboardButton(sub, callback_data=f"v_sub_{v_id}:{sub}"))
 
     markup.add(types.InlineKeyboardButton("🔙 ወደ ድርጅቶች ተመለስ", callback_data="cust_view_shops"))
     
-    vendor_name = db.get('vendors_list', {}).get(v_id, {}).get('name', 'ድርጅት')
-    bot.edit_message_text(f"🛍️ የ **{vendor_name}** የንግድ ዘርፎች፦\n\nእባክዎ ንዑስ ምድብ ይምረጡ፦", 
-                         call.message.chat.id, call.message.message_id, 
-                         reply_markup=markup, parse_mode="Markdown")
-
-# 2. ደንበኛው ንዑስ ምድቡን ሲመርጥ እቃዎቹን ብቻ ማሳያ
-import re
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("v_sub_"))
-def show_filtered_products(call):
-    bot.answer_callback_query(call.id)
-    
-    # 1. ዳታውን በሃይል መነጠል
-    try:
-        raw_data = call.data.replace("v_sub_", "")
-        v_id, selected_sub = raw_data.split(":", 1)
-        v_id = v_id.strip()
-        selected_sub = selected_sub.strip()
-    except Exception as e:
-        return bot.answer_callback_query(call.id, "⚠️ ዳታ መጫን አልተቻለም።", show_alert=True)
-    
-    db = load_data()
-    all_prods = db.get('products', {})
-    if not all_prods:
-        all_prods = {str(i.get('id')): i for i in db.get('items', [])}
-
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    found_any = False
-
-    # 2. ንዑስ ምድቡን ለንጽጽር ማዘጋጀት (Emojis ን በሃይል ማጥፋት)
-    target_clean = re.sub(r"[🍴🛍️🍹💊💄👕\s]", "", selected_sub).strip()
-
-    for p_id, p_info in all_prods.items():
-        # 🛠 FORCE STR: ሁሉንም ወደ String መቀየር
-        p_vendor_id = str(p_info.get('vendor_id', '')).strip()
-        p_category = str(p_info.get('category', '')).strip()
-        
-        # የንዑስ ምድብ ስሙን በሃይል ማጽዳት
-        p_cat_clean = re.sub(r"[🍴🛍️🍹💊💄👕\s]", "", p_category).strip()
-
-        # 3. በሃይል ማመሳሰል (ID እና የጸዳው ንዑስ ምድብ)
-        if p_vendor_id == v_id and (p_cat_clean == target_clean or p_category == selected_sub):
-            price = p_info.get('price', 0)
-            btn_text = f"🔹 {p_info.get('name')} - {price} ETB"
-            
-            # Callback data 64 characters እንዳያልፍ ID-ን ብቻ መላክ
-            item_cb = f"item_detail_{str(p_id).strip()}"
-            markup.add(types.InlineKeyboardButton(btn_text, callback_data=item_cb))
-            found_any = True
-
-    # 4. መመለሻ በተን
-    markup.add(types.InlineKeyboardButton("🔙 ወደ ምድቦች ተመለስ", callback_data=f"view_vendor_prods_{v_id}"))
-    
-    if not found_any:
-        msg_text = f"⚠️ በ **{selected_sub}** ስር በአሁኑ ሰዓት ዝርዝር የለም።"
-    else:
-        msg_text = f"🍲 **{selected_sub}** ዝርዝር፦"
-
     bot.edit_message_text(
-        msg_text, 
-        call.message.chat.id, 
-        call.message.message_id, 
-        reply_markup=markup, 
+        f"📂 **የ {main_cat} ዝርዝር**\n\nእባክዎ ንዑስ ምድብ ይምረጡ፦",
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=markup,
         parse_mode="Markdown"
     )
 
+# 4. በተመረጠው ንዑስ ምድብ ስር ያሉትን እቃዎች በሃይል መፈለጊያ
+@bot.callback_query_handler(func=lambda call: call.data.startswith("v_sub_"))
+def list_items_in_sub(call):
+    bot.answer_callback_query(call.id)
+    v_id, selected_sub = call.data.replace("v_sub_", "").split(":", 1)
+    
+    db = load_data()
+    all_prods = db.get('products', {})
+    
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    found = False
+    
+    for p_id, p_info in all_prods.items():
+        # በሃይል ማመሳሰል (Vendor ID እና የመረጠው Sub-category)
+        if str(p_info.get('vendor_id')).strip() == v_id and p_info.get('category') == selected_sub:
+            btn_text = f"🔹 {p_info.get('name')} - {p_info.get('price')} ETB"
+            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"item_detail_{p_id}"))
+            found = True
+
+    if not found:
+        return bot.answer_callback_query(call.id, f"⚠️ በ'{selected_sub}' ስር እስካሁን የተመዘገበ እቃ የለም።", show_alert=True)
+
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ምድቦች ተመለስ", callback_data=f"view_vendor_prods_{v_id}"))
+    bot.edit_message_text(f"🍽️ **{selected_sub}** ዝርዝር፦", 
+                         call.message.chat.id, call.message.message_id, 
+                         reply_markup=markup, parse_mode="Markdown")
 
 
 
