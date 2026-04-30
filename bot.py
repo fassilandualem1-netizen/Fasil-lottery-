@@ -613,12 +613,20 @@ def view_vendor_sub_categories(call):
                          reply_markup=markup, parse_mode="Markdown")
 
 # 2. ደንበኛው ንዑስ ምድቡን ሲመርጥ እቃዎቹን ብቻ ማሳያ
+import re
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("v_sub_"))
 def show_filtered_products(call):
     bot.answer_callback_query(call.id)
-    # ዳታውን መነጠል (v_sub_ID:SubName)
-    raw_data = call.data.replace("v_sub_", "")
-    v_id, selected_sub = raw_data.split(":", 1)
+    
+    # 1. ዳታውን በሃይል መነጠል
+    try:
+        raw_data = call.data.replace("v_sub_", "")
+        v_id, selected_sub = raw_data.split(":", 1)
+        v_id = v_id.strip()
+        selected_sub = selected_sub.strip()
+    except Exception as e:
+        return bot.answer_callback_query(call.id, "⚠️ ዳታ መጫን አልተቻለም።", show_alert=True)
     
     db = load_data()
     all_prods = db.get('products', {})
@@ -628,21 +636,42 @@ def show_filtered_products(call):
     markup = types.InlineKeyboardMarkup(row_width=1)
     found_any = False
 
+    # 2. ንዑስ ምድቡን ለንጽጽር ማዘጋጀት (Emojis ን በሃይል ማጥፋት)
+    target_clean = re.sub(r"[🍴🛍️🍹💊💄👕\s]", "", selected_sub).strip()
+
     for p_id, p_info in all_prods.items():
-        # 🛠 FORCE MATCH: የቬንደር ID እና ንዑስ ምድብ በትክክል መግጠማቸውን ማረጋገጥ
-        if str(p_info.get('vendor_id', '')).strip() == v_id and p_info.get('category') == selected_sub:
+        # 🛠 FORCE STR: ሁሉንም ወደ String መቀየር
+        p_vendor_id = str(p_info.get('vendor_id', '')).strip()
+        p_category = str(p_info.get('category', '')).strip()
+        
+        # የንዑስ ምድብ ስሙን በሃይል ማጽዳት
+        p_cat_clean = re.sub(r"[🍴🛍️🍹💊💄👕\s]", "", p_category).strip()
+
+        # 3. በሃይል ማመሳሰል (ID እና የጸዳው ንዑስ ምድብ)
+        if p_vendor_id == v_id and (p_cat_clean == target_clean or p_category == selected_sub):
             price = p_info.get('price', 0)
             btn_text = f"🔹 {p_info.get('name')} - {price} ETB"
-            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"item_detail_{str(p_id).strip()}"))
+            
+            # Callback data 64 characters እንዳያልፍ ID-ን ብቻ መላክ
+            item_cb = f"item_detail_{str(p_id).strip()}"
+            markup.add(types.InlineKeyboardButton(btn_text, callback_data=item_cb))
             found_any = True
 
-    # ወደ ንዑስ ምድቦች ዝርዝር መመለሻ
+    # 4. መመለሻ በተን
     markup.add(types.InlineKeyboardButton("🔙 ወደ ምድቦች ተመለስ", callback_data=f"view_vendor_prods_{v_id}"))
     
-    bot.edit_message_text(f"🍲 **{selected_sub}** ዝርዝር፦", 
-                         call.message.chat.id, call.message.message_id, 
-                         reply_markup=markup, parse_mode="Markdown")
+    if not found_any:
+        msg_text = f"⚠️ በ **{selected_sub}** ስር በአሁኑ ሰዓት ዝርዝር የለም።"
+    else:
+        msg_text = f"🍲 **{selected_sub}** ዝርዝር፦"
 
+    bot.edit_message_text(
+        msg_text, 
+        call.message.chat.id, 
+        call.message.message_id, 
+        reply_markup=markup, 
+        parse_mode="Markdown"
+    )
 
 
 
