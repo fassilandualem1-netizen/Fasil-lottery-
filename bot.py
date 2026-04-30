@@ -573,6 +573,71 @@ def location_handler(message):
         show_customer_menu(message)
 
 
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "cust_view_shops")
+def customer_view_categories(call):
+    db = load_data()
+    categories = db.get('categories', [])
+    
+    if not categories:
+        return bot.answer_callback_query(call.id, "⚠️ አሁን ላይ ምንም የምርት ምድቦች አልተገኙም።", show_alert=True)
+    
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    for cat in categories:
+        # እያንዳንዱን ምድብ በተን እናደርጋለን
+        markup.add(types.InlineKeyboardButton(f"📁 {cat}", callback_data=f"list_vendors_in_{cat}"))
+    
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="go_to_customer_menu"))
+    
+    bot.edit_message_text("የትኛውን ምድብ ማየት ይፈልጋሉ?", 
+                         call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("cat_select_"))
+def list_vendors_by_category(call):
+    # የመረጥነውን ምድብ ከ callback_data ላይ ነጥሎ ማውጣት
+    selected_cat = call.data.replace("cat_select_", "")
+    db = load_data()
+    vendors = db.get('vendors_list', {})
+    
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    found_any = False
+    
+    for v_id, v_info in vendors.items():
+        # ቬንደሩ የመረጥነው ምድብ ውስጥ ከሆነ ብቻ በተን እንሰራለታለን
+        if v_info.get('category') == selected_cat:
+            btn_text = f"🏢 {v_info.get('business_name', 'ያልታወቀ ሱቅ')}"
+            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"view_vendor_prods_{v_id}"))
+            found_any = True
+            
+    if not found_any:
+        bot.answer_callback_query(call.id, f"⚠️ በ'{selected_cat}' ምድብ የተመዘገበ ሱቅ እስካሁን የለም።", show_alert=True)
+        return
+
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ምድቦች ተመለስ", callback_data="cust_view_shops"))
+    
+    bot.edit_message_text(
+        f"📍 የ'{selected_cat}' ምድብ ስር ያሉ ሱቆች ዝርዝር፦\nለመግዛት የሱቁን ስም ይጫኑ።",
+        call.message.chat.id, 
+        call.message.message_id, 
+        reply_markup=markup
+    )
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "go_to_customer_menu")
+def back_to_cust_menu(call):
+    # ቀደም ሲል የሰራኸውን show_customer_menu ፋንክሽን ይጠራል
+    # ግን መልዕክቱን Edit እንዲያደርገው አዲስ ሎጂክ እንጠቀም
+    markup = get_customer_dashboard() # ይህን ፋንክሽንህን ይጠራል
+    bot.edit_message_text("🔥 ዋና ሜኑ፦ የሚፈልጉትን ይምረጡ", 
+                         call.message.chat.id, call.message.message_id, reply_markup=markup)
+
 @bot.callback_query_handler(func=lambda call: call.data in ["vendor_refresh", "go_to_main_start"])
 def vendor_dashboard_fast_fix(call):
     user_id = call.from_user.id
