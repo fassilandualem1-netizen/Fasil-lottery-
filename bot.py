@@ -1941,23 +1941,40 @@ def list_only_drivers(call):
             report += "⚠️ እስካሁን ምንም ራይደር አልተመዘገበም።"
         else:
             for r_id, info in riders.items():
-                status_icon = "🟢" if info.get('status') == "online" else "🔴"
+                # ሁኔታ (Online/Offline)
+                status = info.get('status', 'offline')
+                status_icon = "🟢" if status == "online" else "🔴"
+                
+                # አካውንት (Active/Blocked)
+                is_active = info.get('is_active', True)
+                active_text = "✅ ንቁ" if is_active else "🚫 የታገደ"
+
                 report += (
                     f"{status_icon} **{info.get('name', 'N/A')}**\n"
                     f"   📞 ስልክ፦ `{info.get('phone', 'N/A')}`\n"
                     f"   💳 ዋሌት፦ `{info.get('wallet', 0)}` ብር\n"
-                    f"   🔒 ሁኔታ፦ {'✅ ንቁ' if info.get('is_active', True) else '🚫 የታገደ'}\n"
+                    f"   🔒 ሁኔታ፦ {active_text}\n"
                     f"   🆔 ID፦ `{r_id}`\n"
                     f"------------------------\n"
                 )
 
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("🔙 ወደ ዋናው ሜኑ", callback_data="admin_main_menu"))
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        # Refresh እና Back በተኖችን ጎን ለጎን ለማድረግ
+        markup.add(
+            types.InlineKeyboardButton("🔄 አድስ", callback_data="admin_list_drivers"),
+            types.InlineKeyboardButton("🔙 ወደ ዋናው", callback_data="admin_main_menu")
+        )
 
-        bot.edit_message_text(report, call.message.chat.id, call.message.message_id, 
-                             reply_markup=markup, parse_mode="Markdown")
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=report,
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
     except Exception as e:
         print(f"Driver List Error: {e}")
+        bot.answer_callback_query(call.id, "❌ መረጃውን መጫን አልተቻለም።")
 
 
 
