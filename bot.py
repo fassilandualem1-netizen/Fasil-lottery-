@@ -163,11 +163,6 @@ item_creation_temp = {}
 
 
 
-db = load_data()
-v_id = "8443303643" # የአንተ ID
-vendor_info = db.get('vendors_list', {}).get(v_id, {})
-print(f"የተመዘገበው ምድብ፦ {vendor_info.get('category')}")
-print(f"የዳታ አይነት፦ {type(vendor_info.get('category'))}")
 
 
 import math
@@ -587,59 +582,44 @@ def vendor_closed_alert(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("view_vendor_prods_"))
 def view_vendor_products(call):
+    # 1. Vendor IDን ከ callback data መለየት
     vendor_id = call.data.replace("view_vendor_prods_", "")
     db = load_data()
-    products = db.get('products', {})
-    vendor_info = db.get('vendors_list', {}).get(vendor_id, {})
-
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    found_prods = False
-
-    for p_id, p_info in products.items():
-        if p_info.get('vendor_id') == vendor_id:
-            # እቃው ካለና በሱቁ ስር ከሆነ
-            btn_text = f"{p_info['name']} - {p_info['price']} ETB"
-            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"item_detail_{p_id}"))
-            found_prods = True
-
-    if not found_prods:
-        return bot.answer_callback_query(call.id, "⚠️ ይህ ሱቅ እስካሁን እቃ አልጫነም።", show_alert=True)
-
-    markup.add(types.InlineKeyboardButton("🔙 ወደ ሱቆች ዝርዝር", callback_data="cust_view_shops"))
     
-    shop_name = vendor_info.get('business_name', 'ሱቅ')
-    bot.edit_message_text(f"🛍️ የ {shop_name} ዕቃዎች፦\nለመግዛት እቃውን ይምረጡ", 
-                         call.message.chat.id, call.message.message_id, reply_markup=markup)
-
-
-
-
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("view_vendor_prods_"))
-def view_vendor_products(call):
-    vendor_id = call.data.replace("view_vendor_prods_", "")
-    db = load_data()
     products = db.get('products', {})
     vendor_info = db.get('vendors_list', {}).get(vendor_id, {})
 
     markup = types.InlineKeyboardMarkup(row_width=1)
     found_prods = False
 
+    # 2. እቃዎቹን መፈለግ
     for p_id, p_info in products.items():
+        # ዳታቤዝ ውስጥ ያለው ID እና አሁን የመጣው ID ሁለቱም String መሆናቸውን ማረጋገጥ
+        # ይህ ምስሉ ላይ ለታየው "እቃ የለም" ስህተት ዋና መፍትሄ ነው
         if str(p_info.get('vendor_id')) == str(vendor_id):
             btn_text = f"🔹 {p_info['name']} - {p_info['price']} ETB"
             markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"item_detail_{p_id}"))
             found_prods = True
 
+    # 3. እቃ ካልተገኘ
     if not found_prods:
-        return bot.answer_callback_query(call.id, "⚠️ ይህ ድርጅት እስካሁን እቃ አልጫነም።", show_alert=True)
+        return bot.answer_callback_query(call.id, "⚠️ ይህ ድርጅት እስካሁን ዕቃ አልጫነም።", show_alert=True)
 
+    # 4. መመለሻ በተን
     markup.add(types.InlineKeyboardButton("🔙 ወደ ድርጅቶች ዝርዝር", callback_data="cust_view_shops"))
-    
-    # business_name ከሌለ 'ድርጅት' እንዲል
+
+    # 5. የድርጅቱን ስም መለየት
     shop_name = vendor_info.get('business_name') or vendor_info.get('name', 'ድርጅት')
-    bot.edit_message_text(f"🛍️ የ **{shop_name}** ዕቃዎች፦\nለመግዛት እቃውን ይምረጡ", 
-                         call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    
+    bot.edit_message_text(
+        f"🛍️ የ **{shop_name}** ዕቃዎች፦\nለመግዛት የዕቃውን ስም ይጫኑ", 
+        call.message.chat.id, 
+        call.message.message_id, 
+        reply_markup=markup, 
+        parse_mode="Markdown"
+    )
+
+
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("add_to_cart_"))
