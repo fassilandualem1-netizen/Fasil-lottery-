@@ -658,6 +658,183 @@ def list_items_in_sub(call):
 
 
 
+
+# 1. እቃው ሲነካ ዝርዝር መረጃ እና መጠን መምረጫ ማሳያ
+@bot.callback_query_handler(func=lambda call: call.data.startswith("item_detail_"))
+def show_item_detail(call):
+    bot.answer_callback_query(call.id)
+    product_id = call.data.replace("item_detail_", "").strip()
+    db = load_data()
+    product = db.get('products', {}).get(product_id)
+
+    if not product:
+        return bot.edit_message_text("⚠️ ይቅርታ እቃው አልተገኘም ወይም ተሰርዟል።", call.message.chat.id, call.message.message_id)
+
+    name = product.get('name')
+    price = product.get('price')
+    weight = product.get('weight', 0.5) # ካልተመዘገበ 0.5kg ግምት
+    desc = product.get('description', 'ምንም መግለጫ አልተጻፈም')
+
+    text = (f"🍲 **{name}**\n\n"
+            f"📝 መግለጫ: {desc}\n"
+            f"💰 ዋጋ: {price} ETB\n"
+            f"⚖️ ክብደት: {weight} KG\n\n"
+            f"እባክዎ መግዛት የሚፈልጉትን መጠን ይምረጡ፦")
+
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    # መጠኖችን በሃይል መስጠት (ለምሳሌ ከ 1 - 5)
+    btns = []
+    for i in range(1, 6):
+        btns.append(types.InlineKeyboardButton(f"{i}", callback_data=f"confirm_add:{product_id}:{i}"))
+    
+    markup.add(*btns)
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data=f"v_sub_{product.get('vendor_id')}:{product.get('category')}"))
+
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+# 2. መጠኑ ተመርጦ ወደ ቅርጫት ሲጨመር (የ 5KG እና 3 መስመር ገደብ ቼክ)
+@bot.callback_query_handler(func=lambda call: call.data.startswith("confirm_add:"))
+def process_add_to_cart(call):
+    _, p_id, qty = call.data.split(":")
+    qty = int(qty)
+    user_id = str(call.from_user.id)
+    db = load_data()
+    
+    product = db.get('products', {}).get(p_id)
+    p_weight = float(product.get('weight', 0.5))
+    p_vendor_id = str(product.get('vendor_id'))
+
+    # የደንበኛውን ቅርጫት ማግኘት
+    if 'carts' not in db: db['carts'] = {}
+    user_cart = db['carts'].get(user_id, {"items": [], "vendor_id": ""})
+    
+    # 🛠 FORCE 1: የ 3 አይነት እቃ (Lines) ገደብ
+    existing_item = next((i for i in user_cart['items'] if str(i['id']) == p_id), None)
+    if not existing_item and len(user_cart['items']) >= 3:
+        return bot.answer_callback_query(call.id, "❌ በሳይክል ስለሚመላለስ ቢበዛ 3 አይነት እቃ ብቻ ማዘዝ ይቻላል።", show_alert=True)
+
+    # 🛠 FORCE 2: የ 5 KG አጠቃላይ ክብደት ገደብ
+    current_weight = sum(float(i.get('weight', 0.5)) * i['quantity'] for i in user_cart['items'])
+    new_weight = p_weight * qty
+    if (current_weight + new_weight) > 5.0:
+        return bot.answer_callback_query(call.id, f"⚖️ ገደብ አልፏል! አሁን ያለው: {current_weight}kg + አዲስ: {new_weight}kg ከ 5kg ይበልጣል።", show_alert=True)
+
+    # 🛠 FORCE 3: ከአንድ ድርጅት ብቻ መሆኑን ማረጋገጥ
+    if user_cart['vendor_id'] and user_cart['vendor_id'] != p_vendor_id:
+        return bot.answer_callback_query(call.id, "❌ መጀመሪያ በቅርጫትዎ ያለውን ከአንድ ድርጅት የመጣ እቃ ይዘዙ ወይም ያጥፉ።", show_alert=True)
+
+    # እቃውን ወደ ቅርጫት መጨመር
+    if existing_item:
+        existing_item['quantity'] += qty
+    else:
+        user_cart['items'].append({
+            "id": p_id,
+            "name": product['name'],
+            "price": price,
+            "quantity": qty,
+            "weight": p_weight
+        })
+    
+    user_cart['vendor_id'] = p_vendor_id
+    db['carts'][user_id] = user_cart
+    save_data(db)
+
+    bot.answer_callback_query(call.id, f"✅ {qty} {product['name']} ወደ ቅርጫት ተጨምሯል")
+    # ወደ ንዑስ ምድቡ ዝርዝር ይመልሰዋል
+    show_filtered_products(call) # ይህ ከዚህ በፊት የሰራነው ፋንክሽን ነው
+
+
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("add_to_cart:"))
+def add_to_cart_force(call):
+    user_id = str(call.from_user.id)
+    product_id = call.data.split(":")
+    db = load_data()
+    
+    product = db.get('products', {}).get(product_id, {})
+    p_weight = float(product.get('weight', 0.5)) # እቃው ላይ ክብደት ከሌለ 0.5kg ይገምታል
+    p_vendor_id = str(product.get('vendor_id', ''))
+
+    user_cart = db.get('carts', {}).get(user_id, {"items": [], "vendor_id": ""})
+    current_items = user_cart.get('items', [])
+
+    # 🛠 FORCE 1: ከአንድ ድርጅት ብቻ ማዘዝ
+    if user_cart.get('vendor_id') and user_cart.get('vendor_id') != p_vendor_id:
+        return bot.answer_callback_query(call.id, "❌ በአንድ ጊዜ ከአንድ ድርጅት ብቻ ማዘዝ ይቻላል።", show_alert=True)
+
+    # 🛠 FORCE 2: የ 3 አይነት እቃ (Lines) ገደብ
+    existing_item = next((i for i in current_items if str(i['id']) == product_id), None)
+    if not existing_item and len(current_items) >= 3:
+        return bot.answer_callback_query(call.id, "❌ በሳይክል ስለሚመላለስ ቢበዛ 3 አይነት እቃ ብቻ ይዘዙ።", show_alert=True)
+
+    # 🛠 FORCE 3: የ 5 KG አጠቃላይ ክብደት ገደብ
+    total_weight = sum(float(i.get('weight', 0.5)) * i.get('quantity', 1) for i in current_items)
+    if total_weight + p_weight > 5.0:
+        return bot.answer_callback_query(call.id, "⚖️ አጠቃላይ ክብደት ከ 5 KG መብለጥ አይችልም። (ሳይክል መሆኑን ይረዱ)", show_alert=True)
+
+
+
+
+
+
+import math
+
+def generate_checkout_bill(user_id, u_lat, u_lon):
+    db = load_data()
+    cart = db.get('carts', {}).get(user_id, {})
+    v_id = cart.get('vendor_id')
+    vendor_info = db.get('vendors_list', {}).get(v_id, {})
+    admin_settings = db.get('admin_settings', {}) # በአድሚን የሚቆጣጠር
+
+    # 1. የዕቃዎቹ ድምር ሂሳብ (Sub-total)
+    items_total = sum(i['price'] * i['quantity'] for i in cart.get('items', []))
+    
+    # 2. የርቀት እና የዴሊቨሪ ስሌት (ካንተ ኮድ የተወሰደ)
+    v_lat, v_lon = vendor_info.get('lat'), vendor_info.get('lon')
+    delivery_fee, dist_detail = calculate_dynamic_delivery_fee(u_lat, u_lon, v_lat, v_lon)
+
+    # 3. የአድሚን ሰርቪስ ክፍያ (Service Fee) - በሃይል መፈተሽ
+    service_fee = 0
+    if admin_settings.get('service_fee_on', False):
+        service_fee = float(admin_settings.get('service_fee_amount', 0))
+
+    # 4. የሰዓት/የዝንብ ክፍያ (Time Fee) - በሃይል መፈተሽ
+    extra_time_fee = 0
+    if admin_settings.get('time_fee_on', False):
+        extra_time_fee = float(admin_settings.get('time_fee_amount', 0))
+
+    # 💰 ጠቅላላ ድምር
+    grand_total = items_total + delivery_fee + service_fee + extra_time_fee
+
+    # 📄 ለደንበኛው የሚላክ ዝርዝር ጽሁፍ
+    bill_msg = (
+        f"🧾 **የክፍያ ዝርዝር**\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"🛍️ የዕቃዎች ድምር: {items_total:.2f} ETB\n"
+        f"🚴 የዴሊቨሪ ክፍያ: {delivery_fee:.2f} ETB {dist_detail}\n"
+    )
+
+    if service_fee > 0:
+        bill_msg += f"⚙️ ሰርቪስ ክፍያ: {service_fee:.2f} ETB\n"
+    
+    if extra_time_fee > 0:
+        bill_msg += f"⏰ ተጨማሪ ክፍያ: {extra_time_fee:.2f} ETB\n"
+
+    bill_msg += (
+        f"━━━━━━━━━━━━━━\n"
+        f"💵 **አጠቃላይ ድምር: {grand_total:.2f} ETB**\n\n"
+        f"⚠️ *ማሳሰቢያ: ሳይክል ስለሚመላለስ አጠቃላይ ክብደት ከ 5KG አይበልጥም።*"
+    )
+
+    return bill_msg, grand_total
+
+
+
+
+
 # ስልክ ቁጥር ሲላክ መቀበያ
 @bot.message_handler(content_types=['contact'])
 def contact_handler(message):
