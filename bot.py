@@ -616,32 +616,43 @@ def show_fixed_sub_categories(call):
         parse_mode="Markdown"
     )
 
-# 4. በተመረጠው ንዑስ ምድብ ስር ያሉትን እቃዎች በሃይል መፈለጊያ
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("v_sub_"))
 def list_items_in_sub(call):
     bot.answer_callback_query(call.id)
     v_id, selected_sub = call.data.replace("v_sub_", "").split(":", 1)
     
+    # 1. ዳታቤዙን በሃይል አዲስ (Fresh) ዳታ እንዲያነብ ማድረግ
     db = load_data()
-    all_prods = db.get('products', {})
+    all_prods = db.get('products', {}) # ቬንደሩ ሲሰርዝ እዚህ ውስጥ ይጠፋል
     
     markup = types.InlineKeyboardMarkup(row_width=1)
     found = False
     
+    # 2. በዝርዝሩ ውስጥ ያሉትን እቃዎች ብቻ መፈተሽ
     for p_id, p_info in all_prods.items():
-        # በሃይል ማመሳሰል (Vendor ID እና የመረጠው Sub-category)
-        if str(p_info.get('vendor_id')).strip() == v_id and p_info.get('category') == selected_sub:
+        # የባለቤቱ ID መግጠሙን እና ንዑስ ምድቡ ትክክል መሆኑን ማረጋገጥ
+        p_vendor_id = str(p_info.get('vendor_id', '')).strip()
+        p_category = p_info.get('category', '')
+
+        if p_vendor_id == v_id and p_category == selected_sub:
+            # እቃው በዳታቤዝ ውስጥ ካለ ብቻ በተኑ ይሰራል። ከተሰረዘ እዚህ ውስጥ አይመጣም።
             btn_text = f"🔹 {p_info.get('name')} - {p_info.get('price')} ETB"
             markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"item_detail_{p_id}"))
             found = True
 
-    if not found:
-        return bot.answer_callback_query(call.id, f"⚠️ በ'{selected_sub}' ስር እስካሁን የተመዘገበ እቃ የለም።", show_alert=True)
-
+    # 3. መመለሻ በተን
     markup.add(types.InlineKeyboardButton("🔙 ወደ ምድቦች ተመለስ", callback_data=f"view_vendor_prods_{v_id}"))
-    bot.edit_message_text(f"🍽️ **{selected_sub}** ዝርዝር፦", 
-                         call.message.chat.id, call.message.message_id, 
-                         reply_markup=markup, parse_mode="Markdown")
+    
+    if not found:
+        # ሁሉም እቃዎች ከተሰረዙ ይህ መልዕክት ይመጣል
+        bot.edit_message_text(f"⚠️ ይቅርታ፣ በ'{selected_sub}' ስር በአሁኑ ሰአት ምንም እቃ የለም።", 
+                             call.message.chat.id, call.message.message_id, 
+                             reply_markup=markup)
+    else:
+        bot.edit_message_text(f"🍽️ **{selected_sub}** ዝርዝር፦", 
+                             call.message.chat.id, call.message.message_id, 
+                             reply_markup=markup, parse_mode="Markdown")
 
 
 
