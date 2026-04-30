@@ -2259,59 +2259,53 @@ def confirm_reset_request(call):
 # 2. ሚስጥራዊ ኮድ መጠየቅ
 @command_breaker
 @bot.callback_query_handler(func=lambda call: call.data == "admin_final_reset_confirm")
-def perform_database_reset_callback(call):
-    # አዲሱ ዳታቤዝ አወቃቀር (Default Structure)
-    new_db = {
-        "users": {},
-        "riders_list": {},     
-        "vendors_list": {}, 
-        "orders": {},          
-        "carts": {},           
-        "categories": [],      
-        "total_profit": 0,     
-        "user_list": [call.from_user.id], 
-        "stats": {
-            "total_vendor_comm": 0.0,
-            "total_rider_comm": 0.0,
-            "total_customer_comm": 0.0,
-            "total_orders": 0
-        },
-        "settings": {
-            "vendor_commission_p": 5,    
-            "rider_commission_fixed": 5,
-            "service_fee": 8,
-            "rider_fixed_fee": 30,       
-            "base_delivery": 50,
-            "rain_mode": False,   
-            "rain_val": 25,       
-            "night_mode": False,  
-            "night_val": 15,      
-            "system_locked": False 
+def ask_for_reset_password(call):
+    # ሜሴጁን አጥፍተን አዲስ ጥያቄ እንልካለን
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+    msg = bot.send_message(call.message.chat.id, "🔐 **ሲስተሙን ለማጽዳት ሚስጥራዊ ቁልፉን ያስገቡ፦**\n\n(ለመሰረዝ `cancel` ብለው ይጻፉ)")
+    # ተጠቃሚው የሚጽፈውን ጽሁፍ ወደ ሚቀጥለው ፋንክሽን መላክ
+    bot.register_next_step_handler(msg, process_reset_password)
+
+def process_reset_password(message):
+    SECRET_KEY = "RESET123" # ይህንን በፈለጉት ይቀይሩት
+    
+    if message.text.lower() == 'cancel':
+        bot.send_message(message.chat.id, "❌ የሲስተም ማጽዳት ተሰርዟል።")
+        return
+
+    if message.text == SECRET_KEY:
+        # አንተ የጻፍከው ዳታ እዚህ ጋር ይገባል
+        new_db = {
+            "users": {},
+            "riders_list": {},     
+            "vendors_list": {}, 
+            "products": {},        
+            "orders": {},          
+            "carts": {},           
+            "categories": [],      
+            "total_profit": 0,     
+            "user_list": [message.chat.id], 
+            "stats": {
+                "total_vendor_comm": 0.0, "total_rider_comm": 0.0,
+                "total_customer_comm": 0.0, "total_orders": 0
+            },
+            "settings": {
+                "vendor_commission_p": 5, "rider_commission_fixed": 5, "service_fee": 8,
+                "rider_fixed_fee": 30, "base_delivery": 50, "rain_mode": False,
+                "rain_val": 25, "night_mode": False, "night_val": 15, "system_locked": False 
+            }
         }
-    }
+        
+        try:
+            save_data(new_db)
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("🏠 ወደ ዋናው ሜኑ", callback_data="admin_main_menu"))
+            bot.send_message(message.chat.id, "✅ **ሲስተሙ ሙሉ በሙሉ ጸድቷል!**", reply_markup=markup, parse_mode="Markdown")
+        except Exception as e:
+            bot.send_message(message.chat.id, f"❌ ስህተት ተፈጥሯል፦ {e}")
+    else:
+        bot.send_message(message.chat.id, "🚫 **የተሳሳተ ሚስጥራዊ ቁልፍ!** ማጽዳቱ በደህንነት ምክንያት ተሰርዟል።")
 
-    try:
-        # ዳታውን ማስቀመጥ
-        save_data(new_db)
-        
-        # ስኬት መልዕክት
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("🏠 ወደ ዋናው ሜኑ", callback_data="admin_main_menu"))
-        
-        bot.edit_message_text(
-            "✅ **ሲስተሙ ሙሉ በሙሉ ጸድቷል!**\n\nሁሉም መረጃዎች ወደ መጀመሪያው ሁኔታ ተመልሰዋል። አሁን አዲስ ምዝገባ መጀመር ይችላሉ።", 
-            call.message.chat.id, 
-            call.message.message_id, 
-            reply_markup=markup, 
-            parse_mode="Markdown"
-        )
-        
-        # ለአስተዳዳሪው Alert ማሳየት
-        bot.answer_callback_query(call.id, "ሲስተሙ ጸድቷል!", show_alert=False)
-
-    except Exception as e:
-        print(f"Reset Error: {e}")
-        bot.answer_callback_query(call.id, "❌ ስህተት ተፈጥሯል፣ ማጽዳት አልተቻለም።", show_alert=True)
 
 
 
