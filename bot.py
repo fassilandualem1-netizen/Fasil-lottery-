@@ -506,94 +506,125 @@ def get_customer_dashboard():
 
 
 
-
-
-# --- 1. የንግድ ዘርፍ መምረጫ ---
 @bot.callback_query_handler(func=lambda call: call.data == "cust_view_shops")
 def customer_view_categories(call):
-    # መዘግየቱን ለማቆም መጀመሪያ መልስ መስጠት
+    # 1. ወዲያውኑ ምላሽ ስጥ (Loading ምልክቱ እንዲጠፋ)
     bot.answer_callback_query(call.id)
-    db = load_data()
     
-    categories = db.get('categories', [])
-    if not categories:
-        try:
-            categories = list(SUB_CATEGORIES.keys())
-        except NameError:
-            return bot.answer_callback_query(call.id, "⚠️ ምንም ዘርፍ አልተገኘም።", show_alert=True)
+    # 2. ዳታውን በሃይል አምጣ
+    db = load_data()
+    vendors = db.get('vendors_list', {})
+    
+    # 3. በሲስተሙ ውስጥ ያሉትን ምድቦች በሃይል ለይተህ አውጣ (Set በመጠቀም ደጋጋሚን ለማጥፋት)
+    import re
+    active_categories = set()
+    for v in vendors.values():
+        raw_cat = str(v.get('category', ''))
+        # በሃይል አላስፈላጊ ምልክቶችን ማጽዳት
+        clean_cat = re.sub(r"[\[\]']", "", raw_cat).strip()
+        if clean_cat:
+            active_categories.add(clean_cat)
 
     markup = types.InlineKeyboardMarkup(row_width=2)
-    for cat in categories:
-        markup.add(types.InlineKeyboardButton(f"📁 {cat}", callback_data=f"cat_select_{cat}"))
-        
-    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="go_to_customer_menu"))
+    
+    # 4. ንቁ የሆኑ ምድቦችን ብቻ ለይቶ ማሳየት
+    if active_categories:
+        for cat in sorted(list(active_categories)):
+            markup.add(types.InlineKeyboardButton(f"📁 {cat}", callback_data=f"cat_select_{cat}"))
+    else:
+        # ምንም ከሌለ በ SUB_CATEGORIES ላይ ያሉትን በሃይል አምጣ
+        try:
+            for cat in SUB_CATEGORIES.keys():
+                markup.add(types.InlineKeyboardButton(f"📁 {cat}", callback_data=f"cat_select_{cat}"))
+        except:
+            return bot.answer_callback_query(call.id, "⚠️ ምንም ምድብ አልተገኘም", show_alert=True)
+
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ዋናው ሜኑ", callback_data="go_to_customer_menu"))
     
     bot.edit_message_text(
-        "📍 **የንግድ ዘርፍ ይምረጡ**\n\nየሚፈልጉትን ምድብ በመጫን በስሩ ያሉ ድርጅቶችን ማየት ይችላሉ፦", 
+        "📍 **የንግድ ዘርፍ ይምረጡ**\n\nአሁን ንቁ የሆኑ ድርጅቶች ያሉባቸው ምድቦች፦", 
         call.message.chat.id, 
         call.message.message_id, 
         reply_markup=markup,
         parse_mode="Markdown"
     )
 
-# --- 2. እቃዎችን ወደ ሰሌዳ (Cart) መጨመሪያ (FIXED) ---
-@bot.callback_query_handler(func=lambda call: call.data.startswith("add_to_cart_"))
-def add_to_cart_handler(call):
-    # መዘግየቱን ለማቆም
-    bot.answer_callback_query(call.id)
-    
-    # 🛠 ማስተካከያ 1፦ ክፍሎቹን በትክክል መለየት
-    # data format: add_to_cart_ITEMID_QTY
-    parts = call.data.split("_")
-    if len(parts) < 5:
-        return bot.answer_callback_query(call.id, "⚠️ ስህተት፡ ዳታው አልተሟላም")
 
-    product_id = parts # itm_... የሚለው
-    try:
-        quantity = int(parts) # ብዛቱ
-    except:
-        quantity = 1
 
-    user_id = str(call.from_user.id)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("cat_select_"))
+def list_vendors_by_category(call):
+    bot.answer_callback_query(call.id) # 👈 ወዲያው Loading ያቆማል
+    selected_cat = call.data.replace("cat_select_", "").strip()
     db = load_data()
-    product = db.get('products', {}).get(product_id)
+    vendors = db.get('vendors_list', {})
 
-    if not product:
-        return bot.answer_callback_query(call.id, "⚠️ ዕቃው አልተገኘም!", show_alert=True)
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    found_any = False
 
-    if 'carts' not in db: db['carts'] = {}
-    if user_id not in db['carts']: db['carts'][user_id] = []
+    for v_id, v_info in vendors.items():
+        # 🛠 FORCE CLEANUP: በሃይል የምድብ ስሞችን ማጽዳት
+        import re
+        v_cat = re.sub(r"[\[\]']", "", str(v_info.get('category', ''))).strip()
+        
+        if v_cat == selected_cat:
+            is_open = v_info.get('is_open', True)
+            status_icon = "🟢" if is_open else "🔴"
+            btn_text = f"{status_icon} {v_info.get('name', 'ያልታወቀ ድርጅት')}"
+            
+            # ሱቁ ክፍት ከሆነ ብቻ 'view_vendor_prods_' እንዲሰራ
+            c_data = f"view_vendor_prods_{v_id}" if is_open else f"vendor_closed_{v_id}"
+            markup.add(types.InlineKeyboardButton(btn_text, callback_data=c_data))
+            found_any = True
 
-    # 🛠 ማስተካከያ 2፦ የአንድ ድርጅት ሎጂክ (Cart List ስለሆነ .get አይሰራም ነበር)
-    if db['carts'][user_id]:
-        # የመጀመሪያውን እቃ vendor_id እንፈትሻለን
-        first_item = db['carts'][user_id]
-        if str(first_item.get('vendor_id')) != str(product['vendor_id']):
-            return bot.answer_callback_query(call.id, "⚠️ በአንድ ጊዜ ከአንድ ድርጅት ብቻ ማዘዝ ይችላሉ።", show_alert=True)
+    if not found_any:
+        return bot.answer_callback_query(call.id, f"⚠️ በ'{selected_cat}' ዘርፍ ንቁ ድርጅት የለም።", show_alert=True)
 
-    # እቃው ቀድሞ ካለ ብዛቱን መጨመር
-    found = False
-    for item in db['carts'][user_id]:
-        if item['product_id'] == product_id:
-            item['quantity'] += quantity
-            found = True
-            break
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ምድቦች ተመለስ", callback_data="cust_view_shops"))
+    bot.edit_message_text(f"🏢 **የ'{selected_cat}' ድርጅቶች**", call.message.chat.id, 
+                         call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("view_vendor_prods_"))
+def view_vendor_products(call):
+    bot.answer_callback_query(call.id)
+    # 🛠 በሃይል ID-ውን ማጽዳት
+    vendor_id = str(call.data.replace("view_vendor_prods_", "")).strip()
+    db = load_data()
     
-    if not found:
-        db['carts'][user_id].append({
-            "product_id": product_id,
-            "quantity": quantity,
-            "price": product['price'],
-            "name": product['name'],
-            "vendor_id": product['vendor_id']
-        })
+    all_products = db.get('products', {})
+    vendor_info = db.get('vendors_list', {}).get(vendor_id, {})
 
-    save_data(db)
-    bot.answer_callback_query(call.id, f"✅ {quantity} {product['name']} ተጨምሯል!")
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    found_prods = False
+
+    for p_id, p_info in all_products.items():
+        # 🛠 FORCE ID MATCH: የቬንደር ID-ውን በሃይል ማወዳደር
+        target_v_id = str(p_info.get('vendor_id', '')).strip()
+        
+        if target_v_id == vendor_id:
+            # የእቃው ስም እና ዋጋ
+            price = p_info.get('price', 0)
+            name = p_info.get('name', 'ያልታወቀ ዕቃ')
+            btn_text = f"🔹 {name} - {price} ETB"
+            
+            # እቃው ሲነካ ዝርዝር መረጃ (Detail) እንዲያሳይ
+            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"item_detail_{p_id}"))
+            found_prods = True
+
+    if not found_prods:
+        return bot.answer_callback_query(call.id, "⚠️ ይቅርታ፣ ድርጅቱ እስካሁን ዕቃ አልጫነም።", show_alert=True)
+
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ድርጅቶች", callback_data="cust_view_shops"))
+    shop_name = vendor_info.get('name', 'ድርጅት')
     
-    # ተመልሶ ወደ ዕቃዎቹ ዝርዝር እንዲሄድ
-    call.data = f"view_vendor_prods_{product['vendor_id']}"
-    view_vendor_products(call)
+    bot.edit_message_text(f"🛍️ የ **{shop_name}** ዕቃዎች ዝርዝር፦", 
+                         call.message.chat.id, call.message.message_id, 
+                         reply_markup=markup, parse_mode="Markdown")
+
+
+
 
 
 
