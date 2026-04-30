@@ -376,26 +376,23 @@ def get_admin_dashboard(user_id):
         btn_lock = types.InlineKeyboardButton("🔒 ሲስተም ዝጋ", callback_data="admin_system_lock")
         btn_stats = types.InlineKeyboardButton("📈 ሪፖርት", callback_data="admin_full_stats")
         
-        # --- 2. ወደ ዋናው ሜኑ መመለሻ በተን ---
+        # የኋላ መመለሻ በተን (ከታች የሚቀመጥ)
         btn_back_to_main = types.InlineKeyboardButton("🏠 ወደ አድሚን ሜኑ", callback_data="admin_main_menu")
-markup.add(btn_back_to_main)
-        # --- 3. ወደ Markup መጨመር (በተዋረድ) ---
+
+        # --- 2. ወደ Markup መጨመር (ይበልጥ ግልጽ በሆነ ድልድል) ---
         markup.add(btn_broadcast)
-        markup.add(btn_fund, btn_balance)
-        markup.add(btn_profit, btn_system_reset)
+        markup.row(btn_fund, btn_balance)
+        markup.row(btn_profit, btn_system_reset)
         markup.add(btn_live_orders)
-        
-        # የዴሊቨሪ መቆጣጠሪያው
-        markup.add(btn_delivery_settings) 
-        
-        markup.add(btn_view_cats, btn_add_cats) 
-        markup.add(btn_stats) 
-        markup.add(btn_add_vendor, btn_add_rider)
-        markup.add(btn_vendors, btn_riders)
-        markup.add(btn_set_commission, btn_block)
+        markup.add(btn_delivery_settings)
+        markup.row(btn_view_cats, btn_add_cats)
+        markup.add(btn_stats)
+        markup.row(btn_add_vendor, btn_add_rider)
+        markup.row(btn_vendors, btn_riders)
+        markup.row(btn_set_commission, btn_block)
         markup.add(btn_lock)
         
-        # መመለሻው ሁልጊዜ መጨረሻ ላይ እንዲሆን
+        # ሁልጊዜ መጨረሻ ላይ እንዲሆን
         markup.add(btn_back_to_main)
 
         return markup
