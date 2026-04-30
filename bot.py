@@ -534,17 +534,26 @@ def contact_handler(message):
     if message.contact is not None:
         user_id = str(message.chat.id)
         db = load_data()
+
+        # --- እዚህ ጋር ነው ማስተካከያው የሚገባው ---
+        if user_id not in db['users']:
+            db['users'][user_id] = {}
         
-        # ስልክ ቁጥሩን በዳታቤዝ ውስጥ መመዝገብ
-        db['users'][user_id] = {
+        db['users'][user_id].update({
             "phone": message.contact.phone_number,
             "name": message.from_user.first_name,
-            "address": None # ለጊዜው ባዶ
-        }
+            "role": "customer",  # ተጠቃሚው ደንበኛ መሆኑን ለመለየት
+            "address": None      # ለጊዜው ባዶ
+        })
+        # ---------------------------------------
+
         save_data(db)
-        
-        bot.send_message(message.chat.id, "✅ ስልክዎ ተመዝግቧል። አሁን ደግሞ ያሉበትን ቦታ (Location) ይላኩ።", 
-                         reply_markup=get_location_keyboard())
+
+        bot.send_message(
+            message.chat.id, 
+            "✅ ስልክዎ ተመዝግቧል። አሁን ደግሞ ያሉበትን ቦታ (Location) ይላኩ።", 
+            reply_markup=get_location_keyboard()
+        )
 
 # Location ሲላክ መቀበያ
 @bot.message_handler(content_types=['location'])
