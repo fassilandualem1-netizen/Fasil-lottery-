@@ -377,8 +377,8 @@ def get_admin_dashboard(user_id):
         btn_stats = types.InlineKeyboardButton("📈 ሪፖርት", callback_data="admin_full_stats")
         
         # --- 2. ወደ ዋናው ሜኑ መመለሻ በተን ---
-        btn_back_to_main = types.InlineKeyboardButton("🏠 ወደ ዋናው ሜኑ", callback_data="go_to_main_start")
-
+        btn_back_to_main = types.InlineKeyboardButton("🏠 ወደ አድሚን ሜኑ", callback_data="admin_main_menu")
+markup.add(btn_back_to_main)
         # --- 3. ወደ Markup መጨመር (በተዋረድ) ---
         markup.add(btn_broadcast)
         markup.add(btn_fund, btn_balance)
