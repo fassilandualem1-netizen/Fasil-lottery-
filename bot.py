@@ -588,8 +588,10 @@ def list_vendors_by_category(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("view_vendor_prods_"))
 def view_vendor_products(call):
+    # 1. Loading ምልክቱን ወዲያው ለማጥፋት
     bot.answer_callback_query(call.id)
-    # 🛠 በሃይል ID-ውን ማጽዳት
+    
+    # 2. በሐይል ID-ውን ማጽዳት (String & Strip)
     vendor_id = str(call.data.replace("view_vendor_prods_", "")).strip()
     db = load_data()
     
@@ -599,30 +601,33 @@ def view_vendor_products(call):
     markup = types.InlineKeyboardMarkup(row_width=1)
     found_prods = False
 
+    # 3. በሐይል (Force) መፈለግ
     for p_id, p_info in all_products.items():
-        # 🛠 FORCE ID MATCH: የቬንደር ID-ውን በሃይል ማወዳደር
-        target_v_id = str(p_info.get('vendor_id', '')).strip()
+        # የቬንደር ID-ውን ወደ String ቀይሮ በሐይል ማመሳሰል
+        item_vendor_id = str(p_info.get('vendor_id', '')).strip()
         
-        if target_v_id == vendor_id:
-            # የእቃው ስም እና ዋጋ
+        if item_vendor_id == vendor_id:
             price = p_info.get('price', 0)
             name = p_info.get('name', 'ያልታወቀ ዕቃ')
             btn_text = f"🔹 {name} - {price} ETB"
             
-            # እቃው ሲነካ ዝርዝር መረጃ (Detail) እንዲያሳይ
+            # እቃው ሲነካ ወደ ዝርዝር መረጃው (Item Detail) እንዲሄድ
             markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"item_detail_{p_id}"))
             found_prods = True
 
     if not found_prods:
-        return bot.answer_callback_query(call.id, "⚠️ ይቅርታ፣ ድርጅቱ እስካሁን ዕቃ አልጫነም።", show_alert=True)
+        return bot.answer_callback_query(call.id, "⚠️ ይቅርታ፣ ድርጅቱ ዕቃ አልጫነም ወይም ዳታው አልተገኘም።", show_alert=True)
 
-    markup.add(types.InlineKeyboardButton("🔙 ወደ ድርጅቶች", callback_data="cust_view_shops"))
-    shop_name = vendor_info.get('name', 'ድርጅት')
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ድርጅቶች ተመለስ", callback_data="cust_view_shops"))
     
-    bot.edit_message_text(f"🛍️ የ **{shop_name}** ዕቃዎች ዝርዝር፦", 
-                         call.message.chat.id, call.message.message_id, 
-                         reply_markup=markup, parse_mode="Markdown")
-
+    shop_name = vendor_info.get('name', 'ድርጅት')
+    bot.edit_message_text(
+        f"🛍️ የ **{shop_name}** ዕቃዎች ዝርዝር፦\n\nለመግዛት የሚፈልጉትን ዕቃ ይጫኑ፦", 
+        call.message.chat.id, 
+        call.message.message_id, 
+        reply_markup=markup, 
+        parse_mode="Markdown"
+    )
 
 
 
