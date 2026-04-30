@@ -576,37 +576,65 @@ def list_vendors_by_category(call):
 
 # 3. የድርጅት እቃዎችን በሃይል ማውጫ
 @bot.callback_query_handler(func=lambda call: call.data.startswith("view_vendor_prods_"))
-def view_vendor_products(call):
+def view_vendor_sub_categories(call):
     bot.answer_callback_query(call.id)
     v_id = str(call.data.replace("view_vendor_prods_", "")).strip()
     db = load_data()
-    
-    # 🛠 FORCE: በሁለቱም ቦታዎች መፈለግ (products እና items)
+
     all_prods = db.get('products', {})
-    if not all_prods: # ዳታቤዝህ 'items' የሚል ሊስት ከሆነ ወደ ዲክሽነሪ ቀይሮ ማመሳሰል
+    if not all_prods:
         all_prods = {str(i.get('id')): i for i in db.get('items', [])}
 
-    vendor_info = db.get('vendors_list', {}).get(v_id, {})
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    found_prods = False
+    # 🛠 FORCE: በድርጅቱ ውስጥ ያሉትን ንዑስ ምድቦች ብቻ ለይቶ ማውጣት
+    vendor_subs = set()
+    for p_info in all_prods.values():
+        if str(p_info.get('vendor_id', '')).strip() == v_id:
+            sub_cat = p_info.get('category', 'ሌሎች') # ቬንደሩ የመረጠው ንዑስ ምድብ
+            vendor_subs.add(sub_cat)
 
-    for p_id, p_info in all_prods.items():
-        # 🛠 FORCE MATCH: የባለቤቱን ID ማመሳሰል
-        p_vendor_id = str(p_info.get('vendor_id', '')).strip()
-        
-        if p_vendor_id == v_id:
-            price = p_info.get('price', 0)
-            btn_text = f"🔹 {p_info.get('name', 'ዕቃ')} - {price} ETB"
-            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"item_detail_{str(p_id).strip()}"))
-            found_prods = True
-
-    if not found_prods:
+    if not vendor_subs:
         return bot.answer_callback_query(call.id, "⚠️ ይቅርታ፣ ድርጅቱ እስካሁን ዕቃ አልጫነም!", show_alert=True)
 
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    for sub in sorted(list(vendor_subs)):
+        # እያንዳንዱ ንዑስ ምድብ ሲነካ ወደሚቀጥለው ክፍል (show_final_items) ይወስዳል
+        markup.add(types.InlineKeyboardButton(f"📁 {sub}", callback_data=f"list_sub:{v_id}:{sub}"))
+
     markup.add(types.InlineKeyboardButton("🔙 ወደ ድርጅቶች ተመለስ", callback_data="cust_view_shops"))
-    bot.edit_message_text(f"🛍️ የ **{vendor_info.get('name', 'ድርጅት')}** ዕቃዎች፦", 
+    
+    vendor_name = db.get('vendors_list', {}).get(v_id, {}).get('name', 'ድርጅት')
+    bot.edit_message_text(f"🛍️ የ **{vendor_name}** ምድቦች፦\n\nምድብ ይምረጡ", 
                          call.message.chat.id, call.message.message_id, 
                          reply_markup=markup, parse_mode="Markdown")
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("list_sub:"))
+def show_final_items(call):
+    bot.answer_callback_query(call.id)
+    # ዳታውን (v_id እና sub_name) እንነጥላለን
+    _, v_id, sub_name = call.data.split(":")
+    db = load_data()
+    
+    all_prods = db.get('products', {})
+    if not all_prods:
+        all_prods = {str(i.get('id')): i for i in db.get('items', [])}
+
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    found = False
+    for p_id, p_info in all_prods.items():
+        # 🛠 FORCE MATCH: የባለቤቱን ID እና ንዑስ ምድቡን ማመሳሰል
+        if str(p_info.get('vendor_id', '')).strip() == v_id and p_info.get('category') == sub_name:
+            price = p_info.get('price', 0)
+            btn_text = f"🔹 {p_info.get('name')} - {price} ETB"
+            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"item_detail_{str(p_id).strip()}"))
+            found = True
+
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ምድቦች ተመለስ", callback_data=f"view_vendor_prods_{v_id}"))
+    bot.edit_message_text(f"🍲 **{sub_name}** ዝርዝር፦", 
+                         call.message.chat.id, call.message.message_id, 
+                         reply_markup=markup, parse_mode="Markdown")
+
 
 
 
