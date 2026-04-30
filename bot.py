@@ -7,12 +7,14 @@ from upstash_redis import Redis
 
 
 # --- 1. ውቅረት ---
-TOKEN = "8663228906:AAFsTC0fKqAVEWMi7rk59iSdfVD-1vlJA0Y"
+TOKEN = os.getenv("BOT_TOKEN") 
 CHANNEL_ID = -1003962139457 
-REDIS_URL = "https://nice-kitten-98436.upstash.io"
-REDIS_TOKEN = "gQAAAAAAAYCEAAIncDEyMWMyNjczNmZiNjM0NzlkODI4MmUyODAyZGIxNDI5N3AxOTg0MzY"
-ADMIN_IDS = [5690096145, 7072611117,8488592165]
-PORT = int(os.getenv("PORT", 8080)) # Render የራሱን Port እዚህ ይሰጥሃል
+# Redis መረጃዎችንም እንደዚሁ ብታደርጋቸው ይመከራል
+REDIS_URL = os.getenv("REDIS_URL")
+REDIS_TOKEN = os.getenv("REDIS_TOKEN")
+
+ADMIN_IDS =
+PORT = int(os.getenv("PORT", 8080))
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
