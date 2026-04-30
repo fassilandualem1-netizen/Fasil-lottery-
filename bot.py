@@ -722,26 +722,6 @@ def contact_handler(message):
             reply_markup=get_location_keyboard()
         )
 
-# Location ሲላክ መቀበያ
-@bot.message_handler(content_types=['location'])
-def location_handler(message):
-    if message.location is not None:
-        user_id = str(message.chat.id)
-        db = load_data()
-        
-        # የደንበኛውን ቦታ ማስቀመጥ
-        db['users'][user_id]['lat'] = message.location.latitude
-        db['users'][user_id]['lon'] = message.location.longitude
-        save_data(db)
-        
-        # አሁን ምዝገባው ስላለቀ ዋናውን ሜኑ ማሳየት
-        bot.send_message(message.chat.id, "🎉 ምዝገባው ተጠናቋል! አሁን መግዛት ይችላሉ።", 
-                         reply_markup=types.ReplyKeyboardRemove()) # የቆየውን ኪቦርድ ለማጥፋት
-        show_customer_menu(message)
-
-
-
-
 
 
 
@@ -876,35 +856,44 @@ def send_welcome(message):
 
 
 @bot.message_handler(content_types=['location'])
-def handle_vendor_location(message):
+def handle_all_locations(message):
     user_id = message.from_user.id
     user_id_str = str(user_id)
     db = load_data()
+    
+    lat = message.location.latitude
+    lon = message.location.longitude
 
-    # 1. ቬንደር ከሆነ
+    # 1. ቬንደር (ድርጅት) መሆኑን ቼክ ማድረግ
     if user_id_str in db.get('vendors_list', {}):
-        db['vendors_list'][user_id_str]['lat'] = message.location.latitude
-        db['vendors_list'][user_id_str]['lon'] = message.location.longitude
+        db['vendors_list'][user_id_str]['lat'] = lat
+        db['vendors_list'][user_id_str]['lon'] = lon
         save_data(db)
 
-        # እዚህ ጋር ReplyKeyboardRemove() ስላከልን ከታች ያለው ትልቅ በተን ይጠፋል
         bot.send_message(user_id, "✅ የድርጅቱ መገኛ በትክክል ተመዝግቧል!", 
                          reply_markup=types.ReplyKeyboardRemove())
 
-        # 2. አሁን ዳሽቦርዱን እናሳየዋለን
+        # የቬንደር ዳሽቦርድ ማሳያ
         text, markup = get_vendor_dashboard_elements(user_id)
-        bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
+        return bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
 
-    # 3. ደንበኛ ከሆነ
-    elif user_id_str in db.get('users', {}):
-        db['users'][user_id_str]['lat'] = message.location.latitude
-        db['users'][user_id_str]['lon'] = message.location.longitude
+    # 2. ደንበኛ ከሆነ (ወይም አዲስ ደንበኛ ከሆነ)
+    else:
+        if 'users' not in db: db['users'] = {}
+        if user_id_str not in db['users']:
+            db['users'][user_id_str] = {"name": message.from_user.first_name, "role": "customer"}
+
+        db['users'][user_id_str]['lat'] = lat
+        db['users'][user_id_str]['lon'] = lon
         save_data(db)
-        
-        bot.send_message(user_id, "✅ መገኛዎ ተመዝግቧል።", 
-                         reply_markup=types.ReplyKeyboardRemove())
-        # የደንበኛ ሜኑ ካለህ እዚህ መጥራት ትችላለህ
 
+        bot.send_message(user_id, "✅ መገኛዎ ተመዝግቧል። አሁን መገበያየት ይችላሉ!", 
+                         reply_markup=types.ReplyKeyboardRemove())
+        
+        # የደንበኛ ሜኑ ማሳያ
+        markup = get_customer_dashboard()
+        return bot.send_message(user_id, "🔥 **እንኳን ደህና መጡ! ምን ማዘዝ ይፈልጋሉ?**", 
+                                reply_markup=markup, parse_mode="Markdown")
 
 
 
