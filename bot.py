@@ -68,6 +68,7 @@ def load_data():
         "users": {},
         "riders_list": {},     
         "vendors_list": {}, 
+        "products": {},        # 👈 አዲስ የታከለ (ዕቃዎችን ለመያዝ)
         "orders": {},          
         "carts": {},           
         "categories": [],      
@@ -85,14 +86,13 @@ def load_data():
             "service_fee": 8,
             "rider_fixed_fee": 30,       
             "base_delivery": 50,
-            "rain_mode": False,   # ✅ አዲስ የታከለ
-            "rain_val": 25,       # ✅ አዲስ የታከለ
-            "night_mode": False,  # ✅ አዲስ የታከለ
-            "night_val": 15,      # ✅ አዲስ የታከለ
+            "rain_mode": False,   
+            "rain_val": 25,       
+            "night_mode": False,  
+            "night_val": 15,      
             "system_locked": False 
         }
     }
-
     try:
         raw = redis.get("bdf_delivery_db")
         if raw: 
