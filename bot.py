@@ -511,22 +511,74 @@ def get_customer_dashboard():
 
 
 
-
-
-
-
-@bot.message_handler(commands=['start'])
-def start_handler(message):
-    user_id = str(message.chat.id)
+# 1. ምድቦችን ማሳያ
+@bot.callback_query_handler(func=lambda call: call.data == "cust_view_shops")
+def customer_view_categories(call):
     db = load_data()
+    categories = db.get('categories', [])
+    if not categories:
+        return bot.answer_callback_query(call.id, "⚠️ አሁን ላይ ምንም የምርት ምድቦች አልተገኙም።", show_alert=True)
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    for cat in categories:
+        # callback_data 'cat_select_' መሆኑን እርግጠኛ ሁን
+        markup.add(types.InlineKeyboardButton(f"📁 {cat}", callback_data=f"cat_select_{cat}"))
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="go_to_customer_menu"))
+    bot.edit_message_text("የትኛውን ምድብ ማየት ይፈልጋሉ?", call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+# 2. በምድቡ ስር ያሉ ሱቆችን ማሳያ
+@bot.callback_query_handler(func=lambda call: call.data.startswith("cat_select_"))
+def list_vendors_by_category(call):
+    selected_cat = call.data.replace("cat_select_", "")
+    db = load_data()
+    vendors = db.get('vendors_list', {})
+
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    found_any = False
+    for v_id, v_info in vendors.items():
+        if v_info.get('category') == selected_cat:
+            btn_text = f"🏢 {v_info.get('business_name', 'ያልታወቀ ሱቅ')}"
+            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"view_vendor_prods_{v_id}"))
+            found_any = True
+
+    if not found_any:
+        return bot.answer_callback_query(call.id, f"⚠️ በ'{selected_cat}' ምድብ ሱቅ የለም።", show_alert=True)
+
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ምድቦች ተመለስ", callback_data="cust_view_shops"))
+    bot.edit_message_text(f"📍 የ'{selected_cat}' ሱቆች፦", call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("view_vendor_prods_"))
+def view_vendor_products(call):
+    vendor_id = call.data.replace("view_vendor_prods_", "")
+    db = load_data()
+    products = db.get('products', {})
+    vendor_info = db.get('vendors_list', {}).get(vendor_id, {})
+
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    found_prods = False
+
+    for p_id, p_info in products.items():
+        if p_info.get('vendor_id') == vendor_id:
+            # እቃው ካለና በሱቁ ስር ከሆነ
+            btn_text = f"{p_info['name']} - {p_info['price']} ETB"
+            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"item_detail_{p_id}"))
+            found_prods = True
+
+    if not found_prods:
+        return bot.answer_callback_query(call.id, "⚠️ ይህ ሱቅ እስካሁን እቃ አልጫነም።", show_alert=True)
+
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ሱቆች ዝርዝር", callback_data="cust_view_shops"))
     
-    # ተጠቃሚው ቀድሞ የተመዘገበ መሆኑን ቼክ ማድረግ
-    if user_id not in db['users']:
-        text = "👋 እንኳን ወደ ዴሊቨሪ ቦታችን በሰላም መጡ!\n\nለመቀጠል እባክዎ ስልክ ቁጥርዎን ያጋሩ።"
-        bot.send_message(message.chat.id, text, reply_markup=get_registration_keyboard())
-    else:
-        # ቀድሞ ከተመዘገበ በቀጥታ ሜኑ ማሳየት
-        show_customer_menu(message)
+    shop_name = vendor_info.get('business_name', 'ሱቅ')
+    bot.edit_message_text(f"🛍️ የ {shop_name} ዕቃዎች፦\nለመግዛት እቃውን ይምረጡ", 
+                         call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+
+
+
 
 # ስልክ ቁጥር ሲላክ መቀበያ
 @bot.message_handler(content_types=['contact'])
@@ -575,57 +627,6 @@ def location_handler(message):
 
 
 
-@bot.callback_query_handler(func=lambda call: call.data == "cust_view_shops")
-def customer_view_categories(call):
-    db = load_data()
-    categories = db.get('categories', [])
-    
-    if not categories:
-        return bot.answer_callback_query(call.id, "⚠️ አሁን ላይ ምንም የምርት ምድቦች አልተገኙም።", show_alert=True)
-    
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    for cat in categories:
-        # እያንዳንዱን ምድብ በተን እናደርጋለን
-        markup.add(types.InlineKeyboardButton(f"📁 {cat}", callback_data=f"list_vendors_in_{cat}"))
-    
-    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="go_to_customer_menu"))
-    
-    bot.edit_message_text("የትኛውን ምድብ ማየት ይፈልጋሉ?", 
-                         call.message.chat.id, call.message.message_id, reply_markup=markup)
-
-
-
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("cat_select_"))
-def list_vendors_by_category(call):
-    # የመረጥነውን ምድብ ከ callback_data ላይ ነጥሎ ማውጣት
-    selected_cat = call.data.replace("cat_select_", "")
-    db = load_data()
-    vendors = db.get('vendors_list', {})
-    
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    found_any = False
-    
-    for v_id, v_info in vendors.items():
-        # ቬንደሩ የመረጥነው ምድብ ውስጥ ከሆነ ብቻ በተን እንሰራለታለን
-        if v_info.get('category') == selected_cat:
-            btn_text = f"🏢 {v_info.get('business_name', 'ያልታወቀ ሱቅ')}"
-            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"view_vendor_prods_{v_id}"))
-            found_any = True
-            
-    if not found_any:
-        bot.answer_callback_query(call.id, f"⚠️ በ'{selected_cat}' ምድብ የተመዘገበ ሱቅ እስካሁን የለም።", show_alert=True)
-        return
-
-    markup.add(types.InlineKeyboardButton("🔙 ወደ ምድቦች ተመለስ", callback_data="cust_view_shops"))
-    
-    bot.edit_message_text(
-        f"📍 የ'{selected_cat}' ምድብ ስር ያሉ ሱቆች ዝርዝር፦\nለመግዛት የሱቁን ስም ይጫኑ።",
-        call.message.chat.id, 
-        call.message.message_id, 
-        reply_markup=markup
-    )
-
 
 
 
@@ -637,6 +638,9 @@ def back_to_cust_menu(call):
     markup = get_customer_dashboard() # ይህን ፋንክሽንህን ይጠራል
     bot.edit_message_text("🔥 ዋና ሜኑ፦ የሚፈልጉትን ይምረጡ", 
                          call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+
+
 
 @bot.callback_query_handler(func=lambda call: call.data in ["vendor_refresh", "go_to_main_start"])
 def vendor_dashboard_fast_fix(call):
@@ -704,15 +708,16 @@ def handle_interrupt_commands(message):
 
 # 2. ዋናው የ /start እና የዳሽቦርድ ክፍል
 @bot.message_handler(commands=['start'])
-def send_welcome(message):
+def unified_start_handler(message):
     user_id = message.from_user.id
     user_id_str = str(user_id)
     db = load_data()
 
-    # ሁሉንም ጊዜያዊ ዳታ እና Step Handler ያጸዳል
-    reset_user_state(user_id)
+    # ሁሉንም ጊዜያዊ ዳታ እና Step Handler ያጸዳል (ካለህ)
+    if 'reset_user_state' in globals():
+        reset_user_state(user_id)
 
-    # 1. አድሚን ከሆነ
+    # 1. አድሚን መሆኑን ቼክ ማድረግ
     if user_id in ADMIN_IDS:
         markup = get_admin_dashboard(user_id)
         return bot.send_message(user_id, "👋 ሰላም ጌታዬ! የ BDF መቆጣጠሪያ ፓነል ዝግጁ ነው።", reply_markup=markup, parse_mode="Markdown")
@@ -727,21 +732,29 @@ def send_welcome(message):
             return bot.send_message(user_id, 
                 f"ሰላም {v_info.get('name')}! 👋\n\nእባክዎ መጀመሪያ የድርጅቱን ትክክለኛ መገኛ (Location) በመጫን ይላኩ።", 
                 reply_markup=markup)
+        
+        # የቬንደር ዳሽቦርድ
         text, markup = get_vendor_dashboard_elements(user_id)
         return bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
 
-    # 3. ሾፌር መሆኑን ቼክ ማድረግ
-    drivers_list = db.get('drivers_list', {})
+    # 3. ሾፌር (Driver) መሆኑን ቼክ ማድረግ
+    drivers_list = db.get('riders_list', {}) # አንተ ጋር 'riders_list' ሊሆን ይችላል
     if user_id_str in drivers_list:
-        text, markup = get_driver_dashboard_elements(user_id) 
-        return bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
+        # የሾፌር ዳሽቦርድ (ካለህ)
+        # text, markup = get_driver_dashboard_elements(user_id) 
+        return bot.send_message(user_id, "🛵 ሰላም ሾፌር! ስራ ለመጀመር ዝግጁ ነዎት?", parse_mode="Markdown")
 
-    # 4. ደንበኛ ከሆነ
+    # 4. ደንበኛ ከሆነ (ሌላ ሚና የሌለው ሰው ሁሉ)
     else:
-        if is_user_complete(user_id_str):
-            bot.send_message(user_id, "እንኳን ደህና መጡ! ምን ማዘዝ ይፈልጋሉ?", reply_markup=get_customer_main_markup())
+        users = db.get('users', {})
+        # ደንበኛው ቀድሞ ተመዝግቦ ስልክና ቦታ (lat/lon) ካለው
+        if user_id_str in users and users[user_id_str].get('phone') and users[user_id_str].get('lat'):
+            show_customer_menu(message) # ቀጥታ ሜኑውን ያሳያል
         else:
-            bot.send_message(user_id, "ወደ BDF በደህና መጡ! ለመመዝገብ ስልክና ሎኬሽን ያጋሩ።", reply_markup=get_customer_registration_markup())
+            # ምዝገባ ያልጨረሰ ከሆነ
+            text = "👋 እንኳን ወደ ዴሊቨሪ ቦታችን በሰላም መጡ!\n\nለመቀጠል እባክዎ መጀመሪያ ስልክ ቁጥርዎን ያጋሩ።"
+            # ይህ ስልክ ቁጥር መጠየቂያ በተንህን ይጠራል
+            bot.send_message(message.chat.id, text, reply_markup=get_registration_keyboard())
 
 
 
