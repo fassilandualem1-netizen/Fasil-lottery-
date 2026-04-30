@@ -505,60 +505,65 @@ def get_customer_dashboard():
     return markup
 
 
+import re
 
+# 1. ሁሉንም ምድቦች በሃይል ማሳያ
 @bot.callback_query_handler(func=lambda call: call.data == "cust_view_shops")
 def customer_view_categories(call):
     bot.answer_callback_query(call.id)
     
-    # 🛠 FORCE: በ SUB_CATEGORIES ውስጥ ያሉትን ዋና ዋና ምድቦች በሃይል ማውጣት
-    # ምስል 2430 ላይ ያሉትን ሁሉ ያካትታል
-    all_categories = [
-        "🍴ምግብ ቤት", "🛍️ ሱፐርማርኬት", "🍹መጠጥ", 
-        "💊 ፋርማሲ", "💄ኮስሞቲክስ", "👕 ቡቲክ"
-    ]
+    # በሃይል ሁሉንም ምድቦች እንዘረዝራለን (Emojis ን እዚህ እናጥፋቸው ለcallback ደህንነት)
+    categories_map = {
+        "ምግብ ቤት": "🍴ምግብ ቤት",
+        "ሱፐርማርኬት": "🛍️ ሱፐርማርኬት",
+        "መጠጥ": "🍹መጠጥ",
+        "ፋርማሲ": "💊 ፋርማሲ",
+        "ኮስሞቲክስ": "💄ኮስሞቲክስ",
+        "ቡቲክ": "👕 ቡቲክ"
+    }
     
     markup = types.InlineKeyboardMarkup(row_width=2)
-    for cat in all_categories:
-        # ለ callback_data ሲላክ ስሜት ገላጭ ምስሉን (Emoji) እናጥፋው (ለፍጥነትና ለደህንነት)
-        clean_cat_name = re.sub(r'[^\w\sአ-ፓ]', '', cat).strip()
-        markup.add(types.InlineKeyboardButton(cat, callback_data=f"cat_select_{clean_cat_name}"))
+    for callback_val, display_name in categories_map.items():
+        markup.add(types.InlineKeyboardButton(display_name, callback_data=f"cat_select_{callback_val}"))
 
-    markup.add(types.InlineKeyboardButton("🔙 ወደ ዋናው ሜኑ", callback_data="go_to_customer_menu"))
+    markup.add(types.InlineKeyboardButton("🏠 ወደ ዋናው ሜኑ", callback_data="go_to_customer_menu"))
     
     bot.edit_message_text(
-        "📍 **የንግድ ዘርፍ ይምረጡ**\n\nከታች ካሉት አማራጮች አንዱን በመምረጥ ድርጅቶችን ማየት ይችላሉ፦", 
+        "📍 **የንግድ ዘርፍ ይምረጡ**\n\nድርጅቶችን ለማየት ምድብ ይምረጡ፦", 
         call.message.chat.id, 
         call.message.message_id, 
         reply_markup=markup,
         parse_mode="Markdown"
     )
 
-
+# 2. ድርጅቶችን በሃይል ፈልጎ ማምጫ (Force Selection)
 @bot.callback_query_handler(func=lambda call: call.data.startswith("cat_select_"))
 def list_vendors_by_category(call):
     bot.answer_callback_query(call.id)
+    # የተመረጠውን ምድብ በሃይል ማጽዳት
     selected_cat = call.data.replace("cat_select_", "").strip()
+    
     db = load_data()
     vendors = db.get('vendors_list', {})
-
+    
     markup = types.InlineKeyboardMarkup(row_width=1)
     found_any = False
 
     for v_id, v_info in vendors.items():
-        # 🛠 FORCE CLEANUP: በቬንደሩ መረጃ ውስጥ ያለውን ምድብ በሃይል ማጽዳት
+        # 🛠 FORCE CLEANUP: የቬንደሩን መረጃ አጽድቶ ማመሳሰል
         v_raw_cat = str(v_info.get('category', ''))
+        # በሃይል ምልክቶችን፣ ኢሞጂዎችን እና ቅንፎችን ማጥፋት
         v_clean_cat = re.sub(r"[\[\]'🍴🛍️🍹💊💄👕\s]", "", v_raw_cat).strip()
+        target_cat = re.sub(r"[🍴🛍️🍹💊💄👕\s]", "", selected_cat).strip()
         
-        # የተመረጠውንም ምድብ ለንጽጽር ማጽዳት
-        clean_selected = re.sub(r"[🍴🛍️🍹💊💄👕\s]", "", selected_cat).strip()
-
-        if v_clean_cat == clean_selected:
+        if v_clean_cat == target_cat:
             is_open = v_info.get('is_open', True)
             status_icon = "🟢" if is_open else "🔴"
             btn_text = f"{status_icon} {v_info.get('name', 'ድርጅት')}"
             
-            # 🛠 FORCE ID: ID-ው በሃይል String መሆኑን ማረጋገጥ (ለ FASIL በተን መስራት ወሳኝ ነው)
-            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"view_vendor_prods_{str(v_id).strip()}"))
+            # 🛠 FORCE ID: ID-ው በሃይል String መሆኑን ማረጋገጥ
+            c_data = f"view_vendor_prods_{str(v_id).strip()}"
+            markup.add(types.InlineKeyboardButton(btn_text, callback_data=c_data))
             found_any = True
 
     if not found_any:
@@ -569,40 +574,41 @@ def list_vendors_by_category(call):
                          call.message.chat.id, call.message.message_id, 
                          reply_markup=markup, parse_mode="Markdown")
 
-
-
-
+# 3. የድርጅት እቃዎችን በሃይል ማውጫ
 @bot.callback_query_handler(func=lambda call: call.data.startswith("view_vendor_prods_"))
 def view_vendor_products(call):
     bot.answer_callback_query(call.id)
-    v_id_to_match = str(call.data.replace("view_vendor_prods_", "")).strip()
+    v_id = str(call.data.replace("view_vendor_prods_", "")).strip()
     db = load_data()
     
-    # 🛠 FORCE: በዳታቤዝህ ውስጥ ካለው 'products' (ወይም 'items') ቁልፍ በሃይል መፈለግ
+    # 🛠 FORCE: በሁለቱም ቦታዎች መፈለግ (products እና items)
     all_prods = db.get('products', {})
-    vendor_info = db.get('vendors_list', {}).get(v_id_to_match, {})
+    if not all_prods: # ዳታቤዝህ 'items' የሚል ሊስት ከሆነ ወደ ዲክሽነሪ ቀይሮ ማመሳሰል
+        all_prods = {str(i.get('id')): i for i in db.get('items', [])}
 
+    vendor_info = db.get('vendors_list', {}).get(v_id, {})
     markup = types.InlineKeyboardMarkup(row_width=1)
     found_prods = False
 
     for p_id, p_info in all_prods.items():
-        # 🛠 FORCE MATCH: የባለቤቱን ID በሃይል ማመሳሰል
+        # 🛠 FORCE MATCH: የባለቤቱን ID ማመሳሰል
         p_vendor_id = str(p_info.get('vendor_id', '')).strip()
         
-        if p_vendor_id == v_id_to_match:
+        if p_vendor_id == v_id:
             price = p_info.get('price', 0)
             btn_text = f"🔹 {p_info.get('name', 'ዕቃ')} - {price} ETB"
-            # እቃው ሲነካ ዝርዝር እንዲያሳይ
             markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"item_detail_{str(p_id).strip()}"))
             found_prods = True
 
     if not found_prods:
-        return bot.answer_callback_query(call.id, "⚠️ ይህ ድርጅት እስካሁን ዕቃ አልጫነም!", show_alert=True)
+        return bot.answer_callback_query(call.id, "⚠️ ይቅርታ፣ ድርጅቱ እስካሁን ዕቃ አልጫነም!", show_alert=True)
 
-    markup.add(types.InlineKeyboardButton("🔙 ወደ ድርጅቶች", callback_data="cust_view_shops"))
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ድርጅቶች ተመለስ", callback_data="cust_view_shops"))
     bot.edit_message_text(f"🛍️ የ **{vendor_info.get('name', 'ድርጅት')}** ዕቃዎች፦", 
                          call.message.chat.id, call.message.message_id, 
                          reply_markup=markup, parse_mode="Markdown")
+
+
 
 
 
