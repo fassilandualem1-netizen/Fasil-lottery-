@@ -488,7 +488,6 @@ def get_vendor_dashboard_elements(user_id):
 
 
 def get_customer_dashboard():
-bot.answer_callback_query(call.id)
     markup = types.InlineKeyboardMarkup(row_width=2)
     
     # ዋና ዋና በተኖች
