@@ -580,6 +580,81 @@ def view_vendor_products(call):
 
 
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("item_detail_"))
+def item_detail_handler(call):
+    product_id = call.data.replace("item_detail_", "")
+    db = load_data()
+    product = db.get('products', {}).get(product_id)
+
+    if not product:
+        return bot.answer_callback_query(call.id, "⚠️ ዕቃው አልተገኘም!", show_alert=True)
+
+    text = f"🍎 **የዕቃው ዝርዝር**\n\n"
+    text += f"**ስም:** {product['name']}\n"
+    text += f"**ዋጋ:** {product['price']} ETB\n"
+    text += f"**መግለጫ:** {product.get('description', 'መግለጫ አልተጻፈም')}\n\n"
+    text += "እባክዎ ብዛት ይምረጡ፦"
+
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    # የብዛት ምርጫ በተኖች (1-6)
+    btns = []
+    for i in range(1, 7):
+        btns.append(types.InlineKeyboardButton(str(i), callback_data=f"add_to_cart_{product_id}_{i}"))
+    
+    markup.add(*btns)
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data=f"view_vendor_prods_{product['vendor_id']}"))
+
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("add_to_cart_"))
+def add_to_cart_handler(call):
+    # መረጃውን መለየት (add_to_cart_prodID_qty)
+    parts = call.data.split("_")
+    product_id = parts
+    quantity = int(parts)
+    user_id = str(call.from_user.id)
+    
+    db = load_data()
+    product = db.get('products', {}).get(product_id)
+
+    if not product:
+        return bot.answer_callback_query(call.id, "⚠️ ስህተት ተፈጥሯል!")
+
+    # በ carts ውስጥ ለዚህ ተጠቃሚ ቦታ ካልተፈጠረ መፍጠር
+    if user_id not in db['carts']:
+        db['carts'][user_id] = []
+
+    # እቃው ቀድሞ ካለ ብዛቱን መጨመር፣ ከሌለ አዲስ መመዝገብ
+    found = False
+    for item in db['carts'][user_id]:
+        if item['product_id'] == product_id:
+            item['quantity'] += quantity
+            found = True
+            break
+    
+    if not found:
+        db['carts'][user_id].append({
+            "product_id": product_id,
+            "quantity": quantity,
+            "price": product['price'],
+            "name": product['name'],
+            "vendor_id": product['vendor_id']
+        })
+
+    save_data(db)
+    
+    # ስኬት መልዕክት
+    bot.answer_callback_query(call.id, f"✅ {quantity} {product['name']} ወደ ሰሌዳ ተጨምሯል!", show_alert=False)
+    
+    # ተመልሶ ወደ ሱቁ እቃዎች ዝርዝር እንዲሄድ ማድረግ
+    view_vendor_products(call) # ቀድሞ የሰራኸውን ፋንክሽን መልሶ ይጠራዋል
+
+
+
+
 # ስልክ ቁጥር ሲላክ መቀበያ
 @bot.message_handler(content_types=['contact'])
 def contact_handler(message):
