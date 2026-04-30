@@ -488,6 +488,7 @@ def get_vendor_dashboard_elements(user_id):
 
 
 def get_customer_dashboard():
+bot.answer_callback_query(call.id)
     markup = types.InlineKeyboardMarkup(row_width=2)
     
     # ዋና ዋና በተኖች
@@ -511,6 +512,7 @@ def get_customer_dashboard():
 # 1. ምድቦችን ማሳያ
 @bot.callback_query_handler(func=lambda call: call.data == "cust_view_shops")
 def customer_view_categories(call):
+bot.answer_callback_query(call.id)
     db = load_data()
     
     # ዳታውን የማምጣት ሂደት
@@ -624,6 +626,7 @@ def view_vendor_products(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("add_to_cart_"))
 def add_to_cart_handler(call):
+bot.answer_callback_query(call.id)
     # መረጃውን መለየት (add_to_cart_prodID_qty)
     parts = call.data.split("_")
     product_id = parts
@@ -1564,32 +1567,28 @@ def handle_item_creation(call):
         msg = bot.send_message(chat_id, "📸 የእቃውን ፎቶ ይላኩ፦")
         bot.register_next_step_handler(msg, save_temp_photo, msg_id)
     elif call.data == "final_save_item":
+        bot.answer_callback_query(call.id) # ፍጥነት ይጨምራል
         db = load_data()
         user_id = str(call.from_user.id)
         data = item_creation_temp.get(user_id)
-        
+
         if not data: 
             return bot.answer_callback_query(call.id, "❌ መረጃው አልተገኘም!", show_alert=True)
 
         item_id = f"itm_{int(time.time())}"
+        # በዳታቤዝህ ውስጥ ያሉትን ስሞች መከተል አለብህ (id እና vendor_id)
         data.update({'vendor_id': user_id, 'id': item_id, 'status': 'available'})
 
-        # 1. ዳታቤዙን ማዘጋጀት (ካለ ባዶ መሆኑን ማረጋገጥ)
-        if 'items' not in db: db['items'] = []
-        if 'vendors_list' not in db: db['vendors_list'] = {}
-        if user_id not in db['vendors_list']: db['vendors_list'][user_id] = {'items': {}}
+        # 🛠 ዋናው ማስተካከያ፡ ወደ 'products' እንጂ ወደ 'items' አይደለም ሴቭ የምናደርገው
+        if 'products' not in db: db['products'] = {}
+        db['products'][item_id] = data 
 
-        # 2. ዕቃውን በሁለት መልክ ሴቭ ማድረግ
-        # ሀ. ለ ማሳያ ኮድህ (List መልክ)
+        # ለቬንደር ዳሽቦርዱም (my_items ለሚለው ኮድህ) በሊስት መልክ ማስቀመጥ ከፈለግክ
+        if 'items' not in db: db['items'] = []
         db['items'].append(data)
-        
-        # ለ. ለ ቬንደር ዳሽቦርድ (Dictionary መልክ)
-        if 'items' not in db['vendors_list'][user_id]:
-            db['vendors_list'][user_id]['items'] = {}
-        db['vendors_list'][user_id]['items'][item_id] = data
 
         save_data(db)
-        
+
         bot.answer_callback_query(call.id, f"✅ {data['name']} ተመዝግቧል!", show_alert=True)
         bot.delete_message(chat_id, msg_id)
         item_creation_temp.pop(user_id, None)
