@@ -515,18 +515,29 @@ def get_customer_dashboard():
 @bot.callback_query_handler(func=lambda call: call.data == "cust_view_shops")
 def customer_view_categories(call):
     db = load_data()
+    
+    # ዳታውን የማምጣት ሂደት
     categories = db.get('categories', [])
     if not categories:
-        return bot.answer_callback_query(call.id, "⚠️ አሁን ላይ ምንም የምርት ምድቦች አልተገኙም።", show_alert=True)
+        try:
+            categories = list(SUB_CATEGORIES.keys())
+        except NameError:
+            return bot.answer_callback_query(call.id, "⚠️ ለጊዜው ምንም አይነት የንግድ ዘርፎች አልተመዘገቡም።", show_alert=True)
 
     markup = types.InlineKeyboardMarkup(row_width=2)
     for cat in categories:
-        # callback_data 'cat_select_' መሆኑን እርግጠኛ ሁን
         markup.add(types.InlineKeyboardButton(f"📁 {cat}", callback_data=f"cat_select_{cat}"))
-    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="go_to_customer_menu"))
-    bot.edit_message_text("የትኛውን ምድብ ማየት ይፈልጋሉ?", call.message.chat.id, call.message.message_id, reply_markup=markup)
+        
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ዋናው ሜኑ ተመለስ", callback_data="go_to_customer_menu"))
+    
+    bot.edit_message_text(
+        "📍 **የንግድ ዘርፍ ይምረጡ**\n\nየሚፈልጉትን ምድብ በመጫን በስሩ ያሉ ድርጅቶችን ማየት ይችላሉ፦", 
+        call.message.chat.id, 
+        call.message.message_id, 
+        reply_markup=markup,
+        parse_mode="Markdown"
+    )
 
-# 2. በምድቡ ስር ያሉ ሱቆችን ማሳያ
 @bot.callback_query_handler(func=lambda call: call.data.startswith("cat_select_"))
 def list_vendors_by_category(call):
     selected_cat = call.data.replace("cat_select_", "")
@@ -535,17 +546,39 @@ def list_vendors_by_category(call):
 
     markup = types.InlineKeyboardMarkup(row_width=1)
     found_any = False
+
     for v_id, v_info in vendors.items():
         if v_info.get('category') == selected_cat:
-            btn_text = f"🏢 {v_info.get('business_name', 'ያልታወቀ ሱቅ')}"
-            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"view_vendor_prods_{v_id}"))
+            # 1. የድርጅቱን ሁኔታ (ክፍት/ዝግ) ቼክ ማድረግ
+            is_open = v_info.get('is_open', True)
+            status_icon = "🟢" if is_open else "🔴"
+            
+            # 2. የድርጅቱ ስም እና ያለበት ርቀት (ለወደፊት ሎጂክ እንዲመች)
+            btn_text = f"{status_icon} {v_info.get('name', 'ያልታወቀ ድርጅት')}"
+            
+            # ሱቁ ዝግ ከሆነ ደንበኛው ገብቶ እንዳይደክም Alert መስጠት ይቻላል
+            c_data = f"view_vendor_prods_{v_id}" if is_open else f"vendor_closed_{v_id}"
+            
+            markup.add(types.InlineKeyboardButton(btn_text, callback_data=c_data))
             found_any = True
 
     if not found_any:
-        return bot.answer_callback_query(call.id, f"⚠️ በ'{selected_cat}' ምድብ ሱቅ የለም።", show_alert=True)
+        return bot.answer_callback_query(call.id, f"⚠️ በ'{selected_cat}' ዘርፍ እስካሁን የተመዘገበ ድርጅት የለም።", show_alert=True)
 
     markup.add(types.InlineKeyboardButton("🔙 ወደ ምድቦች ተመለስ", callback_data="cust_view_shops"))
-    bot.edit_message_text(f"📍 የ'{selected_cat}' ሱቆች፦", call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+    bot.edit_message_text(
+        f"🏢 **የ'{selected_cat}' ድርጅቶች ዝርዝር**\n\nለመገበያየት የድርጅቱን ስም ይጫኑ፦",
+        call.message.chat.id, 
+        call.message.message_id, 
+        reply_markup=markup,
+        parse_mode="Markdown"
+    )
+
+# ድርጅቱ ዝግ ከሆነ የሚመጣ መልዕክት
+@bot.callback_query_handler(func=lambda call: call.data.startswith("vendor_closed_"))
+def vendor_closed_alert(call):
+    bot.answer_callback_query(call.id, "🔴 ይህ ድርጅት ለጊዜው ተዘግቷል። እባክዎ ጥቂት ቆይተው ይሞክሩ።", show_alert=True)
 
 
 
@@ -580,33 +613,31 @@ def view_vendor_products(call):
 
 
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("item_detail_"))
-def item_detail_handler(call):
-    product_id = call.data.replace("item_detail_", "")
+@bot.callback_query_handler(func=lambda call: call.data.startswith("view_vendor_prods_"))
+def view_vendor_products(call):
+    vendor_id = call.data.replace("view_vendor_prods_", "")
     db = load_data()
-    product = db.get('products', {}).get(product_id)
+    products = db.get('products', {})
+    vendor_info = db.get('vendors_list', {}).get(vendor_id, {})
 
-    if not product:
-        return bot.answer_callback_query(call.id, "⚠️ ዕቃው አልተገኘም!", show_alert=True)
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    found_prods = False
 
-    text = f"🍎 **የዕቃው ዝርዝር**\n\n"
-    text += f"**ስም:** {product['name']}\n"
-    text += f"**ዋጋ:** {product['price']} ETB\n"
-    text += f"**መግለጫ:** {product.get('description', 'መግለጫ አልተጻፈም')}\n\n"
-    text += "እባክዎ ብዛት ይምረጡ፦"
+    for p_id, p_info in products.items():
+        if str(p_info.get('vendor_id')) == str(vendor_id):
+            btn_text = f"🔹 {p_info['name']} - {p_info['price']} ETB"
+            markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"item_detail_{p_id}"))
+            found_prods = True
 
-    markup = types.InlineKeyboardMarkup(row_width=3)
-    # የብዛት ምርጫ በተኖች (1-6)
-    btns = []
-    for i in range(1, 7):
-        btns.append(types.InlineKeyboardButton(str(i), callback_data=f"add_to_cart_{product_id}_{i}"))
+    if not found_prods:
+        return bot.answer_callback_query(call.id, "⚠️ ይህ ድርጅት እስካሁን እቃ አልጫነም።", show_alert=True)
+
+    markup.add(types.InlineKeyboardButton("🔙 ወደ ድርጅቶች ዝርዝር", callback_data="cust_view_shops"))
     
-    markup.add(*btns)
-    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data=f"view_vendor_prods_{product['vendor_id']}"))
-
-    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-
-
+    # business_name ከሌለ 'ድርጅት' እንዲል
+    shop_name = vendor_info.get('business_name') or vendor_info.get('name', 'ድርጅት')
+    bot.edit_message_text(f"🛍️ የ **{shop_name}** ዕቃዎች፦\nለመግዛት እቃውን ይምረጡ", 
+                         call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("add_to_cart_"))
@@ -621,13 +652,21 @@ def add_to_cart_handler(call):
     product = db.get('products', {}).get(product_id)
 
     if not product:
-        return bot.answer_callback_query(call.id, "⚠️ ስህተት ተፈጥሯል!")
+        return bot.answer_callback_query(call.id, "⚠️ ዕቃው አልተገኘም!")
 
-    # በ carts ውስጥ ለዚህ ተጠቃሚ ቦታ ካልተፈጠረ መፍጠር
+    if 'carts' not in db:
+        db['carts'] = {}
+        
     if user_id not in db['carts']:
         db['carts'][user_id] = []
 
-    # እቃው ቀድሞ ካለ ብዛቱን መጨመር፣ ከሌለ አዲስ መመዝገብ
+    # --- SAFETY: ከተለያየ ድርጅት በአንድ ጊዜ እንዳያዝ መከላከል ---
+    if db['carts'][user_id]:
+        current_vendor = db['carts'][user_id].get('vendor_id')
+        if str(current_vendor) != str(product['vendor_id']):
+            return bot.answer_callback_query(call.id, "⚠️ በአንድ ጊዜ ከአንድ ድርጅት ብቻ ማዘዝ ይችላሉ። እባክዎ መጀመሪያ የያዙትን ትዕዛዝ ይጨርሱ ወይም ሰሌዳዎን ያጽዱ።", show_alert=True)
+
+    # እቃው ቀድሞ ካለ ብዛቱን መጨመር
     found = False
     for item in db['carts'][user_id]:
         if item['product_id'] == product_id:
@@ -646,11 +685,12 @@ def add_to_cart_handler(call):
 
     save_data(db)
     
-    # ስኬት መልዕክት
-    bot.answer_callback_query(call.id, f"✅ {quantity} {product['name']} ወደ ሰሌዳ ተጨምሯል!", show_alert=False)
+    bot.answer_callback_query(call.id, f"✅ {quantity} {product['name']} ተጨምሯል!", show_alert=False)
     
-    # ተመልሶ ወደ ሱቁ እቃዎች ዝርዝር እንዲሄድ ማድረግ
-    view_vendor_products(call) # ቀድሞ የሰራኸውን ፋንክሽን መልሶ ይጠራዋል
+    # ተመልሶ ወደ ዕቃዎቹ ዝርዝር እንዲሄድ የ call.dataን እናስተካክላለን
+    call.data = f"view_vendor_prods_{product['vendor_id']}"
+    view_vendor_products(call)
+
 
 
 
