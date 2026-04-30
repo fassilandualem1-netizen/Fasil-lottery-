@@ -494,7 +494,7 @@ def get_customer_dashboard():
     markup = types.InlineKeyboardMarkup(row_width=2)
     
     # ዋና ዋና በተኖች
-    btn_shops = types.InlineKeyboardButton("🛍️ ሱቆችን እይ", callback_data="cust_view_shops")
+    btn_shops = types.InlineKeyboardButton("🛍️ ድርጅቶችን እይ", callback_data="cust_view_shops")
     btn_cart = types.InlineKeyboardButton("🛒 የእኔ መገበያያ", callback_data="cust_view_cart")
     btn_orders = types.InlineKeyboardButton("📦 ትዕዛዞቼ", callback_data="cust_my_orders")
     btn_profile = types.InlineKeyboardButton("📍 አድራሻዬ", callback_data="cust_profile")
