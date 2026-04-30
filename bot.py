@@ -331,6 +331,23 @@ def calculate_dynamic_delivery_fee(u_lat, u_lon, v_lat, v_lon):
     return round(total, 2), details
 
 
+
+
+
+def get_registration_keyboard():
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+    btn_phone = types.KeyboardButton("📱 ስልክ ቁጥርህን ላክ", request_contact=True)
+    markup.add(btn_phone)
+    return markup
+
+def get_location_keyboard():
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+    btn_loc = types.KeyboardButton("📍 ያለህበትን ቦታ (Location) ላክ", request_location=True)
+    markup.add(btn_loc)
+    return markup
+
+
+
 def check_admin(message):
     if message.from_user.id not in ADMIN_IDS:
         bot.send_message(message.chat.id, "🚫 ይቅርታ፣ ይህን ተግባር ለመጠቀም ፍቃድ የለዎትም።")
@@ -463,6 +480,88 @@ def get_vendor_dashboard_elements(user_id):
     
     return text, markup
 
+
+
+
+
+
+
+
+
+
+
+def get_customer_dashboard():
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    
+    # ዋና ዋና በተኖች
+    btn_shops = types.InlineKeyboardButton("🛍️ ሱቆችን እይ", callback_data="cust_view_shops")
+    btn_cart = types.InlineKeyboardButton("🛒 የእኔ መገበያያ", callback_data="cust_view_cart")
+    btn_orders = types.InlineKeyboardButton("📦 ትዕዛዞቼ", callback_data="cust_my_orders")
+    btn_profile = types.InlineKeyboardButton("📍 አድራሻዬ", callback_data="cust_profile")
+    btn_support = types.InlineKeyboardButton("📞 እርዳታ", callback_data="cust_support")
+
+    # ድልድል
+    markup.add(btn_shops)
+    markup.row(btn_cart, btn_orders)
+    markup.row(btn_profile, btn_support)
+    
+    return markup
+
+
+
+
+
+
+
+
+
+@bot.message_handler(commands=['start'])
+def start_handler(message):
+    user_id = str(message.chat.id)
+    db = load_data()
+    
+    # ተጠቃሚው ቀድሞ የተመዘገበ መሆኑን ቼክ ማድረግ
+    if user_id not in db['users']:
+        text = "👋 እንኳን ወደ ዴሊቨሪ ቦታችን በሰላም መጡ!\n\nለመቀጠል እባክዎ ስልክ ቁጥርዎን ያጋሩ።"
+        bot.send_message(message.chat.id, text, reply_markup=get_registration_keyboard())
+    else:
+        # ቀድሞ ከተመዘገበ በቀጥታ ሜኑ ማሳየት
+        show_customer_menu(message)
+
+# ስልክ ቁጥር ሲላክ መቀበያ
+@bot.message_handler(content_types=['contact'])
+def contact_handler(message):
+    if message.contact is not None:
+        user_id = str(message.chat.id)
+        db = load_data()
+        
+        # ስልክ ቁጥሩን በዳታቤዝ ውስጥ መመዝገብ
+        db['users'][user_id] = {
+            "phone": message.contact.phone_number,
+            "name": message.from_user.first_name,
+            "address": None # ለጊዜው ባዶ
+        }
+        save_data(db)
+        
+        bot.send_message(message.chat.id, "✅ ስልክዎ ተመዝግቧል። አሁን ደግሞ ያሉበትን ቦታ (Location) ይላኩ።", 
+                         reply_markup=get_location_keyboard())
+
+# Location ሲላክ መቀበያ
+@bot.message_handler(content_types=['location'])
+def location_handler(message):
+    if message.location is not None:
+        user_id = str(message.chat.id)
+        db = load_data()
+        
+        # የደንበኛውን ቦታ ማስቀመጥ
+        db['users'][user_id]['lat'] = message.location.latitude
+        db['users'][user_id]['lon'] = message.location.longitude
+        save_data(db)
+        
+        # አሁን ምዝገባው ስላለቀ ዋናውን ሜኑ ማሳየት
+        bot.send_message(message.chat.id, "🎉 ምዝገባው ተጠናቋል! አሁን መግዛት ይችላሉ።", 
+                         reply_markup=types.ReplyKeyboardRemove()) # የቆየውን ኪቦርድ ለማጥፋት
+        show_customer_menu(message)
 
 
 @bot.callback_query_handler(func=lambda call: call.data in ["vendor_refresh", "go_to_main_start"])
