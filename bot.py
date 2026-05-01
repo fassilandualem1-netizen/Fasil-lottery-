@@ -680,126 +680,87 @@ def get_flexible_unit(category_name):
     else:
         return "ፍሬ"
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("item_detail_"))
-def show_item_detail(call):
-    bot.answer_callback_query(call.id)
-    p_id = call.data.replace("item_detail_", "").strip()
-    
-    db = load_data()
-    # እቃውን ከ products ወይም ከ items ዝርዝር መፈለግ
-    product = db.get('products', {}).get(p_id)
-    if not product:
-        # Fallback: በ ID ብቻ መፈለግ
-        for item in db.get('items', []):
-            if str(item.get('id')) == p_id:
-                product = item
-                break
-                
-    if not product:
-        return bot.answer_callback_query(call.id, "⚠️ ይቅርታ፣ እቃው አልተገኘም!", show_alert=True)
-
-    v_id = str(product.get('vendor_id', '')).strip()
-    vendor_info = db.get('vendors_list', {}).get(v_id, {})
-    main_cat = vendor_info.get('category', 'ሌላ')
-
-    # 🛠 FORCE UNIT: የመለኪያ ስሙን ማግኘት
-    unit = get_flexible_unit(main_cat)
-    
-    name = product.get('name', 'ያልታወቀ እቃ')
-    price = product.get('price', 0)
-    weight = product.get('weight', 0.5)
-    desc = product.get('description', 'ምንም መግለጫ አልተጻፈም')
-
-    # ለደንበኛው የሚታይ ጽሁፍ
-    text = (
-        f"🍲 **{name}**\n\n"
-        f"📝 **መግለጫ:** {desc}\n"
-        f"💰 **ዋጋ:** {price} ETB\n"
-        f"⚖️ **ክብደት:** {weight} KG\n\n"
-        f"❓ **ምን ያህል {unit} ይፈልጋሉ?**\n"
-        f"እባክዎ መግዛት የሚፈልጉትን መጠን ይምረጡ፦"
-    )
-
+# 1. መጀመሪያ ማርካፕ (Keyboard) ሰሪውን ለብቻው እናውጣው (Dynamic እንዲሆን)
+def get_item_detail_markup(p_id, main_cat, qty=1):
+    unit = get_flexible_unit(main_cat) # የዘርፉን መለኪያ ያመጣል (ቁጥር፣ KG...)
     markup = types.InlineKeyboardMarkup(row_width=3)
-    
-    # 🛠 FORCE BUTTONS: ለሳይክል ሾፌሩ እንዲመች እስከ 5 ብቻ መገደብ
-    btns = []
-    for i in range(1, 6):
-        # callback_data: confirm_add:PID:QTY
-        btns.append(types.InlineKeyboardButton(f"{i} {unit}", callback_data=f"confirm_add:{p_id}:{i}"))
-    
-    markup.add(*btns)
-    
-    # ወደ ንዑስ ምድብ መመለሻ
-    sub_cat = product.get('category', '')
-    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data=f"v_sub_{v_id}:{sub_cat}"))
 
-    try:
-        bot.edit_message_text(
-            text, 
-            call.message.chat.id, 
-            call.message.message_id, 
-            reply_markup=markup, 
-            parse_mode="Markdown"
-        )
-    except Exception:
-        # መልእክቱ ካልተቀየረ አዲስ መላክ
-        bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
-
-
-def get_item_detail_markup(p_id, qty=1):
-    markup = types.InlineKeyboardMarkup(row_width=3)
-    
     # የቁጥር መቀነሻ፣ ማሳያ እና መጨመሪያ
-    btn_minus = types.InlineKeyboardButton("➖", callback_data=f"update_qty:{p_id}:{qty-1}")
-    btn_qty = types.InlineKeyboardButton(f"{qty}", callback_data="ignore")
-    btn_plus = types.InlineKeyboardButton("➕", callback_data=f"update_qty:{p_id}:{qty+1}")
-    
+    btn_minus = types.InlineKeyboardButton("➖", callback_data=f"update_qty:{p_id}:{qty-1}:{main_cat}")
+    btn_qty = types.InlineKeyboardButton(f"{qty} {unit}", callback_data="ignore")
+    btn_plus = types.InlineKeyboardButton("➕", callback_data=f"update_qty:{p_id}:{qty+1}:{main_cat}")
+
     markup.row(btn_minus, btn_qty, btn_plus)
-    
-    # ልዩ ትዕዛዝ መጻፊያ በተን
-    markup.add(types.InlineKeyboardButton("📝 ልዩ ትዕዛዝ ካለዎት ይጻፉ", callback_data=f"add_note:{p_id}"))
-    
-    # ወደ ቅርጫት መጨመሪያ
+
+    # ልዩ ትዕዛዝ እና ቅርጫት መጨመሪያ
+    markup.add(types.InlineKeyboardButton("📝 ልዩ ትዕዛዝ (ለምሳሌ፦ ቃሪያ አይበዛበት)", callback_data=f"add_note:{p_id}"))
     markup.add(types.InlineKeyboardButton("🛒 ወደ ቅርጫት ጨምር", callback_data=f"confirm_add:{p_id}:{qty}"))
-    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="back_to_list"))
     
     return markup
 
+# 2. እቃው ሲነካ መጀመሪያ የሚታየው
+@bot.callback_query_handler(func=lambda call: call.data.startswith("item_detail_"))
+def show_item_detail(call):
+    p_id = call.data.replace("item_detail_", "").strip()
+    db = load_data()
+    product = db.get('products', {}).get(p_id)
+    
+    if not product: return bot.answer_callback_query(call.id, "⚠️ እቃው አልተገኘም!")
+
+    v_id = str(product.get('vendor_id'))
+    vendor_info = db.get('vendors_list', {}).get(v_id, {})
+    main_cat = vendor_info.get('category', 'ሌላ')
+
+    text = (f"🍲 **{product.get('name')}**\n\n"
+            f"📝 **መግለጫ:** {product.get('description', 'አልተጻፈም')}\n"
+            f"💰 **ዋጋ:** {product.get('price')} ETB\n"
+            f"⚖️ **ክብደት:** {product.get('weight', 0.5)} KG\n\n"
+            f"❓ ምን ያህል ይፈልጋሉ? (+ እና - ይጠቀሙ)")
+
+    markup = get_item_detail_markup(p_id, main_cat, qty=1)
+    # ተመለስ በተን መጨመር
+    sub_cat = product.get('category', '')
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data=f"v_sub_{v_id}:{sub_cat}"))
+
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+# 3. የ (+) እና (-) ማደሻ (Update Qty)
 @bot.callback_query_handler(func=lambda call: call.data.startswith("update_qty:"))
 def update_qty_callback(call):
-    _, p_id, new_qty = call.data.split(":")
+    _, p_id, new_qty, main_cat = call.data.split(":")
     new_qty = int(new_qty)
-    
-    # ገደብ፦ ከ 1 በታች መውረድ የለበትም፣ ከ 5 በላይ (ለሳይክል ምቾት) መሄድ የለበትም
+
     if new_qty < 1:
         return bot.answer_callback_query(call.id, "ቢያንስ 1 ማዘዝ አለብዎት!", show_alert=False)
     if new_qty > 5:
-        return bot.answer_callback_query(call.id, "በሳይክል ስለሚሆን ከ 5 በላይ በአንድ ጊዜ አይቻልም!", show_alert=True)
-    
-    # በተኑን ብቻ ማደስ (Edit Keyboard)
+        return bot.answer_callback_query(call.id, "⚠️ በሳይክል ስለሚሆን ከ 5 በላይ አይቻልም!", show_alert=True)
+
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, 
-                                  reply_markup=get_item_detail_markup(p_id, new_qty))
+                                  reply_markup=get_item_detail_markup(p_id, main_cat, new_qty))
 
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("add_note:"))
 def ask_for_note(call):
     p_id = call.data.split(":")
-    msg = bot.send_message(call.message.chat.id, "⌨️ ለዚህ እቃ ያለዎትን ልዩ ፍላጎት ይጻፉ (ለምሳሌ፦ 'ቃሪያ አይበዛበት'፣ 'ሽንኩርት ይውጣ'...)")
+    msg = bot.send_message(call.message.chat.id, "⌨️ ለዚህ እቃ ያለዎትን ልዩ ትዕዛዝ ይጻፉ (ለምሳሌ፦ 'ሽንኩርት ይውጣ' ወይም 'በርበሬ አይኑረው')")
     
-    # ደንበኛው የሚጽፈውን ለመቀበል (Register Next Step)
     bot.register_next_step_handler(msg, save_user_note, p_id)
 
 def save_user_note(message, p_id):
     user_note = message.text
     user_id = str(message.from_user.id)
+    db = load_data()
+
+    # ጊዜያዊ ኖት ማስቀመጫ (ሲጨመር ወደ ቅርጫት እንዲገባ)
+    if 'temp_notes' not in db: db['temp_notes'] = {}
+    if user_id not in db['temp_notes']: db['temp_notes'][user_id] = {}
     
-    # ማሳሰቢያውን በጊዜያዊ ዳታቤዝ ማስቀመጥ (ወደ ቅርጫት ሲገባ አብሮ እንዲሄድ)
-    # db['temp_notes'][user_id][p_id] = user_note
-    
-    bot.send_message(message.chat.id, f"✅ ማሳሰቢያዎ ተመዝግቧል፦ '{user_note}'")
-    # ተመልሶ ወደ እቃው ዝርዝር ይወስደዋል
+    db['temp_notes'][user_id][p_id] = user_note
+    save_data(db)
+
+    bot.send_message(message.chat.id, f"✅ ልዩ ትዕዛዝዎ ተመዝግቧል፦ _{user_note}_")
+    # ማሳሰቢያ፦ እዚህ ጋር ደንበኛው ቅርጫት ውስጥ መጨመሩን እንዳይረሳ መልእክት ይላክለታል
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("confirm_add:"))
