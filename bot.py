@@ -747,6 +747,60 @@ def show_item_detail(call):
         bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
 
 
+def get_item_detail_markup(p_id, qty=1):
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    
+    # የቁጥር መቀነሻ፣ ማሳያ እና መጨመሪያ
+    btn_minus = types.InlineKeyboardButton("➖", callback_data=f"update_qty:{p_id}:{qty-1}")
+    btn_qty = types.InlineKeyboardButton(f"{qty}", callback_data="ignore")
+    btn_plus = types.InlineKeyboardButton("➕", callback_data=f"update_qty:{p_id}:{qty+1}")
+    
+    markup.row(btn_minus, btn_qty, btn_plus)
+    
+    # ልዩ ትዕዛዝ መጻፊያ በተን
+    markup.add(types.InlineKeyboardButton("📝 ልዩ ትዕዛዝ ካለዎት ይጻፉ", callback_data=f"add_note:{p_id}"))
+    
+    # ወደ ቅርጫት መጨመሪያ
+    markup.add(types.InlineKeyboardButton("🛒 ወደ ቅርጫት ጨምር", callback_data=f"confirm_add:{p_id}:{qty}"))
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="back_to_list"))
+    
+    return markup
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("update_qty:"))
+def update_qty_callback(call):
+    _, p_id, new_qty = call.data.split(":")
+    new_qty = int(new_qty)
+    
+    # ገደብ፦ ከ 1 በታች መውረድ የለበትም፣ ከ 5 በላይ (ለሳይክል ምቾት) መሄድ የለበትም
+    if new_qty < 1:
+        return bot.answer_callback_query(call.id, "ቢያንስ 1 ማዘዝ አለብዎት!", show_alert=False)
+    if new_qty > 5:
+        return bot.answer_callback_query(call.id, "በሳይክል ስለሚሆን ከ 5 በላይ በአንድ ጊዜ አይቻልም!", show_alert=True)
+    
+    # በተኑን ብቻ ማደስ (Edit Keyboard)
+    bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, 
+                                  reply_markup=get_item_detail_markup(p_id, new_qty))
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("add_note:"))
+def ask_for_note(call):
+    p_id = call.data.split(":")
+    msg = bot.send_message(call.message.chat.id, "⌨️ ለዚህ እቃ ያለዎትን ልዩ ፍላጎት ይጻፉ (ለምሳሌ፦ 'ቃሪያ አይበዛበት'፣ 'ሽንኩርት ይውጣ'...)")
+    
+    # ደንበኛው የሚጽፈውን ለመቀበል (Register Next Step)
+    bot.register_next_step_handler(msg, save_user_note, p_id)
+
+def save_user_note(message, p_id):
+    user_note = message.text
+    user_id = str(message.from_user.id)
+    
+    # ማሳሰቢያውን በጊዜያዊ ዳታቤዝ ማስቀመጥ (ወደ ቅርጫት ሲገባ አብሮ እንዲሄድ)
+    # db['temp_notes'][user_id][p_id] = user_note
+    
+    bot.send_message(message.chat.id, f"✅ ማሳሰቢያዎ ተመዝግቧል፦ '{user_note}'")
+    # ተመልሶ ወደ እቃው ዝርዝር ይወስደዋል
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("confirm_add:"))
 def process_add_to_cart(call):
