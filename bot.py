@@ -953,6 +953,51 @@ def generate_checkout_bill(user_id, u_lat, u_lon):
 
 
 
+@bot.callback_query_handler(func=lambda call: call.data == "cust_view_cart")
+def view_cart_logic(call):
+    user_id = str(call.from_user.id)
+    db = load_data()
+    cart = db.get('carts', {}).get(user_id, {"items": []})
+
+    if not cart['items']:
+        return bot.answer_callback_query(call.id, "🛒 ቅርጫትዎ ባዶ ነው!", show_alert=True)
+
+    cart_msg = "🛒 **የእርስዎ የቅርጫት ዝርዝር**\n━━━━━━━━━━━━━━\n"
+    total_price = 0
+    total_weight = 0
+
+    for i, item in enumerate(cart['items']):
+        item_price = float(item['price']) * item['quantity']
+        item_weight = float(item.get('weight', 0.5)) * item['quantity']
+        
+        # 🛠 የደንበኛው ልዩ ትዕዛዝ (Note) ካለ ማካተት
+        note = item.get('note', 'ምንም የለም')
+        
+        cart_msg += (
+            f"{i+1}. **{item['name']}**\n"
+            f"   🔹 ብዛት: {item['quantity']} | ዋጋ: {item_price:,.2f} ETB\n"
+            f"   ⚖️ ክብደት: {item_weight:.1f} KG\n"
+            f"   📝 ልዩ ትዕዛዝ: _{note}_\n" # ደንበኛው የጻፈው እዚህ ይወጣል
+            f"━━━━━━━━━━━━━━\n"
+        )
+        total_price += item_price
+        total_weight += item_weight
+
+    cart_msg += (
+        f"💰 **ጠቅላላ የእቃ ዋጋ: {total_price:,.2f} ETB**\n"
+        f"⚖️ **ጠቅላላ ክብደት: {total_weight:.1f} KG**\n\n"
+        f"⚠️ *ማሳሰቢያ: አጠቃላይ ክብደት ከ 5KG በላይ ከሆነ በሳይክል ለማድረስ አስቸጋሪ ሊሆን ይችላል።*"
+    )
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("💳 ወደ ክፍያ (Checkout)", callback_data="go_to_checkout"))
+    markup.add(types.InlineKeyboardButton("🗑 ቅርጫቱን አጽዳ", callback_data="clear_cart"))
+    markup.add(types.InlineKeyboardButton("🔙 ተጨማሪ እቃ ጨምር", callback_data="back_to_vendors"))
+
+    bot.edit_message_text(cart_msg, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+
+
 
 # ስልክ ቁጥር ሲላክ መቀበያ
 @bot.message_handler(content_types=['contact'])
