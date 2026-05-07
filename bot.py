@@ -659,6 +659,134 @@ def list_items_in_sub(call):
 
 
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("confirm_add:"))
+def final_add_to_cart(call):
+    # 1. መረጃውን መበተን (PID እና QTY)
+    _, p_id, qty = call.data.split(":")
+    qty = int(qty)
+    user_id = str(call.from_user.id)
+    db = load_data()
+
+    product = db.get('products', {}).get(p_id)
+    if not product:
+        return bot.answer_callback_query(call.id, "⚠️ እቃው አልተገኘም!", show_alert=True)
+
+    # 2. ልዩ ትዕዛዙን (Note) ከጊዜያዊ ቦታ መውሰድ
+    user_notes = db.get('temp_notes', {}).get(user_id, {})
+    special_note = user_notes.get(p_id, "ምንም የለም")
+
+    # 3. የቅርጫት ዝግጅት እና ገደቦችን መፈተሽ
+    if 'carts' not in db: db['carts'] = {}
+    user_cart = db['carts'].get(user_id, {"items": [], "vendor_id": ""})
+    
+    p_vendor_id = str(product.get('vendor_id'))
+    p_weight = float(product.get('weight', 0.5))
+
+    # 🛠 FORCE: ከአንድ ድርጅት ብቻ መሆኑን ማረጋገጥ
+    if user_cart['vendor_id'] and user_cart['vendor_id'] != p_vendor_id:
+        return bot.answer_callback_query(call.id, "❌ መጀመሪያ በቅርጫትዎ ያለውን ድርጅት ትዕዛዝ ይጨርሱ።", show_alert=True)
+
+    # 4. እቃውን ወደ ዝርዝሩ መጨመር
+    # ቀደም ብሎ በቅርጫት ውስጥ ካለ ማደስ፣ ከሌለ አዲስ መፍጠር
+    existing_item = next((i for i in user_cart['items'] if str(i['id']) == p_id), None)
+    
+    if existing_item:
+        existing_item['quantity'] = qty
+        existing_item['note'] = special_note # ማስታወሻውን በሃይል ያድሳል
+    else:
+        user_cart['items'].append({
+            "id": p_id,
+            "name": product['name'],
+            "price": float(product['price']),
+            "quantity": qty,
+            "weight": p_weight,
+            "note": special_note # ማስታወሻውን እዚህ ጋር ያክላል
+        })
+
+    user_cart['vendor_id'] = p_vendor_id
+    db['carts'][user_id] = user_cart
+    
+    # 5. ጊዜያዊ ኖቱን ማጽዳት (ለቀጣይ እቃ እንዳይደገም)
+    if user_id in db.get('temp_notes', {}):
+        if p_id in db['temp_notes'][user_id]:
+            del db['temp_notes'][user_id][p_id]
+
+    save_data(db)
+
+    bot.answer_callback_query(call.id, f"✅ {qty} {product['name']} ተጨምሯል!", show_alert=False)
+    
+    # 🔄 ወደ ንዑስ ምድብ ዝርዝር ይመልሰዋል
+    bot.edit_message_text("🛒 እቃው ወደ ቅርጫት ተጨምሯል። ሌላ ማዘዝ ይፈልጋሉ?", 
+                          call.message.chat.id, call.message.message_id, 
+                          reply_markup=get_back_to_sub_markup(p_vendor_id, product.get('category')))
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "go_to_checkout")
+def final_checkout_view(call):
+    user_id = str(call.from_user.id)
+    # የደንበኛውን መገኛ ቦታ (Location) በሃይል ማግኘት ያስፈልጋል (ከዚህ በፊት የተላከ ካለ)
+    # ለጊዜው ከዳታቤዝ እንውሰደው
+    db = load_data()
+    user_loc = db.get('user_locations', {}).get(user_id)
+    
+    if not user_loc:
+        return bot.send_message(call.message.chat.id, "📍 ትዕዛዙን ለማድረስ መጀመሪያ መገኛ ቦታዎን (Location) ይላኩ።")
+
+    # 1. ቢሉን ማመንጨት (ከዚህ በፊት በሰራነው ሎጂክ)
+    bill_text, grand_total = generate_checkout_bill(user_id, user_loc['lat'], user_loc['lon'])
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("✅ ትዕዛዙን አረጋግጥና ላክ", callback_data="confirm_order_final"))
+    markup.add(types.InlineKeyboardButton("🔙 ተመለስ", callback_data="cust_view_cart"))
+
+    bot.edit_message_text(f"{bill_text}\n\n⚠️ *ትዕዛዙን ካረጋገጡ በኋላ መሰረዝ አይቻልም።*", 
+                          call.message.chat.id, call.message.message_id, 
+                          reply_markup=markup, parse_mode="Markdown")
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "confirm_order_final")
+def send_order_notifications(call):
+    user_id = str(call.from_user.id)
+    db = load_data()
+    cart = db.get('carts', {}).get(user_id)
+    
+    if not cart or not cart.get('items'):
+        return bot.answer_callback_query(call.id, "❌ ቅርጫትዎ ባዶ ነው!")
+
+    v_id = cart['vendor_id']
+    vendor_info = db.get('vendors_list', {}).get(v_id)
+    user_loc = db.get('user_locations', {}).get(user_id)
+    
+    # የትዕዛዝ ቁጥር (Order ID) መፍጠር
+    order_id = f"ORD-{random.randint(1000, 9999)}"
+    
+    # 📝 ለቬንደሩ የሚላክ (የዕቃ ዝርዝር እና ልዩ ትዕዛዝ ብቻ)
+    vendor_msg = f"🔔 **አዲስ ትዕዛዝ ደርሶዎታል! (#{order_id})**\n\n"
+    for item in cart['items']:
+        vendor_msg += f"• {item['name']} x{item['quantity']} \n   └ 📝 ልዩ ትዕዛዝ: {item.get('note', 'የለም')}\n"
+    
+    # 📝 ለሾፌሩ የሚላክ (ቦታ እና አጠቃላይ ክፍያ)
+    bill_text, _ = generate_checkout_bill(user_id, user_loc['lat'], user_loc['lon'])
+    driver_msg = f"🚴 **አዲስ የማድረስ ስራ! (#{order_id})**\n\n{bill_text}\n\n📍 መነሻ: {vendor_info['name']}\n📍 መድረሻ: የደንበኛው ቦታ"
+
+    # 🚀 Notifications መላክ (በሃይል)
+    # 1. ለቬንደሩ
+    bot.send_message(vendor_info['chat_id'], vendor_msg)
+    # 2. ለአድሚን/ሾፌር ግሩፕ (ሾፌሮች እንዲያዩት)
+    bot.send_message(db['admin_settings']['orders_channel'], driver_msg)
+    bot.send_location(db['admin_settings']['orders_channel'], user_loc['lat'], user_loc['lon'])
+
+    # 3. ለደንበኛው ማረጋገጫ
+    bot.edit_message_text(f"✅ ትዕዛዝዎ #{order_id} በተሳካ ሁኔታ ተልኳል! ሾፌር እቃዎን ይዞ እስኪመጣ ይጠብቁ።", 
+                          call.message.chat.id, call.message.message_id)
+
+    # ቅርጫቱን ማጽዳት
+    del db['carts'][user_id]
+    save_data(db)
+
+
+
+
 import re
 
 def get_flexible_unit(category_name):
