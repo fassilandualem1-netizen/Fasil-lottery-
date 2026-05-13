@@ -1,3 +1,5 @@
 telethon
 flask
 upstash-redis
+google-generativeai
+pytz
