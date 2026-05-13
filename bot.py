@@ -104,14 +104,20 @@ async def add_memory(event):
         await event.respond(f"❌ ስህተት፦ {e}")
 
 
-# --- 3. COMMANDS (መቆጣጠሪያዎች) ---
 @bot.on(events.NewMessage(pattern='/set_target', from_users=ADMIN_ID))
 async def set_target(event):
-    parts = event.message.message.split()
-    if len(parts) > 1:
-        target_id = parts[1]
-        redis.set("target_user_id", target_id)
-        await event.respond(f"✅ የዒላማ ሰው ID ተስተካክሏል፦ <code>{target_id}</code>", parse_mode='html')
+    try:
+        text = event.message.message
+        parts = text.split()
+        if len(parts) > 1:
+            target_id = parts[1].strip() # ቁጥሩን ብቻ ነጥሎ ይወስዳል
+            redis.set("target_user_id", str(target_id))
+            await event.respond(f"✅ የዒላማ ሰው ID ተስተካክሏል፦ <code>{target_id}</code>", parse_mode='html')
+        else:
+            await event.respond("❌ እባክህ ID ጨምር። ለምሳሌ፦ `/set_target 5122026260`")
+    except Exception as e:
+        await event.respond(f"❌ ስህተት፦ {e}")
+
 
 @bot.on(events.NewMessage(pattern='/bot_on', from_users=ADMIN_ID))
 async def bot_on(event):
@@ -122,6 +128,14 @@ async def bot_on(event):
 async def bot_off(event):
     redis.set("bot_status", "off")
     await event.respond("😴 AI ቦቱ ቆሟል (OFF)።")
+
+
+@bot.on(events.NewMessage(pattern='/bot_on', from_users=ADMIN_ID))
+async def bot_on(event):
+    print("የ Bot On ትዕዛዝ ደርሶኛል!") # ይህ በ Render Logs ላይ ይታያል
+    redis.set("bot_status", "on")
+    await event.respond("🤖 AI ቦቱ ስራ ጀምሯል (ON)።")
+
 
 # --- 4. THE SMART REPLY HANDLER ---
 @bot.on(events.NewMessage(incoming=True))
