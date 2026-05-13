@@ -26,11 +26,16 @@ ADMIN_ID = 8488592165
 @bot.on(events.NewMessage(pattern='/set_target', from_users=ADMIN_ID))
 async def set_target(event):
     try:
-        target_id = event.message.message.split()
-        redis.set("target_user_id", target_id)
-        await event.respond(f"✅ የዒላማ ሰው ID ወደ {target_id} ተቀይሯል።")
-    except:
-        await event.respond("❌ ስህተት! አጻጻፉ እንዲህ ይሁን: `/set_target 12345678`")
+        # መልዕክቱን በባዶ ቦታ ከፍሎ ሁለተኛውን ቃል (ID-ውን) ብቻ ይወስዳል
+        parts = event.message.message.split()
+        if len(parts) > 1:
+            target_id = parts
+            redis.set("target_user_id", target_id)
+            await event.respond(f"✅ የዒላማ ሰው ID ወደ <code>{target_id}</code> ተቀይሯል።", parse_mode='html')
+        else:
+            await event.respond("❌ እባክህ ID ጨምር። ለምሳሌ፦ `/set_target 5122026260`")
+    except Exception as e:
+        await event.respond(f"❌ ስህተት፦ {e}")
 
 @bot.on(events.NewMessage(pattern='/bot_on', from_users=ADMIN_ID))
 async def bot_on(event):
