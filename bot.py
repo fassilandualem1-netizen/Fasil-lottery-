@@ -30,7 +30,7 @@ app = Flask(__name__)
 
 ADMIN_ID = 8488592165 
 
-# --- 2. AI LOGIC ---
+# --- 2. AI LOGIC (SEARCH + NO PUNCTUATION + UNLIMITED IDEAS) ---
 def get_ai_response(user_id, user_text):
     ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
     now = datetime.now(ethiopia_tz)
@@ -38,33 +38,50 @@ def get_ai_response(user_id, user_text):
     current_day = now.strftime("%A, %B %d")
 
     memory_key = f"permanent_memory:{user_id}"
-    memories = redis.get(memory_key) or "እስካሁን ምንም የተለየ ትውስታ አልተመዘገበም።"
+    raw_memories = redis.get(memory_key)
+    memories = raw_memories.decode('utf-8') if isinstance(raw_memories, bytes) else (raw_memories or "ትውስታ የለም")
 
     history_key = f"chat_history:{user_id}"
-    past_messages = redis.lrange(history_key, 0, 29)
-    # redis results are bytes, decode them to string
+    past_messages = redis.lrange(history_key, 0, 19)
     decoded_history = [m.decode('utf-8') if isinstance(m, bytes) else m for m in past_messages]
-    chat_context = "\n".join(reversed(decoded_history)) if decoded_history else "ገና መተዋወቃቸው ነው።"
+    chat_context = "\n".join(reversed(decoded_history)) if decoded_history else "አዲስ ቻት"
 
     system_prompt = f"""
-    አንተ ፋሲል ነህ። አዲስ አበባ የሚኖር፣ የኮምፒውተር ሳይንስ ተማሪ እና ማንቸስተር ዩናይትድ ደጋፊ ነህ። 
-    አሁን የምታወራው ከምትወዳት የቅርብ ጓደኛህ ጋር ነው።
-    [አካባቢያዊ መረጃ] ዛሬ፡ {current_day} | ሰዓቱ፡ {current_time}
-    [ትውስታ] {memories}
-    [ባህሪ] እንደ እውነተኛ የአዲስ አበባ ወጣት አጭርና ማራኪ መልስ ስጥ። እንደ AI አትሁን።
+    አንተ ፋሲል ነህ። አዲስ አበባ የሚኖር የ 2ኛ አመት የ CS ተማሪ ነህ። ማንቸስተር ዩናይትድ ደጋፊ ነህ።
+    አሁን የምታወራው ከምትወዳት ጓደኛህ ጋር ነው። 
+    
+    [ትዕዛዞች]
+    - መረጃ ከፈለግህ (ስለ ኳስ፣ ዜና፣ አየር ጸባይ) Google Search ተጠቀም ግን መልስህ የፋሲልን ባህሪ ይኑረው።
+    - ስርዓተ ነጥብ (.,?!:;-) በፍፁም እንዳትጠቀም።
+    - እንደ አስፈላጊነቱ ኢሞጂዎችን በብዛት ተጠቀም።
+    - ባህሪህ እንደ ንግግሩ ፍሰት Flirt፣ Funny ወይም Serious ይሁን። ሃሳብ ብትቀይር አብረሃት ተቀየር።
+    - ቋንቋህ የአዲስ አበባ ወጣት (Habesha Slang) ይሁን።
+    
+    [መረጃ] ዛሬ {current_day} | አሁን {current_time} | ትውስታ {memories}
     [ታሪክ] {chat_context}
-    እሷ፡ "{user_text}"
+    እሷ፡ {user_text}
+    ፋሲል፡
     """
 
     try:
-        response = model.generate_content(system_prompt)
+        # temperature=1.0 ለአዳዲስ ሃሳቦች
+        response = model.generate_content(
+            system_prompt,
+            generation_config=genai.types.GenerationConfig(temperature=1.0, top_p=0.99)
+        )
         reply_text = response.text.strip()
+        
+        # ስርዓተ ነጥብን በኮድ ማጽዳት
+        punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~'''
+        for char in punctuations:
+            reply_text = reply_text.replace(char, "")
+            
         redis.lpush(history_key, f"እሷ፡ {user_text}", f"ፋሲል፡ {reply_text}")
         redis.ltrim(history_key, 0, 50)
         return reply_text
     except Exception as e:
-        print(f"Gemini Error: {e}")
-        return "ቆይ የኔ ቆንጆ፣ ትንሽ ስራ ይዤ ነው።"
+        print(f"Error: {e}")
+        return random.choice(["ኔትወርክ አስቸገረኝ", "ቆይ ልሞክረው", "ምነው ዝም አልሽ", "አልሰማሁሽም"])
 
 # --- 3. COMMANDS ---
 @bot.on(events.NewMessage(pattern='/set_target', from_users=ADMIN_ID))
