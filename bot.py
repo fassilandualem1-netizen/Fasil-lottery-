@@ -118,36 +118,38 @@ async def add_memory(event):
         redis.set(m_key, f"{old}\n- {text}")
         await event.respond("✅ ትውስታ ተመዝግቧል።")
 
-# --- 4. THE HANDLER (የተስተካከለ) ---
+# --- 4. THE SMART DYNAMIC HANDLER ---
 @bot.on(events.NewMessage(incoming=True))
 async def handle_incoming(event):
-    # በግል መልዕክት (Private Chat) ብቻ እንዲሰራ
     if event.is_private:
-        # ሁኔታዎችን ከ Redis ማምጣት
         raw_status = redis.get("bot_status")
         raw_target = redis.get("target_user_id")
         
-        # Redis የሚመልሰውን bytes ወደ string መቀየር (ይህ ወሳኝ ነው)
         status = raw_status.decode('utf-8') if isinstance(raw_status, bytes) else (raw_status or "off")
         target_id = raw_target.decode('utf-8') if isinstance(raw_target, bytes) else (raw_target or "")
 
-        # ቼክ፦ ቦቱ ክፍት ከሆነ እና መልዕክቱ ከዒላማው ሰው ከሆነ
         if status == "on" and str(event.sender_id) == str(target_id):
-            # ቦቱ መልዕክቱን እንዳየው (Seen) ያደርገዋል - አንተ መክፈት አይጠበቅብህም
             await event.mark_read() 
             
-            # "Typing..." ምልክት እያሳየ ይጠብቃል
+            # የመልዕክት ርዝመት መሰረት ያደረገ መዘግየት
+            msg_len = len(event.message.message)
+            if msg_len < 20:
+                wait_time = random.randint(15, 60)
+            else:
+                wait_time = random.randint(60, 300)
+            
+            # አልፎ አልፎ ረጅም መዘግየት (Busy behavior)
+            if random.random() < 0.1:
+                wait_time = random.randint(600, 1800)
+
+            # ታይፒንግ ከመልሱ 12 ሰከንድ በፊት ይጀምራል
+            if wait_time > 12:
+                await asyncio.sleep(wait_time - 12)
+            
             async with bot.action(event.chat_id, 'typing'):
-                # ለሙከራ ያህል መዘግየቱን ወደ 10-30 ሰከንድ ዝቅ አድርጌዋለሁ
-                wait_time = random.randint(10, 30) 
-                print(f"መልዕክት ደርሶኛል! ለ {wait_time} ሰከንድ ቆይቼ እመልሳለሁ...")
-                await asyncio.sleep(wait_time)
-                
-                # AI መልስ ያመጣል
+                await asyncio.sleep(12)
                 reply = get_ai_response(event.sender_id, event.message.message)
                 await event.respond(reply)
-                print(f"ለ {event.sender_id} መልስ ተልኳል!")
-
 # --- 5. FLASK & RUN ---
 @app.route('/')
 def home(): return "Bot is Live!"
