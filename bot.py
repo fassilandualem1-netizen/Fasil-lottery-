@@ -101,24 +101,35 @@ async def add_memory(event):
         redis.set(m_key, f"{old}\n- {text}")
         await event.respond("✅ ትውስታ ተመዝግቧል።")
 
-# --- 4. HANDLER ---
+# --- 4. THE HANDLER (የተስተካከለ) ---
 @bot.on(events.NewMessage(incoming=True))
 async def handle_incoming(event):
+    # በግል መልዕክት (Private Chat) ብቻ እንዲሰራ
     if event.is_private:
-        status = redis.get("bot_status")
-        target_id = redis.get("target_user_id")
+        # ሁኔታዎችን ከ Redis ማምጣት
+        raw_status = redis.get("bot_status")
+        raw_target = redis.get("target_user_id")
         
-        # Decode Redis bytes
-        status = status.decode('utf-8') if status else "off"
-        target_id = target_id.decode('utf-8') if target_id else ""
+        # Redis የሚመልሰውን bytes ወደ string መቀየር (ይህ ወሳኝ ነው)
+        status = raw_status.decode('utf-8') if isinstance(raw_status, bytes) else (raw_status or "off")
+        target_id = raw_target.decode('utf-8') if isinstance(raw_target, bytes) else (raw_target or "")
 
-        if status == "on" and str(event.sender_id) == target_id:
+        # ቼክ፦ ቦቱ ክፍት ከሆነ እና መልዕክቱ ከዒላማው ሰው ከሆነ
+        if status == "on" and str(event.sender_id) == str(target_id):
+            # ቦቱ መልዕክቱን እንዳየው (Seen) ያደርገዋል - አንተ መክፈት አይጠበቅብህም
+            await event.mark_read() 
+            
+            # "Typing..." ምልክት እያሳየ ይጠብቃል
             async with bot.action(event.chat_id, 'typing'):
-                wait_time = random.randint(30, 240)
-                print(f"Waiting {wait_time}s for {event.sender_id}...")
+                # ለሙከራ ያህል መዘግየቱን ወደ 10-30 ሰከንድ ዝቅ አድርጌዋለሁ
+                wait_time = random.randint(10, 30) 
+                print(f"መልዕክት ደርሶኛል! ለ {wait_time} ሰከንድ ቆይቼ እመልሳለሁ...")
                 await asyncio.sleep(wait_time)
+                
+                # AI መልስ ያመጣል
                 reply = get_ai_response(event.sender_id, event.message.message)
                 await event.respond(reply)
+                print(f"ለ {event.sender_id} መልስ ተልኳል!")
 
 # --- 5. FLASK & RUN ---
 @app.route('/')
