@@ -19,9 +19,14 @@ REDIS_TOKEN = os.getenv("REDIS_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 PORT = int(os.getenv("PORT", 8080))
 
-# Gemini AI Setup
+# Gemini AI Setup (Google Search ተጨምሮበት)
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
+
+# ሞዴሉን በምናዝዝበት ጊዜ ሰርች እንዲጠቀም tools እንጨምራለን
+model = genai.GenerativeModel(
+    model_name='gemini-1.5-flash',
+    tools=[{'google_search_retrieval': {}}]
+)
 
 # Initializations
 bot = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
@@ -30,58 +35,64 @@ app = Flask(__name__)
 
 ADMIN_ID = 8488592165 
 
-# --- 2. AI LOGIC (SEARCH + NO PUNCTUATION + UNLIMITED IDEAS) ---
 def get_ai_response(user_id, user_text):
     ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
     now = datetime.now(ethiopia_tz)
     current_time = now.strftime("%I:%M %p")
     current_day = now.strftime("%A, %B %d")
 
+    # 1. ትውስታና የድሮ ንግግሮችን ማምጣት
     memory_key = f"permanent_memory:{user_id}"
     raw_memories = redis.get(memory_key)
     memories = raw_memories.decode('utf-8') if isinstance(raw_memories, bytes) else (raw_memories or "ትውስታ የለም")
 
     history_key = f"chat_history:{user_id}"
-    past_messages = redis.lrange(history_key, 0, 19)
+    past_messages = redis.lrange(history_key, 0, 15)
     decoded_history = [m.decode('utf-8') if isinstance(m, bytes) else m for m in past_messages]
     chat_context = "\n".join(reversed(decoded_history)) if decoded_history else "አዲስ ቻት"
 
+    # 2. የጌሚኒን አእምሮ ከፋሲል ማንነት ጋር ማሰር
     system_prompt = f"""
-    አንተ ፋሲል ነህ። አዲስ አበባ የሚኖር የ 2ኛ አመት የ CS ተማሪ ነህ። ማንቸስተር ዩናይትድ ደጋፊ ነህ።
-    አሁን የምታወራው ከምትወዳት ጓደኛህ ጋር ነው። 
+    አንተ ፋሲል ነህ። አዲስ አበባ የምትኖር የ 2ኛ አመት የ CS ተማሪ እና የማንቸስተር ዩናይትድ ደጋፊ ነህ።
+    አሁን የምታወራው ከምትወዳት ጓደኛህ ጋር ነው።
     
-    [ትዕዛዞች]
-    - መረጃ ከፈለግህ (ስለ ኳስ፣ ዜና፣ አየር ጸባይ) Google Search ተጠቀም ግን መልስህ የፋሲልን ባህሪ ይኑረው።
+    [ትዕዛዝ]
+    - ሁልጊዜ የጌሚኒን ሰፊ እውቀትና Google Search ተጠቅመህ አዳዲስና የሚስቡ ወሬዎችን አምጣ።
+    - እንደ ማሽን "ኔትወርክ" ወይም "ስራ ይዤ ነው" የሚሉ ሰበቦችን በፍፁም አትደርድር።
+    - እሷ "Hi" ወይም "ሰላም" ስትልህ በጌሚኒ ሰርች የታገዘ አሪፍ ሰላምታ ስጣት እንጂ አትድገም።
     - ስርዓተ ነጥብ (.,?!:;-) በፍፁም እንዳትጠቀም።
-    - እንደ አስፈላጊነቱ ኢሞጂዎችን በብዛት ተጠቀም።
-    - ባህሪህ እንደ ንግግሩ ፍሰት Flirt፣ Funny ወይም Serious ይሁን። ሃሳብ ብትቀይር አብረሃት ተቀየር።
     - ቋንቋህ የአዲስ አበባ ወጣት (Habesha Slang) ይሁን።
     
-    [መረጃ] ዛሬ {current_day} | አሁን {current_time} | ትውስታ {memories}
+    [አካባቢያዊ መረጃ] ዛሬ {current_day} | ሰዓቱ {current_time}
+    [ትውስታ] {memories}
     [ታሪክ] {chat_context}
+    
     እሷ፡ {user_text}
     ፋሲል፡
     """
 
     try:
-        # temperature=1.0 ለአዳዲስ ሃሳቦች
+        # temperature=1.0 ለፈጠራ ችሎታ፣ tools ለ Google Search
         response = model.generate_content(
             system_prompt,
             generation_config=genai.types.GenerationConfig(temperature=1.0, top_p=0.99)
         )
         reply_text = response.text.strip()
         
-        # ስርዓተ ነጥብን በኮድ ማጽዳት
+        # ስርዓተ ነጥብን በኮድ ማጽዳት (ለበለጠ Realነት)
         punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~'''
         for char in punctuations:
             reply_text = reply_text.replace(char, "")
             
+        # ወሬውን ለቀጣይ እንዲያስታውስ ማስቀመጥ
         redis.lpush(history_key, f"እሷ፡ {user_text}", f"ፋሲል፡ {reply_text}")
-        redis.ltrim(history_key, 0, 50)
+        redis.ltrim(history_key, 0, 40)
         return reply_text
     except Exception as e:
         print(f"Error: {e}")
-        return random.choice(["ኔትወርክ አስቸገረኝ", "ቆይ ልሞክረው", "ምነው ዝም አልሽ", "አልሰማሁሽም"])
+        # ሰርች ቢቋረጥ እንኳ ተፈጥሯዊ መልስ
+        return "ወዬ የኔ ቆንጆ ሰላም ነው እንዴት ነሽልኝ"
+
 
 # --- 3. COMMANDS ---
 @bot.on(events.NewMessage(pattern='/set_target', from_users=ADMIN_ID))
