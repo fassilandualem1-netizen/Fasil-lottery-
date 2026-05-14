@@ -28,7 +28,7 @@ bot = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 app = Flask(__name__)
 
-ADMIN_ID = 5690096145 
+ADMIN_ID = 8488592165 
 
 # --- 2. AI LOGIC ---
 def get_ai_response(user_id, user_text):
