@@ -35,31 +35,27 @@ app = Flask(__name__)
 
 ADMIN_ID = 8488592165 
 
+# --- 2. AI LOGIC (SEARCH + NO PUNCTUATION + REAL HUMAN) ---
 def get_ai_response(user_id, user_text):
     ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
     now = datetime.now(ethiopia_tz)
     current_time = now.strftime("%I:%M %p")
     current_day = now.strftime("%A, %B %d")
 
-    # 1. ትውስታና የድሮ ንግግሮችን ማምጣት
-    memory_key = f"permanent_memory:{user_id}"
-    raw_memories = redis.get(memory_key)
-    memories = raw_memories.decode('utf-8') if isinstance(raw_memories, bytes) else (raw_memories or "ትውስታ የለም")
-
     history_key = f"chat_history:{user_id}"
     past_messages = redis.lrange(history_key, 0, 15)
     decoded_history = [m.decode('utf-8') if isinstance(m, bytes) else m for m in past_messages]
     chat_context = "\n".join(reversed(decoded_history)) if decoded_history else "አዲስ ቻት"
 
-    # 2. የጌሚኒን አእምሮ ከፋሲል ማንነት ጋር ማሰር
     system_prompt = f"""
-    አንተ ፋሲል ነህ አዲስ አበባ የምትኖር የ CS ተማሪ እና የማንቸስተር ዩናይትድ ደጋፊ ነህ
+    አንተ ፋሲል ነህ አዲስ አበባ የምትኖር የ 2ኛ አመት የ CS ተማሪ እና የማንቸስተር ዩናይትድ ደጋፊ ነህ
     አሁን የምታወራው ከምትወዳት ጓደኛህ ጋር ነው
     
-    [ባህሪ]
-    - Google Search ተጠቅመህ አዳዲስ ወሬዎችን አምጣ ግን መልስህ አጭር ይሁን
-    - ስርዓተ ነጥብ አትጠቀም እና በአራዳ ቋንቋ አውራ
-    - በፎቶ ላይ የታዩትን ሰበቦች (ኔትወርክ፣ ስራ ይዤ ነው) በፍፁም እንዳትጠቀም
+    [ትዕዛዝ]
+    - Google Search ተጠቅመህ አዳዲስና የሚስቡ ወሬዎችን አምጣ ግን መልስህ አጭር ይሁን
+    - በፎቶ ላይ የታዩትን "ስራ ይዤ ነው" ወይም "ኔትወርክ" የሚሉ ሰበቦችን በፍፁም አትጠቀም
+    - ስርዓተ ነጥብ (.,?!:;-) በፍፁም አትጠቀም እና በአራዳ ቋንቋ አውራ
+    - እሷ "Hi" ወይም "ሰላም" ካለችህ በሰርች የታገዘ አዲስ ሰላምታ ስጣት እንጂ ሰበብ አትደርድር
     
     ዛሬ {current_day} ሰዓቱ {current_time} ነው
     ታሪክ፦ {chat_context}
@@ -68,28 +64,24 @@ def get_ai_response(user_id, user_text):
     """
 
     try:
-        # temperature=1.0 ለፈጠራ ችሎታ፣ tools ለ Google Search
+        # temperature=1.0 ለተለዋዋጭ ሃሳቦች
         response = model.generate_content(
             system_prompt,
             generation_config=genai.types.GenerationConfig(temperature=1.0, top_p=0.99)
         )
         reply_text = response.text.strip()
         
-        # ስርዓተ ነጥብን በኮድ ማጽዳት (ለበለጠ Realነት)
+        # ስርዓተ ነጥብን በኮድ ማጽዳት
         punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~'''
         for char in punctuations:
             reply_text = reply_text.replace(char, "")
             
-        # ወሬውን ለቀጣይ እንዲያስታውስ ማስቀመጥ
         redis.lpush(history_key, f"እሷ፡ {user_text}", f"ፋሲል፡ {reply_text}")
         redis.ltrim(history_key, 0, 40)
         return reply_text
     except Exception as e:
         print(f"Error: {e}")
-        # ሰርች ቢቋረጥ እንኳ ተፈጥሯዊ መልስ
-        return "ወዬ የኔ ቆንጆ ሰላም ነው እንዴት ነሽልኝ"
-
-
+        return " ሰላም "
 # --- 3. COMMANDS ---
 @bot.on(events.NewMessage(pattern='/set_target', from_users=ADMIN_ID))
 async def set_target(event):
