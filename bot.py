@@ -73,7 +73,7 @@ def get_ai_response(user_id, user_text, photo_path=None):
 
         reply_text = response.text.strip()
 
-        # ስርዓተ ነጥብ ማጽጃ (የአማርኛም ጭምር)
+        # ስርዓተ ነጥብ ማጽጃ
         punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
         for char in punctuations:
             reply_text = reply_text.replace(char, "")
@@ -82,9 +82,11 @@ def get_ai_response(user_id, user_text, photo_path=None):
         redis.lpush(history_key, user_msg, f"ፋሲል: {reply_text}")
         redis.ltrim(history_key, 0, 39)
         return reply_text
-        except Exception as e:
-        print(f"CRITICAL ERROR: {e}") # ይህ ስህተቱን ሎግ ላይ ያወጣዋል
-        return f"ቆይ የኔ ቆንጆ ስህተት ተፈጥሯል: {e}" 
+
+    except Exception as e:
+        print(f"CRITICAL ERROR: {e}")
+        # ለጊዜው ስህተቱን እንዲያሳይልህ እንዲህ አድርገው
+        return f"ቆይ የኔ ቆንጆ ኔትወርክ ተቸገርኩ መሰል 😂 ስህተቱ፡ {e}"
 
 # --- 3. COMMANDS ---
 @bot.on(events.NewMessage(pattern='/set_target', from_users=ADMIN_ID))
