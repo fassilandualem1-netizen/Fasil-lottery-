@@ -19,12 +19,14 @@ REDIS_TOKEN = os.getenv("REDIS_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 PORT = int(os.getenv("PORT", 8080))
 
-# Gemini AI Setup (Google Search Grounding በርቷል)
+# Gemini AI Setup
 genai.configure(api_key=GEMINI_API_KEY)
+
 model = genai.GenerativeModel(
-    model_name='gemini-1.5-flash',
-    tools=[{"google_search_retrieval": {}}]
+    model_name='models/gemini-1.5-flash', 
+    tools=[{"google_search": {}}]   
 )
+
 
 bot = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 # Upstash Redis በቀጥታ string ነው የሚመልሰው (decode አያስፈልገውም)
