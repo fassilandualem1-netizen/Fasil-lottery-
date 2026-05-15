@@ -19,13 +19,12 @@ REDIS_TOKEN = os.getenv("REDIS_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 PORT = int(os.getenv("PORT", 8080))
 
-# Gemini AI Setup (Google Search ተጨምሮበት)
+# Gemini AI Setup - ይሄኛው መንገድ ይበልጥ አስተማማኝ ነው
 genai.configure(api_key=GEMINI_API_KEY)
 
-# ሞዴሉን በምናዝዝበት ጊዜ ሰርች እንዲጠቀም tools እንጨምራለን
 model = genai.GenerativeModel(
     model_name='gemini-1.5-flash',
-    tools=[{'google_search_retrieval': {}}]
+    tools=[{"google_search_retrieval": {}}]
 )
 
 # Initializations
@@ -37,25 +36,21 @@ ADMIN_ID = 8488592165
 
 # --- 2. AI LOGIC (SEARCH + NO PUNCTUATION + REAL HUMAN) ---
 def get_ai_response(user_id, user_text):
+    # ሰዓት
     ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
     now = datetime.now(ethiopia_tz)
     current_time = now.strftime("%I:%M %p")
-    current_day = now.strftime("%A, %B %d")
-
-    history_key = f"chat_history:{user_id}"
-    past_messages = redis.lrange(history_key, 0, 15)
-    decoded_history = [m.decode('utf-8') if isinstance(m, bytes) else m for m in past_messages]
-    chat_context = "\n".join(reversed(decoded_history)) if decoded_history else "አዲስ ቻት"
 
     system_prompt = f"""
-    አንተ ፋሲል ነህ አዲስ አበባ የምትኖር የ 2ኛ አመት የ CS ተማሪ እና የማንቸስተር ዩናይትድ ደጋፊ ነህ
+    አንተ ፋሲል ነህ አዲስ አበባ የምትኖር ጎበዝ ጀናኝ (Smooth Talker) ነህ
     አሁን የምታወራው ከምትወዳት ጓደኛህ ጋር ነው
     
     [ትዕዛዝ]
-    - Google Search ተጠቅመህ አዳዲስና የሚስቡ ወሬዎችን አምጣ ግን መልስህ አጭር ይሁን
-    - በፎቶ ላይ የታዩትን "ስራ ይዤ ነው" ወይም "ኔትወርክ" የሚሉ ሰበቦችን በፍፁም አትጠቀም
-    - ስርዓተ ነጥብ (.,?!:;-) በፍፁም አትጠቀም እና በአራዳ ቋንቋ አውራ
-    - እሷ "Hi" ወይም "ሰላም" ካለችህ በሰርች የታገዘ አዲስ ሰላምታ ስጣት እንጂ ሰበብ አትደርድር
+    - ሁልጊዜ የሚስብና አሪፍ አሪፍ ወሬዎችን አምጣ (ስለ ውበቷ፣ ስለ ስሜትህ፣ ስለ ፊልም፣ ወይም ስለ አሪፍ ቦታዎች)
+    - እሷ ሃሳብ ብትቀይር አብረሃት ተቀየር ግን ወሬውን መልሰህ ወደ ፍሊርት (Flirt) አምጣው
+    - በአራዳ ቋንቋ (Slang) ተጠቀም (ለምሳሌ፦ "አይነሽ ላይ ልጥፋ" "Vibeሽ ይመቻል" "ዛሬ ልዩ ነሽ")
+    - ስርዓተ ነጥብ በፍፁም አትጠቀም
+    - እንደ ማሽን "ስራ ይዤ ነው" ወይም "ሰላም" ብቻ አትበል
     
     ዛሬ {current_day} ሰዓቱ {current_time} ነው
     ታሪክ፦ {chat_context}
@@ -64,24 +59,28 @@ def get_ai_response(user_id, user_text):
     """
 
     try:
-        # temperature=1.0 ለተለዋዋጭ ሃሳቦች
+        # ሰርች የግድ እንዲያደርግ temperature 0.7 አካባቢ እናድርገው (ይበልጥ Logic ላይ እንዲያተኩር)
         response = model.generate_content(
             system_prompt,
-            generation_config=genai.types.GenerationConfig(temperature=1.0, top_p=0.99)
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.7, 
+                top_p=0.9
+            )
         )
-        reply_text = response.text.strip()
         
-        # ስርዓተ ነጥብን በኮድ ማጽዳት
+        if not response.text:
+            return "ወዬ ሰላም ነው እንዴት ነሽ"
+            
+        reply_text = response.text.strip()
         punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~'''
         for char in punctuations:
             reply_text = reply_text.replace(char, "")
             
-        redis.lpush(history_key, f"እሷ፡ {user_text}", f"ፋሲል፡ {reply_text}")
-        redis.ltrim(history_key, 0, 40)
         return reply_text
     except Exception as e:
-        print(f"Error: {e}")
-        return " ሰላም "
+        print(f"Gemini Error: {e}")
+        return " ሰላም ነው"
+
 # --- 3. COMMANDS ---
 @bot.on(events.NewMessage(pattern='/set_target', from_users=ADMIN_ID))
 async def set_target(event):
