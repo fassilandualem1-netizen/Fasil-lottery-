@@ -131,32 +131,32 @@ async def handle_incoming(event):
     if event.is_private:
         raw_status = redis.get("bot_status")
         raw_target = redis.get("target_user_id")
-        
+
         status = raw_status.decode('utf-8') if isinstance(raw_status, bytes) else (raw_status or "off")
         target_id = raw_target.decode('utf-8') if isinstance(raw_target, bytes) else (raw_target or "")
 
         if status == "on" and str(event.sender_id) == str(target_id):
             await event.mark_read() 
-            
-            # የመልዕክት ርዝመት መሰረት ያደረገ መዘግየት
-            msg_len = len(event.message.message)
-            if msg_len < 20:
-                wait_time = random.randint(15, 60)
-            else:
-                wait_time = random.randint(60, 300)
-            
-            # አልፎ አልፎ ረጅም መዘግየት (Busy behavior)
-            if random.random() < 0.1:
-                wait_time = random.randint(600, 1800)
 
-            # ታይፒንግ ከመልሱ 12 ሰከንድ በፊት ይጀምራል
-            if wait_time > 12:
-                await asyncio.sleep(wait_time - 12)
-            
+            # መዘግየቱን በ 1 እና 2 ደቂቃ (60 - 120 ሰከንድ) መካከል አድርጌዋለሁ
+            # ይህ ቦቱ ሰርች አድርጎ እስኪጨርስ በቂ ጊዜ ይሰጠዋል
+            wait_time = random.randint(60, 120)
+
+            # ታይፒንግ (Typing) ከመልሱ 15 ሰከንድ በፊት ይጀምራል
+            if wait_time > 15:
+                await asyncio.sleep(wait_time - 15)
+
             async with bot.action(event.chat_id, 'typing'):
-                await asyncio.sleep(12)
+                # ጌሚኒ ሰርች አድርጎ እንዲጨርስ 15 ሰከንድ ታይፒንግ ያሳያል
+                await asyncio.sleep(15)
                 reply = get_ai_response(event.sender_id, event.message.message)
-                await event.respond(reply)
+                
+                # መልሱ ባዶ ካልሆነ ብቻ ይላክ
+                if reply:
+                    await event.respond(reply)
+
+
+
 # --- 5. FLASK & RUN ---
 @app.route('/')
 def home(): return "Bot is Live!"
