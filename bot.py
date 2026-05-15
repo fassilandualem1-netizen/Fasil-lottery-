@@ -19,142 +19,138 @@ REDIS_TOKEN = os.getenv("REDIS_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 PORT = int(os.getenv("PORT", 8080))
 
-# Gemini AI Setup - ይሄኛው መንገድ ይበልጥ አስተማማኝ ነው
+# Gemini AI Setup
 genai.configure(api_key=GEMINI_API_KEY)
-
 model = genai.GenerativeModel(
     model_name='gemini-1.5-flash',
     tools=[{"google_search_retrieval": {}}]
 )
 
-# Initializations
 bot = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 app = Flask(__name__)
-
 ADMIN_ID = 8488592165 
 
-# --- 2. AI LOGIC (SEARCH + NO PUNCTUATION + REAL HUMAN) ---
-def get_ai_response(user_id, user_text):
-    # ሰዓት
+# --- 2. AI LOGIC (VISION + SEARCH + EMOJIS) ---
+def get_ai_response(user_id, user_text, photo_path=None):
     ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
     now = datetime.now(ethiopia_tz)
     current_time = now.strftime("%I:%M %p")
+    current_day = now.strftime("%A, %B %d")
+
+    # ታሪክን ከ Redis ማምጣት
+    history_key = f"chat_history:{user_id}"
+    past_messages = redis.lrange(history_key, 0, 10)
+    decoded_history = [m.decode('utf-8') if isinstance(m, bytes) else m for m in past_messages]
+    chat_context = "\n".join(reversed(decoded_history)) if decoded_history else "አዲስ ቻት"
 
     system_prompt = f"""
-    አንተ ፋሲል ነህ አዲስ አበባ የምትኖር ጎበዝ ጀናኝ (Smooth Talker) ነህ
-    አሁን የምታወራው ከምትወዳት ጓደኛህ ጋር ነው
+    አንተ ፋሲል ነህ አዲስ አበባ የምትኖር የ CS ተማሪ እና እጅግ ጎበዝ ጀናኝ ነህ።
+    አሁን የምታወራው ከምትወዳት ጓደኛህ ጋር ነው።
     
-    [ትዕዛዝ]
-    - ሁልጊዜ የሚስብና አሪፍ አሪፍ ወሬዎችን አምጣ (ስለ ውበቷ፣ ስለ ስሜትህ፣ ስለ ፊልም፣ ወይም ስለ አሪፍ ቦታዎች)
-    - እሷ ሃሳብ ብትቀይር አብረሃት ተቀየር ግን ወሬውን መልሰህ ወደ ፍሊርት (Flirt) አምጣው
-    - በአራዳ ቋንቋ (Slang) ተጠቀም (ለምሳሌ፦ "አይነሽ ላይ ልጥፋ" "Vibeሽ ይመቻል" "ዛሬ ልዩ ነሽ")
-    - ስርዓተ ነጥብ በፍፁም አትጠቀም
-    - እንደ ማሽን "ስራ ይዤ ነው" ወይም "ሰላም" ብቻ አትበል
+    [ቁልፍ መመሪያዎች]
+    - ሁልጊዜ መጀመሪያ Google Search ተጠቅመህ ወቅታዊ ወሬዎችን አምጣ።
+    - እንደ ሀበሻ ወጣት በንግግርህ መሃል ኢሞጂዎችን (🔥, 😂, 🙌, ❤️, ✨) በብዛት ተጠቀም።
+    - እሷ ፎቶ ልካ ከሆነ ፎቶውን አይተህ ውበቷን ወይም ሁኔታውን በደንብ አድንቅ።
+    - ስርዓተ ነጥብ (.,?!:;-) በፍፁም አትጠቀም። በአራዳ ቋንቋ (Habesha Slang) አውራ።
+    - በየመሃሉ "ድምፅሽን ብሰማው ደስ ይለኛል" እያልክ በድምፅ እንዲሆን ግፋ።
     
-    ዛሬ {current_day} ሰዓቱ {current_time} ነው
+    ዛሬ {current_day} | ሰዓቱ {current_time}
     ታሪክ፦ {chat_context}
-    እሷ፦ {user_text}
     ፋሲል፦
     """
 
     try:
-        # ሰርች የግድ እንዲያደርግ temperature 0.7 አካባቢ እናድርገው (ይበልጥ Logic ላይ እንዲያተኩር)
-        response = model.generate_content(
-            system_prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.7, 
-                top_p=0.9
-            )
-        )
-        
-        if not response.text:
-            return "ወዬ ሰላም ነው እንዴት ነሽ"
-            
+        if photo_path:
+            sample_file = genai.upload_file(path=photo_path)
+            response = model.generate_content([system_prompt, sample_file])
+        else:
+            response = model.generate_content(system_prompt + f"\nእሷ፦ {user_text}")
+
         reply_text = response.text.strip()
+        
+        # ስርዓተ ነጥብ ማጽጃ (Self-Correction)
         punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~'''
         for char in punctuations:
             reply_text = reply_text.replace(char, "")
-            
+
+        redis.lpush(history_key, f"እሷ: {user_text if user_text else 'ፎቶ'}", f"ፋሲል: {reply_text}")
+        redis.ltrim(history_key, 0, 40)
         return reply_text
     except Exception as e:
         print(f"Gemini Error: {e}")
-        return " ሰላም ነው"
+        return "ወዬ የኔ ቆንጆ ዛሬ ግን ልዩ ነሽ ❤️"
 
 # --- 3. COMMANDS ---
 @bot.on(events.NewMessage(pattern='/set_target', from_users=ADMIN_ID))
 async def set_target(event):
-    try:
-        parts = event.message.message.split()
-        if len(parts) > 1:
-            target_id = parts[1].strip()
-            redis.set("target_user_id", target_id)
-            await event.respond(f"✅ የዒላማ ሰው ID ተስተካክሏል፦ {target_id}")
-        else:
-            await event.respond("❌ አጠቃቀም፦ `/set_target 12345`")
-    except Exception as e: await event.respond(f"❌ ስህተት፦ {e}")
+    parts = event.message.message.split()
+    if len(parts) > 1:
+        redis.set("target_user_id", parts.strip())
+        await event.respond("✅ የዒላማ ሰው ተስተካክሏል")
+
+@bot.on(events.NewMessage(pattern='/nudge', from_users=ADMIN_ID))
+async def nudge_user(event):
+    target_id = redis.get("target_user_id")
+    if target_id:
+        target_id = int(target_id.decode('utf-8'))
+        nudge_prompt = "አንተ ፋሲል ነህ ልጅቷ ጠፍታብሃል ወሬ ለመጀመር አሪፍና የሚስብ ነገር ኢሞጂ ጨምረህ በአራዳ ቋንቋ በላት ስርዓተ ነጥብ አትጠቀም"
+        response = model.generate_content(nudge_prompt)
+        msg = response.text.strip().replace(".", "")
+        async with bot.action(target_id, 'typing'):
+            await asyncio.sleep(5)
+            await bot.send_message(target_id, msg)
 
 @bot.on(events.NewMessage(pattern='/bot_on', from_users=ADMIN_ID))
 async def bot_on(event):
     redis.set("bot_status", "on")
-    await event.respond("🤖 AI ቦቱ ስራ ጀምሯል (ON)።")
+    await event.respond("🤖 AI ቦቱ በርቷል (ON)")
 
 @bot.on(events.NewMessage(pattern='/bot_off', from_users=ADMIN_ID))
 async def bot_off(event):
     redis.set("bot_status", "off")
-    await event.respond("😴 AI ቦቱ ቆሟል (OFF)።")
+    await event.respond("😴 AI ቦቱ ቆሟል (OFF)")
 
-@bot.on(events.NewMessage(pattern='/add_memory', from_users=ADMIN_ID))
-async def add_memory(event):
-    text = event.message.message.replace('/add_memory', '').strip()
-    target_id = redis.get("target_user_id")
-    if text and target_id:
-        target_id = target_id.decode('utf-8') if isinstance(target_id, bytes) else target_id
-        m_key = f"permanent_memory:{target_id}"
-        old = redis.get(m_key) or ""
-        old = old.decode('utf-8') if isinstance(old, bytes) else old
-        redis.set(m_key, f"{old}\n- {text}")
-        await event.respond("✅ ትውስታ ተመዝግቧል።")
-
-# --- 4. THE SMART DYNAMIC HANDLER ---
+# --- 4. THE SMART HANDLER (DYNAMIC DELAY & TYPING) ---
 @bot.on(events.NewMessage(incoming=True))
 async def handle_incoming(event):
     if event.is_private:
         raw_status = redis.get("bot_status")
         raw_target = redis.get("target_user_id")
-
         status = raw_status.decode('utf-8') if isinstance(raw_status, bytes) else (raw_status or "off")
         target_id = raw_target.decode('utf-8') if isinstance(raw_target, bytes) else (raw_target or "")
 
         if status == "on" and str(event.sender_id) == str(target_id):
             await event.mark_read() 
+            
+            photo_path = None
+            if event.message.photo:
+                photo_path = await event.download_media()
+                wait_time = random.randint(15, 30)
+            else:
+                wait_time = random.randint(60, 120)
 
-            # መዘግየቱን በ 1 እና 2 ደቂቃ (60 - 120 ሰከንድ) መካከል አድርጌዋለሁ
-            # ይህ ቦቱ ሰርች አድርጎ እስኪጨርስ በቂ ጊዜ ይሰጠዋል
-            wait_time = random.randint(60, 120)
+            # የማሰብ ጊዜ
+            if wait_time > 15: await asyncio.sleep(wait_time - 15)
 
-            # ታይፒንግ (Typing) ከመልሱ 15 ሰከንድ በፊት ይጀምራል
-            if wait_time > 15:
-                await asyncio.sleep(wait_time - 15)
+            # መልሱን ማመንጨት
+            reply = get_ai_response(event.sender_id, event.message.message, photo_path)
+            
+            # እንደ መልሱ ርዝመት የ Typing ሰዓቱን መወሰን (Smart Typing)
+            typing_duration = max(5, min(len(reply) // 10, 15)) 
 
             async with bot.action(event.chat_id, 'typing'):
-                # ጌሚኒ ሰርች አድርጎ እንዲጨርስ 15 ሰከንድ ታይፒንግ ያሳያል
-                await asyncio.sleep(15)
-                reply = get_ai_response(event.sender_id, event.message.message)
-                
-                # መልሱ ባዶ ካልሆነ ብቻ ይላክ
+                await asyncio.sleep(typing_duration)
                 if reply:
                     await event.respond(reply)
-
-
+            
+            if photo_path and os.path.exists(photo_path): os.remove(photo_path)
 
 # --- 5. FLASK & RUN ---
 @app.route('/')
 def home(): return "Bot is Live!"
 
-def run_flask(): app.run(host='0.0.0.0', port=PORT)
-
 if __name__ == "__main__":
-    threading.Thread(target=run_flask, daemon=True).start()
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=PORT), daemon=True).start()
     bot.start()
     bot.run_until_disconnected()
