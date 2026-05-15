@@ -82,9 +82,9 @@ def get_ai_response(user_id, user_text, photo_path=None):
         redis.lpush(history_key, user_msg, f"ፋሲል: {reply_text}")
         redis.ltrim(history_key, 0, 39)
         return reply_text
-    except Exception as e:
-        print(f"Gemini Error: {e}")
-        return "ወዬ የኔ ቆንጆ ዛሬ ግን ልዩ ነሽ ❤️"
+        except Exception as e:
+        print(f"CRITICAL ERROR: {e}") # ይህ ስህተቱን ሎግ ላይ ያወጣዋል
+        return f"ቆይ የኔ ቆንጆ ስህተት ተፈጥሯል: {e}" 
 
 # --- 3. COMMANDS ---
 @bot.on(events.NewMessage(pattern='/set_target', from_users=ADMIN_ID))
