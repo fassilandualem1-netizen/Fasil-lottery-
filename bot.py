@@ -24,8 +24,9 @@ genai.configure(api_key=GEMINI_API_KEY)
 
 model = genai.GenerativeModel(
     model_name='models/gemini-1.5-flash', 
-    tools=[{"google_search": {}}]   
+    tools=[{"google_search_retrieval": {}}] # ስሙን ወደዚህ ቀይረው
 )
+
 
 
 bot = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
