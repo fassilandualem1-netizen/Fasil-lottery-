@@ -22,10 +22,12 @@ PORT = int(os.getenv("PORT", 8080))
 # Gemini AI Setup
 genai.configure(api_key=GEMINI_API_KEY)
 
+# ይሄኛው ስሪት በጭራሽ 404 አይልም፣ በጣም አስተማማኝ ነው
 model = genai.GenerativeModel(
-    model_name='models/gemini-1.5-flash', 
-    tools=[{"google_search_retrieval": {}}] # ስሙን ወደዚህ ቀይረው
+    model_name='gemini-pro', 
+    tools=[{"google_search_retrieval": {}}]
 )
+
 
 
 
