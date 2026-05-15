@@ -19,7 +19,7 @@ REDIS_TOKEN = os.getenv("REDIS_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 PORT = int(os.getenv("PORT", 8080))
 
-# Gemini AI Setup
+# Gemini AI Setup (Google Search Grounding በርቷል)
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel(
     model_name='gemini-1.5-flash',
@@ -27,6 +27,7 @@ model = genai.GenerativeModel(
 )
 
 bot = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
+# Upstash Redis በቀጥታ string ነው የሚመልሰው (decode አያስፈልገውም)
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 app = Flask(__name__)
 ADMIN_ID = 8488592165 
@@ -38,25 +39,28 @@ def get_ai_response(user_id, user_text, photo_path=None):
     current_time = now.strftime("%I:%M %p")
     current_day = now.strftime("%A, %B %d")
 
-    # ታሪክን ከ Redis ማምጣት
+    # ታሪክን ከ Redis ማምጣት (Upstash string ስለሚመልስ decode አያስፈልግም)
     history_key = f"chat_history:{user_id}"
     past_messages = redis.lrange(history_key, 0, 10)
-    decoded_history = [m.decode('utf-8') if isinstance(m, bytes) else m for m in past_messages]
-    chat_context = "\n".join(reversed(decoded_history)) if decoded_history else "አዲስ ቻት"
+    chat_context = "\n".join(reversed(past_messages)) if past_messages else "አዲስ ቻት"
 
     system_prompt = f"""
     አንተ ፋሲል ነህ አዲስ አበባ የምትኖር የ CS ተማሪ እና እጅግ ጎበዝ ጀናኝ ነህ።
-    አሁን የምታወራው ከምትወዳት ጓደኛህ ጋር ነው።
+    አሁን የምታወራው ከምትወዳት የሴት ጓደኛህ ጋር ነው።
     
     [ቁልፍ መመሪያዎች]
-    - ሁልጊዜ መጀመሪያ Google Search ተጠቅመህ ወቅታዊ ወሬዎችን አምጣ።
+    - ሰዋስው (Grammar) ላይ እጅግ ተጠንቀቅ! ለሴት ልጅ እንደምትናገር አስብ። ሁልጊዜ የሴት አንቀጽ ተጠቀም (ለምሳሌ፦ ነሽ፣ መጣሽ፣ አየሽ፣ የኔ ቆንጆ)። ጾታ የሚያሻሙ ወይም ለወንድ የሚሆኑ ቃላትን በፍፁም እንዳትጠቀም።
+    - መጀመሪያ ሁልጊዜ Google Search ተጠቅመህ አዳዲስና ወቅታዊ የሆኑ የኳስ፣ የሙዚቃ ወይም የቴክኖሎጂ ወሬዎችን እወቅና ወደ ወሬህ አስገባቸው።
     - እንደ ሀበሻ ወጣት በንግግርህ መሃል ኢሞጂዎችን (🔥, 😂, 🙌, ❤️, ✨) በብዛት ተጠቀም።
     - እሷ ፎቶ ልካ ከሆነ ፎቶውን አይተህ ውበቷን ወይም ሁኔታውን በደንብ አድንቅ።
-    - ስርዓተ ነጥብ (.,?!:;-) በፍፁም አትጠቀም። በአራዳ ቋንቋ (Habesha Slang) አውራ።
-    - በየመሃሉ "ድምፅሽን ብሰማው ደስ ይለኛል" እያልክ በድምፅ እንዲሆን ግፋ።
+    - ስርዓተ ነጥብ (.,?!:;- ። ፣ ፤ ፥) በፍፁም አትጠቀም። በአራዳ ቋንቋ (Habesha Slang) አውራ።
+    - በየመሃሉ "ድምፅሽን ብሰማው ደስ ይለኛል" እያልክ በድምፅ መልዕክት እንድትልክልህ ግፋ።
     
     ዛሬ {current_day} | ሰዓቱ {current_time}
-    ታሪክ፦ {chat_context}
+    ታሪክ፦ 
+    {chat_context}
+    
+    እሷ፦ {user_text if user_text else "ፎቶ አያይዛለች 🖼️"}
     ፋሲል፦
     """
 
@@ -65,17 +69,18 @@ def get_ai_response(user_id, user_text, photo_path=None):
             sample_file = genai.upload_file(path=photo_path)
             response = model.generate_content([system_prompt, sample_file])
         else:
-            response = model.generate_content(system_prompt + f"\nእሷ፦ {user_text}")
+            response = model.generate_content(system_prompt)
 
         reply_text = response.text.strip()
-        
-        # ስርዓተ ነጥብ ማጽጃ (Self-Correction)
-        punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~'''
+
+        # ስርዓተ ነጥብ ማጽጃ (የአማርኛም ጭምር)
+        punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
         for char in punctuations:
             reply_text = reply_text.replace(char, "")
 
-        redis.lpush(history_key, f"እሷ: {user_text if user_text else 'ፎቶ'}", f"ፋሲል: {reply_text}")
-        redis.ltrim(history_key, 0, 40)
+        user_msg = f"እሷ: {user_text}" if user_text else "እሷ: ፎቶ አያይዛለች 🖼️"
+        redis.lpush(history_key, user_msg, f"ፋሲል: {reply_text}")
+        redis.ltrim(history_key, 0, 39)
         return reply_text
     except Exception as e:
         print(f"Gemini Error: {e}")
@@ -86,17 +91,25 @@ def get_ai_response(user_id, user_text, photo_path=None):
 async def set_target(event):
     parts = event.message.message.split()
     if len(parts) > 1:
-        redis.set("target_user_id", parts.strip())
-        await event.respond("✅ የዒላማ ሰው ተስተካክሏል")
+        target_user = parts[1].strip() # split ስህተቱ ተስተካክሏል
+        redis.set("target_user_id", target_user)
+        await event.respond(f"✅ የዒላማ ሰው ተስተካክሏል፦ {target_user}")
+    else:
+        await event.respond("❌ እባክህ ID ጨምር (ለምሳሌ፦ /set_target 123456)")
 
 @bot.on(events.NewMessage(pattern='/nudge', from_users=ADMIN_ID))
 async def nudge_user(event):
     target_id = redis.get("target_user_id")
     if target_id:
-        target_id = int(target_id.decode('utf-8'))
-        nudge_prompt = "አንተ ፋሲል ነህ ልጅቷ ጠፍታብሃል ወሬ ለመጀመር አሪፍና የሚስብ ነገር ኢሞጂ ጨምረህ በአራዳ ቋንቋ በላት ስርዓተ ነጥብ አትጠቀም"
+        target_id = int(target_id) # decode አያስፈልግም
+        nudge_prompt = "አንተ ፋሲል ነህ ልጅቷ ጠፍታብሃል ወሬ ለመጀመር አሪፍና የሚስብ ነገር ለሴት በሚሆን ሰዋስው (Grammar) እና በብዙ ኢሞጂ ጨምረህ በአራዳ ቋንቋ በላት ስርዓተ ነጥብ አትጠቀም"
         response = model.generate_content(nudge_prompt)
-        msg = response.text.strip().replace(".", "")
+        msg = response.text.strip()
+        
+        punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
+        for char in punctuations:
+            msg = msg.replace(char, "")
+            
         async with bot.action(target_id, 'typing'):
             await asyncio.sleep(5)
             await bot.send_message(target_id, msg)
@@ -115,14 +128,13 @@ async def bot_off(event):
 @bot.on(events.NewMessage(incoming=True))
 async def handle_incoming(event):
     if event.is_private:
-        raw_status = redis.get("bot_status")
-        raw_target = redis.get("target_user_id")
-        status = raw_status.decode('utf-8') if isinstance(raw_status, bytes) else (raw_status or "off")
-        target_id = raw_target.decode('utf-8') if isinstance(raw_target, bytes) else (raw_target or "")
+        # Upstash በቀጥታ string ስለሚመልስ decode() ተወግዷል
+        status = redis.get("bot_status") or "off"
+        target_id = redis.get("target_user_id") or ""
 
         if status == "on" and str(event.sender_id) == str(target_id):
             await event.mark_read() 
-            
+
             photo_path = None
             if event.message.photo:
                 photo_path = await event.download_media()
@@ -131,11 +143,12 @@ async def handle_incoming(event):
                 wait_time = random.randint(60, 120)
 
             # የማሰብ ጊዜ
-            if wait_time > 15: await asyncio.sleep(wait_time - 15)
+            if wait_time > 15: 
+                await asyncio.sleep(wait_time - 15)
 
             # መልሱን ማመንጨት
             reply = get_ai_response(event.sender_id, event.message.message, photo_path)
-            
+
             # እንደ መልሱ ርዝመት የ Typing ሰዓቱን መወሰን (Smart Typing)
             typing_duration = max(5, min(len(reply) // 10, 15)) 
 
@@ -143,12 +156,14 @@ async def handle_incoming(event):
                 await asyncio.sleep(typing_duration)
                 if reply:
                     await event.respond(reply)
-            
-            if photo_path and os.path.exists(photo_path): os.remove(photo_path)
+
+            if photo_path and os.path.exists(photo_path): 
+                os.remove(photo_path)
 
 # --- 5. FLASK & RUN ---
 @app.route('/')
-def home(): return "Bot is Live!"
+def home(): 
+    return "Bot is Live!"
 
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=PORT), daemon=True).start()
