@@ -169,13 +169,19 @@ async def handle_incoming(event):
                 except Exception as del_err:
                     print(f"[ERROR] Could not delete file: {del_err}", flush=True)
 
+
 # --- 5. FLASK & RUN ---
 @app.route('/')
 def home(): 
     return "Bot is Live!"
 
+# --- 5. FLASK & RUN ---
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=PORT), daemon=True).start()
-redis.delete("chat_history:5122026260")
+    
+    # ፊት ለፊቱ 4 Space ገብቶ መጻፍ አለበት
+    redis.delete("chat_history:5122026260")
+    
     bot.start()
     bot.run_until_disconnected()
+
