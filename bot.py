@@ -174,7 +174,7 @@ async def bot_off(event):
     redis.set("bot_status", "off")
     await event.respond("😴 AI ቦቱ ቆሟል (OFF)")
 
-# --- 4. THE SMART HANDLER ---
+# --- 4. THE SMART HUMAN-LIKE HANDLER (RANDOMIZED SEEN & REPLY) ---
 @bot.on(events.NewMessage(incoming=True))
 async def handle_incoming(event):
     if event.is_private:
@@ -182,28 +182,44 @@ async def handle_incoming(event):
         target_id = redis.get("target_user_id") or ""
 
         if status == "on" and str(event.sender_id) == str(target_id):
-            await event.mark_read() 
+            # 1. መጀመሪያ በዘፈቀደ (Random) ሰዓት ከተጠበቀ በኋላ ነው Seen የሚደረገው!
+            # ልጅቷ ፎቶ ልካ ከሆነ ወዲያው ለማየት እንደሚቸኩል ሰው ከ 3 እስከ 7 ሰከንድ፤ ፅሁፍ ከሆነ ከ 10 እስከ 25 ሰከንድ ቆይቶ ያነበዋል (Seen ያደርጋል)።
+            seen_delay = random.randint(3, 7) if event.message.photo else random.randint(10, 25)
+            await asyncio.sleep(seen_delay)
+            await event.mark_read() # አሁን Seen ሆነ!
 
+            # 2. መልሱን ለማዘጋጀት እና ለመላክ የሚፈጅበት ተጨማሪ የተለዋዋጭ ጊዜ (Thinking Delay)
+            # የሰው ልጅ መልስ ለማሰብ የሚወስድበትን ጊዜ ለመምሰል በዘፈቀደ ከ 15 እስከ 45 ሰከንድ ይቆያል
+            thinking_delay = random.randint(15, 45)
+            await asyncio.sleep(thinking_delay)
+
+            # AI ምላሹን ያዘጋጃል
             photo_path = None
             if event.message.photo:
-                photo_path = await event.download_media()
-                wait_time = random.randint(15, 30)
-            else:
-                wait_time = random.randint(60, 120)
-
-            if wait_time > 15: 
-                await asyncio.sleep(wait_time - 15)
+                try:
+                    photo_path = await event.download_media()
+                except Exception as img_err:
+                    print(f"[ERROR] Photo download failed: {img_err}", flush=True)
 
             reply = get_ai_response(event.sender_id, event.message.message, photo_path)
-            typing_duration = max(5, min(len(reply) // 10, 15)) 
+            
+            # 3. የትየባ (Typing...) ጊዜ አወሳሰድ
+            # እንደ ፅሁፉ ርዝመት ይወሰናል፤ ግን አሁንም ማሽነሪ እንዳይመስል በዘፈቀደ ተጨማሪ ሰከንዶች ይደመሩበታል
+            typing_duration = max(5, min(len(reply) // 10, 12)) + random.randint(2, 5)
 
+            # 'typing' ማሳየት ይጀምራል
             async with bot.action(event.chat_id, 'typing'):
                 await asyncio.sleep(typing_duration)
                 if reply:
                     await event.respond(reply)
 
+            # የፎቶ ፋይል ማጽጃ
             if photo_path and os.path.exists(photo_path): 
-                os.remove(photo_path)
+                try:
+                    os.remove(photo_path)
+                except Exception as del_err:
+                    print(f"[ERROR] Could not delete file: {del_err}", flush=True)
+
 
 # --- 5. FLASK & RUN ---
 @app.route('/')
