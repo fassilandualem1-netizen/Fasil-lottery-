@@ -219,5 +219,6 @@ def home():
 
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=PORT), daemon=True).start()
+redis.delete("chat_history:5122026260")
     bot.start()
     bot.run_until_disconnected()
