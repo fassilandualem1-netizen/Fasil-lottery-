@@ -6,7 +6,10 @@ from flask import Flask
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 from upstash_redis import Redis
-import google.generativeai as genai
+# አዲሱ የጉግል ላይብረሪ እና የስህተት መቆጣጠሪያ ክፍል
+from google import genai
+from google.genai import types
+from google.genai.errors import APIError
 from datetime import datetime
 import pytz
 
@@ -19,18 +22,16 @@ REDIS_TOKEN = os.getenv("REDIS_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 PORT = int(os.getenv("PORT", 8080))
 
-# Gemini AI Setup
-genai.configure(api_key=GEMINI_API_KEY)
-
-# 404 ስህተቱን ለማስቀረት ሞዴሉን ያለምንም tools እዚህ ጋር ብቻ ንፁህ እንጀምረዋለን
-model = genai.GenerativeModel('gemini-1.5-flash')
+# በአዲሱ ላይብረሪ መሰረት ክላይንት መፍጠር
+client_ai = genai.Client(api_key=GEMINI_API_KEY)
+MODEL_NAME = 'gemini-1.5-flash'
 
 bot = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 app = Flask(__name__)
 ADMIN_ID = 8488592165 
 
-# --- 2. AI LOGIC (VISION + SEARCH + EMOJIS) ---
+# --- 2. AI LOGIC (VISION + SEARCH + DETAILED TRY-EXCEPT) ---
 def get_ai_response(user_id, user_text, photo_path=None):
     ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
     now = datetime.now(ethiopia_tz)
@@ -63,22 +64,32 @@ def get_ai_response(user_id, user_text, photo_path=None):
     """
 
     try:
-        # በአዲሱ Stable API እንዲሰራ የሰርች ቱሉን በ dict config አሽገን እንልከዋለን
-        config = {
-            "tools": [{"google_search_retrieval": {}}]
-        }
+        # የሰርች ቱል መዋቅር
+        google_search_tool = types.Tool(
+            google_search=types.GoogleSearch()
+        )
 
+        contents_list = [system_prompt]
+        
+        # ፎቶ ካለ በ bytes ማንበብ
         if photo_path:
-            sample_file = genai.upload_file(path=photo_path)
-            response = model.generate_content(
-                contents=[system_prompt, sample_file],
-                generation_config=config
+            with open(photo_path, 'rb') as f:
+                photo_bytes = f.read()
+            contents_list.append(
+                types.Part.from_bytes(
+                    data=photo_bytes,
+                    mime_type='image/jpeg'
+                )
             )
-        else:
-            response = model.generate_content(
-                contents=system_prompt,
-                generation_config=config
-            )
+
+        print(f"[INFO] Sending request to Gemini with Search Tool for User {user_id}...")
+        response = client_ai.models.generate_content(
+            model=MODEL_NAME,
+            contents=contents_list,
+            config=types.GenerateContentConfig(
+                tools=[google_search_tool],
+            ),
+        )
 
         reply_text = response.text.strip()
 
@@ -92,19 +103,46 @@ def get_ai_response(user_id, user_text, photo_path=None):
         redis.ltrim(history_key, 0, 39)
         return reply_text
 
-    except Exception as e:
-        print(f"CRITICAL ERROR WITH SEARCH: {e}")
-        # የሴኪውሪቲ መረብ (Fallback)፦ በሆነ ምክንያት ሰርች ቱሉ አሁንም እምቢ ካለ ቦቱ ሳይቆም ያለ ሰርች በዲፎልት ይመልስ
-        try:
-            response = model.generate_content(contents=system_prompt)
-            reply_text = response.text.strip()
-            punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
-            for char in punctuations:
-                reply_text = reply_text.replace(char, "")
-            return reply_text
-        except Exception as last_error:
-            print(f"FATAL AI ERROR: {last_error}")
-            return "ወዬ የኔ ቆንጆ ዛሬ ኔትወርኩ ትንሽ እያስቸገረኝ ነው ግን አንቺ ሰላም ነሽልኝ ❤️"
+    except APIError as api_err:
+        # የጉግል API ቀጥተኛ ስህተቶችን መያዣ (ለምሳሌ፡ 404, 403, Invalid Key)
+        print(f"\n[⚠️ GEMINI API ERROR DETECTED] -----")
+        print(f"Status Code: {api_err.code}")
+        print(f"Message: {api_err.message}")
+        print(f"Full Error Details: {api_err}")
+        print(f"-----------------------------------\n")
+        
+        # ወደ ሁለተኛው አስተማማኝ መስመር (Fallback) መሻገር
+        return fallback_generate(system_prompt, history_key, user_text)
+
+    except Exception as general_err:
+        # ሌሎች አጠቃላይ ስህተቶች (ለምሳሌ፡ የፋይል መጥፋት ወይም የኮድ ስህተት)
+        print(f"\n[❌ GENERAL CODE ERROR] -----------")
+        print(f"Error Type: {type(general_err).__name__}")
+        print(f"Error Message: {general_err}")
+        print(f"-----------------------------------\n")
+        
+        return fallback_generate(system_prompt, history_key, user_text)
+
+# --- 2.5 FALLBACK METHOD (ያለ ሰርች ቱል መደበኛውን ምላሽ መስጫ) ---
+def fallback_generate(system_prompt, history_key, user_text):
+    print("[FALLBACK] Attempting to generate response without Search Tool...")
+    try:
+        response = client_ai.models.generate_content(
+            model=MODEL_NAME,
+            contents=[system_prompt]
+        )
+        reply_text = response.text.strip()
+        punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
+        for char in punctuations:
+            reply_text = reply_text.replace(char, "")
+            
+        user_msg = f"እሷ: {user_text}" if user_text else "እሷ: ፎቶ አያይዛለች 🖼️"
+        redis.lpush(history_key, user_msg, f"ፋሲል: {reply_text}")
+        redis.ltrim(history_key, 0, 39)
+        return reply_text
+    except Exception as final_err:
+        print(f"[FATAL] Fallback also failed: {final_err}")
+        return "ወዬ የኔ ቆንጆ ዛሬ ኔትወርኩ ትንሽ እያሽከረከረኝ ነው ግን አንቺ ሰላም ነሽልኝ ❤️"
 
 # --- 3. COMMANDS ---
 @bot.on(events.NewMessage(pattern='/set_target', from_users=ADMIN_ID))
@@ -124,14 +162,15 @@ async def nudge_user(event):
         target_id = int(target_id)
         nudge_prompt = "አንተ ፋሲል ነህ ልጅቷ ጠፍታብሃል ወሬ ለመጀመር አሪፍና የሚስብ ነገር ለሴት በሚሆን ሰዋስው (Grammar) እና በብዙ ኢሞጂ ጨምረህ በአራዳ ቋንቋ በላት ስርዓተ ነጥብ አትጠቀም"
         try:
-            response = model.generate_content(contents=nudge_prompt)
+            response = client_ai.models.generate_content(model=MODEL_NAME, contents=[nudge_prompt])
             msg = response.text.strip()
             punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
             for char in punctuations:
                 msg = msg.replace(char, "")
-        except:
+        except Exception as e:
+            print(f"[ERROR] Nudge failed: {e}")
             msg = "የኔ ቆንጆ ጠፋሽብኝ እኮ የት ነሽ 🔥❤️"
-
+            
         async with bot.action(target_id, 'typing'):
             await asyncio.sleep(5)
             await bot.send_message(target_id, msg)
@@ -158,8 +197,12 @@ async def handle_incoming(event):
 
             photo_path = None
             if event.message.photo:
-                photo_path = await event.download_media()
-                wait_time = random.randint(15, 30)
+                try:
+                    photo_path = await event.download_media()
+                    wait_time = random.randint(15, 30)
+                except Exception as img_err:
+                    print(f"[ERROR] Photo download failed: {img_err}")
+                    wait_time = random.randint(15, 30)
             else:
                 wait_time = random.randint(60, 120)
 
@@ -175,12 +218,15 @@ async def handle_incoming(event):
                     await event.respond(reply)
 
             if photo_path and os.path.exists(photo_path): 
-                os.remove(photo_path)
+                try:
+                    os.remove(photo_path)
+                except Exception as del_err:
+                    print(f"[ERROR] Could not delete file: {del_err}")
 
 # --- 5. FLASK & RUN ---
 @app.route('/')
 def home(): 
-    return "Bot is Live!"
+    return "Bot is Live with Advanced Logging!"
 
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=PORT), daemon=True).start()
