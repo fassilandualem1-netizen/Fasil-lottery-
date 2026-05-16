@@ -22,17 +22,10 @@ PORT = int(os.getenv("PORT", 8080))
 # Gemini AI Setup
 genai.configure(api_key=GEMINI_API_KEY)
 
-# ይሄኛው ስሪት በጭራሽ 404 አይልም፣ በጣም አስተማማኝ ነው
-model = genai.GenerativeModel(
-    model_name='gemini-pro', 
-    tools=[{"google_search_retrieval": {}}]
-)
-
-
-
+# 404 ስህተቱን ለማስቀረት ሞዴሉን ያለምንም tools እዚህ ጋር ብቻ ንፁህ እንጀምረዋለን
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 bot = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
-# Upstash Redis በቀጥታ string ነው የሚመልሰው (decode አያስፈልገውም)
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 app = Flask(__name__)
 ADMIN_ID = 8488592165 
@@ -44,7 +37,7 @@ def get_ai_response(user_id, user_text, photo_path=None):
     current_time = now.strftime("%I:%M %p")
     current_day = now.strftime("%A, %B %d")
 
-    # ታሪክን ከ Redis ማምጣት (Upstash string ስለሚመልስ decode አያስፈልግም)
+    # ታሪክን ከ Redis ማምጣት
     history_key = f"chat_history:{user_id}"
     past_messages = redis.lrange(history_key, 0, 10)
     chat_context = "\n".join(reversed(past_messages)) if past_messages else "አዲስ ቻት"
@@ -70,11 +63,22 @@ def get_ai_response(user_id, user_text, photo_path=None):
     """
 
     try:
+        # በአዲሱ Stable API እንዲሰራ የሰርች ቱሉን በ dict config አሽገን እንልከዋለን
+        config = {
+            "tools": [{"google_search_retrieval": {}}]
+        }
+
         if photo_path:
             sample_file = genai.upload_file(path=photo_path)
-            response = model.generate_content([system_prompt, sample_file])
+            response = model.generate_content(
+                contents=[system_prompt, sample_file],
+                generation_config=config
+            )
         else:
-            response = model.generate_content(system_prompt)
+            response = model.generate_content(
+                contents=system_prompt,
+                generation_config=config
+            )
 
         reply_text = response.text.strip()
 
@@ -89,16 +93,25 @@ def get_ai_response(user_id, user_text, photo_path=None):
         return reply_text
 
     except Exception as e:
-        print(f"CRITICAL ERROR: {e}")
-        # ለጊዜው ስህተቱን እንዲያሳይልህ እንዲህ አድርገው
-        return f"ቆይ የኔ ቆንጆ ኔትወርክ ተቸገርኩ መሰል 😂 ስህተቱ፡ {e}"
+        print(f"CRITICAL ERROR WITH SEARCH: {e}")
+        # የሴኪውሪቲ መረብ (Fallback)፦ በሆነ ምክንያት ሰርች ቱሉ አሁንም እምቢ ካለ ቦቱ ሳይቆም ያለ ሰርች በዲፎልት ይመልስ
+        try:
+            response = model.generate_content(contents=system_prompt)
+            reply_text = response.text.strip()
+            punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
+            for char in punctuations:
+                reply_text = reply_text.replace(char, "")
+            return reply_text
+        except Exception as last_error:
+            print(f"FATAL AI ERROR: {last_error}")
+            return "ወዬ የኔ ቆንጆ ዛሬ ኔትወርኩ ትንሽ እያስቸገረኝ ነው ግን አንቺ ሰላም ነሽልኝ ❤️"
 
 # --- 3. COMMANDS ---
 @bot.on(events.NewMessage(pattern='/set_target', from_users=ADMIN_ID))
 async def set_target(event):
     parts = event.message.message.split()
     if len(parts) > 1:
-        target_user = parts[1].strip() # split ስህተቱ ተስተካክሏል
+        target_user = parts.strip()
         redis.set("target_user_id", target_user)
         await event.respond(f"✅ የዒላማ ሰው ተስተካክሏል፦ {target_user}")
     else:
@@ -108,15 +121,17 @@ async def set_target(event):
 async def nudge_user(event):
     target_id = redis.get("target_user_id")
     if target_id:
-        target_id = int(target_id) # decode አያስፈልግም
+        target_id = int(target_id)
         nudge_prompt = "አንተ ፋሲል ነህ ልጅቷ ጠፍታብሃል ወሬ ለመጀመር አሪፍና የሚስብ ነገር ለሴት በሚሆን ሰዋስው (Grammar) እና በብዙ ኢሞጂ ጨምረህ በአራዳ ቋንቋ በላት ስርዓተ ነጥብ አትጠቀም"
-        response = model.generate_content(nudge_prompt)
-        msg = response.text.strip()
-        
-        punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
-        for char in punctuations:
-            msg = msg.replace(char, "")
-            
+        try:
+            response = model.generate_content(contents=nudge_prompt)
+            msg = response.text.strip()
+            punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
+            for char in punctuations:
+                msg = msg.replace(char, "")
+        except:
+            msg = "የኔ ቆንጆ ጠፋሽብኝ እኮ የት ነሽ 🔥❤️"
+
         async with bot.action(target_id, 'typing'):
             await asyncio.sleep(5)
             await bot.send_message(target_id, msg)
@@ -135,7 +150,6 @@ async def bot_off(event):
 @bot.on(events.NewMessage(incoming=True))
 async def handle_incoming(event):
     if event.is_private:
-        # Upstash በቀጥታ string ስለሚመልስ decode() ተወግዷል
         status = redis.get("bot_status") or "off"
         target_id = redis.get("target_user_id") or ""
 
@@ -149,14 +163,10 @@ async def handle_incoming(event):
             else:
                 wait_time = random.randint(60, 120)
 
-            # የማሰብ ጊዜ
             if wait_time > 15: 
                 await asyncio.sleep(wait_time - 15)
 
-            # መልሱን ማመንጨት
             reply = get_ai_response(event.sender_id, event.message.message, photo_path)
-
-            # እንደ መልሱ ርዝመት የ Typing ሰዓቱን መወሰን (Smart Typing)
             typing_duration = max(5, min(len(reply) // 10, 15)) 
 
             async with bot.action(event.chat_id, 'typing'):
