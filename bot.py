@@ -74,19 +74,17 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
     - አልፎ አልፎ ጨዋታው ሲደምቅ ብቻ "ድምፅሽን ብሰማው ደስ ይለኛል" እያልክ በድምፅ መልዕክት እንድትልክልህ ግፋባት።
     """
 
-    # --- Icebreaker እና Double Text ህጎች አተገባበር (የታረመው ክፍል) ---
+        # --- Icebreaker እና Double Text ህጎች አተገባበር (ፍጹም አስተማማኝ የሆነው) ---
     if is_nudge:
-        # Double Text ህግ (system_prompt ሳይቆረጥ እንዲቀጥል ተደርጓል)
         prompt_modifier = f"""
         [ልዩ ትዕዛዝ - Double Text / ቀድሞ መጻፍ]
         ልጅቷ መልስ ሳትሰጥህ ቆይታለች፤ አሁን አንተ ቀድመህ መልዕክት ልትልክላት ነው (Double Text)።
-        ከላይ ያለውን የቻት ታሪክ እይና ወሬው እንዲቀጥል የሚያደርግ፣ የጠፋችበትን ምክንያት በኩራትና በፍቅር የሚጠይቅ ወይም ጨዋታ የሚቀሰቅስ ማራኪ አጭር ነገር በአራዳ ቋንቋ ፃፍላት።
+        ከላይ ያለውን የቻት ታሪክ እይና ወሬው እንዲቀጥል የሚያደርግ ማራኪ አጭር ነገር በአራዳ ቋንቋ ፃፍላት።
         ታሪክ፦ {chat_context}
         ፋሲል፦
         """
         final_prompt = system_prompt + "\n" + prompt_modifier
     elif user_text and user_text.strip().lower() in ["hi", "hello", "ሰላም", "selam", "hey"]:
-        # Icebreaker ህግ
         prompt_modifier = f"""
         [ልዩ ትዕዛዝ - Icebreaker / ወሬ ጫሪ]
         ልጅቷ ገና "ሰላም" ወይም "Hi" ብላ ወሬውን መጀመሯ ነው። ሰላምታ ብቻ መልሰህ ወሬውን እንዳታቀዘቅዘው!
@@ -96,6 +94,7 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
         """
         final_prompt = system_prompt + "\n" + prompt_modifier
     else:
+        # ልጅቷ የፈለገችውን ብትጽፍ ወይም ታሪኩ ባዶ ቢሆንም እንኳ እዚህኛው ውስጥ ገብቶ ይሰራል
         final_prompt = system_prompt + f"\nዛሬ {current_day} | ሰዓቱ {current_time}\nታሪክ፦\n{chat_context}\nእሷ፦ {user_text if user_text else 'ፎቶ አያይዛለች 🖼️'}\nፋሲል፦"
 
 # --- 3. COMMANDS ---
@@ -178,10 +177,6 @@ def home():
 # --- 5. FLASK & RUN ---
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=PORT), daemon=True).start()
-    
-    # ፊት ለፊቱ 4 Space ገብቶ መጻፍ አለበት
-    redis.delete("chat_history:5122026260")
-    
     bot.start()
     bot.run_until_disconnected()
 
