@@ -49,7 +49,7 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
     [ANTI-MOCKERY & ANTI-BOT RULE (እያሾፍክባት እንዳይመስል)]
     - ፎቶ ሳታይ ስለ ውበት ማውራት ፍፁም የተከለከለ ነው! ልጅቷ እራሷን የሚያሳይ ፎቶ (Photo) ካልላከች በስተቀር "ቆንጆ ነሽ"፣ "ውበትሽ"፣ "የኔ ልዕልት" ወይም ስለ መልኳ የሚያወሩ ቃላትን በፍፁም እንዳትጠቀም። ይሄ እያሾፍክባት እንደሆነ ስለምታስብ ወዲያውኑ ትዘጋሃለች!
     - እሷ "የት አየኸኝ" ወይም "ምን ውበት ነው የምታወራው" ስትልህ፣ ወዲያውኑ ስህተትህን በብልሃት አምነህ በአራዳ ቀልድ አጣጥፈው (ለምሳሌ፦ "አላየሁሽም እኮ ገና ፎቶሽን ለማየት ጓጉቼ ነው 😏" ወይም "አኳኋንሽ እራሱ ቆንጆ እንደሆንሽ ያስታውቃል ለማለት ነው" በላት)።
-    - በየመልዕክቱ መጨረሻ ላይ "የኔ ቆንጆ"፣ "የኔ ልዩ" እያልክ አታንቀስቅስባት! በአብዛኛው መልዕክትህ ላይ ስሟን ወይም ዝም ብለሽ ተራ ንግግር ተጠቀም። ማቆላመጫ በጣም አልፎ አልፎ ጨዋታው ሲመች ብቻ ይግባ። "የኔ ራት"፣ "ቅልጥምሽ ልሰበር" የሚሉ አስፈሪ ቃላት ሙሉ በሙሉ ይቅሩ።
+    - በየመልዕክቱ መጨረሻ ላይ "የኔ ቆንጆ"፣ "የኔ ልዩ" እያልክ አታንቀስቅስባት! በአብዛኛው መልዕክትህ ላይ ስሟን ወይም ዝም ብለሽ ተራ นግግር ተጠቀም። ማቆላመጫ በጣም አልፎ አልፎ ጨዋታው ሲመች ብቻ ይግባ። "የኔ ራት"፣ "ቅልጥምሽ ልሰበር" የሚሉ አስፈሪ ቃላት ሙሉ በሙሉ ይቅሩ።
     - በየመልዕክቱ ላይ ኢሞጂ (Emoji) መጠቀም ፍፁም የተከለከለ ነው! ማሽኑ በሰላምታ ወይም በተራ ንግግሮች ላይ ኢሞጂ አይጨምር። አንዳንድ ጊዜ ብቻ (😏 ወይም 😂) ብቻ በመጠቀም ጭምት እና እውነተኛ ሰው ሁን።
     
     [CRITICAL RULE - የርዝመት እና የባህሪ ማዕቀብ]
@@ -72,7 +72,10 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
     - ስርዓተ ነጥብ (.,?!:;- ። ፣ ፤ ፥) በፍፁም አትጠቀም።
     """
 
-    # --- Icebreaker እና Double Text ህጎች አተገባበር ---
+    # አስተማማኝ የፅሁፍ ማጣሪያ
+    clean_text = user_text.strip().lower() if user_text else ""
+
+    # --- Icebreaker እና Double Text ህጎች აተገባበር ---
     if is_nudge:
         prompt_modifier = f"""
         [ልዩ ትዕዛዝ - Double Text / ቀድሞ መጻፍ]
@@ -82,7 +85,7 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
         ፋሲል፦
         """
         final_prompt = system_prompt + "\n" + prompt_modifier
-    elif user_text and user_text.strip().lower() in ["hi", "hello", "ሰላም", "selam", "hey"]:
+    elif clean_text in ["hi", "hello", "ሰላም", "selam", "hey"]:
         prompt_modifier = f"""
         [ልዩ ትዕዛዝ - Icebreaker / ወሬ ጫሪ]
         ልጅቷ ገና "ሰላም" ወይም "Hi" ብላ ወሬውን መጀመሯ ነው። ሰላምታ ብቻ መልሰህ ወሬውን እንዳታቀዘቅዘው!
@@ -104,7 +107,12 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
         print(f"[INFO] Requesting Gemini {MODEL_NAME}...", flush=True)
         response = client_ai.models.generate_content(model=MODEL_NAME, contents=contents_list)
 
-        reply_text = response.text.strip()
+        reply_text = response.text.strip() if response.text else ""
+        
+        # ምላሹ ባዶ ከሆነ ቀጥታ ዲፎልት አራዳ ወሬ እንዲሰጥ
+        if not reply_text:
+            return fallback_generate(system_prompt, history_key, user_text, is_nudge)
+
         punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
         for char in punctuations:
             reply_text = reply_text.replace(char, "")
@@ -120,13 +128,16 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
         print(f"\n[❌ ERROR] {general_err}", flush=True)
         return fallback_generate(system_prompt, history_key, user_text, is_nudge)
 
-# --- FALLBACK (አሁን ሙሉ በሙሉ በአራዳ ስልት ተስተካክሏል) ---
+# --- FALLBACK ---
 def fallback_generate(system_prompt, history_key, user_text, is_nudge):
     try:
-        # የጌሚኒ ኤፒአይ ሲቆራረጥ እንኳ የልጅቷን ንግግር ይዞ እንዲሰራ አውዱን እናሳልፈዋለን
         fallback_prompt = system_prompt + f"\nእሷ፦ {user_text if user_text else 'ሰላም'}\nፋሲል፦"
         response = client_ai.models.generate_content(model=MODEL_NAME, contents=[fallback_prompt])
-        reply_text = response.text.strip()
+        reply_text = response.text.strip() if response.text else ""
+        
+        if not reply_text:
+            return "አንቺ ሰፈር ኔትወርክ የለም መሰል ተቆራረጠብኝ 😂"
+
         punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
         for char in punctuations:
             reply_text = reply_text.replace(char, "")
@@ -135,7 +146,6 @@ def fallback_generate(system_prompt, history_key, user_text, is_nudge):
         return reply_text
     except Exception as e:
         print(f"[FATAL] Everything failed: {e}", flush=True)
-        # ኤፒአይ ሙሉ በሙሉ ቢዘጋ እንኳ የሚላክ እውነተኛ አጭር የአራዳ ወሬ
         fallback_responses = [
             "አንቺ ሰፈር ኔትወርክ የለም መሰል ተቆራረጠብኝ 😂",
             "ቆይ መስመሩ አስተካክሎት ይመጣል 😏",
