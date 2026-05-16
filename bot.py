@@ -2,11 +2,11 @@ import os
 import asyncio
 import random
 import threading
+import sys  # ለሎግ ማሳያ የተጨመረ
 from flask import Flask
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 from upstash_redis import Redis
-# አዲሱ የጉግል ላይብረሪ እና የስህተት መቆጣጠሪያ ክፍል
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError
@@ -22,23 +22,22 @@ REDIS_TOKEN = os.getenv("REDIS_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 PORT = int(os.getenv("PORT", 8080))
 
-# በአዲሱ ላይብረሪ መሰረት ክላይንት መፍጠር
+# በአዲሱ SDK ፍጹም ትክክለኛው የሞዴል ስም 'gemini-2.5-flash' ነው
 client_ai = genai.Client(api_key=GEMINI_API_KEY)
-MODEL_NAME = 'gemini-1.5-flash'
+MODEL_NAME = 'gemini-2.5-flash'
 
 bot = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 app = Flask(__name__)
 ADMIN_ID = 8488592165 
 
-# --- 2. AI LOGIC (VISION + SEARCH + DETAILED TRY-EXCEPT) ---
+# --- 2. AI LOGIC ---
 def get_ai_response(user_id, user_text, photo_path=None):
     ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
     now = datetime.now(ethiopia_tz)
     current_time = now.strftime("%I:%M %p")
     current_day = now.strftime("%A, %B %d")
 
-    # ታሪክን ከ Redis ማምጣት
     history_key = f"chat_history:{user_id}"
     past_messages = redis.lrange(history_key, 0, 10)
     chat_context = "\n".join(reversed(past_messages)) if past_messages else "አዲስ ቻት"
@@ -64,25 +63,21 @@ def get_ai_response(user_id, user_text, photo_path=None):
     """
 
     try:
-        # የሰርች ቱል መዋቅር
+        # አዲሱ የሰርች ቱል አደራጀት
         google_search_tool = types.Tool(
             google_search=types.GoogleSearch()
         )
 
         contents_list = [system_prompt]
         
-        # ፎቶ ካለ በ bytes ማንበብ
         if photo_path:
             with open(photo_path, 'rb') as f:
                 photo_bytes = f.read()
             contents_list.append(
-                types.Part.from_bytes(
-                    data=photo_bytes,
-                    mime_type='image/jpeg'
-                )
+                types.Part.from_bytes(data=photo_bytes, mime_type='image/jpeg')
             )
 
-        print(f"[INFO] Sending request to Gemini with Search Tool for User {user_id}...")
+        print(f"[INFO] Sending request to Gemini {MODEL_NAME}...", flush=True)
         response = client_ai.models.generate_content(
             model=MODEL_NAME,
             contents=contents_list,
@@ -92,8 +87,6 @@ def get_ai_response(user_id, user_text, photo_path=None):
         )
 
         reply_text = response.text.strip()
-
-        # ስርዓተ ነጥብ ማጽጃ
         punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
         for char in punctuations:
             reply_text = reply_text.replace(char, "")
@@ -104,29 +97,18 @@ def get_ai_response(user_id, user_text, photo_path=None):
         return reply_text
 
     except APIError as api_err:
-        # የጉግል API ቀጥተኛ ስህተቶችን መያዣ (ለምሳሌ፡ 404, 403, Invalid Key)
-        print(f"\n[⚠️ GEMINI API ERROR DETECTED] -----")
-        print(f"Status Code: {api_err.code}")
-        print(f"Message: {api_err.message}")
-        print(f"Full Error Details: {api_err}")
-        print(f"-----------------------------------\n")
-        
-        # ወደ ሁለተኛው አስተማማኝ መስመር (Fallback) መሻገር
+        print(f"\n[⚠️ GEMINI API ERROR] Status: {api_err.code} | Msg: {api_err.message}", flush=True)
         return fallback_generate(system_prompt, history_key, user_text)
 
     except Exception as general_err:
-        # ሌሎች አጠቃላይ ስህተቶች (ለምሳሌ፡ የፋይል መጥፋት ወይም የኮድ ስህተት)
-        print(f"\n[❌ GENERAL CODE ERROR] -----------")
-        print(f"Error Type: {type(general_err).__name__}")
-        print(f"Error Message: {general_err}")
-        print(f"-----------------------------------\n")
-        
+        print(f"\n[❌ GENERAL ERROR] {general_err}", flush=True)
         return fallback_generate(system_prompt, history_key, user_text)
 
-# --- 2.5 FALLBACK METHOD (ያለ ሰርች ቱል መደበኛውን ምላሽ መስጫ) ---
+# --- FALLBACK ---
 def fallback_generate(system_prompt, history_key, user_text):
-    print("[FALLBACK] Attempting to generate response without Search Tool...")
+    print("[FALLBACK] Trying without search...", flush=True)
     try:
+        # እዚህ ጋርም አዲሱ ሞዴል ስም ጥቅም ላይ ውሏል
         response = client_ai.models.generate_content(
             model=MODEL_NAME,
             contents=[system_prompt]
@@ -140,9 +122,9 @@ def fallback_generate(system_prompt, history_key, user_text):
         redis.lpush(history_key, user_msg, f"ፋሲል: {reply_text}")
         redis.ltrim(history_key, 0, 39)
         return reply_text
-    except Exception as final_err:
-        print(f"[FATAL] Fallback also failed: {final_err}")
-        return "ወዬ የኔ ቆንጆ ዛሬ ኔትወርኩ ትንሽ እያሽከረከረኝ ነው ግን አንቺ ሰላም ነሽልኝ ❤️"
+    except Exception as e:
+        print(f"[FATAL] Everything failed: {e}", flush=True)
+        return "የኔ ቆንጆ ዛሬ አዲስ አበባ ላይ ኔትወርክ በጣም አስቸጋሪ ሆኗል መሰል 😂 ግን አንቺ ሰላም ነሽ አይደል?"
 
 # --- 3. COMMANDS ---
 @bot.on(events.NewMessage(pattern='/set_target', from_users=ADMIN_ID))
@@ -153,22 +135,21 @@ async def set_target(event):
         redis.set("target_user_id", target_user)
         await event.respond(f"✅ የዒላማ ሰው ተስተካክሏል፦ {target_user}")
     else:
-        await event.respond("❌ እባክህ ID ጨምር (ለምሳሌ፦ /set_target 123456)")
+        await event.respond("❌ ID ጨምር")
 
 @bot.on(events.NewMessage(pattern='/nudge', from_users=ADMIN_ID))
 async def nudge_user(event):
     target_id = redis.get("target_user_id")
     if target_id:
         target_id = int(target_id)
-        nudge_prompt = "አንተ ፋሲል ነህ ልጅቷ ጠፍታብሃል ወሬ ለመጀመር አሪፍና የሚስብ ነገር ለሴት በሚሆን ሰዋስው (Grammar) እና በብዙ ኢሞጂ ጨምረህ በአራዳ ቋንቋ በላት ስርዓተ ነጥብ አትጠቀም"
+        nudge_prompt = "አንተ ፋሲል ነህ ልጅቷ ጠፍታብሃል ወሬ ለመጀመር አሪፍና የሚስብ ነገር ለሴት በሚሆን ሰዋስው እና በብዙ ኢሞጂ ጨምረህ በአራዳ ቋንቋ በላት ስርዓተ ነጥብ አትጠቀም"
         try:
             response = client_ai.models.generate_content(model=MODEL_NAME, contents=[nudge_prompt])
             msg = response.text.strip()
             punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
             for char in punctuations:
                 msg = msg.replace(char, "")
-        except Exception as e:
-            print(f"[ERROR] Nudge failed: {e}")
+        except:
             msg = "የኔ ቆንጆ ጠፋሽብኝ እኮ የት ነሽ 🔥❤️"
             
         async with bot.action(target_id, 'typing'):
@@ -185,7 +166,7 @@ async def bot_off(event):
     redis.set("bot_status", "off")
     await event.respond("😴 AI ቦቱ ቆሟል (OFF)")
 
-# --- 4. THE SMART HANDLER (DYNAMIC DELAY & TYPING) ---
+# --- 4. THE SMART HANDLER ---
 @bot.on(events.NewMessage(incoming=True))
 async def handle_incoming(event):
     if event.is_private:
@@ -197,12 +178,8 @@ async def handle_incoming(event):
 
             photo_path = None
             if event.message.photo:
-                try:
-                    photo_path = await event.download_media()
-                    wait_time = random.randint(15, 30)
-                except Exception as img_err:
-                    print(f"[ERROR] Photo download failed: {img_err}")
-                    wait_time = random.randint(15, 30)
+                photo_path = await event.download_media()
+                wait_time = random.randint(15, 30)
             else:
                 wait_time = random.randint(60, 120)
 
@@ -218,15 +195,12 @@ async def handle_incoming(event):
                     await event.respond(reply)
 
             if photo_path and os.path.exists(photo_path): 
-                try:
-                    os.remove(photo_path)
-                except Exception as del_err:
-                    print(f"[ERROR] Could not delete file: {del_err}")
+                os.remove(photo_path)
 
 # --- 5. FLASK & RUN ---
 @app.route('/')
 def home(): 
-    return "Bot is Live with Advanced Logging!"
+    return "Bot is Live!"
 
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=PORT), daemon=True).start()
