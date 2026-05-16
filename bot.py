@@ -43,7 +43,7 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
 
     # --- የፋሲል እውነተኛ አራዳነት፣ የምክንያታዊነት እና የጭምትነት ህግ ---
     system_prompt = """
-የመጫወቻ ስምህ ፋሲል ነው። አዲስ አበባ ቃሊቲ አካባቢ የምትኖር የ 2ኛ ዓመት የ Computer Science (CS) ዩኒቨርሲቲ ተማሪ ነህ።
+የመጫወቻ ስምህ ፋሲል ነው። አዲስ አበባ መገናኛ አካባቢ የምትኖር የ 2ኛ ዓመት የ Computer Science (CS) ዩኒቨርሲቲ ተማሪ ነህ።
 አሁን ቴሌግራም ላይ የምታወራው ሙሉ በሙሉ ለማታውቃት፣ እሷም አንተን ለማታውቅህ ሴት (Cold Texting) ነው።
 አንተ እጅግ የረቀቅህ፣ ጭምት፣ ኩሩ፣ የሰከነ እና ክብደትህን ጠብቀህ ሴትን ልጅ በቃላት ማውራት የምትችል ማስተር ነህ።
 
@@ -156,11 +156,66 @@ STAGE 20: THE INSIDE JOKE / NICKNAME (የስም መቀያየር ማታ ላይ)
 - ምሳሌ፦ "ሰላም የፊልም እረኛዋ ስራዬን ጨርሼ መጣሁ ያንቺስ ምሽት እንዴት እያለፈ ነው 😂"
 
 [🤖 HUMAN MISTAKE rule]
-አንዳንድ ጊዜ ሆን ብለህ ፊደል ተሳስተህ እንደምትፅፍ አስብ (ለምሳሌ፦ "መጣሽ" ለማለት "መጣሰ")። ትክክለኛውን ቃል በሌላ መስመር ታስተካክላለህ።
+አንዳንድ ጊዜ ሆን ብለህ ፊደል ተሳስተህ እንደምትፅፍ አስብ (ለምሳሌ፦ "መጣሽ" ለማለት "መጣሰ")። ትክክленную ቃል በሌላ መስመር ታስተካክላለህ።
 
 [🧠 UNLIMITED CONTEXT rule]
 ልጅቷ የምትጽፈውን እያንዳንዱን ቃል በጥልቀት ተረድተህ፣ ከላይ ካለው የቻት ታሪክ ጋር አገናኝተህ፣ አሁን ያለችበትን ትክክለኛ Stage ብቻ በመምረጥ ምላሽ ስጥ። ከታሪኩ ውጪ የድሮ ወሬ አትድገም።
 """
+
+# አስተማማኝ የፅሁፍ ማጣሪያ
+clean_text = user_text.strip().lower() if user_text else ""
+
+# --- Icebreaker እና Double Text ህጎች አተገባበር ---
+if is_nudge:
+    prompt_modifier = f"""
+    [ልዩ ትዕዛዝ - Double Text / ቀድሞ መጻፍ]
+    ልጅቷ መልስ ሳትሰጥህ ቆይታለች፤ አሁን አንተ ቀድመህ መልዕክት ልትልክላት ነው (Double Text)።
+    ከላይ ያለውን የቻት ታሪክ እይና ወሬው እንዲቀጥል የሚያደርግ ማራኪ አጭር ነገር በአራዳ ቋንቋ ፃፍላት።
+    ታሪክ፦ {chat_context}
+    ፋሲል፦
+    """
+    final_prompt = system_prompt + "\n" + prompt_modifier
+elif clean_text in ["hi", "hello", "ሰላም", "selam", "hey"]:
+    prompt_modifier = f"""
+    [ልዩ ትዕዛዝ - Icebreaker / ወሬ ጫሪ]
+    ልጅቷ ገና "ሰላም" ወይም "Hi" ብላ ወሬውን መጀመሯ ነው። ሰላምታ ብቻ መልሰህ ወሬውን እንዳታቀዘቅዘው!
+    ወዲያውኑ በአጭርና የሚስብ ጥያቄ ጨምረህ በአራዳ ቋንቋ መልስላት። (በፍፁም የፍቅር ቃል ወይም ኢሞጂ እንዳትጠቀም!)
+    እሷ፦ {user_text}
+    ፋሲል፦
+    """
+    final_prompt = system_prompt + "\n" + prompt_modifier
+else:
+    final_prompt = system_prompt + f"\nሰዓቱ {current_time}\nታሪክ፦\n{chat_context}\nእሷ፦ {user_text if user_text else 'ፎቶ አያይዛለች 🖼️'}\nፋሲል፦"
+
+try:
+    contents_list = [final_prompt]
+    if photo_path:
+        with open(photo_path, 'rb') as f:
+            photo_bytes = f.read()
+        contents_list.append(types.Part.from_bytes(data=photo_bytes, mime_type='image/jpeg'))
+
+    print(f"[INFO] Requesting Gemini {MODEL_NAME}...", flush=True)
+    response = client_ai.models.generate_content(model=MODEL_NAME, contents=contents_list)
+
+    reply_text = response.text.strip() if response.text else ""
+    
+    if not reply_text:
+        return fallback_generate(system_prompt, history_key, user_text, is_nudge)
+
+    punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
+    for char in punctuations:
+        reply_text = reply_text.replace(char, "")
+
+    if not is_nudge:
+        user_msg = f"እሷ: {user_text}" if user_text else "እሷ: ፎቶ አያይዛለች 🖼️"
+        redis.lpush(history_key, user_msg)
+    redis.lpush(history_key, f"ፋሲል: {reply_text}")
+    redis.ltrim(history_key, 0, 39)
+    return reply_text
+
+except Exception as general_err:
+    print(f"\n[❌ ERROR] {general_err}", flush=True)
+    return fallback_generate(system_prompt, history_key, user_text, is_nudge)
 
 
 # --- 4. THE SMART HUMAN-LIKE HANDLER ---
