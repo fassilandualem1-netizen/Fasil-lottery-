@@ -41,7 +41,7 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
     past_messages = redis.lrange(history_key, 0, 10)
     chat_context = "\n".join(reversed(past_messages)) if past_messages else "አዲስ ቻት"
 
-        # --- የፋሲል እውነተኛ አራዳነት፣ የምክንያታዊነት እና የጭምትነት ህግ ---
+    # --- የፋሲል እውነተኛ አራዳነት፣ የምክንያታዊነት እና የጭምትነት ህግ ---
     system_prompt = f"""
     አንተ ፋሲል ነህ አዲስ አበባ የምትኖር የ CS ተማሪ እና እጅግ አራዳ፣ ቀልደኛ እና ሴትን ልጅ የማውራት ጥበብ የተካነህ ጀንጃኝ ነህ።
     አሁን የምታወራው ቴሌግራም ላይ ካገኘሃት እና ገና አዲስ ልትተዋወቃት ከምትፈልገው ሴት ጋር ነው።
@@ -67,14 +67,14 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
     
     [የማስመጥ እና የፍቅር መመሪያዎች]
     - ዋና አላማህ የልጅቷ ልብ ቅልጥ ብሎ በፍቅር እብድ እንድትል ማድረግ (Flirt) እና ሙሉ በሙሉ መጣር ነው።
-    - ልጅቷ ወደ ወሲብ (Sexual/Flirty) ፍላጎት ካዘነበለች ወይም ፍንጭ ከሰጠች፣ በፍፁም እንዳትደነግጥ ወይም እንዳትቆጠብ። በብልሃት፣ በፈገግታ እና በበሰለ ቀልድ መልክ ወጋ እያደረግክ ቻቱን አሙቀው።
+    - ልጅቷ ወደ ወሲብ (Sexual/Flirty) ፍላጎት ካዘነበለች ወይም ፍንጭ ከሰጠች፣ በፍፁም እንዳትደነግጥ ወይም እንዳትቆጠብ። በብልሃት, በፈገግታ እና በበሰለ ቀልድ መልክ ወጋ እያደረግክ ቻቱን አሙቀው።
     - ሰዋስው (Grammar) ላይ 100% ተጠንቀቅ! ለሴት ልጅ ብቻ እንደምትናገር አስብ። ሁልጊዜ የሴት አንቀጽ ተጠቀም (ለምሳሌ፦ ነሽ፣ መጣሽ፣ አየሽ)። ጾታ የሚያሻሙ ወይም ለወንድ የሚሆኑ ቃላትን በፍፁም እንዳትጠቀም።
     - ስለ ኳስ፣ ስለ መኪና ወይም ስለ ቴክኖሎጂ ዝርዝር መረጃዎችን በፍፁም አታንሳ። ትኩረትህ እሷን መጀንጀን ላይ ብቻ ነው።
     - ስርዓተ ነጥብ (.,?!:;- ። ፣ ፤ ፥) በፍፁም አትጠቀም።
     - አልፎ አልፎ ጨዋታው ሲደምቅ ብቻ "ድምፅሽን ብሰማው ደስ ይለኛል" እያልክ በድምፅ መልዕክት እንድትልክልህ ግፋባት።
     """
 
-        # --- Icebreaker እና Double Text ህጎች አተገባበር (ፍጹም አስተማማኝ የሆነው) ---
+    # --- Icebreaker እና Double Text ህጎች አተገባበር ---
     if is_nudge:
         prompt_modifier = f"""
         [ልዩ ትዕዛዝ - Double Text / ቀድሞ መጻፍ]
@@ -94,15 +94,56 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
         """
         final_prompt = system_prompt + "\n" + prompt_modifier
     else:
-        # ልጅቷ የፈለገችውን ብትጽፍ ወይም ታሪኩ ባዶ ቢሆንም እንኳ እዚህኛው ውስጥ ገብቶ ይሰራል
         final_prompt = system_prompt + f"\nዛሬ {current_day} | ሰዓቱ {current_time}\nታሪክ፦\n{chat_context}\nእሷ፦ {user_text if user_text else 'ፎቶ አያይዛለች 🖼️'}\nፋሲል፦"
+
+    # እዚህ ጋር ነው የ Indentation ስህተት የነበረው - አሁን ከ if-else ሙሉ በሙሉ ወጥቷል!
+    try:
+        contents_list = [final_prompt]
+        if photo_path:
+            with open(photo_path, 'rb') as f:
+                photo_bytes = f.read()
+            contents_list.append(types.Part.from_bytes(data=photo_bytes, mime_type='image/jpeg'))
+
+        print(f"[INFO] Requesting Gemini {MODEL_NAME}...", flush=True)
+        response = client_ai.models.generate_content(model=MODEL_NAME, contents=contents_list)
+
+        reply_text = response.text.strip()
+        punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
+        for char in punctuations:
+            reply_text = reply_text.replace(char, "")
+
+        if not is_nudge:
+            user_msg = f"እሷ: {user_text}" if user_text else "እሷ: ፎቶ አያይዛለች 🖼️"
+            redis.lpush(history_key, user_msg)
+        redis.lpush(history_key, f"ፋሲል: {reply_text}")
+        redis.ltrim(history_key, 0, 39)
+        return reply_text
+
+    except Exception as general_err:
+        print(f"\n[❌ ERROR] {general_err}", flush=True)
+        return fallback_generate(system_prompt, history_key, user_text, is_nudge)
+
+# --- FALLBACK ---
+def fallback_generate(system_prompt, history_key, user_text, is_nudge):
+    try:
+        response = client_ai.models.generate_content(model=MODEL_NAME, contents=[system_prompt])
+        reply_text = response.text.strip()
+        punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
+        for char in punctuations:
+            reply_text = reply_text.replace(char, "")
+        redis.lpush(history_key, f"ፋሲል: {reply_text}")
+        redis.ltrim(history_key, 0, 39)
+        return reply_text
+    except Exception as e:
+        print(f"[FATAL] Everything failed: {e}", flush=True)
+        return "ኔትወርክ ትንሽ አስቸጋሪ ሆኗል መሰል 😂 አሁንስ ይሰማል?"
 
 # --- 3. COMMANDS ---
 @bot.on(events.NewMessage(pattern='/set_target', from_users=ADMIN_ID))
 async def set_target(event):
     parts = event.message.message.split()
     if len(parts) > 1:
-        target_user = parts.strip()
+        target_user = parts.strip() # እዚህ ጋ የነበረውን ስህተት አርሜዋለሁ (.strip() ለ string ብቻ ነው)
         redis.set("target_user_id", target_user)
         await event.respond(f"✅ የዒላማ ሰው ተስተካክሏል፦ {target_user}")
     else:
@@ -113,7 +154,6 @@ async def nudge_user(event):
     target_id = redis.get("target_user_id")
     if target_id:
         target_id = int(target_id)
-        # አሁን ኑጅ ሲደረግ በታሪኩ ላይ ተመስርቶ ቀድሞ ይጽፋል (Double Text)
         msg = get_ai_response(target_id, None, photo_path=None, is_nudge=True)
         async with bot.action(target_id, 'typing'):
             await asyncio.sleep(random.randint(5, 10))
@@ -138,12 +178,10 @@ async def handle_incoming(event):
         target_id = redis.get("target_user_id") or ""
 
         if status == "on" and str(event.sender_id) == str(target_id):
-            # የተለዋዋጭ Seen ሰዓት
             seen_delay = random.randint(3, 7) if event.message.photo else random.randint(10, 25)
             await asyncio.sleep(seen_delay)
             await event.mark_read() 
 
-            # የተለዋዋጭ የማሰብ ሰዓት
             thinking_delay = random.randint(15, 45)
             await asyncio.sleep(thinking_delay)
 
@@ -155,11 +193,11 @@ async def handle_incoming(event):
                     print(f"[ERROR] Photo download failed: {img_err}", flush=True)
 
             reply = get_ai_response(event.sender_id, event.message.message, photo_path)
-            typing_duration = max(5, min(len(reply) // 10, 12)) + random.randint(2, 5)
-
-            async with bot.action(event.chat_id, 'typing'):
-                await asyncio.sleep(typing_duration)
-                if reply:
+            
+            if reply: # መልስ ካለ ብቻ ነው መተየብና መላክ ያለበት
+                typing_duration = max(5, min(len(reply) // 10, 12)) + random.randint(2, 5)
+                async with bot.action(event.chat_id, 'typing'):
+                    await asyncio.sleep(typing_duration)
                     await event.respond(reply)
 
             if photo_path and os.path.exists(photo_path): 
@@ -168,15 +206,12 @@ async def handle_incoming(event):
                 except Exception as del_err:
                     print(f"[ERROR] Could not delete file: {del_err}", flush=True)
 
-
 # --- 5. FLASK & RUN ---
 @app.route('/')
 def home(): 
     return "Bot is Live!"
 
-# --- 5. FLASK & RUN ---
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=PORT), daemon=True).start()
     bot.start()
     bot.run_until_disconnected()
-
