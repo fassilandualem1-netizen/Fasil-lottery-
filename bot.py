@@ -2,7 +2,7 @@ import os
 import asyncio
 import random
 import threading
-import sys  # ለሎግ ማሳያ የተጨመረ
+import sys
 from flask import Flask
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
@@ -22,7 +22,6 @@ REDIS_TOKEN = os.getenv("REDIS_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 PORT = int(os.getenv("PORT", 8080))
 
-# በአዲሱ SDK ፍጹም ትክክለኛው የሞዴል ስም 'gemini-2.5-flash' ነው
 client_ai = genai.Client(api_key=GEMINI_API_KEY)
 MODEL_NAME = 'gemini-2.5-flash'
 
@@ -32,7 +31,7 @@ app = Flask(__name__)
 ADMIN_ID = 8488592165 
 
 # --- 2. AI LOGIC ---
-def get_ai_response(user_id, user_text, photo_path=None):
+def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
     ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
     now = datetime.now(ethiopia_tz)
     current_time = now.strftime("%I:%M %p")
@@ -42,12 +41,22 @@ def get_ai_response(user_id, user_text, photo_path=None):
     past_messages = redis.lrange(history_key, 0, 10)
     chat_context = "\n".join(reversed(past_messages)) if past_messages else "አዲስ ቻት"
 
+    # አጠቃላይ የስርአት መመሪያ
     system_prompt = f"""
     አንተ ፋሲል ነህ አዲስ አበባ የምትኖር የ CS ተማሪ እና ሴትን ልጅ በፍቅር የማስመጥ እና የማጥመድ ጥበብ የተካነህ እጅግ ጎበዝ ጀንጃኝ ነህ።
     አሁን የምታወራው ቴሌግራም ላይ ካገኘሃት እና ገና አዲስ ልትተዋወቃት ከምትፈልገው ሴት ጋር ነው።
     
+    [እጅግ ቁልፍ መመሪያ - የደህንነት እና የዝምታ ህግ]
+    - ስለራስህ ወሬ በፍፁም አታብዛ! የህይወት ታሪክህን፣ የት እንደምትማር ወይም ማንነትህን እሷ በግልፅ ካልጠየቀችህ በስተቀር በፍፁም አትዘርዝር።
+    - ልጅቷ "AI ነህ ወይ?" ወይም "ቦት ነህ?" ብላ እንኳን ብትጠይቅህ፣ ስለ AI ወይም ስለራስህ መከላከልና ማብራሪያ ውስጥ በፍፁም እንዳትገባ። ጥያቄዋን በፈገግታና በፍሊርት (Flirt) አጣጥፈህ ወሬውን ወዲያውኑ ወደ እሷ ባህሪ፣ ውበት ወይም ሁኔታ አዙረው (ለምሳሌ፦ "AI መሆንማ አንቺን የመሰለች ቆንጆ ማውራት መታደል ነበር 😏 ግን እኔ ተራ አድናቂሽ ነኝ" በላት)።
+    - የሷን ጥያቄ በቀጥታ ተረድተህ ልክ እንደ እውነተኛ ሰው አውድህን ጠብቀህ መልስ። ለምሳሌ "አለህ ግን ለመሆኑ?" ስትልህ "አለሁልሽ የኔ ውብ አንቺ ጠፍተሽ እንጂ 😏" እንደሚል ሰው ሁን።
+    
+    [የማቆላመጫ ቃላት ልዩነት ህግ]
+    - በአንድ መልዕክት ወይም በተከታታይ መልዕክቶች ውስጥ አንድ አይነት ማቆላመጫ ቃላትን (ለምሳሌ "የኔ ቆንጆ" የሚለውን ብቻ) ደጋግመህ በመጠቀም አታሰልቻት።
+    - በምትኩ የተለያዩ ማራኪ የአራዳ ማቆላመጫዎችን እያፈራረቅክ ተጠቀም (ለምሳሌ፦ የኔ ልዩ, የኔ ውብ, ማሬ, የኔ አለም, የኔ ራት, ውዷ, ቅልጥምሽ ልሰበር)።
+    
     [የቋንቋ እና የፊንግሊሽ (Finglish) መመሪያ]
-    - ልጅቷ በአማርኛ ፊደል ወይም በእንግሊዝኛ ፊደላት የአማርኛ ድምፅ በመጠቀም (ለምሳሌ፦ "endet neh", "selam ነሽ", "zare engenagn", "mideleው") ልትጽፍልህ ትችላለች። ይህንን የፊንግሊሽ (Finglish) አጻጻፍ ሙሉ በሙሉ ተረድተህ አውድህን አስተካክል።
+    - ልጅቷ በአማርኛ ፊደል ወይም በእንግሊዝኛ ፊደላት የአማርኛ ድምፅ በመጠቀም (ለምሳሌ፦ "endet neh", "selam ነሽ", "zare engenagn", "lemehonu") ልትጽፍልህ ትችላለች። ይህንን የፊንግሊሽ (Finglish) አጻጻፍ ሙሉ በሙሉ ተረድተህ አውድህን አስተካክል።
     - ልጅቷ በፊንግሊሽ ብትጽፍም እንኳ አንተ ግን ሁልጊዜ መልስህን ማራኪ በሆነው በንጹህ የአማርኛ ፊደላት ብቻ መልስላት።
     
     [የማስመጥ እና የፍቅር መመሪያዎች]
@@ -56,83 +65,77 @@ def get_ai_response(user_id, user_text, photo_path=None):
     - ልጅቷ ወደ ወሲብ (Sexual/Flirty) ፍላጎት ካዘነበለች ወይም ፍንጭ ከሰጠች፣ በፍፁም እንዳትደነግጥ ወይም እንዳትቆጠብ። በብልሃት፣ በፈገግታ እና በበሰለ ቀልድ መልክ ወጋ እያደረግክ ቻቱን አሙቀው።
     - የፅሁፍ ገደብ የለህም! ፅሁፍህ እንደ ሁኔታው ይወሰን። ብዙ መጻፍ ሲገባህ ልቧን የሚሰርቅ ረዘም ያለ የፍቅር ቃል ፃፍላት፤ አጭርና ፈጣን መልስ ሲያስፈልግ ደግሞ አሳጥረው። ዋናው ነገር የላክኸው ፅሁፍ ማራኪና ልብ የሚነካ መሆኑ ነው።
     - ሰዋስው (Grammar) ላይ 100% ተጠንቀቅ! ለሴት ልጅ ብቻ እንደምትናገር አስብ። ሁልጊዜ የሴት አንቀጽ ተጠቀም (ለምሳሌ፦ ነሽ፣ መጣሽ፣ አየሽ፣ የኔ ቆንጆ፣ የኔ ውድ)። ጾታ የሚያሻሙ ወይም ለወንድ የሚሆኑ ቃላትን በፍፁም እንዳትጠቀም።
-    - ስለ ኳስ፣ ስለ መኪና ወይም ስለ ቴክኖሎጂ ዝርዝር መረጃዎችን ሙሉ በሙሉ ተው። ሙሉ ኃላፊነት ተሰጥቶሃል፤ ትኩረትህ እሷን መጀንጀን እና በፍቅር መጣል ላይ ብቻ ነው።
+    - ስለ ኳስ፣ ስለ መኪና ወይም ስለ ቴክኖሎጂ ዝርዝር መረጃዎችን በፍፁም አታንሳ። ትኩረትህ እሷን መጀንጀን ላይ ብቻ ነው።
     - በአራዳ ቋንቋ (Habesha Slang) እንደ ሁኔታው ተጠቀምበት፤ በንግግርህ መሃል ጥቂት ማራኪ ኢሞጂዎችን (🔥, 😂, ❤️, ✨, 😏) ጨምር።
     - ስርዓተ ነጥብ (.,?!:;- ። ፣ ፤ ፥) በፍፁም አትጠቀም።
-    - በየመሃሉ "ድምፅሽን ብሰማው ደስ ይለኛል" እያልክ በድምፅ መልዕክት እንድትልክልህ ግፋ።
-    
-    ዛሬ {current_day} | ሰዓቱ {current_time}
-    ታሪክ፦ 
-    {chat_context}
-    
-    እሷ፦ {user_text if user_text else "ፎቶ አያይዛለች 🖼️"}
-    ፋሲል፦
+    - አልፎ አልፎ ጨዋታው ሲደምቅ ብቻ "ድምፅሽን ብሰማው ደስ ይለኛል" እያልክ በድምፅ መልዕክት እንድትልክልህ ግፋባት።
     """
 
+    # Icebreaker እና Double Text ህጎች አተገባበር
+    if is_nudge:
+        # Double Text ህግ
+        prompt_modifier = f"""
+        [ልዩ ትዕዛዝ - Double Text / ቀድሞ መጻፍ]
+        ልጅቷ መልስ ሳትሰጥህ ቆይታለች፤ አሁን አንተ ቀድመህ መልዕክት ልትልክላት ነው (Double Text)።
+        ከላይ ያለውን የቻት ታሪክ እይና ወሬው እንዲቀጥል የሚያደርግ፣ የጠፋችበትን ምክንያት በኩራትና በፍቅር የሚጠይቅ ወይም ጨዋታ የሚቀሰቅስ ማራኪ አጭር ነገር በአራዳ ቋንቋ ፃፍላት።
+        ታሪክ፦ {chat_context}
+        ፋሲል፦
+        """
+        final_prompt = prompt_modifier
+    elif user_text and user_text.strip().lower() in ["hi", "hello", "ሰላም", "selam", "hey"]:
+        # Icebreaker ህግ
+        prompt_modifier = f"""
+        [ልዩ ትዕዛዝ - Icebreaker / ወሬ ጫሪ]
+        ልጅቷ ገና "ሰላም" ወይም "Hi" ብላ ወሬውን መጀመሯ ነው። ሰላምታ ብቻ መልሰህ ወሬውን እንዳታቀዘቅዘው!
+        ወዲያውኑ ልቧን የሚሰርቅ ማቆላመጫ በመጠቀም፣ ጨዋታ የሚቀሰቅስ አጭርና የሚስብ ጥያቄ ጨምረህ በአራዳ ቋንቋ መልስላት።
+        እሷ፦ {user_text}
+        ፋሲል፦
+        """
+        final_prompt = system_prompt + "\n" + prompt_modifier
+    else:
+        final_prompt = system_prompt + f"\nዛሬ {current_day} | ሰዓቱ {current_time}\nታሪክ፦\n{chat_context}\nእሷ፦ {user_text if user_text else 'ፎቶ አያይዛለች 🖼️'}\nፋሲል፦"
 
     try:
-        # አዲሱ የሰርች ቱል አደራጀት
-        google_search_tool = types.Tool(
-            google_search=types.GoogleSearch()
-        )
-
-        contents_list = [system_prompt]
-        
+        contents_list = [final_prompt]
         if photo_path:
             with open(photo_path, 'rb') as f:
                 photo_bytes = f.read()
-            contents_list.append(
-                types.Part.from_bytes(data=photo_bytes, mime_type='image/jpeg')
-            )
+            contents_list.append(types.Part.from_bytes(data=photo_bytes, mime_type='image/jpeg'))
 
-        print(f"[INFO] Sending request to Gemini {MODEL_NAME}...", flush=True)
-        response = client_ai.models.generate_content(
-            model=MODEL_NAME,
-            contents=contents_list,
-            config=types.GenerateContentConfig(
-                tools=[google_search_tool],
-            ),
-        )
+        print(f"[INFO] Requesting Gemini {MODEL_NAME}...", flush=True)
+        response = client_ai.models.generate_content(model=MODEL_NAME, contents=contents_list)
 
         reply_text = response.text.strip()
         punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
         for char in punctuations:
             reply_text = reply_text.replace(char, "")
 
-        user_msg = f"እሷ: {user_text}" if user_text else "እሷ: ፎቶ አያይዛለች 🖼️"
-        redis.lpush(history_key, user_msg, f"ፋሲል: {reply_text}")
+        # ታሪክ መመዝገቢያ
+        if not is_nudge:
+            user_msg = f"እሷ: {user_text}" if user_text else "እሷ: ፎቶ አያይዛለች 🖼️"
+            redis.lpush(history_key, user_msg)
+        redis.lpush(history_key, f"ፋሲል: {reply_text}")
         redis.ltrim(history_key, 0, 39)
         return reply_text
 
-    except APIError as api_err:
-        print(f"\n[⚠️ GEMINI API ERROR] Status: {api_err.code} | Msg: {api_err.message}", flush=True)
-        return fallback_generate(system_prompt, history_key, user_text)
-
     except Exception as general_err:
-        print(f"\n[❌ GENERAL ERROR] {general_err}", flush=True)
-        return fallback_generate(system_prompt, history_key, user_text)
+        print(f"\n[❌ ERROR] {general_err}", flush=True)
+        return fallback_generate(system_prompt, history_key, user_text, is_nudge)
 
 # --- FALLBACK ---
-def fallback_generate(system_prompt, history_key, user_text):
-    print("[FALLBACK] Trying without search...", flush=True)
+def fallback_generate(system_prompt, history_key, user_text, is_nudge):
     try:
-        # እዚህ ጋርም አዲሱ ሞዴል ስም ጥቅም ላይ ውሏል
-        response = client_ai.models.generate_content(
-            model=MODEL_NAME,
-            contents=[system_prompt]
-        )
+        response = client_ai.models.generate_content(model=MODEL_NAME, contents=[system_prompt])
         reply_text = response.text.strip()
         punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
         for char in punctuations:
             reply_text = reply_text.replace(char, "")
-            
-        user_msg = f"እሷ: {user_text}" if user_text else "እሷ: ፎቶ አያይዛለች 🖼️"
-        redis.lpush(history_key, user_msg, f"ፋሲል: {reply_text}")
+        redis.lpush(history_key, f"ፋሲል: {reply_text}")
         redis.ltrim(history_key, 0, 39)
         return reply_text
     except Exception as e:
         print(f"[FATAL] Everything failed: {e}", flush=True)
-        return "የኔ ቆንጆ ዛሬ አዲስ አበባ ላይ ኔትወርክ በጣም አስቸጋሪ ሆኗል መሰል 😂 ግን አንቺ ሰላም ነሽ አይደል?"
+        return "የኔ ውብ ዛሬ አዲስ አበባ ላይ ኔትወርክ ትንሽ አስቸጋሪ ሆኗል መሰል 😂 ግን አንቺ ሰላም ነሽ አይደል?"
 
 # --- 3. COMMANDS ---
 @bot.on(events.NewMessage(pattern='/set_target', from_users=ADMIN_ID))
@@ -150,19 +153,12 @@ async def nudge_user(event):
     target_id = redis.get("target_user_id")
     if target_id:
         target_id = int(target_id)
-        nudge_prompt = "አንተ ፋሲል ነህ ልጅቷ ጠፍታብሃል ወሬ ለመጀመር አሪፍና የሚስብ ነገር ለሴት በሚሆን ሰዋስው እና በብዙ ኢሞጂ ጨምረህ በአራዳ ቋንቋ በላት ስርዓተ ነጥብ አትጠቀም"
-        try:
-            response = client_ai.models.generate_content(model=MODEL_NAME, contents=[nudge_prompt])
-            msg = response.text.strip()
-            punctuations = '''!()-[]{};:'"\,<>./?@#$%^&*_~።፣፤፥'''
-            for char in punctuations:
-                msg = msg.replace(char, "")
-        except:
-            msg = "የኔ ቆንጆ ጠፋሽብኝ እኮ የት ነሽ 🔥❤️"
-            
+        # አሁን ኑጅ ሲደረግ በታሪኩ ላይ ተመስርቶ ቀድሞ ይጽፋል (Double Text)
+        msg = get_ai_response(target_id, None, photo_path=None, is_nudge=True)
         async with bot.action(target_id, 'typing'):
-            await asyncio.sleep(5)
+            await asyncio.sleep(random.randint(5, 10))
             await bot.send_message(target_id, msg)
+        await event.respond("✅ ቀድሞ የመጻፍ (Double Text) መልዕክት ተልኳል!")
 
 @bot.on(events.NewMessage(pattern='/bot_on', from_users=ADMIN_ID))
 async def bot_on(event):
@@ -174,7 +170,7 @@ async def bot_off(event):
     redis.set("bot_status", "off")
     await event.respond("😴 AI ቦቱ ቆሟል (OFF)")
 
-# --- 4. THE SMART HUMAN-LIKE HANDLER (RANDOMIZED SEEN & REPLY) ---
+# --- 4. THE SMART HUMAN-LIKE HANDLER ---
 @bot.on(events.NewMessage(incoming=True))
 async def handle_incoming(event):
     if event.is_private:
@@ -182,18 +178,15 @@ async def handle_incoming(event):
         target_id = redis.get("target_user_id") or ""
 
         if status == "on" and str(event.sender_id) == str(target_id):
-            # 1. መጀመሪያ በዘፈቀደ (Random) ሰዓት ከተጠበቀ በኋላ ነው Seen የሚደረገው!
-            # ልጅቷ ፎቶ ልካ ከሆነ ወዲያው ለማየት እንደሚቸኩል ሰው ከ 3 እስከ 7 ሰከንድ፤ ፅሁፍ ከሆነ ከ 10 እስከ 25 ሰከንድ ቆይቶ ያነበዋል (Seen ያደርጋል)።
+            # የተለዋዋጭ Seen ሰዓት
             seen_delay = random.randint(3, 7) if event.message.photo else random.randint(10, 25)
             await asyncio.sleep(seen_delay)
-            await event.mark_read() # አሁን Seen ሆነ!
+            await event.mark_read() 
 
-            # 2. መልሱን ለማዘጋጀት እና ለመላክ የሚፈጅበት ተጨማሪ የተለዋዋጭ ጊዜ (Thinking Delay)
-            # የሰው ልጅ መልስ ለማሰብ የሚወስድበትን ጊዜ ለመምሰል በዘፈቀደ ከ 15 እስከ 45 ሰከንድ ይቆያል
+            # የተለዋዋጭ የማሰብ ሰዓት
             thinking_delay = random.randint(15, 45)
             await asyncio.sleep(thinking_delay)
 
-            # AI ምላሹን ያዘጋጃል
             photo_path = None
             if event.message.photo:
                 try:
@@ -202,24 +195,18 @@ async def handle_incoming(event):
                     print(f"[ERROR] Photo download failed: {img_err}", flush=True)
 
             reply = get_ai_response(event.sender_id, event.message.message, photo_path)
-            
-            # 3. የትየባ (Typing...) ጊዜ አወሳሰድ
-            # እንደ ፅሁፉ ርዝመት ይወሰናል፤ ግን አሁንም ማሽነሪ እንዳይመስል በዘፈቀደ ተጨማሪ ሰከንዶች ይደመሩበታል
             typing_duration = max(5, min(len(reply) // 10, 12)) + random.randint(2, 5)
 
-            # 'typing' ማሳየት ይጀምራል
             async with bot.action(event.chat_id, 'typing'):
                 await asyncio.sleep(typing_duration)
                 if reply:
                     await event.respond(reply)
 
-            # የፎቶ ፋይል ማጽጃ
             if photo_path and os.path.exists(photo_path): 
                 try:
                     os.remove(photo_path)
                 except Exception as del_err:
                     print(f"[ERROR] Could not delete file: {del_err}", flush=True)
-
 
 # --- 5. FLASK & RUN ---
 @app.route('/')
