@@ -35,11 +35,11 @@ def fallback_generate(system_prompt, history_key, user_text, is_nudge):
     """የጂሚኒ API Error ካጋጠመው ቦቱ ክራሽ እንዳያደርግ አውቶማቲክ መልስ ማዘጋጃ"""
     if is_nudge:
         return random.choice(["Oo yea 😁 ምን እያሰብሽ ነበር", "የት ጠፋሽብኝ ግን 😌", "ወይ ዝምታ 😉"])
-    
+
     clean_text = user_text.strip().lower() if user_text else ""
     if clean_text in ["hi", "hello", "ሰላም", "selam", "hey"]:
         return "Hey ሰላም ነሽ እንዴት ነሽልኝ 😁"
-    
+
     return random.choice(["Nice እኔም ይመቸኛል 😁", "Perfecto ታዲያ ምን አዲስ ነገር አለ 😉", "እሺ ደስ ይላል ✌️😂"])
 
 # --- 3. AI RESPONSE GENERATOR ---
@@ -84,13 +84,13 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
     - ነጻ ጊዜ ስታገኝ ምን እንደምታደርግ (ፊልም ማየት፣ ኳስ መጫወት/ማየት) እያነሳህ ተጫወት። ስለ ፊልም (Inception, Dune) እና ስለ ምግብ (ክትፎ) ወሬውን በደስታ አውራ።
 
     ደረጃ 4: ፎቶ መለዋወጥ እና ውበትን ማድነቅ (Photo Exchange & Compliment)
-    - እሷ ፎቶህን ማየት ስትፈልግ ትሁት ሁን (ምሳሌ፦ "normal mitagegniw ehen face new"). እሷ የራሷን ፎቶ ስትልክ ደግሞ በጣም ሳታጋንን፣ በሰከነና ማራኪ በሆነ መንገድ አድንቃት (ምሳሌ፦ "konjo nesh gn endakori esh... kes eyalku sile kunjinash engrshalehu").
+    - እሷ ፎቶህን ማየት ስትፈልግ ትሁት ሁን። ፍፁም እውነተኛ ለመሆን ፎቶህን ስትጠይቅ በጽሁፍህ መጨረሻ ላይ [SEND_MY_PHOTO] የሚለውን ኮድ ብቻ አስቀምጥ። እሷ የራሷን ፎቶ ስትልክ ደግሞ በጣም ሳታጋንን፣ በሰከነና ማራኪ በሆነ መንገድ አድንቃት (ምሳሌ፦ "konjo nesh gn endakori esh... kes eyalku sile kunjinash engrshalehu")።
 
     ደረጃ 5: ምሽትን መሸኘት እና ጠዋት መጀመር (Good Night & Good Morning)
     - ማታ ላይ ወሬው ሲበቃ "have a good night or morning" ተባብላችሁ በሰላም ተሰነባበቱ። ጠዋት ላይ ደግሞ "Good morning arif enklf endetegnash tesfa adergalehu" ብለህ ቻቱን በቪአይቢ ቀጥል።
 
     [🧠 CONTEXT RULE]
-    ልጅቷ የምትጽፈውን እያንዳንዱን ቃል በጥልቀት ተረድተህ፣ ከላይ ካለው ታሪክ ጋር አገናኝተህ፣ ልክ እንደ ፋሲል እውነተኛ ባህሪ ቀለል ባለ፣ ማራኪ፣ ትሁት እና ተግባቢ በሆነ አነጋገር ምላሽ ስጥ።
+    ልጅቷ የምትጽፈውን እያንዳንዱን ቃል በጥልቀት ተረድተህ፣ ከላይ ካለው ታሪክ ጋር አገናኝተህ፣ ልክ እንደ ፋሲል እውነተኛ ባህሪ ቀለል ባለ፣ ማራኪ、ትሁት እና ተግባቢ በሆነ አነጋገር ምላሽ ስጥ።
     """
 
     clean_text = user_text.strip().lower() if user_text else ""
@@ -108,7 +108,7 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
         prompt_modifier = f"""
         [ልዩ ትዕዛዝ - Icebreaker / ወሬ ጫሪ]
         ልጅቷ ገና "ሰላም" ወይም "Hi" ብላ ወሬውን መጀመሯ ነው። ሰላምታ ብቻ መልሰህ ወሬውን እንዳታቀዘቅዘው!
-        ወያውኑ በአጭርና የሚስብ ጥያቄ ጨምረህ በአራዳ ቋንቋ መልስላት።
+        ወዲያውኑ በአጭርና የሚስብ ጥያቄ ጨምረህ በአራዳ ቋንቋ መልስላት።
         እሷ፦ {user_text}
         ፋሲል፦
         """
@@ -138,7 +138,7 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
         if not is_nudge:
             user_msg = f"እሷ: {user_text}" if user_text else "እሷ: ፎቶ አያይዛለች 🖼️"
             redis.lpush(history_key, user_msg)
-        redis.lpush(history_key, f"ፋሲል: {reply_text}")
+        redis.lpush(history_key, f"ፋሲል: {reply_text.replace('[SEND_MY_PHOTO]', '')}")
         redis.ltrim(history_key, 0, 39)
         return reply_text
 
@@ -153,32 +153,64 @@ async def handle_admin_commands(event):
     """አንተ ብቻ ቦቱን ኦን/ኦፍ የምታደርግበት እና ታርጌት የምትቀይርበት ሲስተም"""
     if event.sender_id == ADMIN_ID and event.message.message:
         text = event.message.message.strip()
-        
+
         if text.startswith("/start_bot "):
-            # አጠቃቀም፦ /start_bot 12345678 (የልጅቷን ID እዚህ ታስገባለህ)
+            # [ባግ ፊክስ] split(" ") ተደርጎ IDው ብቻ እንዲወጣ ተደርጓል
             target_user = text.split(" ")
             redis.set("target_user_id", target_user)
             redis.set("bot_status", "on")
-            await event.reply(f"🚀 ቦቱ በተሳካ ሁኔታ በርቷል!\n🎯 Target User ID: `{target_user}`")
             
+            ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
+            redis.set(f"last_chat_time:{target_user}", datetime.now(ethiopia_tz).isoformat())
+            
+            await event.reply(f"🚀 ቦቱ በተሳካ ሁኔታ በርቷል!\n🎯 Target User ID: `{target_user}`")
+
         elif text == "/stop_bot":
             redis.set("bot_status", "off")
             await event.reply("🛑 ቦቱ በጊዜያዊነት ቆሟል (OFF ሆኗል)!")
-            
+
         elif text == "/status":
             status = redis.get("bot_status") or "off"
             target = redis.get("target_user_id") or "የለም"
             await event.reply(f"📊 የቦቱ ሁኔታ፦\n🟢 Status: `{status}`\n🎯 Target ID: `{target}`")
 
-# --- 5. THE SMART HUMAN-LIKE HANDLER ---
+
+# --- 5. THE SMART AUTOMATIC NUDGE SCHEDULER (ቀድሞ መጫሪያ ሞተር) ---
+async def nudge_scheduler_loop():
+    """ልጅቷ ከ6 ሰዓት በላይ ዝም ካለች በራሱ ሰዓት ቆጥሮ Double Text የሚልክ ሲስተም"""
+    while True:
+        await asyncio.sleep(1800) # በየ 30 ደቂቃው ቼክ ያደርጋል
+        status = redis.get("bot_status") or "off"
+        target_id = redis.get("target_user_id") or ""
+
+        if status == "on" and target_id:
+            last_time_str = redis.get(f"last_chat_time:{target_id}")
+            if last_time_str:
+                last_time = datetime.fromisoformat(last_time_str)
+                ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
+                now = datetime.now(ethiopia_tz)
+
+                # 6 ሰዓት (21600 ሰከንድ) እና ከዚያ በላይ ዝም ካለች
+                if (now - last_time).total_seconds() > 21600:
+                    reply = get_ai_response(target_id, user_text="", is_nudge=True)
+                    if reply:
+                        async with bot.action(int(target_id), 'typing'):
+                            await asyncio.sleep(random.randint(5, 10))
+                            await bot.send_message(int(target_id), reply)
+                        redis.set(f"last_chat_time:{target_id}", now.isoformat())
+
+
+# --- 6. THE SMART HUMAN-LIKE HANDLER ---
 @bot.on(events.NewMessage(incoming=True))
 async def handle_incoming(event):
     if event.is_private:
         status = redis.get("bot_status") or "off"
         target_id = redis.get("target_user_id") or ""
 
-        # መልዕክት የላከችው ልጅቷ ከሆነች እና ቦቱ ON ከሆነ ብቻ ይሰራል
         if status == "on" and str(event.sender_id) == str(target_id):
+            ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
+            redis.set(f"last_chat_time:{target_id}", datetime.now(ethiopia_tz).isoformat())
+
             seen_delay = random.randint(3, 7) if event.message.photo else random.randint(10, 25)
             await asyncio.sleep(seen_delay)
             await event.mark_read() 
@@ -196,10 +228,26 @@ async def handle_incoming(event):
             reply = get_ai_response(event.sender_id, event.message.message, photo_path)
 
             if reply:
-                typing_duration = max(5, min(len(reply) // 10, 12)) + random.randint(2, 5)
-                async with bot.action(event.chat_id, 'typing'):
-                    await asyncio.sleep(typing_duration)
-                    await event.respond(reply)
+                # ፎቶ የመላክ ልዩ ሎጂክ
+                should_send_photo = "[SEND_MY_PHOTO]" in reply
+                clean_reply = reply.replace("[SEND_MY_PHOTO]", "").strip()
+
+                if clean_reply:
+                    typing_duration = max(5, min(len(clean_reply) // 10, 12)) + random.randint(2, 5)
+                    async with bot.action(event.chat_id, 'typing'):
+                        await asyncio.sleep(typing_duration)
+                        await event.respond(clean_reply)
+
+                if should_send_photo:
+                    await asyncio.sleep(random.randint(3, 6))
+                    async with bot.action(event.chat_id, 'document'):
+                        # በፎልደርህ ውስጥ 'my_profile.jpg' የሚባል ፎቶ መኖር አለበት
+                        if os.path.exists("my_profile.jpg"):
+                            await bot.send_file(event.chat_id, "my_profile.jpg", caption="የድሮ ፎቶ ነው ግን 😁")
+                        else:
+                            await event.respond("normal face ነው ማታ እልክልሻለሁ አሁን ፎቶ የለኝም 🤷‍♂️")
+
+            redis.set(f"last_chat_time:{target_id}", datetime.now(ethiopia_tz).isoformat())
 
             if photo_path and os.path.exists(photo_path): 
                 try:
@@ -207,7 +255,8 @@ async def handle_incoming(event):
                 except Exception as del_err:
                     print(f"[ERROR] Could not delete file: {del_err}", flush=True)
 
-# --- 6. FLASK & RUN ---
+
+# --- 7. FLASK & RUN ---
 @app.route('/')
 def home(): 
     return "Bot is Live!"
@@ -215,4 +264,6 @@ def home():
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=PORT), daemon=True).start()
     bot.start()
+    # የ Nudge መቆጣጠሪያውን Background Task እዚህ እናስነሳዋለን
+    bot.loop.create_task(nudge_scheduler_loop())
     bot.run_until_disconnected()
