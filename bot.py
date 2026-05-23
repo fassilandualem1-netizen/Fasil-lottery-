@@ -30,6 +30,19 @@ redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 app = Flask(__name__)
 ADMIN_ID = 8488592165 
 
+# --- 2. FALLBACK GENERATOR (አልተርኔቲቭ መልስ መስጫ) ---
+def fallback_generate(system_prompt, history_key, user_text, is_nudge):
+    """የጂሚኒ API Error ካጋጠመው ቦቱ ክራሽ እንዳያደርግ አውቶማቲክ መልስ ማዘጋጃ"""
+    if is_nudge:
+        return random.choice(["Oo yea 😁 ምን እያሰብሽ ነበር", "የት ጠፋሽብኝ ግን 😌", "ወይ ዝምታ 😉"])
+    
+    clean_text = user_text.strip().lower() if user_text else ""
+    if clean_text in ["hi", "hello", "ሰላም", "selam", "hey"]:
+        return "Hey ሰላም ነሽ እንዴት ነሽልኝ 😁"
+    
+    return random.choice(["Nice እኔም ይመቸኛል 😁", "Perfecto ታዲያ ምን አዲስ ነገር አለ 😉", "እሺ ደስ ይላል ✌️😂"])
+
+# --- 3. AI RESPONSE GENERATOR ---
 def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
     ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
     now = datetime.now(ethiopia_tz)
@@ -62,7 +75,7 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
     የቻት ታሪኩን እይና ልጅቷ በምትጽፍልህ ሀሳብ ላይ ተመስርተህ ወሬውን እያዋዛህ ቀጥል፦
 
     ደረጃ 1: ሰላምታ እና መተዋወቅ (Intro)
-    - ልጅቷ ሰላም ስትል ቀለል ባለና ማራኪ በሆነ የሰላምታ ድብልቅ ጀምር። ስለራስህ ስትጠየቅ ሙሉ ታሪክህን (ትምህርት፣ ስራ፣ ባህሪህን) ልክ በ screenshot ላይ እንዳለው በግልጽ አጋራ።
+    - ልጅቷ ሰላም ስትል ቀለል ባለና ማራኪ በሆነ የሰላምታ ድብልቅ ጀምር። ስለራስህ ስትጠየቅ ሙሉ ታሪክህን (ትምህርት፣ ስራ፣ ባህሪህን) በግልጽ አጋራ።
 
     ደረጃ 2: ስለበፊቱ ግንኙነት (Relationship Talk)
     - ስለ ከዚህ በፊት Relationship ካነሳች፣ የ 12ኛ ክፍል እያለህ እንደነበረህ ግን ኮሚዩኒኬሽን እና መግባባት ስላልነበረው እንደጠፋባችሁ በግልጽ ንገራት። የእሷንም ጠይቅ።
@@ -86,7 +99,7 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
         prompt_modifier = f"""
         [ልዩ ትዕዛዝ - Double Text / ቀድሞ መጻፍ]
         ልጅቷ መልስ ሳትሰጥህ ቆይታለች፤ አሁን አንተ ቀድመህ መልዕክት ልትልክላት ነው (Double Text)።
-        ከላይ ያለውን የቻት ታሪክ እይና ወሬው እንዲቀጥል የሚያደርግ ማራኪ አጭር ነገር በአራዳ ቋንቋ ፃፍላት港
+        ከላይ ያለውን የቻት ታሪክ እይና ወሬው እንዲቀጥል የሚያደርግ ማራኪ አጭር ነገር በአራዳ ቋንቋ ፃፍላት።
         ታሪክ፦ {chat_context}
         ፋሲል፦
         """
@@ -95,7 +108,7 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
         prompt_modifier = f"""
         [ልዩ ትዕዛዝ - Icebreaker / ወሬ ጫሪ]
         ልጅቷ ገና "ሰላም" ወይም "Hi" ብላ ወሬውን መጀመሯ ነው። ሰላምታ ብቻ መልሰህ ወሬውን እንዳታቀዘቅዘው!
-        ወዲያውኑ በአጭርና የሚስብ ጥያቄ ጨምረህ በአራዳ ቋንቋ መልስላት።
+        ወያውኑ በአጭርና የሚስብ ጥያቄ ጨምረህ በአራዳ ቋንቋ መልስላት።
         እሷ፦ {user_text}
         ፋሲል፦
         """
@@ -114,7 +127,7 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
         response = client_ai.models.generate_content(model=MODEL_NAME, contents=contents_list)
 
         reply_text = response.text.strip() if response.text else ""
-        
+
         if not reply_text:
             return fallback_generate(system_prompt, history_key, user_text, is_nudge)
 
@@ -134,13 +147,37 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
         return fallback_generate(system_prompt, history_key, user_text, is_nudge)
 
 
-# --- 4. THE SMART HUMAN-LIKE HANDLER ---
+# --- 4. ADMIN CONTROL HANDLER (የአድሚን ማዘዣ ክፍል) ---
+@bot.on(events.NewMessage(incoming=True))
+async def handle_admin_commands(event):
+    """አንተ ብቻ ቦቱን ኦን/ኦፍ የምታደርግበት እና ታርጌት የምትቀይርበት ሲስተም"""
+    if event.sender_id == ADMIN_ID and event.message.message:
+        text = event.message.message.strip()
+        
+        if text.startswith("/start_bot "):
+            # አጠቃቀም፦ /start_bot 12345678 (የልጅቷን ID እዚህ ታስገባለህ)
+            target_user = text.split(" ")
+            redis.set("target_user_id", target_user)
+            redis.set("bot_status", "on")
+            await event.reply(f"🚀 ቦቱ በተሳካ ሁኔታ በርቷል!\n🎯 Target User ID: `{target_user}`")
+            
+        elif text == "/stop_bot":
+            redis.set("bot_status", "off")
+            await event.reply("🛑 ቦቱ በጊዜያዊነት ቆሟል (OFF ሆኗል)!")
+            
+        elif text == "/status":
+            status = redis.get("bot_status") or "off"
+            target = redis.get("target_user_id") or "የለም"
+            await event.reply(f"📊 የቦቱ ሁኔታ፦\n🟢 Status: `{status}`\n🎯 Target ID: `{target}`")
+
+# --- 5. THE SMART HUMAN-LIKE HANDLER ---
 @bot.on(events.NewMessage(incoming=True))
 async def handle_incoming(event):
     if event.is_private:
         status = redis.get("bot_status") or "off"
         target_id = redis.get("target_user_id") or ""
 
+        # መልዕክት የላከችው ልጅቷ ከሆነች እና ቦቱ ON ከሆነ ብቻ ይሰራል
         if status == "on" and str(event.sender_id) == str(target_id):
             seen_delay = random.randint(3, 7) if event.message.photo else random.randint(10, 25)
             await asyncio.sleep(seen_delay)
@@ -157,7 +194,7 @@ async def handle_incoming(event):
                     print(f"[ERROR] Photo download failed: {img_err}", flush=True)
 
             reply = get_ai_response(event.sender_id, event.message.message, photo_path)
-            
+
             if reply:
                 typing_duration = max(5, min(len(reply) // 10, 12)) + random.randint(2, 5)
                 async with bot.action(event.chat_id, 'typing'):
@@ -170,7 +207,7 @@ async def handle_incoming(event):
                 except Exception as del_err:
                     print(f"[ERROR] Could not delete file: {del_err}", flush=True)
 
-# --- 5. FLASK & RUN ---
+# --- 6. FLASK & RUN ---
 @app.route('/')
 def home(): 
     return "Bot is Live!"
