@@ -155,15 +155,16 @@ async def handle_admin_commands(event):
         text = event.message.message.strip()
 
         if text.startswith("/start_bot "):
-            # [ባግ ፊክስ] split(" ") ተደርጎ IDው ብቻ እንዲወጣ ተደርጓል
-            target_user = text.split(" ")
-            redis.set("target_user_id", target_user)
-            redis.set("bot_status", "on")
-            
-            ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
-            redis.set(f"last_chat_time:{target_user}", datetime.now(ethiopia_tz).isoformat())
-            
-            await event.reply(f"🚀 ቦቱ በተሳካ ሁኔታ በርቷል!\n🎯 Target User ID: `{target_user}`")
+            parts = text.split(" ")
+            if len(parts) > 1:
+                target_user = parts.strip()  # [FIXED]: Extract pure ID string, not list
+                redis.set("target_user_id", target_user)
+                redis.set("bot_status", "on")
+                
+                ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
+                redis.set(f"last_chat_time:{target_user}", datetime.now(ethiopia_tz).isoformat())
+                
+                await event.reply(f"🚀 ቦቱ በተሳካ ሁኔታ በርቷል!\n🎯 Target User ID: `{target_user}`")
 
         elif text == "/stop_bot":
             redis.set("bot_status", "off")
@@ -241,7 +242,6 @@ async def handle_incoming(event):
                 if should_send_photo:
                     await asyncio.sleep(random.randint(3, 6))
                     async with bot.action(event.chat_id, 'document'):
-                        # በፎልደርህ ውስጥ 'my_profile.jpg' የሚባል ፎቶ መኖር አለበት
                         if os.path.exists("my_profile.jpg"):
                             await bot.send_file(event.chat_id, "my_profile.jpg", caption="የድሮ ፎቶ ነው ግን 😁")
                         else:
@@ -263,7 +263,7 @@ def home():
 
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=PORT), daemon=True).start()
-    bot.start()
-    # የ Nudge መቆጣጠሪያውን Background Task እዚህ እናስነሳዋለን
+    # [FIXED]: Pass bot_token explicitly to prevent EOF interactive console prompts on headless deployment.
+    bot.start(bot_token=SESSION_STRING)
     bot.loop.create_task(nudge_scheduler_loop())
     bot.run_until_disconnected()
