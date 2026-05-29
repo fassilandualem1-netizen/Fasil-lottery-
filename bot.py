@@ -16,7 +16,7 @@ import pytz
 # --- 1. CONFIGURATION ---
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
-SESSION_STRING = os.getenv("SESSION_STRING")
+SESSION_STRING = os.getenv("SESSION_STRING") # ይህ በእውነቱ Bot Token ነው
 REDIS_URL = os.getenv("REDIS_URL")
 REDIS_TOKEN = os.getenv("REDIS_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -25,10 +25,13 @@ PORT = int(os.getenv("PORT", 8080))
 client_ai = genai.Client(api_key=GEMINI_API_KEY)
 MODEL_NAME = 'gemini-2.5-flash'
 
-bot = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
+# [ባግ ፊክስ] StringSession(SESSION_STRING) ከሚሆን 'bot' በሚል ስም በራሱ እንዲነሳ ተደርጓል
+bot = TelegramClient('bot', API_ID, API_HASH) 
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 app = Flask(__name__)
 ADMIN_ID = 8488592165 
+
+
 
 # --- 2. FALLBACK GENERATOR (አልተርኔቲቭ መልስ መስጫ) ---
 def fallback_generate(system_prompt, history_key, user_text, is_nudge):
@@ -263,7 +266,9 @@ def home():
 
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=PORT), daemon=True).start()
-    # [FIXED]: Pass bot_token explicitly to prevent EOF interactive console prompts on headless deployment.
-    bot.start(bot_token=SESSION_STRING)
+    
+    # Render ላይ ያለውን Bot Token በቀጥታ እዚህ ያነበዋል
+    bot.start(bot_token=SESSION_STRING) 
+    
     bot.loop.create_task(nudge_scheduler_loop())
     bot.run_until_disconnected()
