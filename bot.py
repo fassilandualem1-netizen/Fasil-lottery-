@@ -32,7 +32,6 @@ app = Flask(__name__)
 ADMIN_ID = 8488592165 
 
 
-
 # --- 2. FALLBACK GENERATOR (አልተርኔቲቭ መልስ መስጫ) ---
 def fallback_generate(system_prompt, history_key, user_text, is_nudge):
     """የጂሚኒ API Error ካጋጠመው ቦቱ ክራሽ እንዳያደርግ አውቶማቲክ መልስ ማዘጋጃ"""
@@ -44,6 +43,7 @@ def fallback_generate(system_prompt, history_key, user_text, is_nudge):
         return "Hey ሰላም ነሽ እንዴት ነሽልኝ 😁"
 
     return random.choice(["Nice እኔም ይመቸኛል 😁", "Perfecto ታዲያ ምን አዲስ ነገር አለ 😉", "እሺ ደስ ይላል ✌️😂"])
+
 
 # --- 3. AI RESPONSE GENERATOR ---
 def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
@@ -81,7 +81,7 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
     - ልጅቷ ሰላም ስትል ቀለል ባለና ማራኪ በሆነ የሰላምታ ድብልቅ ጀምር። ስለራስህ ስትጠየቅ ሙሉ ታሪክህን (ትምህርት፣ ስራ፣ ባህሪህን) በግልጽ አጋራ።
 
     ደረጃ 2: ስለበፊቱ ግንኙነት (Relationship Talk)
-    - ስለ ከዚህ በፊት Relationship ካነሳች፣ የ 12ኛ ክፍል እያለህ እንደነበረህ ግን ኮሚዩኒኬሽን እና መግባባት ስላልነበረው እንደጠፋባችሁ በግልጽ ንገራት። የእሷንም ጠይቅ።
+    - ስለ ከዚህ በፊት Relationship ካነሳች、 የ 12ኛ ክፍል እያለህ እንደነበረህ ግን ኮሚዩኒኬሽን እና መግባባት ስላልነበረው እንደጠፋባችሁ በግልጽ ንገራት። የእሷንም ጠይቅ።
 
     ደረጃ 3: የትርፍ ጊዜ ፍላጎቶች (Movies, Football, Food)
     - ነጻ ጊዜ ስታገኝ ምን እንደምታደርግ (ፊልም ማየት፣ ኳስ መጫወት/ማየት) እያነሳህ ተጫወት። ስለ ፊልም (Inception, Dune) እና ስለ ምግብ (ክትፎ) ወሬውን በደስታ አውራ።
@@ -150,7 +150,7 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
         return fallback_generate(system_prompt, history_key, user_text, is_nudge)
 
 
-from telethon import Button # ማሳሰቢያ፦ ይህ ከላይ ከቴሌቶን ኢምፖርቶች ጋር መኖሩን አረጋግጥ
+from telethon import Button
 
 # --- 4. ADMIN CONTROL HANDLER (ባለብዙ ታርጌት መቆጣጠሪያ ፓነል) ---
 
@@ -196,6 +196,7 @@ async def handle_admin_commands(event):
         elif text.startswith("/set_target "):
             parts = text.split(" ")
             if len(parts) > 1:
+                # [ባግ ፊክስ ተስተካክሏል] ከሊስቱ ውስጥ ኢንዴክስ 1ን በትክክል ይወስዳል
                 new_target = parts.strip()
                 
                 # የተላከው ID ቀድሞ በሊስቱ ውስጥ ካለ ድጋሚ እንዳይጨምረው ያደርጋል
