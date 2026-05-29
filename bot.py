@@ -150,68 +150,151 @@ def get_ai_response(user_id, user_text, photo_path=None, is_nudge=False):
         return fallback_generate(system_prompt, history_key, user_text, is_nudge)
 
 
-# --- 4. ADMIN CONTROL HANDLER (የአድሚን ማዘዣ ክፍል) ---
+from telethon import Button # ማሳሰቢያ፦ ይህ ከላይ ከቴሌቶን ኢምፖርቶች ጋር መኖሩን አረጋግጥ
+
+# --- 4. ADMIN CONTROL HANDLER (ባለብዙ ታርጌት መቆጣጠሪያ ፓነል) ---
+
+async def get_admin_buttons():
+    """ሁሉንም ታርጌት የተደረጉ ሰዎችን ዝርዝር እና መቆጣጠሪያ ባተኖችን ያዘጋጃል"""
+    status = redis.get("bot_status") or "off"
+    status_emoji = "🟢 ON" if status == "on" else "🔴 OFF"
+    
+    # በሬዲስ ውስጥ ያሉትን ሁሉንም የታርጌት ID ዝርዝር ያወጣል
+    targets = redis.lrange("target_user_ids_list", 0, -1) or []
+    
+    buttons = [
+        [
+            Button.inline(f"የቦቱ ሁኔታ፦ {status_emoji}", data="toggle_status"),
+            Button.inline("🔄 አድስ", data="refresh_panel")
+        ]
+    ]
+    
+    # ለእያንዳንዱ ታርጌት የተደረገ ሰው የየራሱን '❌ Remove' ባተን ይሰራለታል
+    if targets:
+        buttons.append([Button.inline("📋 የታርጌቶች ዝርዝር (ለመሰረዝ ❌ ይጫኑ)፦", data="none")])
+        for t_id in targets:
+            t_id_str = t_id.decode('utf-8') if isinstance(t_id, bytes) else str(t_id)
+            buttons.append([
+                Button.inline(f"👤 ID: {t_id_str}", data=f"view_{t_id_str}"),
+                Button.inline("❌ Remove", data=f"remove_{t_id_str}")
+            ])
+    else:
+        buttons.append([Button.inline("🤷‍♂️ በአሁኑ ሰዓት ምንም ታርጌት የለም", data="none")])
+        
+    return buttons
+
 @bot.on(events.NewMessage(incoming=True))
 async def handle_admin_commands(event):
-    """አንተ ብቻ ቦቱን ኦን/ኦፍ የምታደርግበት እና ታርጌት የምትቀይርበት ሲስተም"""
+    """አድሚኑ /panel ሲል መቆጣጠሪያ ባተኖችን ያመጣለታል"""
     if event.sender_id == ADMIN_ID and event.message.message:
         text = event.message.message.strip()
 
-        if text.startswith("/start_bot "):
+        if text in ["/panel", "/start"]:
+            await event.reply("🎛️ **የአድሚን መቆጣጠሪያ ፓነል**\n\nአዲስ ሰው ታርጌት ለማድረግ፦ `/set_target የሰውየው_ID` ብለህ ላክ።", buttons=await get_admin_buttons())
+
+        # አዲስ ታርጌት መጨመሪያ (በሊስት መልክ ያስቀምጣል)
+        elif text.startswith("/set_target "):
             parts = text.split(" ")
             if len(parts) > 1:
-                target_user = parts.strip()  # [FIXED]: Extract pure ID string, not list
-                redis.set("target_user_id", target_user)
-                redis.set("bot_status", "on")
+                new_target = parts.strip()
                 
-                ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
-                redis.set(f"last_chat_time:{target_user}", datetime.now(ethiopia_tz).isoformat())
+                # የተላከው ID ቀድሞ በሊስቱ ውስጥ ካለ ድጋሚ እንዳይጨምረው ያደርጋል
+                existing_targets = [t.decode('utf-8') if isinstance(t, bytes) else str(t) for t in redis.lrange("target_user_ids_list", 0, -1)]
                 
-                await event.reply(f"🚀 ቦቱ በተሳካ ሁኔታ በርቷል!\n🎯 Target User ID: `{target_user}`")
+                if new_target not in existing_targets:
+                    redis.lpush("target_user_ids_list", new_target)
+                    
+                    ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
+                    redis.set(f"last_chat_time:{new_target}", datetime.now(ethiopia_tz).isoformat())
+                    
+                    await event.reply(f"✅ ID: `{new_target}` በተሳካ ሁኔታ ወደ ታርጌት ዝርዝር ተጨምሯል!", buttons=await get_admin_buttons())
+                else:
+                    await event.reply(f"⚠️ ይህ ID (`{new_target}`) አስቀድሞ ታርጌት ተደርጓል!", buttons=await get_admin_buttons())
 
-        elif text == "/stop_bot":
-            redis.set("bot_status", "off")
-            await event.reply("🛑 ቦቱ በጊዜያዊነት ቆሟል (OFF ሆኗል)!")
 
-        elif text == "/status":
-            status = redis.get("bot_status") or "off"
-            target = redis.get("target_user_id") or "የለም"
-            await event.reply(f"📊 የቦቱ ሁኔታ፦\n🟢 Status: `{status}`\n🎯 Target ID: `{target}`")
+@bot.on(events.CallbackQuery)
+async def handle_callback_queries(event):
+    """ባተኖቹ ሲጫኑ ስራዎችን የሚሰራ ክፍል"""
+    if event.sender_id != ADMIN_ID:
+        await event.answer("❌ ፍቃድ የለህም!", alert=True)
+        return
+
+    data = event.data.decode('utf-8')
+
+    # 1. ቦቱን ኦን/ኦፍ ማድረጊያ
+    if data == "toggle_status":
+        current_status = redis.get("bot_status") or "off"
+        new_status = "off" if current_status == "on" else "on"
+        redis.set("bot_status", new_status)
+        await event.answer(f"ቦቱ {new_status.upper()} ሆኗል!")
+        await event.edit("🎛️ **የአድሚን መቆጣጠሪያ ፓነል**", buttons=await get_admin_buttons())
+
+    # 2. ፓነሉን ማደሻ (Refresh)
+    elif data == "refresh_panel":
+        await event.answer("ታድሷል! 🔄")
+        await event.edit("🎛️ **የአድሚን መቆጣጠሪያ ፓነል**", buttons=await get_admin_buttons())
+
+    # 3. ታርጌት የማስወገጃ (Remove) ሎጂክ
+    elif data.startswith("remove_"):
+        target_to_remove = data.replace("remove_", "")
+        redis.lrem("target_user_ids_list", 0, target_to_remove)
+        
+        await event.answer(f"❌ ID: {target_to_remove} ከታርጌት ተሰርዟል!", alert=True)
+        await event.edit("🎛️ **የአድሚን መቆጣጠሪያ ፓነል**", buttons=await get_admin_buttons())
+        
+    # 4. የስም መረጃ ማያ ባተን (ልጅቷ መጀመሪያ ላከችው ሜሴጅ ካለ ስሟን ያወጣዋል)
+    elif data.startswith("view_"):
+        target_id = data.replace("view_", "")
+        try:
+            user_entity = await bot.get_entity(int(target_id))
+            first_name = user_entity.first_name or "ስም የለም"
+            username = f"@{user_entity.username}" if user_entity.username else "የለም"
+            await event.answer(f"👤 {first_name} ({username})", alert=True)
+        except:
+            await event.answer(f"ID: {target_id} (የአካውንት መረጃው አልተገኘም)", alert=True)
 
 
-# --- 5. THE SMART AUTOMATIC NUDGE SCHEDULER (ቀድሞ መጫሪያ ሞተር) ---
+# --- 5. THE SMART AUTOMATIC NUDGE SCHEDULER (የተስተካከለ ባለብዙ ታርጌት ሞተር) ---
 async def nudge_scheduler_loop():
-    """ልጅቷ ከ6 ሰዓት በላይ ዝም ካለች በራሱ ሰዓት ቆጥሮ Double Text የሚልክ ሲስተም"""
+    """በሊስት ውስጥ ያሉ ታርጌቶች በሙሉ ከ6 ሰዓት በላይ ዝም ካሉ በየተራ ቼክ አድርጎ Double Text የሚልክ ሲስተም"""
     while True:
         await asyncio.sleep(1800) # በየ 30 ደቂቃው ቼክ ያደርጋል
         status = redis.get("bot_status") or "off"
-        target_id = redis.get("target_user_id") or ""
+        
+        if status == "on":
+            raw_targets = redis.lrange("target_user_ids_list", 0, -1) or []
+            target_ids = [t.decode('utf-8') if isinstance(t, bytes) else str(t) for t in raw_targets]
 
-        if status == "on" and target_id:
-            last_time_str = redis.get(f"last_chat_time:{target_id}")
-            if last_time_str:
-                last_time = datetime.fromisoformat(last_time_str)
-                ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
-                now = datetime.now(ethiopia_tz)
+            for target_id in target_ids:
+                last_time_str = redis.get(f"last_chat_time:{target_id}")
+                if last_time_str:
+                    last_time = datetime.fromisoformat(last_time_str)
+                    ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
+                    now = datetime.now(ethiopia_tz)
 
-                # 6 ሰዓት (21600 ሰከንድ) እና ከዚያ በላይ ዝም ካለች
-                if (now - last_time).total_seconds() > 21600:
-                    reply = get_ai_response(target_id, user_text="", is_nudge=True)
-                    if reply:
-                        async with bot.action(int(target_id), 'typing'):
-                            await asyncio.sleep(random.randint(5, 10))
-                            await bot.send_message(int(target_id), reply)
-                        redis.set(f"last_chat_time:{target_id}", now.isoformat())
+                    # 6 ሰዓት (21600 ሰከንድ) እና ከዚያ በላይ ዝም ካለች
+                    if (now - last_time).total_seconds() > 21600:
+                        reply = get_ai_response(target_id, user_text="", is_nudge=True)
+                        if reply:
+                            async with bot.action(int(target_id), 'typing'):
+                                await asyncio.sleep(random.randint(5, 10))
+                                await bot.send_message(int(target_id), reply)
+                            redis.set(f"last_chat_time:{target_id}", now.isoformat())
 
 
-# --- 6. THE SMART HUMAN-LIKE HANDLER ---
+# --- 6. THE SMART HUMAN-LIKE HANDLER (የተስተካከለ ባለብዙ ታርጌት መቀበያ) ---
 @bot.on(events.NewMessage(incoming=True))
 async def handle_incoming(event):
     if event.is_private:
         status = redis.get("bot_status") or "off"
-        target_id = redis.get("target_user_id") or ""
+        
+        # ሁሉንም የታርጌት ID ዝርዝር ከሬዲስ ያወጣል
+        raw_targets = redis.lrange("target_user_ids_list", 0, -1) or []
+        target_ids = [t.decode('utf-8') if isinstance(t, bytes) else str(t) for t in raw_targets]
 
-        if status == "on" and str(event.sender_id) == str(target_id):
+        # ሜሴጅ የላከው ሰው እኛ ታርጌት ካደረግናቸው ሰዎች ውስጥ አንዱ ከሆኑ ብቻ AIው ስራ ይጀምራል
+        if status == "on" and str(event.sender_id) in target_ids:
+            target_id = str(event.sender_id)
             ethiopia_tz = pytz.timezone('Africa/Addis_Ababa')
             redis.set(f"last_chat_time:{target_id}", datetime.now(ethiopia_tz).isoformat())
 
@@ -232,7 +315,6 @@ async def handle_incoming(event):
             reply = get_ai_response(event.sender_id, event.message.message, photo_path)
 
             if reply:
-                # ፎቶ የመላክ ልዩ ሎጂክ
                 should_send_photo = "[SEND_MY_PHOTO]" in reply
                 clean_reply = reply.replace("[SEND_MY_PHOTO]", "").strip()
 
