@@ -4,6 +4,7 @@ import time
 import json
 import hmac
 import hashlib
+import uuid
 from urllib.parse import parse_qsl
 
 import telebot
@@ -17,8 +18,7 @@ REDIS_URL = os.environ.get("REDIS_URL")
 REDIS_TOKEN = os.environ.get("REDIS_TOKEN")
 WEB_APP_URL = "https://sefer-bot.onrender.com" 
 
-ADMIN_SECRET_TOKEN = os.environ.get("ADMIN_SECRET_TOKEN", "super_secret_token_123")
-ADMIN_GROUP_ID = -1003943321922 # የአድሚን ግሩፕ አይዲህን አስተካክል
+ADMIN_GROUP_ID = -1003943321922
 MY_PRIVATE_CHAT_ID = 8488592165
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
@@ -32,10 +32,6 @@ GAME_CONFIG = {
 }
 
 # --- 2. Security & Helpers ---
-def report_error_to_admin(error_msg):
-    try: bot.send_message(MY_PRIVATE_CHAT_ID, f"🚨 <b>ALERT:</b> <code>{error_msg}</code>")
-    except: pass
-
 def verify_telegram_data(init_data: str, bot_token: str) -> bool:
     if not init_data: return False
     try:
@@ -52,34 +48,117 @@ def check_auth(req):
     init_data = req.headers.get("Authorization") or req.form.get("init_data")
     return verify_telegram_data(init_data, TOKEN)
 
-def log_history(user_id, tx_type, amount, status):
-    # ታሪኮችን ወደ ሬዲስ መዝግብ (Maximum 10 ሪከርድ ብቻ እንይዛለን ሜሞሪ እንዳይሞላ)
-    history_data = json.dumps({"type": tx_type, "amount": amount, "status": status})
-    redis.lpush(f"users:history:{user_id}", history_data)
-    redis.ltrim(f"users:history:{user_id}", 0, 9) 
+# ታሪክ መመዝገቢያ
+def log_history(user_id, tx_id, tx_type, amount, status):
+    record = {"tx_id": tx_id, "type": tx_type, "amount": amount, "status": status, "time": int(time.time())}
+    redis.lpush(f"users:history:{user_id}", json.dumps(record))
+    redis.ltrim(f"users:history:{user_id}", 0, 19)
 
-# --- 3. Telegram Bot Handlers ---
+# የ Pending የነበረውን ታሪክ ወደ Completed ወይም Refund የሚቀይር
+def update_history_status(user_id, tx_id, new_status):
+    records = redis.lrange(f"users:history:{user_id}", 0, 19)
+    new_records = []
+    for r in records:
+        rec = json.loads(r)
+        if rec.get("tx_id") == tx_id:
+            rec["status"] = new_status
+        new_records.append(json.dumps(rec))
+    
+    if new_records:
+        redis.delete(f"users:history:{user_id}")
+        for r in reversed(new_records): 
+            redis.lpush(f"users:history:{user_id}", r)
+
+# --- 3. Telegram Bot Handlers (Including Admin Buttons) ---
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     web_app_info = WebAppInfo(url=WEB_APP_URL)
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("🎮 Play / ተጫወት", web_app=web_app_info))
-    
-    try:
-        bot.set_chat_menu_button(chat_id=message.chat.id, menu_button=MenuButtonWebApp(type="web_app", text="🎮 Play", web_app=web_app_info))
+    try: bot.set_chat_menu_button(chat_id=message.chat.id, menu_button=MenuButtonWebApp(type="web_app", text="🎮 Play", web_app=web_app_info))
     except: pass
-    
     bot.reply_to(message, f"ሰላም <b>{message.from_user.first_name}</b>! 👋\n\n👇 የሰፈር ጨዋታዎችን ለመጀመር ከታች ያለውን ቁልፍ ይጫኑ!", reply_markup=markup)
 
-# --- 4. Flask Web & Webhook Routes ---
+# Admin Button Clicks (No Browser, Handled Directly in Telegram)
+@bot.callback_query_handler(func=lambda call: True)
+def handle_admin_callback(call):
+    # የሚነካው አድሚኑ መሆኑን ማረጋገጫ
+    if call.message.chat.id not in [ADMIN_GROUP_ID, MY_PRIVATE_CHAT_ID]:
+        bot.answer_callback_query(call.id, "Unauthorized!")
+        return
+
+    data = call.data.split('|')
+    action = data[0]
+
+    # --- 1. Deposit Approve ---
+    if action == "dep_app":
+        _, user_id, amount, tx_id = data
+        amount = float(amount)
+        if redis.get(f"tx:{tx_id}") != b"pending" and redis.get(f"tx:{tx_id}") != "pending":
+            return bot.answer_callback_query(call.id, "❌ ይህ ጥያቄ ቀደም ብሎ ተስተናግዷል!", show_alert=True)
+        
+        redis.set(f"tx:{tx_id}", "completed")
+        redis.hincrbyfloat("users:balance", user_id, amount)
+        update_history_status(user_id, tx_id, "completed")
+        try: bot.send_message(user_id, f"✅ የ {amount} ብር ገቢ (Deposit) ጸድቋል! ባላንስዎ ተሞልቷል።")
+        except: pass
+        
+        bot.edit_message_caption(f"{call.message.caption}\n\n<b>✅ APPROVED (ጸድቋል)</b>", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML")
+        bot.answer_callback_query(call.id, "✅ Successfully Approved!")
+
+    # --- 2. Deposit Reject ---
+    elif action == "dep_rej":
+        _, user_id, tx_id = data
+        if redis.get(f"tx:{tx_id}") != b"pending" and redis.get(f"tx:{tx_id}") != "pending":
+            return bot.answer_callback_query(call.id, "❌ ይህ ጥያቄ ቀደም ብሎ ተስተናግዷል!", show_alert=True)
+        
+        redis.set(f"tx:{tx_id}", "refund")
+        update_history_status(user_id, tx_id, "refund")
+        try: bot.send_message(user_id, "❌ የላኩት የክፍያ ማረጋገጫ (Deposit) ውድቅ ተደርጓል። እባክዎ ትክክለኛ ደረሰኝ ይላኩ።")
+        except: pass
+        
+        bot.edit_message_caption(f"{call.message.caption}\n\n<b>❌ REJECTED (ውድቅ ተደርጓል)</b>", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML")
+        bot.answer_callback_query(call.id, "❌ Successfully Rejected!")
+
+    # --- 3. Withdraw Paid ---
+    elif action == "wit_paid":
+        _, user_id, amount, tx_id = data
+        amount = float(amount)
+        if redis.get(f"tx:{tx_id}") != b"pending" and redis.get(f"tx:{tx_id}") != "pending":
+            return bot.answer_callback_query(call.id, "❌ ይህ ጥያቄ ቀደም ብሎ ተስተናግዷል!", show_alert=True)
+        
+        redis.set(f"tx:{tx_id}", "completed")
+        update_history_status(user_id, tx_id, "completed")
+        try: bot.send_message(user_id, f"✅ የ {amount} ብር ወጪ ጥያቄዎ በቴሌብር ተልኮልዎታል!")
+        except: pass
+        
+        bot.edit_message_text(f"{call.message.text}\n\n<b>✅ PAID (ተከፍሏል)</b>", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML")
+        bot.answer_callback_query(call.id, "✅ Marked as Paid!")
+
+    # --- 4. Withdraw Reject ---
+    elif action == "wit_rej":
+        _, user_id, amount, tx_id = data
+        amount = float(amount)
+        if redis.get(f"tx:{tx_id}") != b"pending" and redis.get(f"tx:{tx_id}") != "pending":
+            return bot.answer_callback_query(call.id, "❌ ይህ ጥያቄ ቀደም ብሎ ተስተናግዷል!", show_alert=True)
+        
+        redis.set(f"tx:{tx_id}", "refund")
+        redis.hincrbyfloat("users:balance", user_id, amount) # የተቆረጠውን እንመልስለታለን
+        update_history_status(user_id, tx_id, "refund")
+        try: bot.send_message(user_id, f"❌ የ {amount} ብር ወጪ ጥያቄዎ ውድቅ ተደርጓል። ብሩ ወደ ባላንስዎ ተመልሷል።")
+        except: pass
+        
+        bot.edit_message_text(f"{call.message.text}\n\n<b>❌ REJECTED & REFUNDED (ውድቅ ተደርጓል)</b>", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML")
+        bot.answer_callback_query(call.id, "❌ Withdrawal Rejected & Refunded!")
+
+
+# --- 4. Flask Web Routes ---
 @server.route('/')
 def index():
-    # ጌሙ የሚከፈትበት ዋናው የ HTML ፋይል
     return render_template('index.html')
 
 @server.route(f'/webhook/{TOKEN}', methods=['POST'])
 def webhook():
-    # ቴሌግራም አዲስ ሜሴጅ ሲልክ የሚቀበልበት መንገድ (Webhook)
     if request.headers.get('content-type') == 'application/json':
         json_string = request.get_data().decode('utf-8')
         update = telebot.types.Update.de_json(json_string)
@@ -98,7 +177,7 @@ def get_balance():
 def get_history():
     if not check_auth(request): return jsonify({"error": "Unauthorized"}), 401
     user_id = str(request.json.get('user_id'))
-    records_raw = redis.lrange(f"users:history:{user_id}", 0, 9)
+    records_raw = redis.lrange(f"users:history:{user_id}", 0, 19)
     history = [json.loads(r) for r in records_raw] if records_raw else []
     return jsonify({"status": "success", "history": history})
 
@@ -112,32 +191,28 @@ def start_game():
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
         
     redis.hincrbyfloat("users:balance", user_id, -config["fee"])
-    log_history(user_id, config['name'], -config["fee"], "ተቀንሷል (መግቢያ)")
+    log_history(user_id, str(uuid.uuid4())[:8], f"ጨዋታ ({config['name']})", -config["fee"], "completed")
     return jsonify({"status": "success"})
 
 @server.route('/api/coin_flip', methods=['POST'])
 def coin_flip():
     if not check_auth(request): return jsonify({"error": "Unauthorized"}), 401
     data = request.json
-    user_id = str(data.get('user_id'))
-    bet_amount = float(data.get('bet_amount', 0))
-    choice = data.get('choice')
+    user_id, bet_amount, choice = str(data.get('user_id')), float(data.get('bet_amount', 0)), data.get('choice')
 
-    balance = float(redis.hget("users:balance", user_id) or 0)
-    if balance < bet_amount:
+    if float(redis.hget("users:balance", user_id) or 0) < bet_amount:
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
 
     redis.hincrbyfloat("users:balance", user_id, -bet_amount)
-    
     result = random.choice(['ዘውድ', 'ጎፈር'])
     
     if choice == result:
         winnings = bet_amount * 2
         redis.hincrbyfloat("users:balance", user_id, winnings)
-        log_history(user_id, "🪙 ዘውድና ጎፈር", winnings, "አሸነፉ 🏆")
+        log_history(user_id, str(uuid.uuid4())[:8], "🪙 ዘውድና ጎፈር አሸነፉ", winnings, "completed")
         return jsonify({"status": "win", "message": f"አሸንፈዋል! 🎉 ውጤቱ {result} ነበር። {winnings} ብር ወደ ባላንስዎ ተጨምሯል!"})
     else:
-        log_history(user_id, "🪙 ዘውድና ጎፈር", -bet_amount, "ተሸነፉ 😢")
+        log_history(user_id, str(uuid.uuid4())[:8], "🪙 ዘውድና ጎፈር ተሸነፉ", -bet_amount, "completed")
         return jsonify({"status": "lose", "message": f"ተሸንፈዋል! 😢 ውጤቱ {result} ነበር።"})
 
 @server.route('/api/deposit', methods=['POST'])
@@ -149,89 +224,52 @@ def handle_deposit():
         amount = float(request.form.get("amount", 0))
         receipt = request.files.get("receipt")
         
+        # tx_id ወደ 8 ፊደል አሳጥሬዋለሁ (Callback data ቦታ እንዲበቃ)
+        tx_id = str(uuid.uuid4())[:8]
+        redis.set(f"tx:{tx_id}", "pending")
+
         caption = f"🔔 <b>አዲስ Deposit ጥያቄ</b>\n👤 ስም: {user_name}\n🆔 <code>{user_id}</code>\n💰 <b>{amount} ብር</b>"
+        
+        # URL ወደ Callback Data ተቀይሯል
         markup = InlineKeyboardMarkup().add(
-            InlineKeyboardButton("✅ አጽድቅ (Approve)", url=f"{WEB_APP_URL}/quick-approve?user_id={user_id}&amount={amount}&token={ADMIN_SECRET_TOKEN}"),
-            InlineKeyboardButton("❌ ውድቅ (Reject)", url=f"{WEB_APP_URL}/quick-reject?user_id={user_id}&token={ADMIN_SECRET_TOKEN}")
+            InlineKeyboardButton("✅ አጽድቅ (Approve)", callback_data=f"dep_app|{user_id}|{amount}|{tx_id}"),
+            InlineKeyboardButton("❌ ውድቅ (Reject)", callback_data=f"dep_rej|{user_id}|{tx_id}")
         )
+        
         bot.send_photo(ADMIN_GROUP_ID, photo=receipt.stream.read(), caption=caption, reply_markup=markup, parse_mode="HTML")
-        log_history(user_id, "Deposit", amount, "በሂደት ላይ ⏳")
+        log_history(user_id, tx_id, "ገቢ", amount, "pending")
         return jsonify({"status": "success"})
-    except Exception as e: 
-        return jsonify({"error": str(e)}), 500
+    except Exception as e: return jsonify({"error": str(e)}), 500
 
 @server.route('/api/withdraw', methods=['POST'])
 def handle_withdraw():
     if not check_auth(request): return jsonify({"error": "Unauthorized"}), 401
     data = request.json
-    user_id = str(data.get("user_id"))
-    user_name = data.get("user_name", "ተጫዋች")
-    amount = float(data.get("amount", 0))
-    phone = data.get("phone")
+    user_id, user_name = str(data.get("user_id")), data.get("user_name", "ተጫዋች")
+    amount, phone = float(data.get("amount", 0)), data.get("phone")
     
     if float(redis.hget("users:balance", user_id) or 0) < amount: 
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
     
-    # ብሩን ወዲያውኑ እንቀንሰዋለን (ከአቅም በላይ እንዳያወጣ)
+    tx_id = str(uuid.uuid4())[:8]
+    redis.set(f"tx:{tx_id}", "pending")
     redis.hincrbyfloat("users:balance", user_id, -amount)
     
     msg = f"💸 <b>Withdraw ጥያቄ!</b>\n👤 ስም: {user_name}\n🆔 <code>{user_id}</code>\n📱 ስልክ: <code>{phone}</code>\n💰 <b>{amount} ብር</b>"
+    
+    # URL ወደ Callback Data ተቀይሯል
     markup = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("✅ ተከፍሏል", url=f"{WEB_APP_URL}/mark-paid?user_id={user_id}&amount={amount}&token={ADMIN_SECRET_TOKEN}"),
-        InlineKeyboardButton("❌ ውድቅ አድርግ", url=f"{WEB_APP_URL}/reject-withdraw?user_id={user_id}&amount={amount}&token={ADMIN_SECRET_TOKEN}")
+        InlineKeyboardButton("✅ ተከፍሏል", callback_data=f"wit_paid|{user_id}|{amount}|{tx_id}"),
+        InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"wit_rej|{user_id}|{amount}|{tx_id}")
     )
+    
     bot.send_message(ADMIN_GROUP_ID, text=msg, reply_markup=markup, parse_mode="HTML")
-    log_history(user_id, "Withdraw", amount, "በሂደት ላይ ⏳")
+    log_history(user_id, tx_id, "ወጪ", amount, "pending")
     return jsonify({"status": "success"})
 
-# --- 6. Admin Action Routes ---
-@server.route('/quick-approve', methods=['GET'])
-def quick_approve():
-    if request.args.get("token") != ADMIN_SECRET_TOKEN: return "Unauthorized", 403
-    user_id = request.args.get("user_id")
-    amount = float(request.args.get("amount"))
-    redis.hincrbyfloat("users:balance", user_id, amount)
-    log_history(user_id, "Deposit", amount, "ጸድቋል ✅")
-    try: bot.send_message(user_id, f"✅ የ {amount} ብር ዲፖዚትዎ ጸድቋል! ባላንስዎ ተሞልቷል።")
-    except: pass
-    return "Successfully Approved! You can close this page."
-
-@server.route('/quick-reject', methods=['GET'])
-def quick_reject():
-    if request.args.get("token") != ADMIN_SECRET_TOKEN: return "Unauthorized", 403
-    user_id = request.args.get("user_id")
-    log_history(user_id, "Deposit", 0, "ውድቅ ተደርጓል ❌")
-    try: bot.send_message(user_id, "❌ የላኩት የክፍያ ማረጋገጫ (Deposit) ውድቅ ተደርጓል። እባክዎ ትክክለኛ ደረሰኝ ይላኩ።")
-    except: pass
-    return "Successfully Rejected! You can close this page."
-
-@server.route('/mark-paid', methods=['GET'])
-def mark_paid():
-    if request.args.get("token") != ADMIN_SECRET_TOKEN: return "Unauthorized", 403
-    user_id = request.args.get("user_id")
-    amount = request.args.get("amount")
-    log_history(user_id, "Withdraw", amount, "ተከፍሏል ✅")
-    try: bot.send_message(user_id, f"✅ የ {amount} ብር ወጪ ጥያቄዎ በቴሌብር ተልኮልዎታል!")
-    except: pass
-    return "Marked as Paid! You can close this page."
-
-@server.route('/reject-withdraw', methods=['GET'])
-def reject_withdraw():
-    if request.args.get("token") != ADMIN_SECRET_TOKEN: return "Unauthorized", 403
-    user_id = request.args.get("user_id")
-    amount = float(request.args.get("amount"))
-    # የተቆረጠበትን ብር እንመልስለታለን
-    redis.hincrbyfloat("users:balance", user_id, amount)
-    log_history(user_id, "Withdraw", amount, "ውድቅ ተደርጓል (ብርዎ ተመልሷል) ❌")
-    try: bot.send_message(user_id, f"❌ የ {amount} ብር ወጪ ጥያቄዎ ውድቅ ተደርጓል። ብሩ ወደ ባላንስዎ ተመልሷል።")
-    except: pass
-    return "Withdrawal Rejected & Refunded! You can close this page."
 
 if __name__ == "__main__":
-    # Webhook Setup
     bot.remove_webhook()
     time.sleep(1)
     bot.set_webhook(url=f"{WEB_APP_URL}/webhook/{TOKEN}")
-    
-    # Server Run
     server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
