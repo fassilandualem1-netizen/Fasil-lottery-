@@ -335,11 +335,11 @@ def sefer_games_index():
         print(f"📜 ሙሉ የፍሮንትአንድ ስህተት ታሪክ (Traceback)፦\n{traceback.format_exc()}")
         return f"<h3>❌ የጌሙ መግቢያ ገጽ ላይ ስህተት ተፈጥሯል፦</h3><pre>{str(e)}</pre>", 500
 
-# --- 2. 🚀 ቴሌግራም ቦቱ መልዕክት እንዲቀበል እና እንዲመረምር (እጅግ ጠንካራው ስሪት) ---
-@server.route('/webhook/' + TOKEN, methods=['POST'])
+# --- 2. 🚀 ቴሌግራም ቦቱ መልዕክት እንዲቀበል እና እንዲመረምር (የተስተካከለ ስሪት) ---
+@server.route(f'/webhook/{TOKEN}', methods=['POST'])
 def getMessage():
     print("\n📥 === 📢 [DEBUG]: አዲስ የዌብሁክ ጥያቄ ከቴሌግራም መጥቷል! ===")
-    
+   
     try:
         # 1. ዳታውን የመቀበል ፍተሻ
         raw_data = request.get_data()
