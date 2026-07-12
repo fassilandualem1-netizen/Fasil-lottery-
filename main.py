@@ -294,15 +294,24 @@ def handle_admin_buttons(call):
 
 
 
-# --- 2. 🚀 ሰርቨሩን፣ ዌብአፑን እና ቦቱን ማገናኛ (የተስተካከለ ስም) ---
+# --- 2. 🚀 ሰርቨሩን፣ ዌብአፑን እና ቦቱን ማገናኛ (እጅግ ጠንካራ ስሪት) ---
 
-# 1. BotFather ላይ ያለው ሊንክ ጨዋታውን እንዲከፍት (የፋንክሽኑ ስም ተቀይሯል)
+# 1. BotFather ላይ ያለው ሊንክ ጨዋታውን እንዲከፍት (ከዝርዝር መመርመሪያ ጋር)
 @server.route('/')
 def sefer_games_index():
+    print("\n🎮 === 📢 [DEBUG]: አንድ ተጠቃሚ የጌሙን ሊንክ (Web App) ከፍቷል! ===")
     try:
-        return render_template('index.html')
+        # 1. የ index.html ፋይል መኖር አለመኖሩን መፈተሽ
+        print("⏳ [DEBUG]: index.html ቴምፕሌትን ለመጫን እየሞከርኩ ነው...")
+        rendered_page = render_template('index.html')
+        print("🎉 [DEBUG SUCCESS]: index.html ገጽ በተሳካ ሁኔታ ተጭኖ ለተጠቃሚው ተልኳል!")
+        return rendered_page
+        
     except Exception as e:
-        return f"Template Error: {e}", 500
+        print(f"❌❌❌ [CRITICAL FRONTEND ERROR]: የጌሙ ገጽ ሲከፈት ይህ ስህተት ተከሰተ፦ {str(e)}")
+        import traceback
+        print(f"📜 ሙሉ የፍሮንትአንድ ስህተት ታሪክ (Traceback)፦\n{traceback.format_exc()}")
+        return f"<h3>❌ የጌሙ መግቢያ ገጽ ላይ ስህተት ተፈጥሯል፦</h3><pre>{str(e)}</pre>", 500
 
 # --- 2. 🚀 ቴሌግራም ቦቱ መልዕክት እንዲቀበል እና እንዲመረምር (እጅግ ጠንካራው ስሪት) ---
 @server.route('/webhook/' + TOKEN, methods=['POST'])
