@@ -248,159 +248,179 @@
     </div>
 
     <!-- Wallet Modal -->
-    <div id="wallet-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <span class="close-btn" onclick="closeWallet()">&times;</span>
-            <h2>የማህበረሰቡ ዋሌት 💳</h2>
-            <div class="modal-balance-box">
-                የአሁኑ ባላንስዎ: <span id="modal-balance">0.00</span> ብር
-            </div>
-            <hr>
-            
-            <!-- Deposit -->
-            <h3>ብር ያስገቡ (Deposit)</h3>
-            <div class="info-box">
-                እባክዎ መጀመሪያ በዚህ ቁጥር በቴሌብር ይላኩ፦<br>
-                ስልክ፦ <strong>0951381356</strong>
-            </div>
-            <input type="number" id="deposit-amount" placeholder="የላኩትን የብር መጠን እዚህ ይጻፉ...">
-            <label class="file-input-label">
-                🧾 የላኩበትን የደረሰኝ ፎቶ (Screenshot) ይምረጡ
-                <input type="file" id="deposit-receipt" accept="image/*" style="display: none;" onchange="updateReceiptLabel(this)">
-            </label>
-            <span id="file-name-display" style="font-size: 12px; color: #aaa; display: block; margin-bottom: 5px;"></span>
-            <button onclick="handleDeposit()">የክፍያ ማረጋገጫ ላክ</button>
-            <hr>
-            
-            <!-- Withdraw -->
-            <h3 class="withdraw-title">ብር ያውጡ (Withdraw)</h3>
-            <input type="text" id="withdraw-phone" placeholder="ገንዘቡ የሚላክበት የእርሶ የቴሌብር ስልክ...">
-            <input type="number" id="withdraw-amount" placeholder="የሚወጣውን የብር መጠን ያስገቡ...">
-            <button class="btn-withdraw" onclick="handleWithdraw()">በቴሌብር አውጣ</button>
+<div id="wallet-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeWallet()">&times;</span>
+        <h2>የማህበረሰቡ ዋሌት 💳</h2>
+        <div class="modal-balance-box">
+            የአሁኑ ባላንስዎ: <span id="modal-balance">0.00</span> ብር
         </div>
+        <hr>
+
+        <!-- Deposit -->
+        <h3>ብር ያስገቡ (Deposit)</h3>
+        <div class="info-box">
+            እባክዎ መጀመሪያ በዚህ ቁጥር በቴሌብር ይላኩ፦<br>
+            ስልክ፦ <strong>0951381356</strong>
+        </div>
+        <input type="number" id="deposit-amount" placeholder="የላኩትን የብር መጠን እዚህ ይጻፉ...">
+        <label class="file-input-label">
+            🧾 የላኩበትን የደረሰኝ ፎቶ (Screenshot) ይምረጡ
+            <input type="file" id="deposit-receipt" accept="image/*" style="display: none;" onchange="updateReceiptLabel(this)">
+        </label>
+        <span id="file-name-display" style="font-size: 12px; color: #aaa; display: block; margin-bottom: 5px;"></span>
+        <button onclick="handleDeposit()">የክፍያ ማረጋገጫ ላክ</button>
+        <hr>
+
+        <!-- Withdraw -->
+        <h3 class="withdraw-title">ብር ያውጡ (Withdraw)</h3>
+        <input type="text" id="withdraw-phone" placeholder="ገንዘቡ የሚላክበት የእርሶ የቴሌብር ስልክ...">
+        <input type="number" id="withdraw-amount" placeholder="የሚወጣውን የብር መጠን ያስገቡ...">
+        <button class="btn-withdraw" onclick="handleWithdraw()">በቴሌብር አውጣ</button>
     </div>
+</div>
 
-    <script>
-        const tg = window.Telegram.WebApp;
-        if(tg) tg.expand();
+<script>
+    const tg = window.Telegram.WebApp;
+    if(tg) tg.expand();
 
-        const userData = tg.initDataUnsafe?.user || { id: "8488592165", first_name: "የሰፈር ልጅ" };
-        const userId = userData.id.toString();
-        let currentBalance = 0;
+    // 👤 የተጠቃሚ መረጃ መያዣ (የአድሚን ሪፖርትን ቀላል ለማድረግ firstName ተጨምሯል)
+    const userData = tg.initDataUnsafe?.user || { id: "8488592165", first_name: "የሰፈር ልጅ" };
+    const userId = userData.id.toString();
+    const firstName = userData.first_name; 
+    let currentBalance = 0;
 
-        document.addEventListener("DOMContentLoaded", () => {
-            document.getElementById("user-name").innerText = userData.first_name;
-            fetchBalance();
-        });
+    document.addEventListener("DOMContentLoaded", () => {
+        const userNameElem = document.getElementById("user-name");
+        if(userNameElem) userNameElem.innerText = firstName;
+        fetchBalance();
+    });
 
-        async function fetchBalance() {
-            try {
-                const res = await fetch('/api/get_balance', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId })
-                });
-                const data = await res.json();
-                if (data.status === "success") {
-                    currentBalance = data.balance;
+    // 💰 የባላንስ መረጃ ከዳታቤዝ መሳቢያ
+    async function fetchBalance() {
+        try {
+            const res = await fetch('/api/get_balance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId })
+            });
+            const data = await res.json();
+            if (data.status === "success") {
+                currentBalance = data.balance;
+                if(document.getElementById("user-balance")) {
                     document.getElementById("user-balance").innerText = currentBalance.toFixed(2);
+                }
+                if(document.getElementById("modal-balance")) {
                     document.getElementById("modal-balance").innerText = currentBalance.toFixed(2);
                 }
-            } catch (e) { console.error("ባላንስ ማግኘት አልተቻለም", e); }
-        }
-
-        function openWallet() {
-            document.getElementById("wallet-modal").style.display = "flex";
-            document.getElementById("modal-balance").innerText = currentBalance.toFixed(2);
-        }
-        function closeWallet() {
-            document.getElementById("wallet-modal").style.display = "none";
-        }
-        function updateReceiptLabel(input) {
-            const fileName = input.files[0] ? input.files[0].name : "";
-            document.getElementById("file-name-display").innerText = "የተመረጠ ፋይል: " + fileName;
-        }
-
-        // --- ዘውድና ጎፈር ሎጂክ ---
-        async function triggerCoinFlip(choice) {
-            const betAmountInput = document.getElementById("bet-amount");
-            const betAmount = parseFloat(betAmountInput.value || 0);
-
-            if (betAmount <= 0) return alert("እባክዎ መጀመሪያ ትክክለኛ የውርርድ የብር መጠን ያስገቡ!");
-            if (betAmount > currentBalance) return alert("ይቅርታ፣ ያስገቡት የውርርድ መጠን ካለዎት ባላንስ ይበልጣል!");
-
-            try {
-                const res = await fetch('/api/coin_flip', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, bet_amount: betAmount, choice: choice })
-                });
-                const data = await res.json();
-                
-                if (data.status === "success") {
-                    alert(data.message); 
-                    betAmountInput.value = "";
-                    fetchBalance(); 
-                } else {
-                    alert(data.message || "ስህተት አጋጥሟል!");
-                }
-            } catch (e) {
-                alert("ከሰርቨር ጋር መገናኘት አልተቻለም!");
             }
+        } catch (e) { console.error("ባላንስ ማግኘት አልተቻለም", e); }
+    }
+
+    function openWallet() {
+        document.getElementById("wallet-modal").style.display = "flex";
+        document.getElementById("modal-balance").innerText = currentBalance.toFixed(2);
+    }
+    
+    function closeWallet() {
+        document.getElementById("wallet-modal").style.display = "none";
+    }
+    
+    function updateReceiptLabel(input) {
+        const fileName = input.files[0] ? input.files[0].name : "";
+        document.getElementById("file-name-display").innerText = "የተመረጠ ፋይል: " + fileName;
+    }
+
+    // --- 🪙 እጥፍ ወይስ ባዶ (ዘውድና ጎፈር) ሎጂክ ማስተካከያ ---
+    async function triggerCoinFlip(choice) {
+        const betAmountInput = document.getElementById("bet-amount");
+        if (!betAmountInput) return;
+        
+        const betAmount = parseFloat(betAmountInput.value || 0);
+
+        if (betAmount <= 0) return alert("እባክዎ መጀመሪያ ትክክለኛ የውርርድ የብር መጠን ያስገቡ!");
+        if (betAmount > currentBalance) return alert("ይቅርታ፣ ያስገቡት የውርርድ መጠን ካለዎት ባላንስ ይበልጣል!");
+
+        try {
+            const res = await fetch('/api/coin_flip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, bet_amount: betAmount, choice: choice })
+            });
+            const data = await res.json();
+
+            // 🔄 ሰርቨሩ 'win' ወይም 'lose' ሲመልስ በትክክል እንዲያነበው የተደረገ ማሻሻያ
+            if (data.status === "win" || data.status === "lose" || data.status === "success") {
+                alert(data.message); 
+                betAmountInput.value = "";
+                fetchBalance(); 
+            } else {
+                alert(data.message || "ስህተት አጋጥሟል!");
+            }
+        } catch (e) {
+            alert("ከሰርቨር ጋር መገናኘት አልተቻለም!");
         }
+    }
 
-        // Deposit ሎጂክ
-        async function handleDeposit() {
-            const amount = parseFloat(document.getElementById("deposit-amount").value || 0);
-            const receiptFile = document.getElementById("deposit-receipt").files[0];
+    // 📥 የደህንነትና የአድሚን ማሻሻያ የተደረገበት የDeposit ሎጂክ
+    async function handleDeposit() {
+        const amountInput = document.getElementById("deposit-amount");
+        const receiptInput = document.getElementById("deposit-receipt");
+        
+        const amount = parseFloat(amountInput.value || 0);
+        const receiptFile = receiptInput.files[0];
 
-            if (amount <= 0) return alert("እባክዎ መጀመሪያ የላኩትን የብር መጠን ያስገቡ!");
-            if (!receiptFile) return alert("እባክዎ የላኩበትን የቴሌብር ደረሰኝ (Screenshot) ያያይዙ!");
+        if (amount <= 0) return alert("እባክዎ መጀመሪያ የላኩትን የብር መጠን ያስገቡ!");
+        if (!receiptFile) return alert("እባክዎ የላኩበትን የቴሌብር ደረሰኝ (Screenshot) ያያይዙ!");
 
-            const formData = new FormData();
-            formData.append("user_id", userId);
-            formData.append("amount", amount);
-            formData.append("receipt", receiptFile);
+        const formData = new FormData();
+        formData.append("user_id", userId);
+        formData.append("user_name", firstName); // አድሚኑ ማን እንደላከው በግል ቴሌግራሙ እንዲለየው
+        formData.append("amount", amount);
+        formData.append("receipt", receiptFile);
 
-            try {
-                const res = await fetch('/api/deposit', { method: 'POST', body: formData });
-                const data = await res.json();
-                if (data.status === "success") {
-                    alert(`የማረጋገጫ ጥያቄዎ ቀርቧል! አስተዳዳሪው አይቶ ባላንስዎን ያድሳል።`);
-                    document.getElementById("deposit-amount").value = "";
-                    document.getElementById("deposit-receipt").value = "";
-                    document.getElementById("file-name-display").innerText = "";
-                    closeWallet();
-                } else { alert(data.message || "ስህተት አጋጥሟል!"); }
-            } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
-        }
+        try {
+            const res = await fetch('/api/deposit', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.status === "success") {
+                alert(`የማረጋገጫ ጥያቄዎ ቀርቧል! አስተዳዳሪው አይቶ ባላንስዎን ያድሳል።`);
+                amountInput.value = "";
+                receiptInput.value = "";
+                document.getElementById("file-name-display").innerText = "";
+                closeWallet();
+            } else { alert(data.message || "ስህተት አጋጥሟል!"); }
+        } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
+    }
 
-        // Withdraw ሎጂክ
-        async function handleWithdraw() {
-            const amount = parseFloat(document.getElementById("withdraw-amount").value || 0);
-            const phone = document.getElementById("withdraw-phone").value.trim();
+    // 📤 የWithdraw ሎጂክ (ከ user_name ማሻሻያ ጋር)
+    async function handleWithdraw() {
+        const amountInput = document.getElementById("withdraw-amount");
+        const phoneInput = document.getElementById("withdraw-phone");
+        
+        const amount = parseFloat(amountInput.value || 0);
+        const phone = phoneInput.value.trim();
 
-            if (!phone) return alert("እባክዎ ገንዘቡ የሚላክበትን የእርሶን የቴሌብር ስልክ ቁጥር ያስገቡ!");
-            if (amount <= 0) return alert("እባክዎ ማውጣት የሚፈልጉትን የብር መጠን ያስገቡ!");
-            if (amount > currentBalance) return alert("ይቅርታ፣ ማውጣት የፈለጉት መጠን ካለዎት ባላንስ ይበልጣል!");
+        if (!phone) return alert("እባክዎ ገንዘቡ የሚላክበትን የእርሶን የቴሌብር ስልክ ቁጥር ያስገቡ!");
+        if (amount <= 0) return alert("እባክዎ ማውጣት የሚፈልጉትን የብር መጠን ያስገቡ!");
+        if (amount > currentBalance) return alert("ይቅርታ፣ ማውጣት የፈለጉት መጠን ካለዎት ባላንስ ይበልጣል!");
 
-            try {
-                const res = await fetch('/api/withdraw', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, amount: amount, phone: phone })
-                });
-                const data = await res.json();
-                if (data.status === "success") {
-                    alert(`${amount} ብር ወደ ${phone} ለመላክ ጥያቄዎ ቀርቧል!`);
-                    document.getElementById("withdraw-amount").value = "";
-                    document.getElementById("withdraw-phone").value = "";
-                    fetchBalance();
-                    closeWallet();
-                } else { alert(data.message || "ገንዘብ ማውጣት አልተቻለም!"); }
-            } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
-        }
-    </script>
-    <script src="/static/js/game.js"></script>
+        try {
+            const res = await fetch('/api/withdraw', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, amount: amount, phone: phone, user_name: firstName })
+            });
+            const data = await res.json();
+            if (data.status === "success") {
+                alert(`${amount} ብር ወደ ${phone} ለመላክ ጥያቄዎ ቀርቧል!`);
+                amountInput.value = "";
+                phoneInput.value = "";
+                fetchBalance();
+                closeWallet();
+            } else { alert(data.message || "ገንዘብ ማውጣት አልተቻለም!"); }
+        } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
+    }
+</script>
+<script src="/static/js/game.js"></script>
 </body>
 </html>
