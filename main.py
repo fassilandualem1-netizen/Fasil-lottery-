@@ -7,23 +7,20 @@ import requests
 from flask import Flask, render_template, jsonify, request
 from upstash_redis import Redis
 
-# --- 1. የቦት እና የዳታቤዝ ቁልፎች (Configuration ከ Environment Variables) ---
+# --- 1. የቦት እና የዳታቤዝ ቁልፎች (Configuration) ---
 TOKEN = os.environ.get("BOT_TOKEN")
 REDIS_URL = os.environ.get("REDIS_URL")
 REDIS_TOKEN = os.environ.get("REDIS_TOKEN")
-
-# BotFather ላይ የፈጠርከው የ 3D ዌብአፕ ሊንክ ወይም ሆስት የተደረገበት ዌብሳይት
 WEB_APP_URL = "https://sefer-bot.onrender.com" 
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 server = Flask(__name__)
 
-# ያንተ የቴሌግራም ID (ክፍያዎችን በእጅ Approve/Reject ለማድረግ እና የዌብአፕ ኖቲፊኬሽን ለመቀበል)
+# ያንተ የቴሌግራም ID
 ADMIN_IDS = [8443303643]  
-PRIMARY_ADMIN = ADMIN_IDS[0] # ለ requests.post መላኪያ የሚያገለግል ዋና ID
+PRIMARY_ADMIN = ADMIN_IDS[0]
 
-# የአራቱ ጨዋታዎች ታሪፍ እና የማባዣ ህጎች
 GAME_CONFIG = {
     "beg_rucha": {"name": "🐑 የበግ ሩጫ", "fee": 2, "multiplier": 0.02},
     "ayi_game": {"name": "🧀 የአይጧ ጨዋታ", "fee": 5, "multiplier": 0.50},
@@ -31,16 +28,14 @@ GAME_CONFIG = {
     "coin_flip": {"name": "🪙 እጥፍ ወይስ ባዶ (ዘውድ/ጎፈር)", "fee": 0, "multiplier": 2.0, "type": "luck"}
 }
 
-# --- 2. የ Flask የዌብአፕ እና የ API መስመሮች (Web App & API Routes) ---
+# --- 2. የ Flask የዌብአፕ እና የ API መስመሮች ---
 
 @server.route('/')
 def index():
-    """ 3D ጨዋታዎቹ ቴሌግራም ላይ ሲከፈቱ የሚታዩበት ዋና ገጽ """
     return render_template('index.html')
 
 @server.route('/api/get_balance', methods=['POST'])
 def get_balance():
-    """ የልጁን ወቅային ባላንስ ከሪዲስ አንብቦ ለጃቫስክሪፕቱ የሚሰጥ """
     data = request.json
     user_id = str(data.get('user_id'))
     balance = float(redis.hget("users:balance", user_id) or 0)
@@ -48,7 +43,6 @@ def get_balance():
 
 @server.route('/api/start_game', methods=['POST'])
 def start_game():
-    """ ልጁ በችሎታ የሚጫወቱትን 3 ጌሞች ሲጀምር መግቢያ ክፍያ የሚቀንስ """
     data = request.json
     user_id = str(data.get('user_id'))
     game_type = data.get('game_type')
@@ -58,18 +52,15 @@ def start_game():
         return jsonify({"status": "error", "message": "ያልታወቀ ጨዋታ!"}), 400
 
     current_balance = float(redis.hget("users:balance", user_id) or 0)
-
     if current_balance < config["fee"]:
         return jsonify({"status": "no_money", "message": "ለመጫወት በቂ የቦት ብር የለዎትም!"}), 400
 
-    # የመግቢያ ክፍያውን መቀነስ
     if config["fee"] > 0:
         redis.hincrbyfloat("users:balance", user_id, -config["fee"])
     return jsonify({"status": "ready", "new_balance": current_balance - config["fee"]})
 
 @server.route('/api/save_score', methods=['POST'])
 def save_score():
-    """ ልጁ በችሎታው ተጫውቶ ሲሸነፍ ያገኘውን ነጥብ አባዝቶ ሪዲስ ላይ የሚጨምር """
     data = request.json
     user_id = str(data.get('user_id'))
     game_type = data.get('game_type')
@@ -80,15 +71,12 @@ def save_score():
         return jsonify({"status": "error", "message": "የተሳሳተ የጨዋታ መለያ"}), 400
 
     winnings = round(score * config["multiplier"], 2)
-
     if winnings > 0:
         redis.hincrbyfloat("users:balance", user_id, winnings)
-
     return jsonify({"status": "success", "winnings": winnings})
 
 @server.route('/api/coin_flip', methods=['POST'])
 def coin_flip():
-    """ 4ኛው ጨዋታ፦ እጥፍ ወይስ ባዶ (የጎፈር እና ዘውድ ምርጫ) """
     data = request.json
     user_id = str(data.get('user_id'))
     player_choice = data.get('choice')
@@ -98,28 +86,17 @@ def coin_flip():
     if current_balance < bet_amount:
         return jsonify({"status": "error", "message": "በቂ የቦት ብር የለዎትም!"}), 400
 
-    # የውርርድ ብሩን መቀነስ
     redis.hincrbyfloat("users:balance", user_id, -bet_amount)
-
-    # ሰርቨሩ በ 50/50 ዕድል ያሽከረክራል
     server_result = 'gofer' if random.randint(0, 1) == 0 else 'zewd'
 
     if player_choice == server_result:
         winnings = bet_amount * 2
         redis.hincrbyfloat("users:balance", user_id, winnings)
-        return jsonify({
-            "status": "win",
-            "result": server_result,
-            "message": f"🎉 ማሸነፍዎን ያረጋግጡ! {server_result} ወጥቷል። እጥፍ ተደመረልዎት!"
-        })
+        return jsonify({"status": "win", "result": server_result, "message": f"🎉 ማሸነፍዎን ያረጋግጡ! {server_result} ወጥቷል።"})
     else:
-        return jsonify({
-            "status": "lose",
-            "result": server_result,
-            "message": f"😢 ያዝናለን! {server_result} ወጥቷል። በሚቀጥለው ይሞክሩ!"
-        })
+        return jsonify({"status": "lose", "result": server_result, "message": f"😢 ያዝናለን! {server_result} ወጥቷል።"})
 
-# --- 📥 ከዌብአፕ (Wallet Modal) የሚመጣ የDeposit ጥያቄ መቀበያ ---
+# --- 📥 ከዌብአፕ የሚመጣ የDeposit ጥያቄ መቀበያ ---
 @server.route('/api/deposit', methods=['POST'])
 def handle_web_deposit():
     user_id = request.form.get("user_id")
@@ -129,33 +106,25 @@ def handle_web_deposit():
     if not user_id or not amount or not receipt_file:
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ!"}), 400
 
-    # ለአድሚኑ በቦቱ በኩል የደረሰኝ ፎቶ እና ማረጋገጫ በተን መላኪያ ሎጂክ
     caption_text = (
-        f"🔔 <b>አዲስ የ Deposit ጥያቄ ከዌብአፕ ቀርቧል!</b>\n\n"
+        f"🔔 <b>አዲስ የ Deposit ጥያቄ ከዌብአፕ!</b>\n\n"
         f"👤 <b>ተጫዋች ID:</b> <code>{user_id}</code>\n"
-        f"💰 <b>የጠየቀው የብር መጠን:</b> <b>{amount} ብር</b>\n\n"
-        f"👉 እባክዎ የቴሌብር አካውንትዎን አይተው ገቢ መሆኑን ካረጋገጡ በኋላ ያጽድቁ!"
+        f"💰 <b>የጠየቀው መጠን:</b> <b>{amount} ብር</b>\n"
     )
     
-    # ለአድሚኑ ማጽደቂያ አውቶማቲክ Inline በተን ማዘጋጀት (የብር መጠኑን በ callback_data ውስጥ እናስተላልፋለን)
     markup = types.InlineKeyboardMarkup()
-    btn_approve = types.InlineKeyboardButton(f"✅ Approve ({amount} ብር)", callback_data=f"web_app_{user_id}_{amount}")
-    btn_reject = types.InlineKeyboardButton("❌ Reject (ውድቅ አድርግ)", callback_data=f"dep_rej_{user_id}")
+    # ⚠️ ማሳሰቢያ፡ የካራክተር ሊሚት እንዳያልፍ 'wa_' (Web App Approve) ተብሏል
+    btn_approve = types.InlineKeyboardButton("✅ Approve", callback_data=f"wa_ap_{user_id}_{amount}")
+    btn_reject = types.InlineKeyboardButton("❌ Reject", callback_data=f"wa_rj_{user_id}")
     markup.add(btn_approve, btn_reject)
     
     try:
-        bot.send_photo(
-            chat_id=PRIMARY_ADMIN, 
-            photo=receipt_file.stream.read(), 
-            caption=caption_text, 
-            parse_mode="HTML", 
-            reply_markup=markup
-        )
-        return jsonify({"status": "success", "message": "የክፍያ ማረጋገጫ ጥያቄዎ በተሳካ ሁኔታ ለአስተዳዳሪው ተልኳል!"})
+        bot.send_photo(chat_id=PRIMARY_ADMIN, photo=receipt_file.stream.read(), caption=caption_text, reply_markup=markup)
+        return jsonify({"status": "success", "message": "የክፍያ ማረጋገጫዎ ለአስተዳዳሪው ተልኳል!"})
     except Exception as e:
-        return jsonify({"status": "error", "message": f"ለአስተዳዳሪው መላክ አልተቻለም: {str(e)}"}), 500
+        return jsonify({"status": "error", "message": f"ስህተት ተፈጥሯል: {str(e)}"}), 500
 
-# --- 📤 ከዌብአፕ (Wallet Modal) የሚመጣ የWithdraw ጥያቄ መቀበያ ---
+# --- 📤 ከዌብአፕ የሚመጣ የWithdraw ጥያቄ መቀበያ ---
 @server.route('/api/withdraw', methods=['POST'])
 def handle_web_withdraw():
     data = request.json
@@ -168,34 +137,30 @@ def handle_web_withdraw():
 
     current_balance = float(redis.hget("users:balance", user_id) or 0)
     if current_balance < amount:
-        return jsonify({"status": "error", "message": "ይቅርታ፣ ማውጣት የፈለጉት መጠን ካለዎት ባላንስ ይበልጣል!"}), 400
+        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
 
-    # ከባላንሱ ላይ በጊዜው ማሳገድ/መቀነስ
     redis.hincrbyfloat("users:balance", user_id, -amount)
 
-    # ለአድሚኑ የቪዝድሮው መረጃ መላኪያ ከ Paid በተን ጋር
     message_text = (
-        f"💸 <b>አዲስ የ Withdraw ጥያቄ ከዌብአፕ ደርሷል!</b>\n\n"
+        f"💸 <b>አዲስ የ Withdraw ጥያቄ ከዌብአፕ!</b>\n\n"
         f"👤 <b>ተጫዋች ID:</b> <code>{user_id}</code>\n"
-        f"📱 <b>የቴሌብር ስልክ:</b> <code>{phone}</code> (ለመቅዳት ይጫኑት)\n"
-        f"💰 <b>ማውጣት የፈለገው:</b> <b>{amount} ብር</b>\n\n"
-        f"👉 እባክዎ ወደዚህ ስልክ ቁጥር ብሩን በቴሌብር ልከው 'Paid' የሚለውን ይጫኑ!"
+        f"📱 <b>ስልክ:</b> <code>{phone}</code>\n"
+        f"💰 <b>መጠን:</b> <b>{amount} ብር</b>\n"
     )
     
     markup = types.InlineKeyboardMarkup()
-    btn_paid = types.InlineKeyboardButton("💸 Paid (ተከፍሏል)", callback_data=f"wit_paid_{user_id}_{amount}")
+    btn_paid = types.InlineKeyboardButton("💸 Paid", callback_data=f"wt_pd_{user_id}_{amount}")
     markup.add(btn_paid)
     
     try:
-        bot.send_message(chat_id=PRIMARY_ADMIN, text=message_text, parse_mode="HTML", reply_markup=markup)
+        bot.send_message(chat_id=PRIMARY_ADMIN, text=message_text, reply_markup=markup)
         return jsonify({"status": "success", "message": "የማውጫ ጥያቄዎ ለአስተዳዳሪው ደርሷል!"})
     except Exception as e:
-        # በሆነ ምክንያት ካልተላከ የተቆረጠውን ባላንስ መመለስ
         redis.hincrbyfloat("users:balance", user_id, amount)
         return jsonify({"status": "error", "message": "ጥያቄውን ማስተላለፍ አልተቻለም"}), 500
 
 
-# --- 🔗 3. የዌብሁክ መቀበያ መስመሮች (Webhook Routes for Render) ---
+# --- 🔗 3. የዌብሁክ መቀበያ መስመሮች ---
 
 @server.route('/webhook/' + TOKEN, methods=['POST'])
 def getMessage():
@@ -223,79 +188,58 @@ def set_webhook():
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    try:
-        user_id = str(message.from_user.id)
-        username = message.from_user.username or "የሰፈር ልጅ"
+    user_id = str(message.from_user.id)
+    username = message.from_user.username or "የሰፈር ልጅ"
 
-        if not redis.hexists("users:balance", user_id):
-            redis.hset("users:balance", user_id, "0")
-            redis.hset("users:username", user_id, username)
+    if not redis.hexists("users:balance", user_id):
+        redis.hset("users:balance", user_id, "0")
+        redis.hset("users:username", user_id, username)
 
-        balance_raw = redis.hget("users:balance", user_id)
-        balance = balance_raw if balance_raw is not None else "0"
+    balance = redis.hget("users:balance", user_id) or "0"
 
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-        btn_games = types.KeyboardButton("🕹️ 3D ጨዋታዎችን ይምረጡ", web_app=types.WebAppInfo(url=WEB_APP_URL))
-        btn_wallet = types.KeyboardButton("💰 የኪስ ቦርሳ (Balance)")
-        btn_deposit = types.KeyboardButton("📥 ብር አስገባ (Deposit)")
-        btn_withdraw = types.KeyboardButton("📤 ብር አውጣ (Withdraw)")
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    btn_games = types.KeyboardButton("🕹️ 3D ጨዋታዎችን ይምረጡ", web_app=types.WebAppInfo(url=WEB_APP_URL))
+    btn_wallet = types.KeyboardButton("💰 የኪስ ቦርሳ (Balance)")
+    btn_deposit = types.KeyboardButton("📥 ብር አስገባ (Deposit)")
+    btn_withdraw = types.KeyboardButton("📤 ብር አውጣ (Withdraw)")
+    markup.add(btn_games)
+    markup.add(btn_wallet, btn_deposit, btn_withdraw)
 
-        markup.add(btn_games)
-        markup.add(btn_wallet, btn_deposit, btn_withdraw)
-
-        msg = (
-            f"<b>እንኳን ወደ ሰፈር 3D ጌሚንግ ቦት በሰላም መጡ! 👋</b>\n\n"
-            f"💰 ወቅታዊ የኪስ ቦርሳዎ፦ <b>{balance} የቦት ብር</b>\n\n"
-            f"ለመጫወት ከታች ካሉት በተኖች አንዱን ይጫኑ።"
-        )
-        bot.send_message(message.chat.id, msg, parse_mode="HTML", reply_markup=markup)
-    except Exception as e:
-        print(f"❌ [START COMMAND ERROR]: {e}")
-
+    msg = f"<b>እንኳን ወደ ሰፈር 3D ጌሚንግ ቦት በሰላም መጡ! 👋</b>\n\n💰 ባላንስዎ፦ <b>{balance} ብር</b>"
+    bot.send_message(message.chat.id, msg, reply_markup=markup)
 
 @bot.message_handler(func=lambda m: m.text == "💰 የኪስ ቦርሳ (Balance)")
 def check_balance(message):
     user_id = str(message.from_user.id)
     balance = redis.hget("users:balance", user_id) or "0"
-    bot.send_message(message.chat.id, f"💰 ወቅታዊ የኪስ ቦርሳዎ የሳንቲም መጠን፦ <b>{balance} የቦት ብር</b> ነው።")
+    bot.send_message(message.chat.id, f"💰 ወቅታዊ የኪስ ቦርሳዎ፦ <b>{balance} ብር</b> ነው።")
 
-# --- 📥 በቦት ቴክስት በእጅ ብር ማጫኛ መዋቅር (Text-based Deposit) ---
+# --- 📥 በቦት ቴክስት (Text-based Deposit) ---
 @bot.message_handler(func=lambda m: m.text == "📥 ብር አስገባ (Deposit)")
 def deposit_instruction(message):
-    msg = (
-        "<b>📥 ብር ለማስገባት መመሪያ፦</b>\n\n"
-        "1. ሊያጫውቱት የሚፈልጉትን የብር መጠን ወደዚህ የቴሌብር ቁጥር ይላኩ፦ <code>0951381356</code>\n"
-        "2. ብሩን ከላኩ በኋላ <b>የደረሰኝ ቁጥሩን (Transaction ID)</b> ብቻ እዚህ ላይ ይጻፉልን።\n\n"
-        "<i>ማሳሰቢያ፦ የላኩት መረጃ በአስተዳዳሪው ተረጋግጦ ወዲያው ባላንስዎ ላይ ይጫናል!</i>"
-    )
+    msg = "<b>📥 ብር ለማስገባት፦</b>\n\n ወደ <code>0951381356</code> በቴሌብር ልከው <b>የደረሰኝ ቁጥሩን (Transaction ID)</b> ብቻ እዚህ ይጻፉ።"
     bot.send_message(message.chat.id, msg)
     bot.register_next_step_handler(message, process_deposit_request)
 
 def process_deposit_request(message):
-    tx_id = message.text
+    tx_id = message.text.strip()
     user_id = message.from_user.id
     username = message.from_user.username or "የሰፈር ልጅ"
 
     markup = types.InlineKeyboardMarkup()
-    btn_approve = types.InlineKeyboardButton("✅ Approve", callback_data=f"txt_app_{user_id}_{tx_id}")
-    btn_reject = types.InlineKeyboardButton("❌ Reject", callback_data=f"dep_rej_{user_id}")
+    # ⚠️ tx_id ውስጥ '_ ' ሊኖር ስለሚችል መጨረሻ ላይ ይደረጋል
+    btn_approve = types.InlineKeyboardButton("✅ Approve", callback_data=f"tx_ap_{user_id}_{tx_id}")
+    btn_reject = types.InlineKeyboardButton("❌ Reject", callback_data=f"tx_rj_{user_id}")
     markup.add(btn_approve, btn_reject)
 
     for admin in ADMIN_IDS:
-        bot.send_message(
-            admin, 
-            f"🔔 <b>አዲስ የብር ማጫኛ ጥያቄ (በጽሑፍ)!</b>\n\n"
-            f"👤 ተጠቃሚ፦ @{username} (ID: {user_id})\n"
-            f"🧾 የደረሰኝ ቁጥር፦ <code>{tx_id}</code>\n\n"
-            f"እባክዎ ቴሌብርዎ ላይ መግባቱን አይተው ያረጋግጡ!",
-            reply_markup=markup
-        )
-    bot.send_message(message.chat.id, "⏳ የደረሰኝ ቁጥርዎ ለአስተዳዳሪው ተልኳል። ሲረጋገጥ ወዲያው መልዕክት ይደርስዎታል!")
+        bot.send_message(admin, f"🔔 <b>አዲስ የጽሑፍ ማጫኛ ጥያቄ!</b>\n👤 @{username}\n🧾 Tx ID: <code>{tx_id}</code>", reply_markup=markup)
+    bot.send_message(message.chat.id, "⏳ ጥያቄዎ ለአስተዳዳሪው ቀርቧል።")
 
-# --- 📤 በቦት ቴክስት በእጅ ብር ማውጫ መዋቅር (Text-based Withdraw) ---
+# --- 📤 በቦት ቴክስት (Text-based Withdraw) ---
 @bot.message_handler(func=lambda m: m.text == "📤 ብር አውጣ (Withdraw)")
 def withdraw_request(message):
-    msg = "📤 ማውጣት የሚፈልጉትን የብር መጠን እና የቴሌብር ስልክ ቁጥርዎን በዚህ መልክ ይጻፉልን፦\nየብር መጠን - ስልክ ቁጥር\n(ምሳሌ፦ <code>100 - 0912345678</code>)"
+    msg = "📤 የብር መጠን እና የቴሌብር ስልክዎን በዚህ ፎርማት ይጻፉ፦\n<code>መጠን - ስልክ</code> (ምሳሌ፦ 100 - 0912345678)"
     bot.send_message(message.chat.id, msg)
     bot.register_next_step_handler(message, process_withdraw_request)
 
@@ -309,100 +253,111 @@ def process_withdraw_request(message):
 
         current_balance = float(redis.hget("users:balance", user_id) or 0)
         if current_balance < amount:
-            bot.send_message(message.chat.id, "❌ በኪስዎ ውስጥ በቂ የቦት ብር የለም!")
+            bot.send_message(message.chat.id, "❌ በቂ የቦት ብር የለም!")
             return
 
         redis.hincrbyfloat("users:balance", user_id, -amount)
 
         markup = types.InlineKeyboardMarkup()
-        btn_paid = types.InlineKeyboardButton("💸 Paid (ተከፍሏል)", callback_data=f"wit_paid_{user_id}_{amount}")
+        btn_paid = types.InlineKeyboardButton("💸 Paid", callback_data=f"wt_pd_{user_id}_{amount}")
         markup.add(btn_paid)
 
         for admin in ADMIN_IDS:
-            bot.send_message(
-                admin,
-                f"🚨 <b>የብር ማውጫ ጥያቄ መጥቷል (በጽ蹟)!</b>\n\n"
-                f"👤 ተጠቃሚ ID: {user_id}\n"
-                f"💰 ሊያወጣ የጠየቀው፦ <b>{amount} ብር</b>\n"
-                f"📱 የቴሌብር ስልክ ቁጥር፦ <code>{phone}</code>\n\n"
-                f"እባክዎ ብሩን በስልክዎ ልከው 'Paid' የሚለውን ይጫኑ!",
-                reply_markup=markup
-            )
-        bot.send_message(message.chat.id, "⏳ የብር ማውጫ ጥያቄዎ ተመዝግቧል። አስተዳዳሪው ቴሌብር ላይ ሲልክልዎ ማረጋገጫ ይደርስዎታል።")
+            bot.send_message(admin, f"🚨 <b>የጽሑፍ ማውጫ ጥያቄ!</b>\n👤 ID: {user_id}\n💰 መጠን: {amount}\n📱 ስልክ: <code>{phone}</code>", reply_markup=markup)
+        bot.send_message(message.chat.id, "⏳ ጥያቄዎ ተመዝግቧል።")
     except:
-        bot.send_message(message.chat.id, "❌ የተሳሳተ አጻጻፍ ፎርማት ተጠቅመዋል። እባክዎ ድጋሚ ይሞክሩ።")
+        bot.send_message(message.chat.id, "❌ የተሳሳተ አጻጻፍ!")
 
 
-# --- 🎛️ 5. የአድሚን አውቶማቲክ በተኖች ስራ (Callback Query Handlers) ---
+# --- 🎛️ 5. እጅግ ጠንካራው በተን መቆጣጠሪያ (Callback Query Handler) ---
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_admin_buttons(call):
     data = call.data
+    chat_id = call.message.chat.id
+    message_id = call.message.message_id
 
-    # ሀ. የ Web App ፎቶ የደረሰኝ ጥያቄ ማጽደቂያ (አውቶማቲክ ማጫኛ)
-    if data.startswith("web_app_"):
-        _, _, user_id, amount = data.split("_")
-        amount = float(amount)
+    try:
+        # --- ሀ. የ WEB APP DEPOSIT APPROVE ---
+        if data.startswith("wa_ap_"):
+            # wa_ap_{user_id}_{amount}
+            _, _, user_id, amount = data.split("_", 3)
+            amount = float(amount)
 
-        redis.hincrbyfloat("users:balance", user_id, amount)
-        try:
-            bot.send_message(user_id, f"🎉 <b>ከዌብአፕ የላኩት የ {amount} ብር ዴፖዚት ጥያቄዎ ጸድቋል! በኪስዎ ላይ ተጨምሯል።</b>")
-        except: pass
-        
-        bot.edit_message_caption(f"✅ ለተጠቃሚ {user_id} የጠየቀው {amount} ብር ቀጥታ ተጭኗል።", call.message.chat.id, call.message.message_id)
+            redis.hincrbyfloat("users:balance", user_id, amount)
+            try:
+                bot.send_message(user_id, f"🎉 ከዌብአፕ የላኩት የ <b>{amount} ብር</b> ዴፖዚት ጸድቋል!")
+            except: pass
+            
+            bot.answer_callback_query(call.id, "በተሳካ ሁኔታ ጸድቋል!")
+            bot.edit_message_caption(f"✅ ለተጠቃሚ {user_id} {amount} ብር ተጭኗል።", chat_id, message_id)
 
-    # ለ. በጽሑፍ የመጣ የደረሰኝ ማጽደቂያ (ይህ ሲነካ መጠኑን መምረጫ ያመጣል)
-    elif data.startswith("txt_app_"):
-        parts = data.split("_")
-        user_id = parts[2]
-        tx_id = parts[3]
+        # --- ለ. የ WEB APP DEPOSIT REJECT ---
+        elif data.startswith("wa_rj_"):
+            _, _, user_id = data.split("_", 2)
+            try:
+                bot.send_message(user_id, "❌ ከዌብአፕ የላኩት የዴፖዚት ጥያቄ ውድቅ ሆኗል።")
+            except: pass
+            
+            bot.answer_callback_query(call.id, "ጥያቄው ውድቅ ተደርጓል")
+            bot.edit_message_caption("❌ ማጫኛ ጥያቄው ውድቅ ተደርጓል።", chat_id, message_id)
 
-        markup = types.InlineKeyboardMarkup()
-        btn_25 = types.InlineKeyboardButton("25 ብር", callback_data=f"add_{user_id}_25")
-        btn_50 = types.InlineKeyboardButton("50 ብር", callback_data=f"add_{user_id}_50")
-        btn_100 = types.InlineKeyboardButton("100 ብር", callback_data=f"add_{user_id}_100")
-        btn_200 = types.InlineKeyboardButton("200 ብር", callback_data=f"add_{user_id}_200")
-        markup.add(btn_25, btn_50, btn_100, btn_200)
+        # --- ሐ. የጽሑፍ DEPOSIT APPROVE (መጠን መምረጫ ያመጣል) ---
+        elif data.startswith("tx_ap_"):
+            # tx_ap_{user_id}_{tx_id} -> tx_id ውስጥ _ ሊኖር ስለሚችል maxsplit=3
+            _, _, user_id, tx_id = data.split("_", 3)
 
-        bot.edit_message_text(
-            text=f"🧾 የደረሰኝ ቁጥር፦ <code>{tx_id}</code>\n\nእባክዎ ተጠቃሚው የላከውን የብር መጠን ይምረጡ፦", 
-            chat_id=call.message.chat.id, 
-            message_id=call.message.message_id, 
-            reply_markup=markup
-        )
+            markup = types.InlineKeyboardMarkup()
+            markup.add(
+                types.InlineKeyboardButton("25 ብር", callback_data=f"fc_{user_id}_25"),
+                types.InlineKeyboardButton("50 ብር", callback_data=f"fc_{user_id}_50")
+            )
+            markup.add(
+                types.InlineKeyboardButton("100 ብር", callback_data=f"fc_{user_id}_100"),
+                types.InlineKeyboardButton("200 ብር", callback_data=f"fc_{user_id}_200")
+            )
 
-    # ሐ. በጽሑፍ ለመጣው መጠን መሙያ ስራ
-    elif data.startswith("add_"):
-        _, user_id, amount = data.split("_")
-        amount = float(amount)
+            bot.edit_message_text(f"🧾 Tx ID: {tx_id}\n\nእባክዎ የሚጫነውን መጠን ይምረጡ፦", chat_id, message_id, reply_markup=markup)
+            bot.answer_callback_query(call.id)
 
-        redis.hincrbyfloat("users:balance", user_id, amount)
-        try:
-            bot.send_message(user_id, f"🎉 <b>የማጫኛ ጥያቄዎ ጸድቋል! {amount} የቦት ብር በኪስዎ ላይ ተጨምሯል።</b>")
-        except: pass
-        bot.edit_message_text(f"✅ ለተጠቃሚ {user_id} {amount} ብር በተሳካ ሁኔታ ተጭኗል።", call.message.chat.id, call.message.message_id)
+        # --- መ. የጽሑፍ DEPOSIT FINAL CONFIRM (መጠኑ ሲመረጥ ቀጥታ የሚጭነው) ---
+        elif data.startswith("fc_"):
+            # fc_{user_id}_{amount}
+            _, user_id, amount = data.split("_", 2)
+            amount = float(amount)
 
-    # መ. ማንኛውንም የዴፖዚት ጥያቄ ውድቅ ማድረጊያ
-    elif data.startswith("dep_rej_"):
-        _, _, user_id = data.split("_")
-        try:
-            bot.send_message(user_id, "❌ የላኩት የደረሰኝ ቁጥር ወይም ማረጋገጫ ትክክል አይደለም ተብሎ በአስተዳዳሪው ውድቅ ተደርጓል።")
-        except: pass
-        
-        if call.message.photo:
-            bot.edit_message_caption("❌ ማጫኛ ጥያቄው ውድቅ ተደርጓል።", call.message.chat.id, call.message.message_id)
-        else:
-            bot.edit_message_text("❌ ማጫኛ ጥያቄው ውድቅ ተደርጓል።", call.message.chat.id, call.message.message_id)
+            redis.hincrbyfloat("users:balance", user_id, amount)
+            try:
+                bot.send_message(user_id, f"🎉 የ <b>{amount} ብር</b> ማጫኛ ጥያቄዎ ጸድቋል!")
+            except: pass
+            
+            bot.answer_callback_query(call.id, "ብር ተጭኗል!")
+            bot.edit_message_text(f"✅ ለተጠቃሚ {user_id} {amount} ብር ተጭኗል።", chat_id, message_id)
 
-    # ሠ. የብር ማውጫ (Withdraw) ክፍያ ማረጋገጫ
-    elif data.startswith("wit_paid_"):
-        _, _, user_id, amount = data.split("_")
-        try:
-            bot.send_message(user_id, f"💸 <b>የጠየቁት {amount} ብር በቴሌብርዎ በተሳካ ሁኔታ ተልኮልዎታል!</b>")
-        except: pass
-        bot.edit_message_text(f"✅ ለተጠቃሚ {user_id} {amount} ብር መከፈሉ ተረጋግጧል።", call.message.chat.id, call.message.message_id)
+        # --- ሠ. የጽሑፍ DEPOSIT REJECT ---
+        elif data.startswith("tx_rj_"):
+            _, _, user_id = data.split("_", 2)
+            try:
+                bot.send_message(user_id, "❌ የጽሑፍ ማጫኛ ጥያቄዎ ውድቅ ሆኗል።")
+            except: pass
+            
+            bot.answer_callback_query(call.id, "ጥያቄው ውድቅ ተደርጓል")
+            bot.edit_message_text("❌ ማጫኛ ጥያቄው ውድቅ ተደርጓል።", chat_id, message_id)
 
-# --- 🚀 ሰርቨር ማስነሻ (Render Webhook Integration) ---
+        # --- ረ. WITHDRAW PAID (ለሁለቱም የሚሰራ) ---
+        elif data.startswith("wt_pd_"):
+            # wt_pd_{user_id}_{amount}
+            _, _, user_id, amount = data.split("_", 3)
+            try:
+                bot.send_message(user_id, f"💸 የጠየቁት <b>{amount} ብር</b> በቴሌብር ተልኮልዎታል።")
+            except: pass
+            
+            bot.answer_callback_query(call.id, "ክፍያ መፈጸሙ ተመዝግቧል!")
+            bot.edit_message_text(f"✅ ለተጠቃሚ {user_id} {amount} ብር ተከፍሏል።", chat_id, message_id)
+
+    except Exception as e:
+        # ስህተት ቢፈጠር ለአድሚኑ Pop-up እንዲያሳይ
+        bot.answer_callback_query(call.id, f"⚠️ ስህተት፡ {str(e)}", show_alert=True)
+
 if __name__ == "__main__":
-    # Render ላይ ዌብሁክ ስለሚጠቀም ሰርቨሩን ብቻ በ 0.0.0.0 ላይ እናስነሳዋለን
     server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
