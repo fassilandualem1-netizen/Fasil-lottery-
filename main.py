@@ -304,15 +304,46 @@ def sefer_games_index():
     except Exception as e:
         return f"Template Error: {e}", 500
 
-# 2. ቴሌግራም ቦቱ መልዕክት እንዲቀበል
+# --- 2. 🚀 ቴሌግራም ቦቱ መልዕክት እንዲቀበል እና እንዲመረምር (እጅግ ጠንካራው ስሪት) ---
 @server.route('/webhook/' + TOKEN, methods=['POST'])
 def getMessage():
+    print("\n📥 === 📢 [DEBUG]: አዲስ የዌብሁክ ጥያቄ ከቴሌግራም መጥቷል! ===")
+    
     try:
-        json_string = request.get_data().decode('utf-8')
-        update = telebot.types.Update.de_json(json_string)
-        bot.process_new_updates([update])
-    except Exception as route_err:
-        print(f"❌ Webhook Route Error: {route_err}")
+        # 1. ዳታውን የመቀበል ፍተሻ
+        raw_data = request.get_data()
+        if not raw_data:
+            print("⚠️ [DEBUG ERROR]: የገባው raw_data ባዶ ነው!")
+            return "Empty Data", 400
+            
+        json_string = raw_data.decode('utf-8')
+        print(f"✅ [DEBUG]: የገባው JSON ዳታ (የመጀመሪያው 150 ፊደል)፦ {json_string[:150]}")
+        
+        # 2. ወደ ቴሌግራም አፕዴት የመቀየር ፍተሻ
+        try:
+            update = telebot.types.Update.de_json(json_string)
+            print(f"✅ [DEBUG]: JSON በተሳካ ሁኔታ ወደ Update Object ተቀይሯል። Update ID: {update.update_id}")
+            if update.message:
+                print(f"💬 [DEBUG]: የተላከው ጽሑፍ፦ '{update.message.text}' | ከ User ID: {update.message.from_user.id}")
+        except Exception as json_err:
+            print(f"❌ [DEBUG ERROR]: JSON ወደ Update ሲቀየር ከሸፈ፦ {json_err}")
+            return "Invalid JSON", 400
+
+        # 3. ⚠️ ዋናው ፍተሻ፦ ቦቱ መልዕክቱን ሲያቀነባብር (እዚህ ጋ ነው ዝም የሚለው!)
+        print("⏳ [DEBUG]: አሁን መልዕክቱን ወደ bot.process_new_updates እያስተላለፍኩ ነው...")
+        try:
+            bot.process_new_updates([update])
+            print("🎉 [DEBUG SUCCESS]: bot.process_new_updates ሳይሰበር በተሳካ ሁኔታ አለፈ!")
+        except Exception as bot_err:
+            # የቦቱ handlers (ለምሳሌ የሪዲስ መመዝገቢያ ኮድህ) ሲሰበር እዚህ ውስጥ ይገባል
+            print(f"❌❌❌ [CRITICAL BOT ERROR]: ቦቱ መልዕክቱን ሲያስተናግድ ይሄ መስመር ተሰበረ፦ {str(bot_err)}")
+            import traceback
+            print(f"📜 ሙሉ የስህተት ታሪክ (Traceback)፦\n{traceback.format_exc()}")
+
+    except Exception as general_err:
+        print(f"❌ [DEBUG ERROR]: አጠቃላይ የዌብሁክ ስህተት፦ {general_err}")
+        
+    print("📤 === 📢 [DEBUG]: የዌብሁክ ጥያቄ ማስተናገዱ ተጠናቀቀ ===\n")
     return "!", 200
 
 
