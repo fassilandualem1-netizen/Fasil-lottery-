@@ -2,7 +2,7 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-const userData = tg.initDataUnsafe?.user || { id: "8488592165", first_name: "የሰፈር ልጅ" };
+const userData = tg.initDataUnsafe?.user || { id: "8488592165", first_name: "የሰፈር ጨዋታ" };
 const userId = userData.id.toString();
 
 let currentBalance = 0;
