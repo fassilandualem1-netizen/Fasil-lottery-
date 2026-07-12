@@ -294,17 +294,17 @@ def handle_admin_buttons(call):
 
 
 
-# --- 2. 🚀 ሰርቨሩን፣ ዌብአፑን እና ቦቱን ማገናኛ (የተስተካከለ) ---
+# --- 2. 🚀 ሰርቨሩን፣ ዌብአፑን እና ቦቱን ማገናኛ (የተስተካከለ ስም) ---
 
-# 1. BotFather ላይ ያለው ሊንክ ጨዋታውን እንዲከፍት (የዋና ገጽ ኮድ)
+# 1. BotFather ላይ ያለው ሊንክ ጨዋታውን እንዲከፍት (የፋንክሽኑ ስም ተቀይሯል)
 @server.route('/')
-def index():
+def sefer_games_index():
     try:
         return render_template('index.html')
     except Exception as e:
         return f"Template Error: {e}", 500
 
-# 2. ቴሌግራም ቦቱ መልዕክት እንዲቀበል (የተለየ ሚስጥራዊ መንገድ)
+# 2. ቴሌግራም ቦቱ መልዕክት እንዲቀበል
 @server.route('/webhook/' + TOKEN, methods=['POST'])
 def getMessage():
     try:
@@ -320,6 +320,5 @@ def getMessage():
 def set_webhook():
     render_url = os.environ.get("RENDER_EXTERNAL_URL") or WEB_APP_URL
     bot.remove_webhook()
-    # ሊንኩን ወደ አዲሱ መድረሻ መቀየር
     bot.set_webhook(url=f"{render_url}/webhook/{TOKEN}")
     return "Webhook Successfully Set!", 200
