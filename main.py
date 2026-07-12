@@ -6,10 +6,11 @@ from telebot import types
 from flask import Flask, render_template, jsonify, request
 from upstash_redis import Redis
 
-# --- 1. የቦት እና የዳታቤዝ ቁልፎች (Configuration) ---
-TOKEN = "እዚህ ጋ የቦትህን API TOKEN አስገባ"
-REDIS_URL = "እዚህ ጋ የ Upstash Redis URL አስገባ"
-REDIS_TOKEN = "እዚህ ጋ የ Upstash Redis TOKEN አስገባ"
+# --- 1. የቦት እና የዳታቤዝ ቁልፎች (Configuration ከ Environment Variables) ---
+TOKEN = os.environ.get("BOT_TOKEN")
+REDIS_URL = os.environ.get("REDIS_URL")
+REDIS_TOKEN = os.environ.get("REDIS_TOKEN")
+
 
 # BotFather ላይ የፈጠርከው የ 3D ዌብአፕ ሊንክ ወይም ሆስት የተደረገበት ዌብሳይት
 WEB_APP_URL = "https://sefer-bot.onrender.com" 
