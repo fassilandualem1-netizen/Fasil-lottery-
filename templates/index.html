@@ -8,7 +8,9 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <!-- የ 3D Three.js ላይብረሪ -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    
+    <!-- አዲስ የተጨመረው የGLTFLoader ላይብረሪ (በጉን ለመጫን ወሳኝ) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
     <style>
         body {
             margin: 0;
@@ -55,7 +57,6 @@
             font-weight: bold;
             width: 100%;
         }
-        /* የ 3D ጌም የሚጫወትበት መደብ (መጀመሪያ የተሸሸገ ነው) */
         #game-canvas-container {
             display: none;
             position: fixed;
@@ -88,13 +89,11 @@
 </head>
 <body>
 
-    <!-- የሁኔታ መግለጫ መስኮት -->
     <div class="header-ui">
         <div>👋 <span id="user-name">ተጫዋች</span></div>
         <div class="balance-box">💰 <span id="user-balance">0.00</span> የቦት ብር</div>
     </div>
 
-    <!-- የጨዋታዎች መምረጫ ዝርዝር -->
     <div class="games-grid" id="main-menu">
         <div class="game-card">
             <div style="font-size: 40px;">🐑</div>
@@ -130,7 +129,6 @@
         </div>
     </div>
 
-    <!-- 3D ጌሙ የሚከፈትበት ቦታ -->
     <div id="game-canvas-container">
         <button id="back-btn" onclick="exitGame()">ተመለስ ↩</button>
     </div>
