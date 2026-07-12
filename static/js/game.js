@@ -51,39 +51,40 @@ async function launchGame(gameType) {
     } catch (e) { alert("የሰርቨር ስህተት ተከስቷል!"); }
 }
 
-// Three.js አለም መፍጠሪያ (ስህተቱ የተስተካከለበት)
+// 3D አለም መፍጠሪያ (የተስተካከለ)
 function init3DWorld() {
     const container = document.getElementById("game-canvas-container");
-    
+
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a1a);
+    scene.background = new THREE.Color(0x87CEEB); 
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
-    const geometry = new THREE.BoxGeometry(2, 2, 2);
-    // እዚህ ጋ የነበረው MeshMesh ስህተት ተስተካክሏል
-    const material = new THREE.MeshStandardMaterial({ color: 0x00ff88, roughness: 0.4 });
-    gameCube = new THREE.Mesh(geometry, material);
-    scene.add(gameCube);
+    // በጉን መጫኛ
+    const loader = new THREE.GLTFLoader();
+    loader.load('/static/models/sheep.glb', (gltf) => {
+        gameCube = gltf.scene; 
+        gameCube.position.set(0, 0, 0);
+        scene.add(gameCube);
+    }, undefined, (error) => {
+        console.error("በጉን መጫን አልተቻለም:", error);
+    });
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1);
     scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(5, 10, 7);
-    scene.add(directionalLight);
 
-    camera.position.z = 5;
+    camera.position.set(0, 2, 5);
     animate();
 }
 
 function animate() {
     animationFrameId = requestAnimationFrame(animate);
+    // በጉን ማሽከርከር ካስፈለገህ ይህንን ተጠቀም
     if (gameCube) {
-        gameCube.rotation.x += 0.01;
-        gameCube.rotation.y += 0.01;
+        gameCube.rotation.y += 0.01; 
     }
     renderer.render(scene, camera);
 }
