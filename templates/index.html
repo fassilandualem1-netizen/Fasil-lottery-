@@ -1,1 +1,140 @@
-gyi
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>የሰፈር 3D ጨዋታዎች</title>
+    <!-- የቴሌግራም ዌብአፕ ስክሪፕት -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- የ 3D Three.js ላይብረሪ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            overflow-x: hidden;
+        }
+        .header-ui {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px;
+            background: #222;
+            border-bottom: 2px solid #ff9800;
+        }
+        .balance-box {
+            font-weight: bold;
+            color: #ff9800;
+        }
+        .games-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            padding: 20px;
+        }
+        .game-card {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+        .game-card h3 { margin: 10px 0 5px 0; font-size: 16px; }
+        .game-card p { font-size: 12px; color: #aaa; margin-bottom: 15px; }
+        button {
+            background: #ff9800;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+        }
+        /* የ 3D ጌም የሚጫወትበት መደብ (መጀመሪያ የተሸሸገ ነው) */
+        #game-canvas-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 100;
+        }
+        #back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 101;
+            background: red;
+            width: auto;
+        }
+        .coin-flip-box input {
+            width: 80%;
+            padding: 5px;
+            margin-bottom: 10px;
+            background: #333;
+            border: 1px solid #555;
+            color: white;
+            text-align: center;
+            border-radius: 4px;
+        }
+        .flip-btns { display: flex; gap: 5px; }
+    </style>
+</head>
+<body>
+
+    <!-- የሁኔታ መግለጫ መስኮት -->
+    <div class="header-ui">
+        <div>👋 <span id="user-name">ተጫዋች</span></div>
+        <div class="balance-box">💰 <span id="user-balance">0.00</span> የቦት ብር</div>
+    </div>
+
+    <!-- የጨዋታዎች መምረጫ ዝርዝር -->
+    <div class="games-grid" id="main-menu">
+        <div class="game-card">
+            <div style="font-size: 40px;">🐑</div>
+            <h3>የበግ ሩጫ 3D</h3>
+            <p>መግቢያ፦ 2 ብር</p>
+            <button onclick="launchGame('beg_rucha')">ተጫወት</button>
+        </div>
+
+        <div class="game-card">
+            <div style="font-size: 40px;">🧀</div>
+            <h3>የአይጧ ጨዋታ 3D</h3>
+            <p>መግቢያ፦ 5 ብር</p>
+            <button onclick="launchGame('ayit_game')">ተጫወት</button>
+        </div>
+
+        <div class="game-card">
+            <div style="font-size: 40px;">🦁</div>
+            <h3>የአንበሳ አደን 3D</h3>
+            <p>መግቢያ፦ 10 ብር</p>
+            <button onclick="launchGame('anbessa_aden')">ተጫወት</button>
+        </div>
+
+        <div class="game-card">
+            <div style="font-size: 40px;">🪙</div>
+            <h3>ዘውድና ጎፈር</h3>
+            <div class="coin-flip-box">
+                <input type="number" id="bet-amount" placeholder="የብር መጠን" min="1">
+                <div class="flip-btns">
+                    <button style="background: #2196F3;" onclick="triggerCoinFlip('zewd')">ዘውድ</button>
+                    <button style="background: #4CAF50;" onclick="triggerCoinFlip('gofer')">ጎፈር</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3D ጌሙ የሚከፈትበት ቦታ -->
+    <div id="game-canvas-container">
+        <button id="back-btn" onclick="exitGame()">ተመለስ ↩</button>
+    </div>
+
+    <script src="/static/js/game.js"></script>
+</body>
+</html>
