@@ -20,7 +20,7 @@ redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 server = Flask(__name__)
 
 # ያንተ የቴሌግራም ID (ክፍያዎችን በእጅ Approve/Reject ለማድረግ)
-ADMIN_IDS = [8488592165]  
+ADMIN_IDS = [8443303643]  
 
 # የአራቱ ጨዋታዎች ታሪፍ እና የማባዣ ህጎች (አሁን ሳንቲም ማገላበጫዋ ተጨምራለች!)
 GAME_CONFIG = {
