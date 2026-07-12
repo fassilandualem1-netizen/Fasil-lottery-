@@ -17,7 +17,7 @@ bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 server = Flask(__name__)
 
-ADMIN_IDS = [8443303643]  
+ADMIN_IDS = [8488592165]  
 PRIMARY_ADMIN = ADMIN_IDS[0]
 
 # 📢 ቦቱ ሲሰበር ለአድሚኑ በቀጥታ እንዲልክ የሚያደርግ ፈንክሽን
