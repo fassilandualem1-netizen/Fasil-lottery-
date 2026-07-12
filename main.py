@@ -292,36 +292,34 @@ def handle_admin_buttons(call):
         bot.send_message(user_id, f"💸 <b>የጠየቁት {amount} ብር በቴሌብርዎ በተሳካ ሁኔታ ተልኮልዎታል!</b>")
         bot.edit_message_text(f"✅ ለተጠቃሚ {user_id} {amount} ብር መከፈሉ ተረጋግጧል።", call.message.chat.id, call.message.message_id)
 
-# --- 1. ቦቱን ያለ Threading ማስተካከል (ይህ በጣም ወሳኝ ነው!) ---
-TOKEN = os.environ.get("BOT_TOKEN")
-REDIS_URL = os.environ.get("REDIS_URL")
-REDIS_TOKEN = os.environ.get("REDIS_TOKEN")
-WEB_APP_URL = "https://sefer-bot.onrender.com" 
-
-# ⚠️ threaded=False የሚለው ቦቱ ከ Gunicorn ሰርቨር ጋር በቀጥታ እንዲገናኝ ያደርገዋል
-bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=False)
-redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
-server = Flask(__name__)
 
 
-# --- 2. 🚀 ሰርቨሩን እና ቦቱን በ Webhook ማገናኛ (ከነ መመርመሪያ ሎግ ጋር) ---
-@server.route('/' + TOKEN, methods=['POST'])
+# --- 2. 🚀 ሰርቨሩን፣ ዌብአፑን እና ቦቱን ማገናኛ (የተስተካከለ) ---
+
+# 1. BotFather ላይ ያለው ሊንክ ጨዋታውን እንዲከፍት (የዋና ገጽ ኮድ)
+@server.route('/')
+def index():
+    try:
+        return render_template('index.html')
+    except Exception as e:
+        return f"Template Error: {e}", 500
+
+# 2. ቴሌግራም ቦቱ መልዕክት እንዲቀበል (የተለየ ሚስጥራዊ መንገድ)
+@server.route('/webhook/' + TOKEN, methods=['POST'])
 def getMessage():
     try:
         json_string = request.get_data().decode('utf-8')
-        
-        # ቴሌግራም መልዕክት ሲልክ Render Logs ላይ እንዲታየን ማድረጊያ (ለመፈተሽ)
-        print("--- 📥 አዲስ መልዕክት ከቴሌግራም ወደ ሰርቨሩ ገብቷል! ---")
-        
         update = telebot.types.Update.de_json(json_string)
         bot.process_new_updates([update])
     except Exception as route_err:
         print(f"❌ Webhook Route Error: {route_err}")
     return "!", 200
 
+# 3. ዌብሁኩን በቴሌግራም ላይ ማዋቀሪያ ሊንክ
 @server.route("/set_webhook")
 def set_webhook():
     render_url = os.environ.get("RENDER_EXTERNAL_URL") or WEB_APP_URL
     bot.remove_webhook()
-    bot.set_webhook(url=f"{render_url}/{TOKEN}")
+    # ሊንኩን ወደ አዲሱ መድረሻ መቀየር
+    bot.set_webhook(url=f"{render_url}/webhook/{TOKEN}")
     return "Webhook Successfully Set!", 200
