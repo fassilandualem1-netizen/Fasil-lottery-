@@ -1,5 +1,3 @@
-telethon
-flask
-upstash-redis
-google-genai
-pytz
+python-telegram-bot
+Flask
+requests
