@@ -128,7 +128,7 @@ def send_welcome(message):
         user_id = str(message.from_user.id)
         username = message.from_user.username or "የሰፈር ልጅ"
 
-        # ሪዲስ (Redis) ላይ ዳታ ሲጻፍ ወይም ሲነበብ ስህተት ቢፈጠር ቦቱ እንዳይቆም መከላከያ
+        # ሪዲስ (Redis) መከላከያ
         try:
             if not redis.hexists("users:balance", user_id):
                 redis.hset("users:balance", user_id, "0")
@@ -138,16 +138,16 @@ def send_welcome(message):
             print(f"Redis Error: {redis_err}")
             balance = "⚠️ (የዳታቤዝ ግንኙነት ችግር)"
 
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+        # NameError እንዳይፈጠር telebot.types መዋቅርን ሙሉ ስም መጠቀም
+        markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
 
-        # የ Web App ቁልፍ (የተጫዋቹን ሊንክ ይይዛል)
-        btn_games = types.KeyboardButton("🕹️ 3D ጨዋታዎችን ይምረጡ", web_app=types.WebAppInfo(url=WEB_APP_URL))
+        # የ Web App ቁልፍ
+        btn_games = telebot.types.KeyboardButton("🕹️ 3D ጨዋታዎችን ይምረጡ", web_app=telebot.types.WebAppInfo(url=WEB_APP_URL))
 
-        btn_wallet = types.KeyboardButton("💰 የኪስ ቦርሳ (Balance)")
-        btn_deposit = types.KeyboardButton("📥 ብር አስገባ (Deposit)")
-        btn_withdraw = types.KeyboardButton("📤 ብር አውጣ (Withdraw)")
+        btn_wallet = telebot.types.KeyboardButton("💰 የኪስ ቦርሳ (Balance)")
+        btn_deposit = telebot.types.KeyboardButton("📥 ብር አስገባ (Deposit)")
+        btn_withdraw = telebot.types.KeyboardButton("📤 ብር አውጣ (Withdraw)")
         
-        # በተኖቹን በቅደም ተከተል ማስገባት
         markup.add(btn_games)
         markup.add(btn_wallet, btn_deposit, btn_withdraw)
 
@@ -160,6 +160,12 @@ def send_welcome(message):
 
     except Exception as e:
         print(f"Start Command General Error: {e}")
+        # በኮዱ ላይ ስህተት ካለ እንኳ ለተጠቃሚው እንዲያሳይ መከላከያ
+        try:
+            bot.send_message(message.chat.id, f"⚠️ ቦቱ ላይ ስህተት ተከስቷል፦ {e}")
+        except:
+            pass
+
 
 
 @bot.message_handler(func=lambda m: m.text == "💰 የኪስ ቦርሳ (Balance)")
