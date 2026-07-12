@@ -315,10 +315,23 @@ def getMessage():
         print(f"❌ Webhook Route Error: {route_err}")
     return "!", 200
 
-# 3. ዌብሁኩን በቴሌግራም ላይ ማዋቀሪያ ሊንክ
+# 3. ዌብሁኩን በቴሌግራም ላይ ማዋቀሪያ ሊንክ (ከስህተት ማሳያ ጋር)
 @server.route("/set_webhook")
 def set_webhook():
-    render_url = os.environ.get("RENDER_EXTERNAL_URL") or WEB_APP_URL
-    bot.remove_webhook()
-    bot.set_webhook(url=f"{render_url}/webhook/{TOKEN}")
-    return "Webhook Successfully Set!", 200
+    try:
+        render_url = os.environ.get("RENDER_EXTERNAL_URL") or WEB_APP_URL
+        
+        # የድሮውን ዌብሁክ በሰላም ማንሳት
+        try:
+            bot.remove_webhook()
+        except Exception as e_rm:
+            print(f"Webhook removal notice: {e_rm}")
+            
+        # አዲሱን መድረሻ መዋቀር
+        webhook_url = f"{render_url}/webhook/{TOKEN}"
+        status = bot.set_webhook(url=webhook_url)
+        
+        return f"Webhook Successfully Set! Status: {status} | URL: {webhook_url}", 200
+    except Exception as e:
+        # ስህተቱን ደብቆ 500 ከሚል ቀጥታ ስክሪኑ ላይ እንዲያሳየን
+        return f"❌ ዌብሁክ ሲዋቀር ይህ ስህተት ተከሰተ፦ {str(e)}", 500
