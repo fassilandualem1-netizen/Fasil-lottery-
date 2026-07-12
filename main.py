@@ -106,19 +106,17 @@ def handle_web_deposit():
     if not user_id or not amount or not receipt_file:
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ!"}), 400
 
+    # አዝራሮች (Buttons) ሙሉ በሙሉ ተወግደው በትእዛዝ እንዲሰራ ተደርጓል
     caption_text = (
         f"🔔 <b>አዲስ የ Deposit ጥያቄ ከዌብአፕ!</b>\n\n"
         f"👤 <b>ተጫዋች ID:</b> <code>{user_id}</code>\n"
-        f"💰 <b>የጠየቀው መጠን:</b> <b>{amount} ብር</b>\n"
+        f"💰 <b>የጠየቀው መጠን:</b> <b>{amount} ብር</b>\n\n"
+        f"📝 <b>ለማጽደቅ ትዕዛዝ፡</b>\n<code>/add {user_id} {amount}</code>\n"
+        f"❌ <b>ውድቅ ለማድረግ፡</b>\n<code>/reject {user_id}</code>"
     )
     
-    markup = types.InlineKeyboardMarkup()
-    btn_approve = types.InlineKeyboardButton("✅ Approve", callback_data=f"wa_ap_{user_id}_{amount}")
-    btn_reject = types.InlineKeyboardButton("❌ Reject", callback_data=f"wa_rj_{user_id}")
-    markup.add(btn_approve, btn_reject)
-    
     try:
-        bot.send_photo(chat_id=PRIMARY_ADMIN, photo=receipt_file.stream.read(), caption=caption_text, reply_markup=markup)
+        bot.send_photo(chat_id=PRIMARY_ADMIN, photo=receipt_file.stream.read(), caption=caption_text)
         return jsonify({"status": "success", "message": "የክፍያ ማረጋገጫዎ ለአስተዳዳሪው ተልኳል!"})
     except Exception as e:
         return jsonify({"status": "error", "message": f"ስህተት ተፈጥሯል: {str(e)}"}), 500
@@ -144,15 +142,12 @@ def handle_web_withdraw():
         f"💸 <b>አዲስ የ Withdraw ጥያቄ ከዌብአፕ!</b>\n\n"
         f"👤 <b>ተጫዋች ID:</b> <code>{user_id}</code>\n"
         f"📱 <b>ስልክ:</b> <code>{phone}</code>\n"
-        f"💰 <b>መጠን:</b> <b>{amount} ብር</b>\n"
+        f"💰 <b>መጠን:</b> <b>{amount} ብር</b>\n\n"
+        f"📝 <b>በቴሌብር ከላኩ በኋላ ለማጽደቅ፡</b>\n<code>/paid {user_id} {amount}</code>"
     )
     
-    markup = types.InlineKeyboardMarkup()
-    btn_paid = types.InlineKeyboardButton("💸 Paid", callback_data=f"wt_pd_{user_id}_{amount}")
-    markup.add(btn_paid)
-    
     try:
-        bot.send_message(chat_id=PRIMARY_ADMIN, text=message_text, reply_markup=markup)
+        bot.send_message(chat_id=PRIMARY_ADMIN, text=message_text)
         return jsonify({"status": "success", "message": "የማውጫ ጥያቄዎ ለአስተዳዳሪው ደርሷል!"})
     except Exception as e:
         redis.hincrbyfloat("users:balance", user_id, amount)
@@ -225,13 +220,17 @@ def process_deposit_request(message):
     user_id = message.from_user.id
     username = message.from_user.username or "የሰፈር ልጅ"
 
-    markup = types.InlineKeyboardMarkup()
-    btn_approve = types.InlineKeyboardButton("✅ Approve", callback_data=f"tx_ap_{user_id}_{tx_id}")
-    btn_reject = types.InlineKeyboardButton("❌ Reject", callback_data=f"tx_rj_{user_id}")
-    markup.add(btn_approve, btn_reject)
+    # አዝራሮች ተወግደው ለአድሚኑ የጽሑፍ ትዕዛዝ ኮፒ ማድረጊያ ተሰጥቶታል
+    admin_msg = (
+        f"🔔 <b>አዲስ የጽሑፍ ማጫኛ ጥያቄ!</b>\n"
+        f"👤 @{username} (ID: <code>{user_id}</code>)\n"
+        f"🧾 Tx ID: <code>{tx_id}</code>\n\n"
+        f"📝 <b>ለማጽደቅ (ለምሳሌ 50 ብር ከሆነ)፦</b>\n<code>/add {user_id} 50</code>\n"
+        f"❌ <b>ውድቅ ለማድረግ፦</b>\n<code>/reject {user_id}</code>"
+    )
 
     for admin in ADMIN_IDS:
-        bot.send_message(admin, f"🔔 <b>አዲስ የጽሑፍ ማጫኛ ጥያቄ!</b>\n👤 @{username}\n🧾 Tx ID: <code>{tx_id}</code>", reply_markup=markup)
+        bot.send_message(admin, admin_msg)
     bot.send_message(message.chat.id, "⏳ ጥያቄዎ ለአስተዳዳሪው ቀርቧል።")
 
 # --- 📤 በቦት ቴክስት (Text-based Withdraw) ---
@@ -256,106 +255,87 @@ def process_withdraw_request(message):
 
         redis.hincrbyfloat("users:balance", user_id, -amount)
 
-        markup = types.InlineKeyboardMarkup()
-        btn_paid = types.InlineKeyboardButton("💸 Paid", callback_data=f"wt_pd_{user_id}_{amount}")
-        markup.add(btn_paid)
+        admin_msg = (
+            f"🚨 <b>የጽሑፍ ማውጫ ጥያቄ!</b>\n"
+            f"👤 ID: <code>{user_id}</code>\n"
+            f"💰 መጠን: {amount}\n"
+            f"📱 ስልክ: <code>{phone}</code>\n\n"
+            f"📝 <b>በቴሌብር ከላኩ በኋላ ለማጽደቅ፡</b>\n<code>/paid {user_id} {amount}</code>"
+        )
 
         for admin in ADMIN_IDS:
-            bot.send_message(admin, f"🚨 <b>የጽሑፍ ማውጫ ጥያቄ!</b>\n👤 ID: {user_id}\n💰 መጠን: {amount}\n📱 ስልክ: <code>{phone}</code>", reply_markup=markup)
+            bot.send_message(admin, admin_msg)
         bot.send_message(message.chat.id, "⏳ ጥያቄዎ ተመዝግቧል።")
     except:
         bot.send_message(message.chat.id, "❌ የተሳሳተ አጻጻፍ!")
 
 
-# --- 🎛️ 5. የተስተካከለው እና ደህንነቱ የተጠበቀው በተን መቆጣጠሪያ ---
+# --- 🎛️ 5. አዲሱ አስተማማኝ የአድሚን የጽሑፍ ትዕዛዞች መቆጣጠሪያ (Text Commands) ---
 
-@bot.callback_query_handler(func=lambda call: True)
-def handle_admin_buttons(call):
-    # 🚨 የደህንነት ማጣሪያ (Security Guard)፦ በተኑን የነካው ሰው አድሚን መሆኑን ያረጋግጣል
-    if call.from_user.id not in ADMIN_IDS:
-        bot.answer_callback_query(call.id, "❌ ይህንን አዝራር ለመጫን ፍቃድ የለዎትም!", show_alert=True)
+@bot.message_handler(commands=['add'])
+def admin_add_balance(message):
+    if message.from_user.id not in ADMIN_IDS:
         return
-
-    data = call.data
-    chat_id = call.message.chat.id
-    message_id = call.message.message_id
-
     try:
-        # --- ሀ. የ WEB APP DEPOSIT APPROVE ---
-        if data.startswith("wa_ap_"):
-            _, _, user_id, amount = data.split("_", 3)
-            amount = float(amount)
+        # ትዕዛዝ ፎርማት፦ /add user_id amount
+        parts = message.text.split()
+        if len(parts) < 3:
+            bot.reply_to(message, "❌ የተሳሳተ ፎርማት! እባክዎ ይህንን ይከተሉ፦ <code>/add USER_ID AMOUNT</code>")
+            return
+        
+        user_id = parts[1]
+        amount = float(parts[2])
 
-            redis.hincrbyfloat("users:balance", user_id, amount)
-            try:
-                bot.send_message(user_id, f"🎉 ከዌብአፕ የላኩት የ <b>{amount} ብር</b> ዴፖዚት ጸድቋል!")
-            except: pass
-            
-            bot.answer_callback_query(call.id, "በተሳካ ሁኔታ ጸድቋል!")
-            bot.edit_message_caption(f"✅ ለተጠቃሚ {user_id} {amount} ብር ተጭኗል።", chat_id, message_id)
-
-        # --- ለ. የ WEB APP DEPOSIT REJECT ---
-        elif data.startswith("wa_rj_"):
-            _, _, user_id = data.split("_", 2)
-            try:
-                bot.send_message(user_id, "❌ ከዌብአፕ የላኩት የዴፖዚት ጥያቄ ውድቅ ሆኗል።")
-            except: pass
-            
-            bot.answer_callback_query(call.id, "ጥያቄው ውድቅ ተደርጓል")
-            bot.edit_message_caption("❌ ማጫኛ ጥያቄው ውድቅ ተደርጓል።", chat_id, message_id)
-
-        # --- ሐ. የጽሑፍ DEPOSIT APPROVE (መጠን መምረጫ ያመጣል) ---
-        elif data.startswith("tx_ap_"):
-            _, _, user_id, tx_id = data.split("_", 3)
-
-            markup = types.InlineKeyboardMarkup()
-            markup.add(
-                types.InlineKeyboardButton("25 ብር", callback_data=f"fc_{user_id}_25"),
-                types.InlineKeyboardButton("50 ብር", callback_data=f"fc_{user_id}_50")
-            )
-            markup.add(
-                types.InlineKeyboardButton("100 ብር", callback_data=f"fc_{user_id}_100"),
-                types.InlineKeyboardButton("200 ብር", callback_data=f"fc_{user_id}_200")
-            )
-
-            bot.edit_message_text(f"🧾 Tx ID: {tx_id}\n\nእባክዎ የሚጫነውን መጠን ይምረጡ፦", chat_id, message_id, reply_markup=markup)
-            bot.answer_callback_query(call.id)
-
-        # --- መ. የጽሑፍ DEPOSIT FINAL CONFIRM ---
-        elif data.startswith("fc_"):
-            _, user_id, amount = data.split("_", 2)
-            amount = float(amount)
-
-            redis.hincrbyfloat("users:balance", user_id, amount)
-            try:
-                bot.send_message(user_id, f"🎉 የ <b>{amount} ብር</b> ማጫኛ ጥያቄዎ ጸድቋል!")
-            except: pass
-            
-            bot.answer_callback_query(call.id, "ብር ተጭኗል!")
-            bot.edit_message_text(f"✅ ለተጠቃሚ {user_id} {amount} ብር ተጭኗል።", chat_id, message_id)
-
-        # --- ሠ. የጽሑፍ DEPOSIT REJECT ---
-        elif data.startswith("tx_rj_"):
-            _, _, user_id = data.split("_", 2)
-            try:
-                bot.send_message(user_id, "❌ የጽሑፍ ማጫኛ ጥያቄዎ ውድቅ ሆኗል።")
-            except: pass
-            
-            bot.answer_callback_query(call.id, "ጥያቄው ውድቅ ተደርጓል")
-            bot.edit_message_text("❌ ማጫኛ ጥያቄው ውድቅ ተደርጓል።", chat_id, message_id)
-
-        # --- ረ. WITHDRAW PAID (ለሁለቱም የሚሰራ) ---
-        elif data.startswith("wt_pd_"):
-            _, _, user_id, amount = data.split("_", 3)
-            try:
-                bot.send_message(user_id, f"💸 የጠየቁት <b>{amount} ብር</b> በቴሌብር ተልኮልዎታል።")
-            except: pass
-            
-            bot.answer_callback_query(call.id, "ክፍያ መፈጸሙ ተመዝግቧል!")
-            bot.edit_message_text(f"✅ ለተጠቃሚ {user_id} {amount} ብር መከፈሉ ተረጋግጧል።", chat_id, message_id)
-
+        redis.hincrbyfloat("users:balance", user_id, amount)
+        bot.reply_to(message, f"✅ ለተጠቃሚ <code>{user_id}</code> <b>{amount} ብር</b> በተሳካ ሁኔታ ተጭኗል።")
+        
+        try:
+            bot.send_message(user_id, f"🎉 የማጫኛ ጥያቄዎ ጸድቋል! <b>{amount} ብር</b> በኪስዎ ላይ ተጨምሯል።")
+        except: pass
     except Exception as e:
-        bot.answer_callback_query(call.id, f"⚠️ ስህተት፡ {str(e)}", show_alert=True)
+        bot.reply_to(message, f"⚠️ ስህተት ተፈጥሯል፦ {str(e)}")
+
+@bot.message_handler(commands=['paid'])
+def admin_confirm_withdraw(message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    try:
+        # ትዕዛዝ ፎርማት፦ /paid user_id amount
+        parts = message.text.split()
+        if len(parts) < 3:
+            bot.reply_to(message, "❌ የተሳሳተ ፎርማት! እባክዎ ይህንን ይከተሉ፦ <code>/paid USER_ID AMOUNT</code>")
+            return
+        
+        user_id = parts[1]
+        amount = float(parts[2])
+
+        bot.reply_to(message, f"✅ ለተጠቃሚ <code>{user_id}</code> የ <b>{amount} ብር</b> ክፍያ መፈጸሙ ተመዝግቧል።")
+        
+        try:
+            bot.send_message(user_id, f"💸 የጠየቁት <b>{amount} ብር</b> በቴሌብርዎ በተሳካ ሁኔታ ተልኮልዎታል።")
+        except: pass
+    except Exception as e:
+        bot.reply_to(message, f"⚠️ ስህተት ተፈጥሯል፦ {str(e)}")
+
+@bot.message_handler(commands=['reject'])
+def admin_reject_request(message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    try:
+        # ትዕዛዝ ፎርማት፦ /reject user_id
+        parts = message.text.split()
+        if len(parts) < 2:
+            bot.reply_to(message, "❌ የተሳሳተ ፎርማት! እባክዎ ይህንን ይከተሉ፦ <code>/reject USER_ID</code>")
+            return
+        
+        user_id = parts[1]
+        bot.reply_to(message, f"❌ የባላንስ ጥያቄው ውድቅ ተደርጓል።")
+        
+        try:
+            bot.send_message(user_id, "❌ የላኩት የዴፖዚት/ማጫኛ ጥያቄ መረጃ ትክክል አይደለም ተብሎ በአስተዳዳሪው ውድቅ ተደርጓል።")
+        except: pass
+    except Exception as e:
+        bot.reply_to(message, f"⚠️ ስህተት ተፈጥሯል፦ {str(e)}")
 
 if __name__ == "__main__":
     server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
