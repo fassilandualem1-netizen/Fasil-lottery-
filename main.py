@@ -133,18 +133,17 @@ def handle_web_deposit():
     caption_text = (
         f"🔔 <b>አዲስ የ Deposit ጥያቄ ከዌብአፕ ቀርቧል!</b>\n\n"
         f"👤 <b>ተጫዋች ID:</b> <code>{user_id}</code>\n"
-        f"💰 <b>የጠየቀው የብር መጠን:</b> {amount} ብር\n\n"
-        f"👉 እባክዎ የቴሌብር አካውንትዎን አይተው ገቢ መሆኑን ካረጋገጡ በኋላ ከታች ካሉት በተኖች የአንዱን መጠን ይፍቀዱ!"
+        f"💰 <b>የጠየቀው የብር መጠን:</b> <b>{amount} ብር</b>\n\n"
+        f"👉 እባክዎ የቴሌብር አካውንትዎን አይተው ገቢ መሆኑን ካረጋገጡ በኋላ ያጽድቁ!"
     )
     
-    # ለአድሚኑ ማጽደቂያ Dynamic በተን ማዘጋጀት
+    # ለአድሚኑ ማጽደቂያ አውቶማቲክ Inline በተን ማዘጋጀት (የብር መጠኑን በ callback_data ውስጥ እናስተላልፋለን)
     markup = types.InlineKeyboardMarkup()
-    btn_approve = types.InlineKeyboardButton("✅ መጠኑን አጽድቅ", callback_data=f"dep_app_{user_id}_WEB")
+    btn_approve = types.InlineKeyboardButton(f"✅ Approve ({amount} ብር)", callback_data=f"web_app_{user_id}_{amount}")
     btn_reject = types.InlineKeyboardButton("❌ Reject (ውድቅ አድርግ)", callback_data=f"dep_rej_{user_id}")
     markup.add(btn_approve, btn_reject)
     
     try:
-        # ቴሌግራም ላይ ፎቶ ለመላክ የ bot.send_photo መጠቀም የበለጠ አስተማማኝ ነው
         bot.send_photo(
             chat_id=PRIMARY_ADMIN, 
             photo=receipt_file.stream.read(), 
@@ -196,7 +195,31 @@ def handle_web_withdraw():
         return jsonify({"status": "error", "message": "ጥያቄውን ማስተላለፍ አልተቻለም"}), 500
 
 
-# --- 3. የቴሌግራም ቦት መልዕክቶች እና ትዕዛዞች ---
+# --- 🔗 3. የዌብሁክ መቀበያ መስመሮች (Webhook Routes for Render) ---
+
+@server.route('/webhook/' + TOKEN, methods=['POST'])
+def getMessage():
+    try:
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+    except Exception as e:
+        print(f"Webhook error: {e}")
+    return "!", 200
+
+@server.route("/set_webhook")
+def set_webhook():
+    try:
+        render_url = os.environ.get("RENDER_EXTERNAL_URL") or WEB_APP_URL
+        bot.remove_webhook()
+        webhook_url = f"{render_url}/webhook/{TOKEN}"
+        status = bot.set_webhook(url=webhook_url, drop_pending_updates=True)
+        return f"🟢 Webhook Successfully Set! Status: {status}", 200
+    except Exception as e:
+        return f"❌ Webhook Setup Failed: {e}", 500
+
+
+# --- 4. የቴሌግራም ቦት መልዕክቶች እና ትዕዛዞች ---
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -234,7 +257,7 @@ def send_welcome(message):
 def check_balance(message):
     user_id = str(message.from_user.id)
     balance = redis.hget("users:balance", user_id) or "0"
-    bot.send_message(message.chat.id, f"💰 ወቅታዊ የኪስ ቦርሳዎ የсаንቲም መጠን፦ <b>{balance} የቦት ብር</b> ነው።")
+    bot.send_message(message.chat.id, f"💰 ወቅታዊ የኪስ ቦርሳዎ የሳንቲም መጠን፦ <b>{balance} የቦት ብር</b> ነው።")
 
 # --- 📥 በቦት ቴክስት በእጅ ብር ማጫኛ መዋቅር (Text-based Deposit) ---
 @bot.message_handler(func=lambda m: m.text == "📥 ብር አስገባ (Deposit)")
@@ -254,7 +277,7 @@ def process_deposit_request(message):
     username = message.from_user.username or "የሰፈር ልጅ"
 
     markup = types.InlineKeyboardMarkup()
-    btn_approve = types.InlineKeyboardButton("✅ Approve", callback_data=f"dep_app_{user_id}_{tx_id}")
+    btn_approve = types.InlineKeyboardButton("✅ Approve", callback_data=f"txt_app_{user_id}_{tx_id}")
     btn_reject = types.InlineKeyboardButton("❌ Reject", callback_data=f"dep_rej_{user_id}")
     markup.add(btn_approve, btn_reject)
 
@@ -298,7 +321,7 @@ def process_withdraw_request(message):
         for admin in ADMIN_IDS:
             bot.send_message(
                 admin,
-                f"🚨 <b>የብር ማውጫ ጥያቄ መጥቷል (በጽሑፍ)!</b>\n\n"
+                f"🚨 <b>የብር ማውጫ ጥያቄ መጥቷል (በጽ蹟)!</b>\n\n"
                 f"👤 ተጠቃሚ ID: {user_id}\n"
                 f"💰 ሊያወጣ የጠየቀው፦ <b>{amount} ብር</b>\n"
                 f"📱 የቴሌብር ስልክ ቁጥር፦ <code>{phone}</code>\n\n"
@@ -309,17 +332,31 @@ def process_withdraw_request(message):
     except:
         bot.send_message(message.chat.id, "❌ የተሳሳተ አጻጻፍ ፎርማት ተጠቅመዋል። እባክዎ ድጋሚ ይሞክሩ።")
 
-# --- 🎛️ የአድሚን በተኖች ስራ (Callback Query Handlers) ---
+
+# --- 🎛️ 5. የአድሚን አውቶማቲክ በተኖች ስራ (Callback Query Handlers) ---
+
 @bot.callback_query_handler(func=lambda call: True)
 def handle_admin_buttons(call):
     data = call.data
 
-    if data.startswith("dep_app_"):
+    # ሀ. የ Web App ፎቶ የደረሰኝ ጥያቄ ማጽደቂያ (አውቶማቲክ ማጫኛ)
+    if data.startswith("web_app_"):
+        _, _, user_id, amount = data.split("_")
+        amount = float(amount)
+
+        redis.hincrbyfloat("users:balance", user_id, amount)
+        try:
+            bot.send_message(user_id, f"🎉 <b>ከዌብአፕ የላኩት የ {amount} ብር ዴፖዚት ጥያቄዎ ጸድቋል! በኪስዎ ላይ ተጨምሯል።</b>")
+        except: pass
+        
+        bot.edit_message_caption(f"✅ ለተጠቃሚ {user_id} የጠየቀው {amount} ብር ቀጥታ ተጭኗል።", call.message.chat.id, call.message.message_id)
+
+    # ለ. በጽሑፍ የመጣ የደረሰኝ ማጽደቂያ (ይህ ሲነካ መጠኑን መምረጫ ያመጣል)
+    elif data.startswith("txt_app_"):
         parts = data.split("_")
         user_id = parts[2]
         tx_id = parts[3]
 
-        # አድሚኑ ተመጣጣኙን የብር መጠን መርጦ እንዲጭን Dynamic በተን ማሳየት
         markup = types.InlineKeyboardMarkup()
         btn_25 = types.InlineKeyboardButton("25 ብር", callback_data=f"add_{user_id}_25")
         btn_50 = types.InlineKeyboardButton("50 ብር", callback_data=f"add_{user_id}_50")
@@ -327,18 +364,14 @@ def handle_admin_buttons(call):
         btn_200 = types.InlineKeyboardButton("200 ብር", callback_data=f"add_{user_id}_200")
         markup.add(btn_25, btn_50, btn_100, btn_200)
 
-        bot.edit_message_caption(
-            caption=f"🧾 ማረጋገጫ (Tx/WEB)፦ <code>{tx_id}</code>\n\nእባክዎ ተጠቃሚው የላከውን ትክክለኛ የብር መጠን ይምረጡ፦", 
-            chat_id=call.message.chat.id, 
-            message_id=call.message.message_id, 
-            reply_markup=markup
-        ) if call.message.photo else bot.edit_message_text(
+        bot.edit_message_text(
             text=f"🧾 የደረሰኝ ቁጥር፦ <code>{tx_id}</code>\n\nእባክዎ ተጠቃሚው የላከውን የብር መጠን ይምረጡ፦", 
             chat_id=call.message.chat.id, 
             message_id=call.message.message_id, 
             reply_markup=markup
         )
 
+    # ሐ. በጽሑፍ ለመጣው መጠን መሙያ ስራ
     elif data.startswith("add_"):
         _, user_id, amount = data.split("_")
         amount = float(amount)
@@ -347,12 +380,9 @@ def handle_admin_buttons(call):
         try:
             bot.send_message(user_id, f"🎉 <b>የማጫኛ ጥያቄዎ ጸድቋል! {amount} የቦት ብር በኪስዎ ላይ ተጨምሯል።</b>")
         except: pass
-        
-        if call.message.photo:
-            bot.edit_message_caption(f"✅ ለተጠቃሚ {user_id} {amount} ብር በተሳካ ሁኔታ ተጭኗል።", call.message.chat.id, call.message.message_id)
-        else:
-            bot.edit_message_text(f"✅ ለተጠቃሚ {user_id} {amount} ብር በተሳካ ሁኔታ ተጭኗል።", call.message.chat.id, call.message.message_id)
+        bot.edit_message_text(f"✅ ለተጠቃሚ {user_id} {amount} ብር በተሳካ ሁኔታ ተጭኗል።", call.message.chat.id, call.message.message_id)
 
+    # መ. ማንኛውንም የዴፖዚት ጥያቄ ውድቅ ማድረጊያ
     elif data.startswith("dep_rej_"):
         _, _, user_id = data.split("_")
         try:
@@ -360,10 +390,11 @@ def handle_admin_buttons(call):
         except: pass
         
         if call.message.photo:
-            bot.edit_message_caption("❌ ማጫኛ ውድቅ ተደርጓል።", call.message.chat.id, call.message.message_id)
+            bot.edit_message_caption("❌ ማጫኛ ጥያቄው ውድቅ ተደርጓል።", call.message.chat.id, call.message.message_id)
         else:
-            bot.edit_message_text("❌ ማጫኛ ውድቅ ተደርጓል።", call.message.chat.id, call.message.message_id)
+            bot.edit_message_text("❌ ማጫኛ ጥያቄው ውድቅ ተደርጓል።", call.message.chat.id, call.message.message_id)
 
+    # ሠ. የብር ማውጫ (Withdraw) ክፍያ ማረጋገጫ
     elif data.startswith("wit_paid_"):
         _, _, user_id, amount = data.split("_")
         try:
@@ -371,18 +402,7 @@ def handle_admin_buttons(call):
         except: pass
         bot.edit_message_text(f"✅ ለተጠቃሚ {user_id} {amount} ብር መከፈሉ ተረጋግጧል።", call.message.chat.id, call.message.message_id)
 
-
-# --- 🚀 የቦት እና ሰርቨር ማስነሻ ---
-
-def run_flask():
-    print("🎮 የፍላስክ ሰርቨር እየተነሳ ነው...")
-    server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
-
+# --- 🚀 ሰርቨር ማስነሻ (Render Webhook Integration) ---
 if __name__ == "__main__":
-    bot.remove_webhook()
-
-    # የፍላስክ ሰርቨሩን በስተጀርባ (Thread) ማስነሳት
-    threading.Thread(target=run_flask, daemon=True).start()
-
-    print("🤖 ቦቱ በፖሊንግ አማካኝነት በጠንካራ ሁኔታ ተነሳ!")
-    bot.infinity_polling(skip_pending_updates=True)
+    # Render ላይ ዌብሁክ ስለሚጠቀም ሰርቨሩን ብቻ በ 0.0.0.0 ላይ እናስነሳዋለን
+    server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
