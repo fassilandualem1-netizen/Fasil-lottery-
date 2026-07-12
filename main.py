@@ -124,31 +124,43 @@ def coin_flip():
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    user_id = str(message.from_user.id)
-    username = message.from_user.username or "የሰፈር ልጅ"
-    
-    if not redis.hexists("users:balance", user_id):
-        redis.hset("users:balance", user_id, "0")
-        redis.hset("users:username", user_id, username)
+    try:
+        user_id = str(message.from_user.id)
+        username = message.from_user.username or "የሰፈር ልጅ"
+
+        # ሪዲስ (Redis) ላይ ዳታ ሲጻፍ ወይም ሲነበብ ስህተት ቢፈጠር ቦቱ እንዳይቆም መከላከያ
+        try:
+            if not redis.hexists("users:balance", user_id):
+                redis.hset("users:balance", user_id, "0")
+                redis.hset("users:username", user_id, username)
+            balance = redis.hget("users:balance", user_id) or "0"
+        except Exception as redis_err:
+            print(f"Redis Error: {redis_err}")
+            balance = "⚠️ (የዳታቤዝ ግንኙነት ችግር)"
+
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+
+        # የ Web App ቁልፍ (የተጫዋቹን ሊንክ ይይዛል)
+        btn_games = types.KeyboardButton("🕹️ 3D ጨዋታዎችን ይምረጡ", web_app=types.WebAppInfo(url=WEB_APP_URL))
+
+        btn_wallet = types.KeyboardButton("💰 የኪስ ቦርሳ (Balance)")
+        btn_deposit = types.KeyboardButton("📥 ብር አስገባ (Deposit)")
+        btn_withdraw = types.KeyboardButton("📤 ብር አውጣ (Withdraw)")
         
-    balance = redis.hget("users:balance", user_id) or "0"
-    
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    
-    # የ Web App ቁልፍ (የተጫዋቹን ሊንክ ይይዛል)
-    btn_games = types.KeyboardButton("🕹️ 3D ጨዋታዎችን ይምረጡ", web_app=types.WebAppInfo(url=WEB_APP_URL))
-    
-    btn_wallet = types.KeyboardButton("💰 የኪስ ቦርሳ (Balance)")
-    btn_deposit = types.KeyboardButton("📥 ብር አስገባ (Deposit)")
-    btn_withdraw = types.KeyboardButton("📤 ብር አውጣ (Withdraw)")
-    markup.add(btn_games, btn_wallet, btn_deposit, btn_withdraw)
-    
-    msg = (
-        f"<b>እንኳን ወደ ሰፈር 3D ጌሚንግ ቦት በሰላም መጡ! 👋</b>\n\n"
-        f"💰 ወቅታዊ የኪስ ቦርሳዎ፦ <b>{balance} የቦት ብር</b>\n\n"
-        f"ለመጫወት ከታች ካሉት በተኖች አንዱን ይጫኑ።"
-    )
-    bot.send_message(message.chat.id, msg, reply_markup=markup)
+        # በተኖቹን በቅደም ተከተል ማስገባት
+        markup.add(btn_games)
+        markup.add(btn_wallet, btn_deposit, btn_withdraw)
+
+        msg = (
+            f"<b>እንኳን ወደ ሰፈር 3D ጌሚንግ ቦት በሰላም መጡ! 👋</b>\n\n"
+            f"💰 ወቅታዊ የኪስ ቦርሳዎ፦ <b>{balance} የቦት ብር</b>\n\n"
+            f"ለመጫወት ከታች ካሉት በተኖች አንዱን ይጫኑ።"
+        )
+        bot.send_message(message.chat.id, msg, parse_mode="HTML", reply_markup=markup)
+
+    except Exception as e:
+        print(f"Start Command General Error: {e}")
+
 
 @bot.message_handler(func=lambda m: m.text == "💰 የኪስ ቦርሳ (Balance)")
 def check_balance(message):
