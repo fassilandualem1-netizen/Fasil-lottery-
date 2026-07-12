@@ -102,14 +102,28 @@ def handle_web_withdraw():
     try:
         data = request.json
         user_id = str(data.get("user_id"))
+        user_name = data.get("user_name", "የሰፈር ልጅ")
+        phone = data.get("phone", "ስልክ አልተገኘም") # ከ JS የተላከው key "phone" ነው
         amount = float(data.get("amount", 0))
         
         current_balance = float(redis.hget("users:balance", user_id) or 0)
         if current_balance < amount: 
             return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
-            
-        redis.hincrbyfloat("users:balance", user_id, -amount)
-        bot.send_message(chat_id=MY_PRIVATE_CHAT_ID, text=f"💸 <b>አዲስ የ Withdraw ጥያቄ!</b>\n🆔 ID: <code>{user_id}</code>\n💰 መጠን: <b>{amount} ብር</b>")
+        
+        # Withdraw ጥያቄውን ወደ አድሚን ግሩፕ መላክ
+        msg = (f"💸 <b>አዲስ የ Withdraw ጥያቄ!</b>\n\n"
+               f"👤 <b>ተጠቃሚ:</b> {user_name}\n"
+               f"🆔 <b>ID:</b> <code>{user_id}</code>\n"
+               f"📱 <b>ስልክ:</b> <code>{phone}</code>\n"
+               f"💰 <b>መጠን:</b> <b>{amount} ብር</b>")
+        
+        markup = InlineKeyboardMarkup()
+        # ADMIN_SECRET_TOKEN መጠቀሙን አትርሳ
+        paid_url = f"{WEB_APP_URL}/mark-paid?user_id={user_id}&amount={amount}&token={ADMIN_SECRET_TOKEN}"
+        markup.add(InlineKeyboardButton("✅ Paid (ተከፍሏል)", url=paid_url))
+        
+        bot.send_message(chat_id=ADMIN_GROUP_ID, text=msg, reply_markup=markup, parse_mode="HTML")
+        
         return jsonify({"status": "success", "message": "ጥያቄዎ ለአድሚን ደርሷል!"})
     except Exception as e: 
         return jsonify({"status": "error", "message": str(e)}), 500
