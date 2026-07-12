@@ -54,20 +54,38 @@ function init3DWorld() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
-    // በጉን መጫኛ
+        // በጉን መጫኛ
     const loader = new THREE.GLTFLoader();
     loader.load('/static/models/sheep.glb', (gltf) => {
         gameCube = gltf.scene; 
+        
+        // 1. በጉን መሃል ላይ ማድረግ እና መጠኑን ማስተካከል
         gameCube.position.set(0, 0, 0);
+        gameCube.scale.set(1, 1, 1); // ትንሽ ከሆነ ቁጥሮቹን ወደ 2 ወይም 3 ማሳደግ ትችላለህ
+        
         scene.add(gameCube);
+        
+        // 2. በጉ በትክክል ከተጫነ በስክሪኑ ላይ መልእክት እንዲያወጣ
+        alert("በጉ በትክክል ተጭኗል!"); 
+        
     }, undefined, (error) => {
+        // 3. ስህተት ካለ ምን እንደሆነ በስክሪኑ ላይ እንዲያወጣ
+        alert("ስህተት: ፋይሉ አልተገኘም ወይም አልተጫነም።");
         console.error("በጉን መጫን አልተቻለም:", error);
     });
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1);
+    // 4. መብራቶች (በጉ እንዳይጨልም)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
 
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(5, 5, 5);
+    scene.add(directionalLight);
+
+    // 5. ካሜራው ትክክል በጉን እንዲያይ ማስተካከል
     camera.position.set(0, 2, 5);
+    camera.lookAt(0, 0, 0);
+    
     animate();
 }
 
@@ -79,6 +97,7 @@ function animate() {
     }
     renderer.render(scene, camera);
 }
+
 
 function exitGame() {
     cancelAnimationFrame(animationFrameId);
