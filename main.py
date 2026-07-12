@@ -24,9 +24,9 @@ ADMIN_IDS = [8443303643]
 
 # የአራቱ ጨዋታዎች ታሪፍ እና የማባዣ ህጎች (አሁን ሳንቲም ማገላበጫዋ ተጨምራለች!)
 GAME_CONFIG = {
-    "beg_rucha": {"name": "🐑 የበግ ሩጫ 3D", "fee": 2, "multiplier": 0.02},
-    "ayi_game": {"name": "🧀 የአይጧ ጨዋታ 3D", "fee": 5, "multiplier": 0.50},
-    "anbessa_aden": {"name": "🦁 የአንበሳ አደን 3D", "fee": 10, "multiplier": 1.50},
+    "beg_rucha": {"name": "🐑 የበግ ሩጫ", "fee": 2, "multiplier": 0.02},
+    "ayi_game": {"name": "🧀 የአይጧ ጨዋታ", "fee": 5, "multiplier": 0.50},
+    "anbessa_aden": {"name": "🦁 የአንበሳ አደን", "fee": 10, "multiplier": 1.50},
     "coin_flip": {"name": "🪙 እጥፍ ወይስ ባዶ (ዘውድ/ጎፈር)", "fee": 0, "multiplier": 2.0, "type": "luck"}
 }
 
