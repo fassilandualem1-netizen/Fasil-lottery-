@@ -241,6 +241,31 @@
         <button id="back-btn" onclick="exitGame()">ተመለስ ↩</button>
     </div>
 
+    <h3>history</h3>
+<div id="history-list" style="font-size: 12px; color: #aaa;"></div>
+
+<script>
+    async function loadHistory() {
+        const res = await fetch('/api/get_history', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({user_id: userId})
+        });
+        const data = await res.json();
+        const list = document.getElementById("history-list");
+        list.innerHTML = data.history.map(h => `
+            <div style="margin-bottom:5px;">
+                ${h.type}: ${h.amount} ብር - <b>${h.status}</b>
+            </div>
+        `).join('');
+    }
+    // Wallet ሲከፈት ታሪኩንም ይጫኑ
+    function openWallet() {
+        document.getElementById("wallet-modal").style.display = "flex";
+        loadHistory(); 
+    }
+</script>
+
     <div id="wallet-modal" class="modal" style="display: none;">
     <div class="modal-content">
         <span class="close-btn" onclick="closeWallet()">&times;</span>
