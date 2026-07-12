@@ -30,26 +30,17 @@ async function fetchBalance() {
     } catch (e) { console.error("ባላንስ ማግኘት አልተቻለም", e); }
 }
 
-// --- 2. 3D ጨዋታ ማስነሻ ---
+// --- 2. 3D ጨዋታ ማስነሻ (ባላንስ ሳይኖር ለሙከራ የሚከፈት) ---
 async function launchGame(gameType) {
-    try {
-        const res = await fetch('/api/start_game', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, game_type: gameType })
-        });
-        const data = await res.json();
-
-        if (data.status === "ready") {
-            fetchBalance();
-            activeGame = gameType;
-            document.getElementById("game-canvas-container").style.display = "block";
-            init3DWorld();
-        } else {
-            alert(data.message || "በቂ ባላንስ የሎትም!");
-        }
-    } catch (e) { alert("የሰርቨር ስህተት ተከስቷል!"); }
+    // ባላንስን ሳይጠብቅ ጨዋታውን በቀጥታ ይከፍታል
+    activeGame = gameType;
+    document.getElementById("game-canvas-container").style.display = "block";
+    init3DWorld();
+    
+    // በሰርቨር በኩል የሆነ ችግር ካለ ለማወቅ ይህን ተጠቀም
+    console.log("ጨዋታው በሙከራ ሁነታ ተከፍቷል:", gameType);
 }
+
 
 // 3D አለም መፍጠሪያ (የተስተካከለ)
 function init3DWorld() {
