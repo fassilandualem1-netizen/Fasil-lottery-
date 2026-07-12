@@ -210,21 +210,21 @@
     <div class="games-grid" id="main-menu">
         <div class="game-card">
             <div style="font-size: 40px;">🐑</div>
-            <h3>የበግ ሩጫ 3D</h3>
+            <h3>የበግ ሩጫ</h3>
             <p>መግቢያ፦ 2 ብር</p>
             <button onclick="launchGame('beg_rucha')">ተጫወት</button>
         </div>
 
         <div class="game-card">
             <div style="font-size: 40px;">🧀</div>
-            <h3>የአይጧ ጨዋታ 3D</h3>
+            <h3>የአይጧ ጨዋታ</h3>
             <p>መግቢያ፦ 5 ብር</p>
             <button onclick="launchGame('ayit_game')">ተጫወት</button>
         </div>
 
         <div class="game-card">
             <div style="font-size: 40px;">🦁</div>
-            <h3>የአንበሳ አደን 3D</h3>
+            <h3>የአንበሳ አደን </h3>
             <p>መግቢያ፦ 10 ብር</p>
             <button onclick="launchGame('anbessa_aden')">ተጫወት</button>
         </div>
@@ -251,9 +251,9 @@
 <div id="wallet-modal" class="modal" style="display: none;">
     <div class="modal-content">
         <span class="close-btn" onclick="closeWallet()">&times;</span>
-        <h2>የማህበረሰቡ ዋሌት 💳</h2>
+        <h2>ዋሌት 💳</h2>
         <div class="modal-balance-box">
-            የአሁኑ ባላንስዎ: <span id="modal-balance">0.00</span> ብር
+             balance: <span id="modal-balance">0.00</span> ብር
         </div>
         <hr>
 
@@ -383,7 +383,7 @@
             const res = await fetch('/api/deposit', { method: 'POST', body: formData });
             const data = await res.json();
             if (data.status === "success") {
-                alert(`የማረጋገጫ ጥያቄዎ ቀርቧል! አስተዳዳሪው አይቶ ባላንስዎን ያድሳል።`);
+                alert(`የማረጋገጫ ጥያቄዎ ተልኮአል ✅! አድሚኑ አይቶ ባላንስዎን ይሞላል።`);
                 amountInput.value = "";
                 receiptInput.value = "";
                 document.getElementById("file-name-display").innerText = "";
@@ -412,7 +412,7 @@
             });
             const data = await res.json();
             if (data.status === "success") {
-                alert(`${amount} ብር ወደ ${phone} ለመላክ ጥያቄዎ ቀርቧል!`);
+                alert(`${amount} ብር ወደ ${phone} ለመላክ ጥያቄዎ ተልኮአል ✅!`);
                 amountInput.value = "";
                 phoneInput.value = "";
                 fetchBalance();
