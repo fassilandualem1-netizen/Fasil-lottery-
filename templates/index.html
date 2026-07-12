@@ -20,7 +20,7 @@
             color: white;
             overflow-x: hidden;
         }
-        
+
         .header-ui {
             display: flex;
             justify-content: space-between;
@@ -62,7 +62,7 @@
         }
         .game-card h3 { margin: 10px 0 5px 0; font-size: 16px; }
         .game-card p { font-size: 12px; color: #aaa; margin-bottom: 15px; }
-        
+
         button {
             background: #ff9800;
             color: white;
@@ -142,7 +142,7 @@
             cursor: pointer;
         }
         .close-btn:hover { color: #f44336; }
-        
+
         h2 { color: #ff9800; margin-top: 10px; }
         h3 { color: #4CAF50; font-size: 16px; margin-bottom: 5px; }
         .withdraw-title { color: #f44336; }
@@ -235,8 +235,8 @@
             <div class="coin-flip-box">
                 <input type="number" id="bet-amount" placeholder="የብር መጠን" min="1">
                 <div class="flip-btns">
-                    <button style="background: #2196F3;" onclick="triggerCoinFlip('zewd')">ዘውድ</button>
-                    <button style="background: #4CAF50;" onclick="triggerCoinFlip('gofer')">ጎፈር</button>
+                    <button style="background: #2196F3;" onclick="triggerCoinFlip('ዘውድ')">ዘውድ</button>
+                    <button style="background: #4CAF50;" onclick="triggerCoinFlip('ጎፈር')">ጎፈር</button>
                 </div>
             </div>
         </div>
@@ -253,7 +253,7 @@
         <span class="close-btn" onclick="closeWallet()">&times;</span>
         <h2>ዋሌት 💳</h2>
         <div class="modal-balance-box">
-             balance: <span id="modal-balance">0.00</span> ብር
+             ባላንስ: <span id="modal-balance">0.00</span> ብር
         </div>
         <hr>
 
@@ -284,7 +284,7 @@
     const tg = window.Telegram.WebApp;
     if(tg) tg.expand();
 
-    // 👤 የተጠቃሚ መረጃ መያዣ (የአድሚን ሪፖርትን ቀላል ለማድረግ firstName ተጨምሯል)
+    // 👤 የተጠቃሚ መረጃ መያዣ
     const userData = tg.initDataUnsafe?.user || { id: "8488592165", first_name: "የሰፈር ልጅ" };
     const userId = userData.id.toString();
     const firstName = userData.first_name; 
@@ -294,6 +294,8 @@
         const userNameElem = document.getElementById("user-name");
         if(userNameElem) userNameElem.innerText = firstName;
         fetchBalance();
+        // በየ 5 ሰከንዶች ባላንስን በራስ-ሰር ያድሳል
+        setInterval(fetchBalance, 5000);
     });
 
     // 💰 የባላንስ መረጃ ከዳታቤዝ መሳቢያ
@@ -321,11 +323,11 @@
         document.getElementById("wallet-modal").style.display = "flex";
         document.getElementById("modal-balance").innerText = currentBalance.toFixed(2);
     }
-    
+
     function closeWallet() {
         document.getElementById("wallet-modal").style.display = "none";
     }
-    
+
     function updateReceiptLabel(input) {
         const fileName = input.files[0] ? input.files[0].name : "";
         document.getElementById("file-name-display").innerText = "የተመረጠ ፋይል: " + fileName;
@@ -335,7 +337,7 @@
     async function triggerCoinFlip(choice) {
         const betAmountInput = document.getElementById("bet-amount");
         if (!betAmountInput) return;
-        
+
         const betAmount = parseFloat(betAmountInput.value || 0);
 
         if (betAmount <= 0) return alert("እባክዎ መጀመሪያ ትክክለኛ የውርርድ የብር መጠን ያስገቡ!");
@@ -349,7 +351,6 @@
             });
             const data = await res.json();
 
-            // 🔄 ሰርቨሩ 'win' ወይም 'lose' ሲመልስ በትክክል እንዲያነበው የተደረገ ማሻሻያ
             if (data.status === "win" || data.status === "lose" || data.status === "success") {
                 alert(data.message); 
                 betAmountInput.value = "";
@@ -362,11 +363,11 @@
         }
     }
 
-    // 📥 የደህንነትና የአድሚን ማሻሻያ የተደረገበት የDeposit ሎጂክ
+    // 📥 የDeposit ሎጂክ
     async function handleDeposit() {
         const amountInput = document.getElementById("deposit-amount");
         const receiptInput = document.getElementById("deposit-receipt");
-        
+
         const amount = parseFloat(amountInput.value || 0);
         const receiptFile = receiptInput.files[0];
 
@@ -375,7 +376,7 @@
 
         const formData = new FormData();
         formData.append("user_id", userId);
-        formData.append("user_name", firstName); // አድሚኑ ማን እንደላከው በግል ቴሌግራሙ እንዲለየው
+        formData.append("user_name", firstName); 
         formData.append("amount", amount);
         formData.append("receipt", receiptFile);
 
@@ -392,11 +393,11 @@
         } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
     }
 
-    // 📤 የWithdraw ሎጂክ (ከ user_name ማሻሻያ ጋር)
+    // 📤 የWithdraw ሎጂክ
     async function handleWithdraw() {
         const amountInput = document.getElementById("withdraw-amount");
         const phoneInput = document.getElementById("withdraw-phone");
-        
+
         const amount = parseFloat(amountInput.value || 0);
         const phone = phoneInput.value.trim();
 
