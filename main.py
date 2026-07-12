@@ -316,103 +316,24 @@ def handle_admin_buttons(call):
 
 
 
-# --- 2. 🚀 ሰርቨሩን፣ ዌብአፑን እና ቦቱን ማገናኛ (እጅግ ጠንካራ ስሪት) ---
+# --- 🚀 አዲሱ እና የመጨረሻው የቦት እና ሰርቨር ማስነሻ ---
 
-# 1. BotFather ላይ ያለው ሊንክ ጨዋታውን እንዲከፍት (ከዝርዝር መመርመሪያ ጋር)
+# ይህ ክፍል የጨዋታውን ድረ-ገጽ ያገለግላል
 @server.route('/')
 def sefer_games_index():
-    print("\n🎮 === 📢 [DEBUG]: አንድ ተጠቃሚ የጌሙን ሊንክ (Web App) ከፍቷል! ===")
-    try:
-        # 1. የ index.html ፋይል መኖር አለመኖሩን መፈተሽ
-        print("⏳ [DEBUG]: index.html ቴምፕሌትን ለመጫን እየሞከርኩ ነው...")
-        rendered_page = render_template('index.html')
-        print("🎉 [DEBUG SUCCESS]: index.html ገጽ በተሳካ ሁኔታ ተጭኖ ለተጠቃሚው ተልኳል!")
-        return rendered_page
-        
-    except Exception as e:
-        print(f"❌❌❌ [CRITICAL FRONTEND ERROR]: የጌሙ ገጽ ሲከፈት ይህ ስህተት ተከሰተ፦ {str(e)}")
-        import traceback
-        print(f"📜 ሙሉ የፍሮንትአንድ ስህተት ታሪክ (Traceback)፦\n{traceback.format_exc()}")
-        return f"<h3>❌ የጌሙ መግቢያ ገጽ ላይ ስህተት ተፈጥሯል፦</h3><pre>{str(e)}</pre>", 500
+    return render_template('index.html')
 
-# --- 2. 🚀 ቴሌግራም ቦቱ መልዕክት እንዲቀበል እና እንዲመረምር (የተስተካከለ ስሪት) ---
-@server.route(f'/webhook/{TOKEN}', methods=['POST'])
-def getMessage():
-    print("\n📥 === 📢 [DEBUG]: አዲስ የዌብሁክ ጥያቄ ከቴሌግራም መጥቷል! ===")
-   
-    try:
-        # 1. ዳታውን የመቀበል ፍተሻ
-        raw_data = request.get_data()
-        if not raw_data:
-            print("⚠️ [DEBUG ERROR]: የገባው raw_data ባዶ ነው!")
-            return "Empty Data", 400
-            
-        json_string = raw_data.decode('utf-8')
-        print(f"✅ [DEBUG]: የገባው JSON ዳታ (የመጀመሪያው 150 ፊደል)፦ {json_string[:150]}")
-        
-        # 2. ወደ ቴሌግራም አፕዴት የመቀየር ፍተሻ
-        try:
-            update = telebot.types.Update.de_json(json_string)
-            print(f"✅ [DEBUG]: JSON በተሳካ ሁኔታ ወደ Update Object ተቀይሯል። Update ID: {update.update_id}")
-            if update.message:
-                print(f"💬 [DEBUG]: የተላከው ጽሑፍ፦ '{update.message.text}' | ከ User ID: {update.message.from_user.id}")
-        except Exception as json_err:
-            print(f"❌ [DEBUG ERROR]: JSON ወደ Update ሲቀየር ከሸፈ፦ {json_err}")
-            return "Invalid JSON", 400
+def run_flask():
+    print("🎮 የፍላስክ ሰርቨር እየተነሳ ነው...")
+    server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
 
-        # 3. ⚠️ ዋናው ፍተሻ፦ ቦቱ መልዕክቱን ሲያቀነባብር (እዚህ ጋ ነው ዝም የሚለው!)
-        print("⏳ [DEBUG]: አሁን መልዕክቱን ወደ bot.process_new_updates እያስተላለፍኩ ነው...")
-        try:
-            bot.process_new_updates([update])
-            print("🎉 [DEBUG SUCCESS]: bot.process_new_updates ሳይሰበር በተሳካ ሁኔታ አለፈ!")
-        except Exception as bot_err:
-            # የቦቱ handlers (ለምሳሌ የሪዲስ መመዝገቢያ ኮድህ) ሲሰበር እዚህ ውስጥ ይገባል
-            print(f"❌❌❌ [CRITICAL BOT ERROR]: ቦቱ መልዕክቱን ሲያስተናግድ ይሄ መስመር ተሰበረ፦ {str(bot_err)}")
-            import traceback
-            print(f"📜 ሙሉ የስህተት ታሪክ (Traceback)፦\n{traceback.format_exc()}")
-
-    except Exception as general_err:
-        print(f"❌ [DEBUG ERROR]: አጠቃላይ የዌብሁክ ስህተት፦ {general_err}")
-        
-    print("📤 === 📢 [DEBUG]: የዌብሁክ ጥያቄ ማስተናገዱ ተጠናቀቀ ===\n")
-    return "!", 200
-
-
-# 3. 🖥️ እጅግ ጠንካራ የዌብሁክ ማዋቀሪያ ሊንክ (ከዝርዝር መመርመሪያ ጋር)
-@server.route("/set_webhook")
-def set_webhook():
-    report = []
-    report.append("=== 🔍 የዌብሁክ ማዋቀር ምርመራ ተጀመረ ===")
+if __name__ == "__main__":
+    # 1. መጀመሪያ ማንኛውንም የቆየ ዌብሁክ ማጥፋት (ቦቱ በነጻነት እንዲሰራ)
+    bot.remove_webhook()
     
-    # 1. የቶከን ፍተሻ
-    if not TOKEN:
-        return "❌ ስህተት፦ BOT_TOKEN በ Render Environment Variables ላይ አልተገኘም!", 500
-    report.append(f"✅ 1. የቦት ቶከን ተገኝቷል (በ {TOKEN[:5]}... ይጀምራል)")
+    # 2. የፍላስክ ሰርቨሩን በስተጀርባ (Thread) ማስነሳት
+    threading.Thread(target=run_flask, daemon=True).start()
 
-    # 2. የ Render URL ፍተሻ
-    render_url = os.environ.get("RENDER_EXTERNAL_URL") or WEB_APP_URL
-    if not render_url:
-        return "❌ ስህተት፦ RENDER_EXTERNAL_URL ወይም WEB_APP_URL አልተዋቀረም!", 500
-    report.append(f"✅ 2. የሰርቨር አድራሻ ተገኝቷል፦ {render_url}")
-
-    # 3. የድሮውን ዌብሁክ የማንሳት ፍተሻ
-    try:
-        bot.remove_webhook()
-        report.append("✅ 3. የድሮው ዌብሁክ በተሳካ ሁኔታ ተነስቷል")
-    except Exception as e_rm:
-        report.append(f"⚠️ 3. የድሮውን ዌብሁክ ለማንሳት ሲሞከር የታየ ማስታወሻ፦ {str(e_rm)}")
-
-    # 4. አዲሱን ዌብሁክ የመትከል ፍተሻ (ዋናው መስመር)
-    webhook_url = f"{render_url}/webhook/{TOKEN}"
-    try:
-        # drop_pending_updates=True የቆዩ መልዕክቶችን ያጠፋል
-        status = bot.set_webhook(url=webhook_url, drop_pending_updates=True)
-        report.append(f"✅ 4. ቴሌግራም ኤፒአይ አዲሱን ዌብሁክ ተቀብሏል! Status: {status}")
-        report.append(f"🔗 የተዋቀረው ሊንክ፦ {webhook_url}")
-    except Exception as e_set:
-        report.append(f"❌ 4. ስህተት፦ አዲሱን ዌብሁክ ሲተክል ከሽፏል! የስህተት መግለጫ፦ {str(e_set)}")
-        # ሙሉ ዝርዝሩን በ 500 ስህተት እንዲያሳይ
-        return "<br>".join(report), 500
-
-    report.append("=== 🎉 ምርመራው በተሳካ ሁኔታ ተጠናቋል! ቦቱን አሁን መፈተሽ ትችላለህ ===")
-    return "<br>".join(report), 200
+    # 3. ቦቱን በፖሊንግ ማስነሳት (በጣም ፈጣን እና አስተማማኝ)
+    print("🤖 ቦቱ በፖሊንግ አማካኝነት በጠንካራ ሁኔታ ተነሳ!")
+    bot.infinity_polling(skip_pending_updates=True)
