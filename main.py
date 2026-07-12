@@ -113,7 +113,6 @@ def handle_web_deposit():
     )
     
     markup = types.InlineKeyboardMarkup()
-    # ⚠️ ማሳሰቢያ፡ የካራክተር ሊሚት እንዳያልፍ 'wa_' (Web App Approve) ተብሏል
     btn_approve = types.InlineKeyboardButton("✅ Approve", callback_data=f"wa_ap_{user_id}_{amount}")
     btn_reject = types.InlineKeyboardButton("❌ Reject", callback_data=f"wa_rj_{user_id}")
     markup.add(btn_approve, btn_reject)
@@ -227,7 +226,6 @@ def process_deposit_request(message):
     username = message.from_user.username or "የሰፈር ልጅ"
 
     markup = types.InlineKeyboardMarkup()
-    # ⚠️ tx_id ውስጥ '_ ' ሊኖር ስለሚችል መጨረሻ ላይ ይደረጋል
     btn_approve = types.InlineKeyboardButton("✅ Approve", callback_data=f"tx_ap_{user_id}_{tx_id}")
     btn_reject = types.InlineKeyboardButton("❌ Reject", callback_data=f"tx_rj_{user_id}")
     markup.add(btn_approve, btn_reject)
@@ -269,10 +267,15 @@ def process_withdraw_request(message):
         bot.send_message(message.chat.id, "❌ የተሳሳተ አጻጻፍ!")
 
 
-# --- 🎛️ 5. እጅግ ጠንካራው በተን መቆጣጠሪያ (Callback Query Handler) ---
+# --- 🎛️ 5. የተስተካከለው እና ደህንነቱ የተጠበቀው በተን መቆጣጠሪያ ---
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_admin_buttons(call):
+    # 🚨 የደህንነት ማጣሪያ (Security Guard)፦ በተኑን የነካው ሰው አድሚን መሆኑን ያረጋግጣል
+    if call.from_user.id not in ADMIN_IDS:
+        bot.answer_callback_query(call.id, "❌ ይህንን አዝራር ለመጫን ፍቃድ የለዎትም!", show_alert=True)
+        return
+
     data = call.data
     chat_id = call.message.chat.id
     message_id = call.message.message_id
@@ -280,7 +283,6 @@ def handle_admin_buttons(call):
     try:
         # --- ሀ. የ WEB APP DEPOSIT APPROVE ---
         if data.startswith("wa_ap_"):
-            # wa_ap_{user_id}_{amount}
             _, _, user_id, amount = data.split("_", 3)
             amount = float(amount)
 
@@ -304,7 +306,6 @@ def handle_admin_buttons(call):
 
         # --- ሐ. የጽሑፍ DEPOSIT APPROVE (መጠን መምረጫ ያመጣል) ---
         elif data.startswith("tx_ap_"):
-            # tx_ap_{user_id}_{tx_id} -> tx_id ውስጥ _ ሊኖር ስለሚችል maxsplit=3
             _, _, user_id, tx_id = data.split("_", 3)
 
             markup = types.InlineKeyboardMarkup()
@@ -320,9 +321,8 @@ def handle_admin_buttons(call):
             bot.edit_message_text(f"🧾 Tx ID: {tx_id}\n\nእባክዎ የሚጫነውን መጠን ይምረጡ፦", chat_id, message_id, reply_markup=markup)
             bot.answer_callback_query(call.id)
 
-        # --- መ. የጽሑፍ DEPOSIT FINAL CONFIRM (መጠኑ ሲመረጥ ቀጥታ የሚጭነው) ---
+        # --- መ. የጽሑፍ DEPOSIT FINAL CONFIRM ---
         elif data.startswith("fc_"):
-            # fc_{user_id}_{amount}
             _, user_id, amount = data.split("_", 2)
             amount = float(amount)
 
@@ -346,17 +346,15 @@ def handle_admin_buttons(call):
 
         # --- ረ. WITHDRAW PAID (ለሁለቱም የሚሰራ) ---
         elif data.startswith("wt_pd_"):
-            # wt_pd_{user_id}_{amount}
             _, _, user_id, amount = data.split("_", 3)
             try:
                 bot.send_message(user_id, f"💸 የጠየቁት <b>{amount} ብር</b> በቴሌብር ተልኮልዎታል።")
             except: pass
             
             bot.answer_callback_query(call.id, "ክፍያ መፈጸሙ ተመዝግቧል!")
-            bot.edit_message_text(f"✅ ለተጠቃሚ {user_id} {amount} ብር ተከፍሏል።", chat_id, message_id)
+            bot.edit_message_text(f"✅ ለተጠቃሚ {user_id} {amount} ብር መከፈሉ ተረጋግጧል።", chat_id, message_id)
 
     except Exception as e:
-        # ስህተት ቢፈጠር ለአድሚኑ Pop-up እንዲያሳይ
         bot.answer_callback_query(call.id, f"⚠️ ስህተት፡ {str(e)}", show_alert=True)
 
 if __name__ == "__main__":
