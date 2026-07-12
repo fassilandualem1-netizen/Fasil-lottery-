@@ -8,7 +8,7 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <!-- የ 3D Three.js ላይብረሪ -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- አዲስ የተጨመረው የGLTFLoader ላይብረሪ (በጉን ለመጫን ወሳኝ) -->
+    <!-- የGLTFLoader ላይብረሪ -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
     <style>
@@ -20,17 +20,32 @@
             color: white;
             overflow-x: hidden;
         }
+        
         .header-ui {
             display: flex;
             justify-content: space-between;
-            padding: 15px;
+            align-items: center;
+            padding: 12px 15px;
             background: #222;
             border-bottom: 2px solid #ff9800;
         }
-        .balance-box {
+        .user-info { font-size: 14px; }
+        .balance-box { font-weight: bold; color: #ff9800; font-size: 15px; }
+
+        #wallet-btn {
+            background-color: #ff9800;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            cursor: pointer;
             font-weight: bold;
-            color: #ff9800;
+            font-size: 13px;
+            width: auto;
+            margin-left: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
+
         .games-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -47,6 +62,7 @@
         }
         .game-card h3 { margin: 10px 0 5px 0; font-size: 16px; }
         .game-card p { font-size: 12px; color: #aaa; margin-bottom: 15px; }
+        
         button {
             background: #ff9800;
             color: white;
@@ -56,7 +72,10 @@
             cursor: pointer;
             font-weight: bold;
             width: 100%;
+            transition: 0.2s;
         }
+        button:hover { opacity: 0.9; }
+
         #game-canvas-container {
             display: none;
             position: fixed;
@@ -76,24 +95,118 @@
         }
         .coin-flip-box input {
             width: 80%;
-            padding: 5px;
+            padding: 8px;
             margin-bottom: 10px;
             background: #333;
             border: 1px solid #555;
             color: white;
             text-align: center;
             border-radius: 4px;
+            outline: none;
         }
+        .coin-flip-box input:focus { border-color: #ff9800; }
         .flip-btns { display: flex; gap: 5px; }
+
+        /* --- Wallet Modal --- */
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85); 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #1e1e1e;
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            width: 85%;
+            max-width: 380px;
+            text-align: center;
+            border: 2px solid #ff9800;
+            position: relative;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .close-btn {
+            position: absolute;
+            right: 15px;
+            top: 10px;
+            font-size: 28px;
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+        }
+        .close-btn:hover { color: #f44336; }
+        
+        h2 { color: #ff9800; margin-top: 10px; }
+        h3 { color: #4CAF50; font-size: 16px; margin-bottom: 5px; }
+        .withdraw-title { color: #f44336; }
+
+        .modal-balance-box {
+            background-color: #2d2d2d;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+        .modal-balance-box span { color: #ff9800; font-weight: bold; }
+
+        .info-box {
+            background-color: #2d2d2d;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin: 10px 0;
+            border-left: 4px solid #4CAF50;
+            text-align: left;
+        }
+        .info-box strong { color: #ff9800; font-size: 16px; }
+
+        hr { border: 0; height: 1px; background: #333; margin: 15px 0; }
+
+        .modal-content input {
+            width: 90%;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background-color: #2b2b2b;
+            color: white;
+            font-size: 14px;
+            outline: none;
+        }
+        .modal-content input:focus { border-color: #ff9800; }
+
+        .file-input-label {
+            display: block;
+            background-color: #333;
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border: 1px dashed #ff9800;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .btn-withdraw { background-color: #f44336; }
     </style>
 </head>
 <body>
 
+    <!-- Header UI -->
     <div class="header-ui">
-        <div>👋 <span id="user-name">ተጫዋች</span></div>
-        <div class="balance-box">💰 <span id="user-balance">0.00</span> የቦት ብር</div>
+        <div class="user-info">👋 <span id="user-name">ተጫዋች</span></div>
+        <div style="display: flex; align-items: center;">
+            <div class="balance-box">💰 <span id="user-balance">0.00</span> ብር</div>
+            <button id="wallet-btn" onclick="openWallet()">Wallet 💳</button>
+        </div>
     </div>
 
+    <!-- Main Menu -->
     <div class="games-grid" id="main-menu">
         <div class="game-card">
             <div style="font-size: 40px;">🐑</div>
@@ -129,10 +242,165 @@
         </div>
     </div>
 
+    <!-- 3D Canvas Container -->
     <div id="game-canvas-container">
         <button id="back-btn" onclick="exitGame()">ተመለስ ↩</button>
     </div>
 
+    <!-- Wallet Modal -->
+    <div id="wallet-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeWallet()">&times;</span>
+            <h2>የማህበረሰቡ ዋሌት 💳</h2>
+            <div class="modal-balance-box">
+                የአሁኑ ባላንስዎ: <span id="modal-balance">0.00</span> ብር
+            </div>
+            <hr>
+            
+            <!-- Deposit -->
+            <h3>ብር ያስገቡ (Deposit)</h3>
+            <div class="info-box">
+                እባክዎ መጀመሪያ በዚህ ቁጥር በቴሌብር ይላኩ፦<br>
+                ስልክ፦ <strong>0951381356</strong>
+            </div>
+            <input type="number" id="deposit-amount" placeholder="የላኩትን የብር መጠን እዚህ ይጻፉ...">
+            <label class="file-input-label">
+                🧾 የላኩበትን የደረሰኝ ፎቶ (Screenshot) ይምረጡ
+                <input type="file" id="deposit-receipt" accept="image/*" style="display: none;" onchange="updateReceiptLabel(this)">
+            </label>
+            <span id="file-name-display" style="font-size: 12px; color: #aaa; display: block; margin-bottom: 5px;"></span>
+            <button onclick="handleDeposit()">የክፍያ ማረጋገጫ ላክ</button>
+            <hr>
+            
+            <!-- Withdraw -->
+            <h3 class="withdraw-title">ብር ያውጡ (Withdraw)</h3>
+            <input type="text" id="withdraw-phone" placeholder="ገንዘቡ የሚላክበት የእርሶ የቴሌብር ስልክ...">
+            <input type="number" id="withdraw-amount" placeholder="የሚወጣውን የብር መጠን ያስገቡ...">
+            <button class="btn-withdraw" onclick="handleWithdraw()">በቴሌብር አውጣ</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        if(tg) tg.expand();
+
+        const userData = tg.initDataUnsafe?.user || { id: "8488592165", first_name: "የሰፈር ልጅ" };
+        const userId = userData.id.toString();
+        let currentBalance = 0;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById("user-name").innerText = userData.first_name;
+            fetchBalance();
+        });
+
+        async function fetchBalance() {
+            try {
+                const res = await fetch('/api/get_balance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await res.json();
+                if (data.status === "success") {
+                    currentBalance = data.balance;
+                    document.getElementById("user-balance").innerText = currentBalance.toFixed(2);
+                    document.getElementById("modal-balance").innerText = currentBalance.toFixed(2);
+                }
+            } catch (e) { console.error("ባላንስ ማግኘት አልተቻለም", e); }
+        }
+
+        function openWallet() {
+            document.getElementById("wallet-modal").style.display = "flex";
+            document.getElementById("modal-balance").innerText = currentBalance.toFixed(2);
+        }
+        function closeWallet() {
+            document.getElementById("wallet-modal").style.display = "none";
+        }
+        function updateReceiptLabel(input) {
+            const fileName = input.files[0] ? input.files[0].name : "";
+            document.getElementById("file-name-display").innerText = "የተመረጠ ፋይል: " + fileName;
+        }
+
+        // --- ዘውድና ጎፈር ሎጂክ ---
+        async function triggerCoinFlip(choice) {
+            const betAmountInput = document.getElementById("bet-amount");
+            const betAmount = parseFloat(betAmountInput.value || 0);
+
+            if (betAmount <= 0) return alert("እባክዎ መጀመሪያ ትክክለኛ የውርርድ የብር መጠን ያስገቡ!");
+            if (betAmount > currentBalance) return alert("ይቅርታ፣ ያስገቡት የውርርድ መጠን ካለዎት ባላንስ ይበልጣል!");
+
+            try {
+                const res = await fetch('/api/coin_flip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId, bet_amount: betAmount, choice: choice })
+                });
+                const data = await res.json();
+                
+                if (data.status === "success") {
+                    alert(data.message); 
+                    betAmountInput.value = "";
+                    fetchBalance(); 
+                } else {
+                    alert(data.message || "ስህተት አጋጥሟል!");
+                }
+            } catch (e) {
+                alert("ከሰርቨር ጋር መገናኘት አልተቻለም!");
+            }
+        }
+
+        // Deposit ሎጂክ
+        async function handleDeposit() {
+            const amount = parseFloat(document.getElementById("deposit-amount").value || 0);
+            const receiptFile = document.getElementById("deposit-receipt").files[0];
+
+            if (amount <= 0) return alert("እባክዎ መጀመሪያ የላኩትን የብር መጠን ያስገቡ!");
+            if (!receiptFile) return alert("እባክዎ የላኩበትን የቴሌብር ደረሰኝ (Screenshot) ያያይዙ!");
+
+            const formData = new FormData();
+            formData.append("user_id", userId);
+            formData.append("amount", amount);
+            formData.append("receipt", receiptFile);
+
+            try {
+                const res = await fetch('/api/deposit', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.status === "success") {
+                    alert(`የማረጋገጫ ጥያቄዎ ቀርቧል! አስተዳዳሪው አይቶ ባላንስዎን ያድሳል።`);
+                    document.getElementById("deposit-amount").value = "";
+                    document.getElementById("deposit-receipt").value = "";
+                    document.getElementById("file-name-display").innerText = "";
+                    closeWallet();
+                } else { alert(data.message || "ስህተት አጋጥሟል!"); }
+            } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
+        }
+
+        // Withdraw ሎጂክ
+        async function handleWithdraw() {
+            const amount = parseFloat(document.getElementById("withdraw-amount").value || 0);
+            const phone = document.getElementById("withdraw-phone").value.trim();
+
+            if (!phone) return alert("እባክዎ ገንዘቡ የሚላክበትን የእርሶን የቴሌብር ስልክ ቁጥር ያስገቡ!");
+            if (amount <= 0) return alert("እባክዎ ማውጣት የሚፈልጉትን የብር መጠን ያስገቡ!");
+            if (amount > currentBalance) return alert("ይቅርታ፣ ማውጣት የፈለጉት መጠን ካለዎት ባላንስ ይበልጣል!");
+
+            try {
+                const res = await fetch('/api/withdraw', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId, amount: amount, phone: phone })
+                });
+                const data = await res.json();
+                if (data.status === "success") {
+                    alert(`${amount} ብር ወደ ${phone} ለመላክ ጥያቄዎ ቀርቧል!`);
+                    document.getElementById("withdraw-amount").value = "";
+                    document.getElementById("withdraw-phone").value = "";
+                    fetchBalance();
+                    closeWallet();
+                } else { alert(data.message || "ገንዘብ ማውጣት አልተቻለም!"); }
+            } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
+        }
+    </script>
     <script src="/static/js/game.js"></script>
 </body>
 </html>
