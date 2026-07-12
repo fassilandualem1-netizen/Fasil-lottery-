@@ -274,16 +274,23 @@ def handle_admin_buttons(call):
         bot.send_message(user_id, f"💸 <b>የጠየቁት {amount} ብር በቴሌብርዎ በተሳካ ሁኔታ ተልኮልዎታል!</b>")
         bot.edit_message_text(f"✅ ለተጠቃሚ {user_id} {amount} ብር መከፈሉ ተረጋግጧል።", call.message.chat.id, call.message.message_id)
 
-# --- 🚀 ሰርቨሩን እና ቦቱን በ Threading በአንድ ላይ ማስነሻ ---
-def run_flask():
-    # Flask ሰርቨሩ በፖርት 5000 ላይ ይነሳል
-    server.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
+# --- 🚀 ሰርቨሩን እና ቦቱን በ Webhook ማገናኛ ---
+@server.route('/' + TOKEN, methods=['POST'])
+def getMessage():
+    json_string = request.get_data().decode('utf-8')
+    update = telebot.types.Update.de_json(json_string)
+    bot.process_new_updates([update])
+    return "!", 200
+
+@server.route("/set_webhook")
+def set_webhook():
+    # Render ሊንክህን ከ Environment Variable ያነባል
+    render_url = os.environ.get("RENDER_EXTERNAL_URL") or WEB_APP_URL
+    bot.remove_webhook()
+    bot.set_webhook(url=f"{render_url}/{TOKEN}")
+    return "Webhook Successfully Set!", 200
 
 if __name__ == "__main__":
-    print("🚀 የ Flask ሰርቨር በጀርባ (Background) እየተነሳ ነው...")
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
-    
-    print("🤖 የቴሌግራም ቦቱ በአስተማማኝ ሁኔታ ስራ ጀምሯል...")
-    bot.infinity_polling()
+    # Render በራሱ ፖርት ስለሚሰጠው ከአካባቢው ያነባል
+    port = int(os.environ.get("PORT", 5000))
+    server.run(host="0.0.0.0", port=port)
