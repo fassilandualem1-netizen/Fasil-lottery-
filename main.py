@@ -315,23 +315,42 @@ def getMessage():
         print(f"❌ Webhook Route Error: {route_err}")
     return "!", 200
 
-# 3. ዌብሁኩን በቴሌግራም ላይ ማዋቀሪያ ሊንክ (ከስህተት ማሳያ ጋር)
+
+# 3. 🖥️ እጅግ ጠንካራ የዌብሁክ ማዋቀሪያ ሊንክ (ከዝርዝር መመርመሪያ ጋር)
 @server.route("/set_webhook")
 def set_webhook():
+    report = []
+    report.append("=== 🔍 የዌብሁክ ማዋቀር ምርመራ ተጀመረ ===")
+    
+    # 1. የቶከን ፍተሻ
+    if not TOKEN:
+        return "❌ ስህተት፦ BOT_TOKEN በ Render Environment Variables ላይ አልተገኘም!", 500
+    report.append(f"✅ 1. የቦት ቶከን ተገኝቷል (በ {TOKEN[:5]}... ይጀምራል)")
+
+    # 2. የ Render URL ፍተሻ
+    render_url = os.environ.get("RENDER_EXTERNAL_URL") or WEB_APP_URL
+    if not render_url:
+        return "❌ ስህተት፦ RENDER_EXTERNAL_URL ወይም WEB_APP_URL አልተዋቀረም!", 500
+    report.append(f"✅ 2. የሰርቨር አድራሻ ተገኝቷል፦ {render_url}")
+
+    # 3. የድሮውን ዌብሁክ የማንሳት ፍተሻ
     try:
-        render_url = os.environ.get("RENDER_EXTERNAL_URL") or WEB_APP_URL
-        
-        # የድሮውን ዌብሁክ በሰላም ማንሳት
-        try:
-            bot.remove_webhook()
-        except Exception as e_rm:
-            print(f"Webhook removal notice: {e_rm}")
-            
-        # አዲሱን መድረሻ መዋቀር
-        webhook_url = f"{render_url}/webhook/{TOKEN}"
-        status = bot.set_webhook(url=webhook_url)
-        
-        return f"Webhook Successfully Set! Status: {status} | URL: {webhook_url}", 200
-    except Exception as e:
-        # ስህተቱን ደብቆ 500 ከሚል ቀጥታ ስክሪኑ ላይ እንዲያሳየን
-        return f"❌ ዌብሁክ ሲዋቀር ይህ ስህተት ተከሰተ፦ {str(e)}", 500
+        bot.remove_webhook()
+        report.append("✅ 3. የድሮው ዌብሁክ በተሳካ ሁኔታ ተነስቷል")
+    except Exception as e_rm:
+        report.append(f"⚠️ 3. የድሮውን ዌብሁክ ለማንሳት ሲሞከር የታየ ማስታወሻ፦ {str(e_rm)}")
+
+    # 4. አዲሱን ዌብሁክ የመትከል ፍተሻ (ዋናው መስመር)
+    webhook_url = f"{render_url}/webhook/{TOKEN}"
+    try:
+        # drop_pending_updates=True የቆዩ መልዕክቶችን ያጠፋል
+        status = bot.set_webhook(url=webhook_url, drop_pending_updates=True)
+        report.append(f"✅ 4. ቴሌግራም ኤፒአይ አዲሱን ዌብሁክ ተቀብሏል! Status: {status}")
+        report.append(f"🔗 የተዋቀረው ሊንክ፦ {webhook_url}")
+    except Exception as e_set:
+        report.append(f"❌ 4. ስህተት፦ አዲሱን ዌብሁክ ሲተክል ከሽፏል! የስህተት መግለጫ፦ {str(e_set)}")
+        # ሙሉ ዝርዝሩን በ 500 ስህተት እንዲያሳይ
+        return "<br>".join(report), 500
+
+    report.append("=== 🎉 ምርመራው በተሳካ ሁኔታ ተጠናቋል! ቦቱን አሁን መፈተሽ ትችላለህ ===")
+    return "<br>".join(report), 200
