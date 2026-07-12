@@ -54,6 +54,26 @@ function init3DWorld() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
+    // --- ቀላሉ መንገድ: ምስልን እንደ 3D በግ መጠቀም ---
+    const textureLoader = new THREE.TextureLoader();
+    // ይህ በግ ያለበት ምስል ሊንክ ነው
+    const sheepTexture = textureLoader.load('https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Sheep_icon.svg/512px-Sheep_icon.svg.png');
+    
+    const material = new THREE.SpriteMaterial({ map: sheepTexture });
+    gameCube = new THREE.Sprite(material);
+    
+    gameCube.scale.set(2, 2, 1); // የበጉ መጠን
+    scene.add(gameCube);
+    // ------------------------------------------
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1);
+    scene.add(ambientLight);
+
+    camera.position.set(0, 0, 3); // ካሜራውን ወደ በጉ አስጠጋነው
+    animate();
+}
+
+
         // በጉን መጫኛ
     const loader = new THREE.GLTFLoader();
     loader.load('/static/models/sheep.glb', (gltf) => {
