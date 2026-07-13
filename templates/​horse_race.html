@@ -1,1 +1,632 @@
-y
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>የሰፈር ጨዋታዎች - የፈረስ ውድድር (800m)</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+            background: #090d16; 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            color: #fff; 
+            overflow-x: hidden; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Top Action Bar inside Game */
+        .game-header {
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            background: #111827; 
+            padding: 12px; 
+            border-bottom: 2px solid #1f2937;
+        }
+
+        .exit-btn {
+            background: #ef4444; 
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            border-radius: 8px; 
+            font-weight: bold; 
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .balance-box { 
+            font-weight: 900; 
+            color: #10b981; 
+            font-size: 16px; 
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.3); 
+        }
+
+        .wallet-nav-btn {
+            background: linear-gradient(135deg, #10b981, #059669); 
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* Main Game Arena Container */
+        .game-container {
+            padding: 12px;
+            box-sizing: border-box;
+        }
+
+        /* የሩጫ ሜዳ */
+        .race-track-arena {
+            position: relative;
+            width: 100%;
+            height: 340px; 
+            background: linear-gradient(#1e3a1e, #166534, #14532d); 
+            border-radius: 16px;
+            overflow: hidden;
+            border: 3px solid #334155;
+            margin-bottom: 12px;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
+        }
+
+        .track-lanes-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            height: 100%;
+            padding: 5px 0;
+            box-sizing: border-box;
+        }
+
+        .lane-divider {
+            position: relative;
+            width: 100%;
+            height: 60px; 
+            border-bottom: 2px dashed rgba(255, 255, 255, 0.15);
+            display: flex;
+            align-items: center;
+        }
+
+        /* Finish Line */
+        .finish-line-stripe {
+            position: absolute;
+            right: 60px;
+            top: 0;
+            width: 16px;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                #fff,
+                #fff 8px,
+                #000 8px,
+                #000 16px
+            );
+            z-index: 5;
+            box-shadow: 0 0 8px rgba(255,255,255,0.4);
+        }
+
+        /* የፈረስ ኮንቴይነር */
+        .animated-horse-sprite-box {
+            position: absolute;
+            left: 10px;
+            width: 65px;
+            height: 50px;
+            background: transparent; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: left 0.04s linear;
+        }
+
+        .horse-vector-render {
+            font-size: 36px;
+            line-height: 1;
+            display: inline-block;
+            transform: scaleX(-1); 
+            user-select: none;
+        }
+
+        /* የጋለቦታ አኒሜሽን */
+        .animated-horse-sprite-box.running .horse-vector-render {
+            animation: gallopRun 0.2s infinite alternate ease-in-out;
+        }
+
+        @keyframes gallopRun {
+            0% { transform: scaleX(-1) translateY(0) rotate(-2deg); }
+            50% { transform: scaleX(-1) translateY(-6px) scaleY(0.9) rotate(3deg); }
+            100% { transform: scaleX(-1) translateY(2px) scaleY(1.05) rotate(-4deg); }
+        }
+
+        /* የፈረሱ ቁጥር ባጅ */
+        .horse-badge-label {
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            font-size: 11px;
+            font-weight: bold;
+            color: white;
+            background: #000;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px solid white;
+            z-index: 20;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(0,0,0,0.85);
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            z-index: 10;
+        }
+
+        /* Betting Control Center */
+        .betting-control {
+            background: #111827; 
+            padding: 15px; 
+            border-radius: 16px; 
+            border: 1px solid #1f2937; 
+        }
+
+        .bet-type-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .type-btn {
+            background: #1f2937;
+            border: 2px solid #374151;
+            color: #9ca3af;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .type-btn.active {
+            border-color: #10b981;
+            color: white;
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        /* 5 Horses Selection Rows */
+        .horse-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .horse-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1f2937;
+            border: 2px solid #374151;
+            border-radius: 10px;
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .horse-row.selected {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+        }
+        .horse-info { display: flex; align-items: center; gap: 10px; }
+        .horse-tag { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; color: white; }
+        .odds-val { font-weight: bold; color: #10b981; }
+
+        #race-start-main-btn {
+            background: linear-gradient(135deg, #10b981, #047857);
+            padding: 15px;
+            font-size: 15px;
+            border-radius: 12px;
+            color: white;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+        #race-start-main-btn:disabled {
+            background: #374151;
+            color: #9ca3af;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* Result Modal */
+        .modal { 
+            position: fixed; 
+            z-index: 10000; 
+            left: 0; 
+            top: 0; 
+            width: 100%; 
+            height: 100%; 
+            background-color: rgba(0,0,0,0.85); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+        }
+        .modal-content { 
+            background-color: #1e293b; 
+            color: white; 
+            padding: 25px; 
+            border-radius: 20px; 
+            width: 85%; 
+            max-width: 380px; 
+            text-align: center; 
+            border: 1px solid #334155;
+        }
+        .result-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .result-table th, .result-table td { padding: 10px; border-bottom: 1px solid #334155; text-align: center; }
+        .result-table th { background: #0f172a; color: #94a3b8; }
+    </style>
+</head>
+<body>
+
+    <!-- Top Action Bar -->
+    <div class="game-header">
+        <button id="exit-game-btn" class="exit-btn" onclick="goToMainMenu()"><i class="fas fa-arrow-left"></i> ማውጫ</button>
+        <div class="balance-box">💰 <span id="horse-game-balance">0.00</span> ብር</div>
+        <button class="wallet-nav-btn" onclick="goToWallet()">Wallet 💳</button>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="game-container">
+        <!-- የሩጫ ሜዳ -->
+        <div class="race-track-arena">
+            <div class="finish-line-stripe"></div>
+            <div class="track-lanes-container" id="live-race-track-lanes">
+                <!-- Lines generated dynamically -->
+            </div>
+            <div class="video-overlay" id="race-status-overlay">🏁 ርቀት: 800m | ዝግጁ</div>
+        </div>
+
+        <!-- መወራረጃ ፎርም -->
+        <div class="betting-control">
+            <div class="bet-type-selector">
+                <button id="btn-win" class="type-btn active" onclick="setBetType('win')">🥇 Win (1ኛ ብቻ)</button>
+                <button id="btn-show" class="type-btn" onclick="setBetType('show')">🥉 Show (ከ1-3ኛ)</button>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <span style="font-size: 13px; font-weight: bold; color: #9ca3af;">የውርርድ መጠን፦</span>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button onclick="adjustHorseBet(-5)" style="background: #374151; color: white; border: none; width: 32px; height: 32px; border-radius: 6px; font-weight: bold;">-</button>
+                    <input type="number" id="horse-bet-amount" value="10" style="width: 70px; text-align: center; background: #1f2937; border: 1px solid #374151; color: white; padding: 6px; font-size: 16px; font-weight: bold; border-radius: 6px;" readonly>
+                    <button onclick="adjustHorseBet(5)" style="background: #374151; color: white; border: none; width: 32px; height: 32px; border-radius: 6px; font-weight: bold;">+</button>
+                </div>
+            </div>
+
+            <div style="font-size: 12px; color: #9ca3af; font-weight: bold; margin-bottom: 8px;">ፈረስ ይምረጡ (በሂሳብ የተሰላ Odds)፦</div>
+            <div class="horse-list" id="horse-selection-container"></div>
+            
+            <button id="race-start-main-btn" onclick="startHorseRace()">🏁 ውርርድ አስይዝ (ውድድር ጀምር)</button>
+        </div>
+    </div>
+
+    <!-- Result Board Modal -->
+    <div id="result-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 420px;">
+            <h2 id="result-title" style="color:#10b981; margin-bottom: 5px;">🎉 ውድድሩ ተጠናቋል!</h2>
+            <p style="font-size: 13px; color: #94a3b8; margin: 0;">የፎቶ ፊኒሽ (Photo Finish) ውጤት ሰሌዳ</p>
+            <table class="result-table">
+                <thead>
+                    <tr><th>ደረጃ</th><th>ፈረስ</th><th>የፈረስ ስም</th></tr>
+                </thead>
+                <tbody id="result-table-body"></tbody>
+            </table>
+            <div id="reward-showbox" style="background-color: #0f172a; padding: 15px; border-radius: 12px; margin-top: 15px; font-size: 16px; border: 1px solid #10b981;"></div>
+            <button onclick="closeModal()" style="background: #10b981; color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; margin-top: 15px; cursor: pointer;">እሺ መልስ</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        if(tg) tg.expand();
+
+        const initData = tg.initData || ""; 
+        const userData = tg.initDataUnsafe?.user || { id: "8488592165", first_name: "የሰፈር ልጅ" };
+        const userId = userData.id.toString();
+        
+        let currentBalance = 0; 
+        let selectedHorseId = null;
+        let selectedBetType = 'win'; 
+        let isRacing = false;
+
+        let horses = [
+            { id: 1, name: "አባይ ነብር", color: "#ff4757" },
+            { id: 2, name: "ዳሽን እሳት", color: "#1e90ff" },
+            { id: 3, name: "ሸገር ባቡር", color: "#2ed573" },
+            { id: 4, name: "ጎንደር አንበሳ", color: "#ffa500" },
+            { id: 5, name: "ባሊ ሮኬት", color: "#e056fd" }
+        ];
+
+        document.addEventListener("DOMContentLoaded", () => {
+            fetchBalance();
+            setInterval(fetchBalance, 6000);
+            regenerateOdds(); 
+            initStaticTrack();
+        });
+
+        function goToMainMenu() {
+            if (isRacing) return alert("ውድድር ላይ እያሉ መውጣት አይቻልም!");
+            window.location.href = '/';
+        }
+
+        function goToWallet() {
+            if (isRacing) return alert("ውድድር ላይ እያሉ መውጣት አይቻልም!");
+            window.location.href = '/'; // ዋናው ገጽ ላይ ዋሌት እንዲከፈት
+        }
+
+        function initStaticTrack() {
+            const container = document.getElementById("live-race-track-lanes");
+            container.innerHTML = "";
+            horses.forEach(h => {
+                container.innerHTML += `
+                    <div class="lane-divider">
+                        <div class="animated-horse-sprite-box" id="track-horse-${h.id}">
+                            <div class="horse-badge-label" style="background-color: ${h.color};">${h.id}</div>
+                            <div class="horse-vector-render" style="color: ${h.color}; filter: drop-shadow(0px 0px 4px ${h.color});">🐎</div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function regenerateOdds() {
+            if(isRacing) return;
+            let totalPower = 0;
+            horses.forEach(h => {
+                h.power = 10 + (Math.random() * 12);
+                totalPower += h.power;
+            });
+            const margin = 0.92;
+            horses.forEach(h => {
+                let winChance = h.power / totalPower;
+                h.oddsWin = parseFloat(( (1 / winChance) * margin ).toFixed(2));
+                h.oddsShow = parseFloat((h.oddsWin * 0.42).toFixed(2));
+                if(h.oddsShow < 1.1) h.oddsShow = 1.1; 
+            });
+            renderHorseSelectors();
+        }
+
+        function renderHorseSelectors() {
+            const container = document.getElementById("horse-selection-container");
+            container.innerHTML = "";
+            horses.forEach(h => {
+                const isSelected = h.id === selectedHorseId ? "selected" : "";
+                const activeOdds = selectedBetType === 'win' ? h.oddsWin : h.oddsShow;
+                container.innerHTML += `
+                    <div class="horse-row ${isSelected}" onclick="selectHorse(${h.id})">
+                        <div class="horse-info">
+                            <div class="horse-tag" style="background: ${h.color};">${h.id}</div>
+                            <span style="font-weight: bold; font-size: 14px;">${h.name}</span>
+                        </div>
+                        <div class="odds-val">x${activeOdds.toFixed(2)}</div>
+                    </div>
+                `;
+            });
+        }
+
+        async function fetchBalance() {
+            try {
+                const res = await fetch('/api/get_balance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await res.json();
+                if (data.status === "success") {
+                    currentBalance = data.balance;
+                    document.getElementById("horse-game-balance").innerText = currentBalance.toFixed(2);
+                }
+            } catch (e) { console.error("ባላንስ ማግኘት አልተቻለም", e); }
+        }
+
+        function setBetType(type) {
+            if (isRacing) return;
+            selectedBetType = type;
+            document.getElementById("btn-win").classList.toggle("active", type === 'win');
+            document.getElementById("btn-show").classList.toggle("active", type === 'show');
+            renderHorseSelectors();
+        }
+
+        function selectHorse(id) {
+            if (isRacing) return;
+            selectedHorseId = id;
+            renderHorseSelectors();
+        }
+
+        function adjustHorseBet(amount) {
+            if (isRacing) return;
+            const betInput = document.getElementById('horse-bet-amount');
+            let val = parseInt(betInput.value || 10) + amount;
+            if (val >= 5) betInput.value = val;
+        }
+
+        function startHorseRace() {
+            if (isRacing) return;
+            if (!selectedHorseId) return alert("እባክዎ መጀመሪያ የሚወራረዱበትን ፈረስ ይምረጡ!");
+            
+            const betAmount = parseInt(document.getElementById('horse-bet-amount').value);
+            if (betAmount > currentBalance) return alert("ይቅርታ፣ ውርርድ ለማስያዝ በቂ ባላንስ የለዎትም!");
+
+            isRacing = true;
+            document.getElementById("race-start-main-btn").disabled = true;
+            document.getElementById("exit-game-btn").disabled = true;
+
+            horses.forEach(h => {
+                const el = document.getElementById(`track-horse-${h.id}`);
+                if(el) {
+                    el.style.left = "10px";
+                    el.classList.add("running"); 
+                }
+            });
+
+            let raceDetails = horses.map(h => ({
+                id: h.id,
+                name: h.name,
+                color: h.color,
+                oddsWin: h.oddsWin,
+                oddsShow: h.oddsShow,
+                position: 10,
+                velocity: 0.18 + (Math.random() * 0.22), 
+                mass: 1.0 + (Math.random() * 0.5) 
+            }));
+
+            const trackWidth = document.querySelector(".race-track-arena").clientWidth - 75; 
+
+            let physicsInterval = setInterval(() => {
+                let someoneFinished = false;
+                let maxProgress = 10;
+
+                raceDetails.forEach(horse => {
+                    if (horse.position >= trackWidth) return;
+
+                    let randomImpulse = Math.random() * 0.95;
+                    let drag = 0.14 * horse.velocity;
+                    let acceleration = (randomImpulse - drag) / horse.mass;
+                    
+                    horse.velocity += acceleration;
+                    if(horse.velocity < 0.1) horse.velocity = 0.1;
+                    if(horse.velocity > 2.5) horse.velocity = 2.5;
+
+                    horse.position += horse.velocity;
+
+                    const el = document.getElementById(`track-horse-${horse.id}`);
+                    if (el) {
+                        el.style.left = `${Math.min(horse.position, trackWidth)}px`;
+                    }
+
+                    if (horse.position > maxProgress) {
+                        maxProgress = horse.position;
+                    }
+
+                    if (horse.position >= trackWidth) {
+                        someoneFinished = true;
+                    }
+                });
+
+                let percentDone = (maxProgress - 10) / (trackWidth - 10);
+                let currentMeter = Math.max(0, Math.round(800 - (percentDone * 800)));
+                document.getElementById("race-status-overlay").innerText = `🔴 ርቀት: ${currentMeter}m | የቀጥታ ውድድር...`;
+
+                if (someoneFinished) {
+                    clearInterval(physicsInterval);
+                    document.getElementById("race-status-overlay").innerText = `🏁 ርቀት: 0m | ተጠናቋል`;
+                    horses.forEach(h => {
+                        const el = document.getElementById(`track-horse-${h.id}`);
+                        if(el) el.classList.remove("running");
+                    });
+                    finishRace(raceDetails, betAmount);
+                }
+            }, 35);
+        }
+
+        async function finishRace(raceDetails, betAmount) {
+            raceDetails.sort((a, b) => b.position - a.position);
+
+            const winnerId = raceDetails[0].id;
+            const silverId = raceDetails[1].id;
+            const bronzeId = raceDetails[2].id;
+
+            const chosenHorse = horses.find(h => h.id === selectedHorseId);
+            let didWin = false;
+            let finalOdds = 1.0;
+            let winAmount = 0;
+
+            if (selectedBetType === 'win') {
+                if (winnerId === selectedHorseId) { didWin = true; finalOdds = chosenHorse.oddsWin; }
+            } else if (selectedBetType === 'show') {
+                if (winnerId === selectedHorseId || silverId === selectedHorseId || bronzeId === selectedHorseId) { didWin = true; finalOdds = chosenHorse.oddsShow; }
+            }
+
+            if (didWin) winAmount = betAmount * finalOdds;
+
+            try {
+                await fetch('/api/race_result', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        user_id: userId, 
+                        bet_amount: betAmount, 
+                        did_win: didWin, 
+                        win_amount: winAmount, 
+                        details: `ውርርድ በ ፈረስ ${selectedHorseId} (${selectedBetType === 'win' ? 'Win' : 'Show'})` 
+                    })
+                });
+            } catch (e) { console.error("ውጤት መላክ አልተቻለም", e); }
+
+            showResultBoard(raceDetails, didWin, winAmount, chosenHorse);
+
+            isRacing = false;
+            document.getElementById("race-start-main-btn").disabled = false;
+            document.getElementById("exit-game-btn").disabled = false;
+
+            fetchBalance(); 
+            regenerateOdds(); 
+        }
+
+        function showResultBoard(raceDetails, didWin, winAmount, chosenHorse) {
+            const tbody = document.getElementById("result-table-body");
+            tbody.innerHTML = "";
+            for(let i=0; i<5; i++) {
+                let medal = i === 0 ? "🥇 1ኛ" : i === 1 ? "🥈 2ኛ" : i === 2 ? "🥉 3ኛ" : `${i+1}ኛ`;
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="font-weight:bold;">${medal}</td>
+                        <td><span style="background: ${raceDetails[i].color}; padding: 4px 10px; border-radius: 12px; font-weight:bold;">${raceDetails[i].id}</span></td>
+                        <td>${raceDetails[i].name}</td>
+                    </tr>
+                `;
+            }
+
+            const rewardBox = document.getElementById("reward-showbox");
+            if (didWin) {
+                rewardBox.style.borderColor = "#10b981";
+                rewardBox.innerHTML = `
+                    <span style="font-size: 24px;">🎉</span><br>
+                    <strong style="color: #10b981;">እንኳን ደስ አሰኘዎት! ማሸነፍዎን አረጋግጠናል!</strong><br>
+                    <span style="font-size: 14px; color: #94a3b8;">የመረጡት ፈረስ: ${chosenHorse.name}</span><br>
+                    <span style="font-size: 18px; font-weight: 900; color: #10b981; display:block; margin-top: 8px;">+ ${winAmount.toFixed(2)} ብር</span>
+                `;
+            } else {
+                rewardBox.style.borderColor = "#ef4444";
+                rewardBox.innerHTML = `
+                    <span style="font-size: 24px;">😞</span><br>
+                    <strong style="color: #ef4444;">ይቅርታ! አልደረሰዎትም</strong><br>
+                    <span style="font-size: 14px; color: #94a3b8;">እንደገና ይሞክሩ፤ እድልዎ በሚቀጥለው ጨዋታ ሊቀና ይችላል።</span>
+                `;
+            }
+            document.getElementById("result-modal").style.display = "flex";
+        }
+
+        function closeModal() { 
+            document.getElementById("result-modal").style.display = "none"; 
+            initStaticTrack(); 
+        }
+    </script>
+</body>
+</html>
