@@ -48,11 +48,21 @@
 
         .history-card { background: #2d2d2d; margin-bottom: 10px; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; text-align: left; }
 
-        /* 🐎 የፈረስ ስታይል - ፊታቸውን ወደ ቀኝ ማዞሪያ እና የከለር ፊልተሮች */
+        /* 🐎 የፈረስ ስታይል - ፊታቸውን ወደ ሚያሮጡበት አቅጣጫ ማዞሪያ */
+        .horse-container {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            transform: translate(-50%, -50%);
+        }
         .horse-emoji {
-            font-size: 45px;
+            font-size: 32px;
             display: inline-block;
-            transform: scaleX(-1); /* ፊቱን ወደ ቀኝ ያዞረዋል */
+            transition: transform 0.1s linear;
         }
     </style>
 </head>
@@ -113,49 +123,41 @@
                 <div style="background: #222; padding: 8px 12px; border-radius: 8px; border: 1px solid #ff9800; font-weight: bold; color: #ff9800; font-size: 14px;">
                     💰 <span id="horse-game-balance">0.00</span> ብር
                 </div>
-                <button class="top-btn" style="background-color: #ff9800; color: white; padding: 8px;" onclick="openWallet()">Wallet 💳</button>
-                <button class="top-btn" style="background-color: #2196F3; color: white; padding: 8px;" onclick="openHistory()">History 📜</button>
+                <button class="top-btn" style="background-color: #ff9800; color: white; padding: 8px; margin-left: 5px;" onclick="openWallet()">Wallet 💳</button>
+                <button class="top-btn" style="background-color: #2196F3; color: white; padding: 8px; margin-left: 5px;" onclick="openHistory()">History 📜</button>
             </div>
         </div>
 
         <div style="background: #2c3e50; padding: 15px; border-radius: 12px; border: 2px solid #34495e; margin-bottom: 15px;">
-            <div style="position: relative; background: #1a1a1a; border: 4px solid #111; border-radius: 8px; overflow: hidden; padding: 10px 0; min-height: 380px;">
+            <div id="race-track-oval" style="position: relative; background: #1a1a1a; border: 4px solid #111; border-radius: 50% / 50%; overflow: visible; min-height: 360px; margin: 0 auto; max-width: 600px; box-shadow: inset 0 0 20px rgba(0,0,0,0.8);">
                 
-                <div style="position: absolute; right: 70px; top: 0; bottom: 0; width: 20px; background-image: linear-gradient(45deg, #fff 25%, transparent 25%), linear-gradient(-45deg, #fff 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #fff 75%), linear-gradient(-45deg, transparent 75%, #fff 75%); background-size: 8px 8px; z-index: 2; border-left: 2px solid #000;"></div>
-                
-                <div style="display: flex; align-items: center; height: 70px; border-bottom: 1px dashed #333; position: relative;">
-                    <div id="horse1" style="position: absolute; left: 15px; display: flex; align-items: center; transition: left 0.1s linear;">
-                        <span style="background: #e74c3c; border-radius: 4px; padding: 2px 6px; font-size: 12px; color: white; font-weight: bold; margin-right: 8px; z-index: 5;">1</span>
-                        <span class="horse-emoji" style="filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">🏇</span>
-                    </div>
+                <div style="position: absolute; top: 18%; left: 18%; right: 18%; bottom: 18%; background: #1e3f20; border: 4px dashed #555; border-radius: 50% / 50%; display: flex; align-items: center; justify-content: center; z-index: 1;">
+                    <div style="color: #4CAF50; font-weight: bold; font-size: 14px; letter-spacing: 2px;">START / FINISH 🏁</div>
                 </div>
 
-                <div style="display: flex; align-items: center; height: 70px; border-bottom: 1px dashed #333; position: relative;">
-                    <div id="horse2" style="position: absolute; left: 15px; display: flex; align-items: center; transition: left 0.1s linear;">
-                        <span style="background: #3498db; border-radius: 4px; padding: 2px 6px; font-size: 12px; color: white; font-weight: bold; margin-right: 8px; z-index: 5;">2</span>
-                        <span class="horse-emoji" style="filter: brightness(0.25) contrast(1.2) drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">🏇</span>
-                    </div>
+                <div id="horse1" class="horse-container">
+                    <span style="background: #e74c3c; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; color: white; font-weight: bold; text-align: center; line-height: 16px; z-index: 5; margin-bottom: -4px;">1</span>
+                    <span class="horse-emoji" id="emoji1" style="filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">🏇</span>
                 </div>
 
-                <div style="display: flex; align-items: center; height: 70px; border-bottom: 1px dashed #333; position: relative;">
-                    <div id="horse3" style="position: absolute; left: 15px; display: flex; align-items: center; transition: left 0.1s linear;">
-                        <span style="background: #2ecc71; border-radius: 4px; padding: 2px 6px; font-size: 12px; color: white; font-weight: bold; margin-right: 8px; z-index: 5;">3</span>
-                        <span class="horse-emoji" style="filter: sepia(1) saturate(6) hue-rotate(20deg) brightness(0.9) drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">🏇</span>
-                    </div>
+                <div id="horse2" class="horse-container">
+                    <span style="background: #00e5ff; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; color: black; font-weight: bold; text-align: center; line-height: 16px; z-index: 5; margin-bottom: -4px;">2</span>
+                    <span class="horse-emoji" id="emoji2" style="filter: hue-rotate(190deg) saturate(5) brightness(1.2) drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">🏇</span>
                 </div>
 
-                <div style="display: flex; align-items: center; height: 70px; border-bottom: 1px dashed #333; position: relative;">
-                    <div id="horse4" style="position: absolute; left: 15px; display: flex; align-items: center; transition: left 0.1s linear;">
-                        <span style="background: #f1c40f; border-radius: 4px; padding: 2px 6px; font-size: 12px; color: black; font-weight: bold; margin-right: 8px; z-index: 5;">4</span>
-                        <span class="horse-emoji" style="filter: grayscale(1) brightness(0.85) contrast(1.1) drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">🏇</span>
-                    </div>
+                <div id="horse3" class="horse-container">
+                    <span style="background: #2ecc71; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; color: white; font-weight: bold; text-align: center; line-height: 16px; z-index: 5; margin-bottom: -4px;">3</span>
+                    <span class="horse-emoji" id="emoji3" style="filter: sepia(1) saturate(6) hue-rotate(20deg) brightness(0.9) drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">🏇</span>
                 </div>
 
-                <div style="display: flex; align-items: center; height: 70px; position: relative;">
-                    <div id="horse5" style="position: absolute; left: 15px; display: flex; align-items: center; transition: left 0.1s linear;">
-                        <span style="background: #9b59b6; border-radius: 4px; padding: 2px 6px; font-size: 12px; color: white; font-weight: bold; margin-right: 8px; z-index: 5;">5</span>
-                        <span class="horse-emoji" style="filter: hue-rotate(130deg) saturate(3) brightness(0.9) drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">🏇</span>
-                    </div>
+                <div id="horse4" class="horse-container">
+                    <span style="background: #ff6d00; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; color: white; font-weight: bold; text-align: center; line-height: 16px; z-index: 5; margin-bottom: -4px;">4</span>
+                    <span class="horse-emoji" id="emoji4" style="filter: hue-rotate(30deg) saturate(8) brightness(1.1) drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">🏇</span>
+                </div>
+
+                <div id="horse5" class="horse-container">
+                    <span style="background: #9b59b6; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; color: white; font-weight: bold; text-align: center; line-height: 16px; z-index: 5; margin-bottom: -4px;">5</span>
+                    <span class="horse-emoji" id="emoji5" style="filter: hue-rotate(130deg) saturate(3) brightness(0.9) drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">🏇</span>
                 </div>
 
             </div>
@@ -174,13 +176,13 @@
             
             <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 15px;">
                 <button id="h-btn-1" onclick="selectHorse(1)" style="background: #e74c3c; padding: 10px 5px; font-size: 12px; border-radius: 6px; color: white; border: none;">ፈረስ 1</button>
-                <button id="h-btn-2" onclick="selectHorse(2)" style="background: #3498db; padding: 10px 5px; font-size: 12px; border-radius: 6px; color: white; border: none;">ፈረስ 2</button>
+                <button id="h-btn-2" onclick="selectHorse(2)" style="background: #00e5ff; color: black; padding: 10px 5px; font-size: 12px; border-radius: 6px; border: none; font-weight: bold;">ፈረስ 2</button>
                 <button id="h-btn-3" onclick="selectHorse(3)" style="background: #2ecc71; padding: 10px 5px; font-size: 12px; border-radius: 6px; color: white; border: none;">ፈረስ 3</button>
-                <button id="h-btn-4" onclick="selectHorse(4)" style="background: #f1c40f; color: black; padding: 10px 5px; font-size: 12px; border-radius: 6px; border: none;">ፈረስ 4</button>
+                <button id="h-btn-4" onclick="selectHorse(4)" style="background: #ff6d00; color: white; padding: 10px 5px; font-size: 12px; border-radius: 6px; border: none; font-weight: bold;">ፈረስ 4</button>
                 <button id="h-btn-5" onclick="selectHorse(5)" style="background: #9b59b6; padding: 10px 5px; font-size: 12px; border-radius: 6px; color: white; border: none;">ፈረስ 5</button>
             </div>
 
-            <button onclick="startHorseRace()" style="background: linear-gradient(135deg, #ff9800, #f39c12); padding: 12px; font-size: 16px; border-radius: 8px; color: white; font-weight: bold; border: none; cursor: pointer; width: 100%;">🏇‍♂️ ውድድሩን ጀምር!</button>
+            <button id="race-start-main-btn" onclick="startHorseRace()" style="background: linear-gradient(135deg, #ff9800, #f39c12); padding: 12px; font-size: 16px; border-radius: 8px; color: white; font-weight: bold; border: none; cursor: pointer; width: 100%;">🏇‍♂️ ውድድሩን ጀምር!</button>
         </div>
 
     </div>
@@ -237,12 +239,48 @@
         const firstName = userData.first_name; 
         let currentBalance = 0;
         let selectedHorse = null;
+        let isRacing = false;
+
+        // የፈረሶች መነሻ አንግል (ክብ ቅርጽ እንዲሰሩ)
+        let horseAngles = [0, 0, 0, 0, 0];
 
         document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("user-name").innerText = firstName;
             fetchBalance();
             setInterval(fetchBalance, 5000);
+            positionHorsesAtStart(); // መነሻ ቦታ ላይ ማስቀመጥ
         });
+
+        // ፈረሶቹን በክብ ሜዳው መነሻ ላይ የማሰለፊያ ፈንክሽን
+        function positionHorsesAtStart() {
+            const track = document.getElementById('race-track-oval');
+            const width = track.clientWidth;
+            const height = track.clientHeight;
+            
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            for (let i = 1; i <= 5; i++) {
+                // እያንዳንዱ ፈረስ የራሱ የሆነ የክብ ራዲየስ (መስመር) አለው
+                const radiusX = (width * 0.32) + (i * 14);
+                const radiusY = (height * 0.32) + (i * 14);
+                
+                // መነሻ አንግል PI / 2 (ከታች መካከለኛ መስመር ላይ ይቆማሉ)
+                const angle = Math.PI / 2;
+                horseAngles[i-1] = angle;
+
+                const x = centerX + radiusX * Math.cos(angle);
+                const y = centerY + radiusY * Math.sin(angle);
+
+                const el = document.getElementById(`horse${i}`);
+                if (el) {
+                    el.style.left = x + "px";
+                    el.style.top = y + "px";
+                }
+                const emoji = document.getElementById(`emoji${i}`);
+                if (emoji) emoji.style.transform = "scaleX(-1)"; // ወደ ቀኝ ፊት ማዞር
+            }
+        }
 
         async function fetchBalance() {
             try {
@@ -264,9 +302,11 @@
         function openHorseGame() {
             document.getElementById('horse-full-screen-game').style.display = 'block';
             document.getElementById('horse-game-balance').innerText = currentBalance.toFixed(2);
+            setTimeout(positionHorsesAtStart, 200); // ገጹ ሲከፈት በትክክል እንዲሳሉ
         }
 
         function closeHorseGame() {
+            if(isRacing) return alert("ውድድር እየተካሄደ መውጣት አይቻልም!");
             document.getElementById('horse-full-screen-game').style.display = 'none';
         }
 
@@ -279,6 +319,7 @@
         }
 
         function selectHorse(num) {
+            if(isRacing) return;
             selectedHorse = num;
             for (let i = 1; i <= 5; i++) {
                 document.getElementById(`h-btn-${i}`).style.border = "none";
@@ -286,35 +327,81 @@
             document.getElementById(`h-btn-${num}`).style.border = "3px solid white";
         }
 
+        // 🏇 የተሻሻለ የክብ ውድድር ፈንክሽን
         function startHorseRace() {
+            if (isRacing) return;
             const betAmount = parseInt(document.getElementById('horse-bet-amount').value);
             if (!selectedHorse) return alert("እባክዎ መጀመሪያ ፈረስ ይምረጡ!");
             if (betAmount > currentBalance) return alert("ይቅርታ፣ በቂ ባላንስ የለዎትም!");
             
-            alert(`ውድድር ተጀምሯል! በፈረስ ቁጥር ${selectedHorse} ላይ ${betAmount} ብር ወራርደዋል።`);
-            
-            let positions = [15, 15, 15, 15, 15];
+            isRacing = true;
+            document.getElementById("race-start-main-btn").disabled = true;
+            document.getElementById("race-start-main-btn").innerText = "🏇 ውድድር ላይ ነው...";
+
+            const track = document.getElementById('race-track-oval');
+            const width = track.clientWidth;
+            const height = track.clientHeight;
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            // መነሻ አንግል (90 ዲግሪ ወይም PI/2)
+            horseAngles = [Math.PI/2, Math.PI/2, Math.PI/2, Math.PI/2, Math.PI/2];
+            let laps = [0, 0, 0, 0, 0]; 
+            let winner = null;
+
             let interval = setInterval(() => {
-                let finished = false;
                 for(let i=1; i<=5; i++) {
-                    positions[i-1] += Math.floor(Math.random() * 20) + 5;
-                    let el = document.getElementById(`horse${i}`);
-                    if(el) el.style.left = positions[i-1] + "px";
+                    // እያንዳንዱ ፈረስ በየሴኮንዱ በዘፈቀደ ፍጥነት ይሮጣል
+                    let speed = (Math.random() * 0.05) + 0.02;
+                    let oldAngle = horseAngles[i-1];
                     
-                    if(positions[i-1] >= (window.innerWidth - 140)) {
-                        finished = true;
+                    // በሰዓት አቅጣጫ እንዲዞሩ አንግሉን እንጨምራለን
+                    horseAngles[i-1] += speed; 
+
+                    // 1 ሙሉ ዙር (2 * PI) ማጠናቀቃቸውን ማረጋገጫ
+                    if (oldAngle <= (Math.PI / 2 + Math.PI * 2) && horseAngles[i-1] >= (Math.PI / 2 + Math.PI * 2)) {
+                        laps[i-1] = 1;
+                        if (!winner) {
+                            winner = i;
+                        }
+                    }
+
+                    const radiusX = (width * 0.32) + (i * 14);
+                    const radiusY = (height * 0.32) + (i * 14);
+
+                    const x = centerX + radiusX * Math.cos(horseAngles[i-1]);
+                    const y = centerY + radiusY * Math.sin(horseAngles[i-1]);
+
+                    let el = document.getElementById(`horse${i}`);
+                    if(el) {
+                        el.style.left = x + "px";
+                        el.style.top = y + "px";
+                    }
+
+                    // የፈረሱ ፊት ወደ ሚሮጥበት አቅጣጫ እንዲዞር ማድረግ (Tangent angle)
+                    let emoji = document.getElementById(`emoji${i}`);
+                    if (emoji) {
+                        let runAngle = horseAngles[i-1] + Math.PI/2; 
+                        emoji.style.transform = `rotate(${runAngle}rad) scaleX(-1)`;
                     }
                 }
-                if(finished) {
+
+                // ሁሉም 1 ዙር ሲጨርሱ ውድድሩ ያበቃል
+                if(laps.every(l => l >= 1)) {
                     clearInterval(interval);
-                    alert("ውድድሩ ተጠናቋል!");
-                    setTimeout(() => {
-                        for(let i=1; i<=5; i++) {
-                            document.getElementById(`horse${i}`).style.left = "15px";
-                        }
-                    }, 2000);
+                    isRacing = false;
+                    document.getElementById("race-start-main-btn").disabled = false;
+                    document.getElementById("race-start-main-btn").innerText = "🏇‍♂️ ውድድሩን ጀምር!";
+                    
+                    if (winner === selectedHorse) {
+                        alert(`🎉 እንኳን ደስ አለዎት! የመረጡት ፈረስ ቁጥር ${winner} በአንደኝነት አጠናቋል! አሸንፈዋል!`);
+                    } else {
+                        alert(`❌ ሰነፍ! ፈረስ ቁጥር ${winner} ቀድሞ አጠናቋል። የእርስዎ ፈረስ ቁጥር ${selectedHorse} ተሸንፏል።`);
+                    }
+
+                    setTimeout(positionHorsesAtStart, 1500); // ወደ መነሻ ይመለሱ
                 }
-            }, 100);
+            }, 50);
         }
 
         function openWallet() {
