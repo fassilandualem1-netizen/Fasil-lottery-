@@ -61,78 +61,28 @@
     </div>
 
     <div class="games-grid" id="main-menu">
-    <div class="game-card">
-        <div style="font-size: 40px;">🐑</div>
-        <h3>Sheep Run 🐑</h3>
-        <p>መግቢያ፦ 2 ብር</p>
-        <button onclick="openSheepGame()">ተጫወት</button> </div>
-</div>
-
-<div id="sheep-full-screen-game" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #141414; z-index: 9999; overflow-y: auto; padding: 20px; box-sizing: border-box;">
-    
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;">
-        <button onclick="closeSheepGame()" style="background: #e74c3c; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">⬅️ ተመለስ</button>
-        <h2 style="color: white; margin: 0; font-family: sans-serif; font-size: 24px; letter-spacing: 1px;">Sheep Run 🐑</h2>
-        <div style="width: 80px;"></div> </div>
-
-    <div style="background: #2c3e50; padding: 20px; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); border: 2px solid #34495e;">
-        <div class="track-field" style="position: relative; background: #222; border: 4px solid #111; border-radius: 12px; overflow: hidden; padding: 20px 0; min-height: 300px;">
-            
-            <div class="finish-line" style="position: absolute; right: 70px; top: 0; bottom: 0; width: 24px; background-image: linear-gradient(45deg, #fff 25%, transparent 25%), linear-gradient(-45deg, #fff 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #fff 75%), linear-gradient(-45deg, transparent 75%, #fff 75%); background-size: 8px 8px; background-position: 0 0, 0 4px, 4px -4px, -4px 0px; z-index: 2; border-left: 3px solid #000;"></div>
-            
-            <div class="lane" style="display: flex; align-items: center; height: 55px; border-bottom: 2px dashed #555; position: relative;">
-                <div id="sheep1" style="position: absolute; left: 20px; font-size: 42px; display: flex; align-items: center; transition: left 0.1s linear;">
-                    <span style="background: #e74c3c; border-radius: 6px; padding: 2px 8px; font-size: 13px; color: white; font-weight: bold; margin-right: -12px; z-index: 3; border: 1.5px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">1</span>
-                    🐑
-                </div>
-            </div>
-
-            <div class="lane" style="display: flex; align-items: center; height: 55px; border-bottom: 2px dashed #555; position: relative;">
-                <div id="sheep2" style="position: absolute; left: 20px; font-size: 42px; display: flex; align-items: center; transition: left 0.1s linear;">
-                    <span style="background: #3498db; border-radius: 6px; padding: 2px 8px; font-size: 13px; color: white; font-weight: bold; margin-right: -12px; z-index: 3; border: 1.5px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">2</span>
-                    🐑
-                </div>
-            </div>
-
-            <div class="lane" style="display: flex; align-items: center; height: 55px; border-bottom: 2px dashed #555; position: relative;">
-                <div id="sheep3" style="position: absolute; left: 20px; font-size: 42px; display: flex; align-items: center; transition: left 0.1s linear;">
-                    <span style="background: #2ecc71; border-radius: 6px; padding: 2px 8px; font-size: 13px; color: white; font-weight: bold; margin-right: -12px; z-index: 3; border: 1.5px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">3</span>
-                    🐑
-                </div>
-            </div>
-
-            <div class="lane" style="display: flex; align-items: center; height: 55px; border-bottom: 2px dashed #555; position: relative;">
-                <div id="sheep4" style="position: absolute; left: 20px; font-size: 42px; display: flex; align-items: center; transition: left 0.1s linear;">
-                    <span style="background: #f1c40f; border-radius: 6px; padding: 2px 8px; font-size: 13px; color: black; font-weight: bold; margin-right: -12px; z-index: 3; border: 1.5px solid black; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">4</span>
-                    🐑
-                </div>
-            </div>
-
-            <div class="lane" style="display: flex; align-items: center; height: 55px; position: relative;">
-                <div id="sheep5" style="position: absolute; left: 20px; font-size: 42px; display: flex; align-items: center; transition: left 0.1s linear;">
-                    <span style="background: #9b59b6; border-radius: 6px; padding: 2px 8px; font-size: 13px; color: white; font-weight: bold; margin-right: -12px; z-index: 3; border: 1.5px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">5</span>
-                    🐑
-                </div>
-            </div>
-
+        
+        <div class="game-card">
+            <div style="font-size: 40px;">🐑</div>
+            <h3>Sheep Run 🐑</h3>
+            <p>መግቢያ፦ 2 ብር</p>
+            <button onclick="openSheepGame()">ተጫወት</button>
         </div>
-    </div>
-</div>
 
-
-        </div>
         <div class="game-card">
             <div style="font-size: 40px;">🧀</div>
             <h3>የአይጧ ጨዋታ</h3>
             <p>መግቢያ፦ 5 ብር</p>
             <button onclick="launchGame('ayit_game')">ተጫወት</button>
         </div>
+
         <div class="game-card">
             <div style="font-size: 40px;">🦁</div>
             <h3>የአንበሳ አደን </h3>
             <p>መግቢያ፦ 10 ብር</p>
             <button onclick="launchGame('anbessa_aden')">ተጫወት</button>
         </div>
+
         <div class="game-card">
             <div style="font-size: 40px;">🪙</div>
             <h3>ዘውድና ጎፈር</h3>
@@ -142,6 +92,59 @@
                     <button style="background: #2196F3;" onclick="triggerCoinFlip('ዘውድ')">ዘውድ</button>
                     <button style="background: #4CAF50;" onclick="triggerCoinFlip('ጎፈር')">ጎፈር</button>
                 </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="sheep-full-screen-game" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #141414; z-index: 9999; overflow-y: auto; padding: 20px; box-sizing: border-box;">
+        
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;">
+            <button onclick="closeSheepGame()" style="background: #e74c3c; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); width: auto;">⬅️ ተመለስ</button>
+            <h2 style="color: white; margin: 0; font-family: sans-serif; font-size: 24px; letter-spacing: 1px;">Sheep Race 🐑</h2>
+            <div style="width: 80px;"></div>
+        </div>
+
+        <div style="background: #2c3e50; padding: 20px; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); border: 2px solid #34495e;">
+            <div class="track-field" style="position: relative; background: #222; border: 4px solid #111; border-radius: 12px; overflow: hidden; padding: 20px 0; min-height: 320px;">
+                
+                <div class="finish-line" style="position: absolute; right: 70px; top: 0; bottom: 0; width: 24px; background-image: linear-gradient(45deg, #fff 25%, transparent 25%), linear-gradient(-45deg, #fff 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #fff 75%), linear-gradient(-45deg, transparent 75%, #fff 75%); background-size: 8px 8px; background-position: 0 0, 0 4px, 4px -4px, -4px 0px; z-index: 2; border-left: 3px solid #000;"></div>
+                
+                <div class="lane" style="display: flex; align-items: center; height: 55px; border-bottom: 2px dashed #555; position: relative;">
+                    <div id="sheep1" style="position: absolute; left: 20px; font-size: 42px; display: flex; align-items: center; transition: left 0.1s linear;">
+                        <span style="background: #e74c3c; border-radius: 6px; padding: 2px 8px; font-size: 13px; color: white; font-weight: bold; margin-right: -12px; z-index: 3; border: 1.5px solid white;">1</span>
+                        🐑
+                    </div>
+                </div>
+
+                <div class="lane" style="display: flex; align-items: center; height: 55px; border-bottom: 2px dashed #555; position: relative;">
+                    <div id="sheep2" style="position: absolute; left: 20px; font-size: 42px; display: flex; align-items: center; transition: left 0.1s linear;">
+                        <span style="background: #3498db; border-radius: 6px; padding: 2px 8px; font-size: 13px; color: white; font-weight: bold; margin-right: -12px; z-index: 3; border: 1.5px solid white;">2</span>
+                        🐑
+                    </div>
+                </div>
+
+                <div class="lane" style="display: flex; align-items: center; height: 55px; border-bottom: 2px dashed #555; position: relative;">
+                    <div id="sheep3" style="position: absolute; left: 20px; font-size: 42px; display: flex; align-items: center; transition: left 0.1s linear;">
+                        <span style="background: #2ecc71; border-radius: 6px; padding: 2px 8px; font-size: 13px; color: white; font-weight: bold; margin-right: -12px; z-index: 3; border: 1.5px solid white;">3</span>
+                        🐑
+                    </div>
+                </div>
+
+                <div class="lane" style="display: flex; align-items: center; height: 55px; border-bottom: 2px dashed #555; position: relative;">
+                    <div id="sheep4" style="position: absolute; left: 20px; font-size: 42px; display: flex; align-items: center; transition: left 0.1s linear;">
+                        <span style="background: #f1c40f; border-radius: 6px; padding: 2px 8px; font-size: 13px; color: black; font-weight: bold; margin-right: -12px; z-index: 3; border: 1.5px solid black;">4</span>
+                        🐑
+                    </div>
+                </div>
+
+                <div class="lane" style="display: flex; align-items: center; height: 55px; position: relative;">
+                    <div id="sheep5" style="position: absolute; left: 20px; font-size: 42px; display: flex; align-items: center; transition: left 0.1s linear;">
+                        <span style="background: #9b59b6; border-radius: 6px; padding: 2px 8px; font-size: 13px; color: white; font-weight: bold; margin-right: -12px; z-index: 3; border: 1.5px solid white;">5</span>
+                        🐑
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
@@ -173,12 +176,10 @@
             <hr>
             
             <h3 class="withdraw-title">ብር ያውጡ (Withdraw)</h3>
-            
             <input type="text" id="withdraw-bank" placeholder="የባንክ አይነት (ምሳሌ: ንግድ ባንክ, ቴሌብር, አቢሲንያ...)">
             <input type="text" id="withdraw-account-name" placeholder="የአካውንት ስም (ሙሉ ስም)...">
             <input type="text" id="withdraw-phone" placeholder="አካውንት ቁጥር / ስልክ ቁጥር...">
             <input type="number" id="withdraw-amount" placeholder="የሚወጣውን የብር መጠን ያስገቡ...">
-            
             <button class="btn-withdraw" id="withdraw-submit-btn" onclick="handleWithdraw(event)">ገንዘብ አውጣ</button>
         </div>
     </div>
@@ -188,260 +189,244 @@
             <span class="close-btn" onclick="closeModal('history-modal')">&times;</span>
             <h2 style="color: #2196F3;">ታሪክ 📜 (History)</h2>
             <hr>
-            <div id="history-list-content">
-                </div>
+            <div id="history-list-content"></div>
         </div>
     </div>
 
-<script>
-    const tg = window.Telegram.WebApp;
-    if(tg) tg.expand();
-
-    const initData = tg.initData || ""; 
-    const userData = tg.initDataUnsafe?.user || { id: "8488592165", first_name: "የሰፈር ልጅ" };
-    const userId = userData.id.toString();
-    const firstName = userData.first_name; 
-    let currentBalance = 0;
-
-    document.addEventListener("DOMContentLoaded", () => {
-        document.getElementById("user-name").innerText = firstName;
-        fetchBalance();
-        setInterval(fetchBalance, 5000);
-    });
-
-    async function fetchBalance() {
-        try {
-            const res = await fetch('/api/get_balance', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': initData },
-                body: JSON.stringify({ user_id: userId })
-            });
-            const data = await res.json();
-            if (data.status === "success") {
-                currentBalance = data.balance;
-                document.getElementById("user-balance").innerText = currentBalance.toFixed(2);
-                if(document.getElementById("modal-balance")) document.getElementById("modal-balance").innerText = currentBalance.toFixed(2);
-            }
-        } catch (e) { console.error("ባላንስ ማግኘት አልተቻለም", e); }
-    }
-
-    function openWallet() {
-        document.getElementById("wallet-modal").style.display = "flex";
-        document.getElementById("modal-balance").innerText = currentBalance.toFixed(2);
-    }
-    
-    function openHistory() {
-        document.getElementById("history-modal").style.display = "flex";
-        document.getElementById("history-list-content").innerHTML = "<i>እየጫነ ነው... ⏳</i>";
-        loadHistory();
-    }
-
-    function closeModal(modalId) {
-        document.getElementById(modalId).style.display = "none";
-    }
-
-    async function loadHistory() {
-    try {
-        const res = await fetch('/api/get_history', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': initData },
-            body: JSON.stringify({user_id: userId})
-        });
-        const data = await res.json();
-        const list = document.getElementById("history-list-content");
-        
-        // ገቢ እና ወጪን ብቻ ለይቶ ማውጣት
-        const financialHistory = (data.history || []).filter(h => h.type === 'ገቢ' || h.type === 'ወጪ');
-
-        if(financialHistory.length === 0) {
-            list.innerHTML = "<p style='color:#aaa;'>ምንም ታሪክ የለዎትም!</p>";
-            return;
-        }
-
-        list.innerHTML = financialHistory.map(h => {
-            // የሁኔታ ምልክቶች (Status Icons)
-            let statusBadge = '';
-            if(h.status === 'pending') {
-                statusBadge = '<span style="font-size: 18px; color: #ffeb3b;" title="በሂደት ላይ">⏳</span>';
-            } else if(h.status === 'completed') {
-                statusBadge = '<span style="font-size: 18px; color: #4CAF50;" title="ተጠናቋል">✅</span>';
-            } else if(h.status === 'refund') {
-                statusBadge = '<span style="font-size: 18px; color: #f44336;" title="ውድቅ/ተመላሽ">❌</span>';
-            } else {
-                statusBadge = `<span>${h.status}</span>`;
-            }
-
-            // የጎን መስመር ቀለም እና ምልክት (Type Icons)
-            let borderColor = '#999';
-            let typeIcon = '';
-            if(h.type === 'ገቢ') {
-                borderColor = '#4CAF50';
-                typeIcon = '📥 ';
-            } else if(h.type === 'ወጪ') {
-                borderColor = '#f44336';
-                typeIcon = '📤 ';
-            }
-
-            return `
-            <div class="history-card" style="border-left: 4px solid ${borderColor}; padding: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: #2d2d2d; border-radius: 8px;">
-                <div>
-                    <div style="font-weight: bold; font-size: 14px; color: ${borderColor};">${typeIcon}${h.type}</div>
-                    <div style="font-size: 16px; color: white; font-weight: bold; margin-top: 4px;">${h.amount} ብር</div>
-                </div>
-                <div style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px;">
-                    ${statusBadge}
-                </div>
-            </div>
-            `;
-        }).join('');
-    } catch (e) { console.error("ሂስትሪ ማግኘት አልተቻለም", e); }
-}
-
-    function updateReceiptLabel(input) {
-        const fileName = input.files[0] ? input.files[0].name : "";
-        document.getElementById("file-name-display").innerText = "የተመረጠ ፋይል: " + fileName;
-    }
-
-    async function launchGame(gameType) {
-        try {
-            const res = await fetch('/api/start_game', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': initData },
-                body: JSON.stringify({ user_id: userId, game_type: gameType })
-            });
-            const data = await res.json();
-            if (data.status === "success" || data.status === "ok") {
-                document.getElementById('main-menu').style.display = 'none';
-                document.getElementById('game-canvas-container').style.display = 'block';
-                fetchBalance(); 
-            } else { alert(data.message || "በቂ ባላንስ የለዎትም!"); }
-        } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
-    }
-
-    function exitGame() {
-        document.getElementById('main-menu').style.display = 'grid';
-        document.getElementById('game-canvas-container').style.display = 'none';
-        fetchBalance();
-    }
-
-    async function triggerCoinFlip(choice) {
-        const betInput = document.getElementById("bet-amount");
-        const betAmount = parseFloat(betInput.value || 0);
-        if (betAmount <= 0) return alert("እባክዎ መጀመሪያ ትክክለኛ የውርርድ መጠን ያስገቡ!");
-        if (betAmount > currentBalance) return alert("በቂ ባላንስ የለዎትም!");
-
-        try {
-            const res = await fetch('/api/coin_flip', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': initData },
-                body: JSON.stringify({ user_id: userId, bet_amount: betAmount, choice: choice })
-            });
-            const data = await res.json();
-            if (data.status === "win" || data.status === "lose") {
-                alert(data.message); 
-                betInput.value = "";
-                fetchBalance(); 
-            } else { alert(data.message || "ስህተት አጋጥሟል!"); }
-        } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
-    }
-
-    async function handleDeposit(event) {
-        const amountInput = document.getElementById("deposit-amount");
-        const receiptInput = document.getElementById("deposit-receipt");
-        const amount = parseFloat(amountInput.value || 0);
-        const receiptFile = receiptInput.files[0];
-
-        if (amount <= 0) return alert("እባክዎ የላኩትን የብር መጠን ያስገቡ!");
-        if (!receiptFile) return alert("እባክዎ የላኩበትን ደረሰኝ ያያይዙ!");
-
-        const btn = event.target;
-        const originalText = btn.innerText;
-        btn.innerText = "እየላከ ነው..."; 
-        btn.disabled = true;
-
-        const formData = new FormData();
-        formData.append("user_id", userId);
-        formData.append("user_name", firstName); 
-        formData.append("amount", amount);
-        formData.append("receipt", receiptFile);
-        formData.append("init_data", initData);
-
-        try {
-            const res = await fetch('/api/deposit', { method: 'POST', body: formData });
-            const data = await res.json();
-            if (data.status === "success") {
-                alert(`የማረጋገጫ ጥያቄዎ ተልኮአል ✅! አድሚኑ አይቶ ያጸድቀዋል።`);
-                amountInput.value = "";
-                receiptInput.value = "";
-                document.getElementById("file-name-display").innerText = "";
-                closeModal('wallet-modal');
-            } else { alert(data.message || "ስህተት አጋጥሟል!"); }
-        } catch (e) { 
-            alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); 
-        } finally {
-            btn.innerText = originalText;
-            btn.disabled = false;
-        }
-    }
-
-    async function handleWithdraw(event) {
-        const amountInput = document.getElementById("withdraw-amount");
-        const phoneInput = document.getElementById("withdraw-phone");
-        const bankInput = document.getElementById("withdraw-bank");
-        const accountNameInput = document.getElementById("withdraw-account-name");
-
-        const amount = parseFloat(amountInput.value || 0);
-        const phone = phoneInput.value.trim();
-        const bankName = bankInput.value.trim();
-        const accountName = accountNameInput.value.trim();
-
-        if (!bankName) return alert("እባክዎ የባንክ አይነት ያስገቡ!");
-        if (!accountName) return alert("እባክዎ የአካውንት ስም ያስገቡ!");
-        if (!phone) return alert("እባክዎ አካውንት ቁጥር/ስልክ ያስገቡ!");
-        if (amount <= 0) return alert("ማውጣት የሚፈልጉትን የብር መጠን ያስገቡ!");
-        if (amount > currentBalance) return alert("ይቅርታ፣ በቂ ባላንስ የለዎትም!");
-
-        const btn = event.target;
-        const originalText = btn.innerText;
-        btn.innerText = "እየላከ ነው...";
-        btn.disabled = true;
-
-        try {
-            const res = await fetch('/api/withdraw', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': initData },
-                body: JSON.stringify({ 
-                    user_id: userId, 
-                    user_name: firstName,
-                    amount: amount, 
-                    phone: phone, 
-                    bank_name: bankName,
-                    account_name: accountName
-                })
-            });
-            
-            const data = await res.json();
-            if (data.status === "success") {
-                alert(`${amount} ብር በ ${bankName} ለማውጣት ጥያቄዎ ተልኮአል ✅!`);
-                amountInput.value = "";
-                phoneInput.value = "";
-                bankInput.value = "";
-                accountNameInput.value = "";
-                
-                fetchBalance();
-                closeModal('wallet-modal');
-            } else { 
-                alert(data.message || "ገንዘብ ማውጣት አልተቻለም!"); 
-            }
-        } catch (e) { 
-            alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); 
-        } finally {
-            btn.innerText = originalText;
-            btn.disabled = false;
-        }
-    }
     <script>
-        // ... ሌሎች የነበሩ የጃቫስክሪፕት ኮዶች ...
+        const tg = window.Telegram.WebApp;
+        if(tg) tg.expand();
+
+        const initData = tg.initData || ""; 
+        const userData = tg.initDataUnsafe?.user || { id: "8488592165", first_name: "የሰፈር ልጅ" };
+        const userId = userData.id.toString();
+        const firstName = userData.first_name; 
+        let currentBalance = 0;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById("user-name").innerText = firstName;
+            fetchBalance();
+            setInterval(fetchBalance, 5000);
+        });
+
+        async function fetchBalance() {
+            try {
+                const res = await fetch('/api/get_balance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': initData },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await res.json();
+                if (data.status === "success") {
+                    currentBalance = data.balance;
+                    document.getElementById("user-balance").innerText = currentBalance.toFixed(2);
+                    if(document.getElementById("modal-balance")) document.getElementById("modal-balance").innerText = currentBalance.toFixed(2);
+                }
+            } catch (e) { console.error("ባላንስ ማግኘት አልተቻለም", e); }
+        }
+
+        function openWallet() {
+            document.getElementById("wallet-modal").style.display = "flex";
+            document.getElementById("modal-balance").innerText = currentBalance.toFixed(2);
+        }
+        
+        function openHistory() {
+            document.getElementById("history-modal").style.display = "flex";
+            document.getElementById("history-list-content").innerHTML = "<i>እየጫነ ነው... ⏳</i>";
+            loadHistory();
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = "none";
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch('/api/get_history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': initData },
+                    body: JSON.stringify({user_id: userId})
+                });
+                const data = await res.json();
+                const list = document.getElementById("history-list-content");
+                
+                const financialHistory = (data.history || []).filter(h => h.type === 'ገቢ' || h.type === 'ወጪ');
+
+                if(financialHistory.length === 0) {
+                    list.innerHTML = "<p style='color:#aaa;'>ምንም ታሪክ የለዎትም!</p>";
+                    return;
+                }
+
+                list.innerHTML = financialHistory.map(h => {
+                    let statusBadge = '';
+                    if(h.status === 'pending') statusBadge = '<span style="font-size: 18px; color: #ffeb3b;" title="በሂደት ላይ">⏳</span>';
+                    else if(h.status === 'completed') statusBadge = '<span style="font-size: 18px; color: #4CAF50;" title="ተጠናቋል">✅</span>';
+                    else if(h.status === 'refund') statusBadge = '<span style="font-size: 18px; color: #f44336;" title="ውድቅ/ተመላሽ">❌</span>';
+                    else statusBadge = `<span>${h.status}</span>`;
+
+                    let borderColor = '#999';
+                    let typeIcon = '';
+                    if(h.type === 'ገቢ') { borderColor = '#4CAF50'; typeIcon = '📥 '; }
+                    else if(h.type === 'ወጪ') { borderColor = '#f44336'; typeIcon = '📤 '; }
+
+                    return `
+                    <div class="history-card" style="border-left: 4px solid ${borderColor}; padding: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: #2d2d2d; border-radius: 8px;">
+                        <div>
+                            <div style="font-weight: bold; font-size: 14px; color: ${borderColor};">${typeIcon}${h.type}</div>
+                            <div style="font-size: 16px; color: white; font-weight: bold; margin-top: 4px;">${h.amount} ብር</div>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px;">
+                            ${statusBadge}
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+            } catch (e) { console.error("ሂስትሪ ማግኘት አልተቻለም", e); }
+        }
+
+        function updateReceiptLabel(input) {
+            const fileName = input.files[0] ? input.files[0].name : "";
+            document.getElementById("file-name-display").innerText = "የተመረጠ ፋይል: " + fileName;
+        }
+
+        async function launchGame(gameType) {
+            try {
+                const res = await fetch('/api/start_game', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': initData },
+                    body: JSON.stringify({ user_id: userId, game_type: gameType })
+                });
+                const data = await res.json();
+                if (data.status === "success" || data.status === "ok") {
+                    document.getElementById('main-menu').style.display = 'none';
+                    document.getElementById('game-canvas-container').style.display = 'block';
+                    fetchBalance(); 
+                } else { alert(data.message || "በቂ ባላንስ የለዎትም!"); }
+            } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
+        }
+
+        function exitGame() {
+            document.getElementById('main-menu').style.display = 'grid';
+            document.getElementById('game-canvas-container').style.display = 'none';
+            fetchBalance();
+        }
+
+        async function triggerCoinFlip(choice) {
+            const betInput = document.getElementById("bet-amount");
+            const betAmount = parseFloat(betInput.value || 0);
+            if (betAmount <= 0) return alert("እባክዎ መጀመሪያ ትክክለኛ የውርርድ መጠን ያስገቡ!");
+            if (betAmount > currentBalance) return alert("በቂ ባላንስ የለዎትም!");
+
+            try {
+                const res = await fetch('/api/coin_flip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': initData },
+                    body: JSON.stringify({ user_id: userId, bet_amount: betAmount, choice: choice })
+                });
+                const data = await res.json();
+                if (data.status === "win" || data.status === "lose") {
+                    alert(data.message); 
+                    betInput.value = "";
+                    fetchBalance(); 
+                } else { alert(data.message || "ስህተት አጋጥሟል!"); }
+            } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
+        }
+
+        async function handleDeposit(event) {
+            const amountInput = document.getElementById("deposit-amount");
+            const receiptInput = document.getElementById("deposit-receipt");
+            const amount = parseFloat(amountInput.value || 0);
+            const receiptFile = receiptInput.files[0];
+
+            if (amount <= 0) return alert("እባክዎ የላኩትን የብር መጠን ያስገቡ!");
+            if (!receiptFile) return alert("እባክዎ የላኩበትን ደረሰኝ ያያይዙ!");
+
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.innerText = "እየላከ ነው..."; 
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append("user_id", userId);
+            formData.append("user_name", firstName); 
+            formData.append("amount", amount);
+            formData.append("receipt", receiptFile);
+            formData.append("init_data", initData);
+
+            try {
+                const res = await fetch('/api/deposit', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.status === "success") {
+                    alert(`የማረጋገጫ ጥያቄዎ ተልኮአል ✅! አድሚኑ አይቶ ያጸድቀዋል።`);
+                    amountInput.value = "";
+                    receiptInput.value = "";
+                    document.getElementById("file-name-display").innerText = "";
+                    closeModal('wallet-modal');
+                } else { alert(data.message || "ስህተት አጋጥሟል!"); }
+            } catch (e) { 
+                alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); 
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function handleWithdraw(event) {
+            const amountInput = document.getElementById("withdraw-amount");
+            const phoneInput = document.getElementById("withdraw-phone");
+            const bankInput = document.getElementById("withdraw-bank");
+            const accountNameInput = document.getElementById("withdraw-account-name");
+
+            const amount = parseFloat(amountInput.value || 0);
+            const phone = phoneInput.value.trim();
+            const bankName = bankInput.value.trim();
+            const accountName = accountNameInput.value.trim();
+
+            if (!bankName) return alert("እባክዎ የባንክ አይነት ያስገቡ!");
+            if (!accountName) return alert("እባክዎ የአካውንት ስም ያስገቡ!");
+            if (!phone) return alert("እባክዎ አካውንት ቁጥር/ስልክ ያስገቡ!");
+            if (amount <= 0) return alert("ማውጣት የሚፈልጉትን የብር መጠን ያስገቡ!");
+            if (amount > currentBalance) return alert("ይቅርታ፣ በቂ ባላንስ የለዎትም!");
+
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.innerText = "እየላከ ነው...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/withdraw', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': initData },
+                    body: JSON.stringify({ 
+                        user_id: userId, 
+                        user_name: firstName,
+                        amount: amount, 
+                        phone: phone, 
+                        bank_name: bankName,
+                        account_name: accountName
+                    })
+                });
+                
+                const data = await res.json();
+                if (data.status === "success") {
+                    alert(`${amount} ብር በ ${bankName} ለማውጣት ጥያቄዎ ተልኮአል ✅!`);
+                    amountInput.value = "";
+                    phoneInput.value = "";
+                    bankInput.value = "";
+                    accountNameInput.value = "";
+                    
+                    fetchBalance();
+                    closeModal('wallet-modal');
+                } else { 
+                    alert(data.message || "ገንዘብ ማውጣት አልተቻለም!"); 
+                }
+            } catch (e) { 
+                alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); 
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
 
         // የ Sheep Run ገጽ መክፈቻ እና መዝጊያ ፈንክሽኖች
         function openSheepGame() {
@@ -451,6 +436,7 @@
         function closeSheepGame() {
             document.getElementById('sheep-full-screen-game').style.display = 'none';
         }
-    </script> <script src="/static/js/game.js"></script>
+    </script>
+    <script src="/static/js/game.js"></script>
 </body>
 </html>
