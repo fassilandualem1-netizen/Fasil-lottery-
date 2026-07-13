@@ -82,73 +82,87 @@ def send_welcome(message):
 # Admin Button Clicks (No Browser, Handled Directly in Telegram)
 @bot.callback_query_handler(func=lambda call: True)
 def handle_admin_callback(call):
-    # የሚነካው አድሚኑ መሆኑን ማረጋገጫ
+    # የሚነካው አድሚኑ መሆኑን ማረጋገጫ (ግሩፕ ወይም ፕራይቬት ቻት)
     if call.message.chat.id not in [ADMIN_GROUP_ID, MY_PRIVATE_CHAT_ID]:
         bot.answer_callback_query(call.id, "Unauthorized!")
         return
 
     data = call.data.split('|')
     action = data[0]
+    tx_id = data[-1] # ሁልጊዜ የመጨረሻው ዳታ tx_id ነው
+
+    # 1. Transaction Check - ጥያቄው ቀድሞ ከተሰራ አዝራሮቹን ያጠፋል
+    tx_status = redis.get(f"tx:{tx_id}")
+    if isinstance(tx_status, bytes):
+        tx_status = tx_status.decode('utf-8')
+        
+    if tx_status != "pending":
+        try:
+            # በተኖቹን (Buttons) ከመልእክቱ ላይ ያጠፋል
+            if "dep_" in action:
+                bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
+            else:
+                bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
+        except: pass
+        return bot.answer_callback_query(call.id, "❌ ይህ ጥያቄ ቀደም ብሎ ተስተናግዷል!", show_alert=True)
 
     # --- 1. Deposit Approve ---
     if action == "dep_app":
-        _, user_id, amount, tx_id = data
+        _, user_id, amount, _ = data
         amount = float(amount)
-        if redis.get(f"tx:{tx_id}") != b"pending" and redis.get(f"tx:{tx_id}") != "pending":
-            return bot.answer_callback_query(call.id, "❌ ይህ ጥያቄ ቀደም ብሎ ተስተናግዷል!", show_alert=True)
         
         redis.set(f"tx:{tx_id}", "completed")
         redis.hincrbyfloat("users:balance", user_id, amount)
         update_history_status(user_id, tx_id, "completed")
+        
         try: bot.send_message(user_id, f"✅ የ {amount} ብር ገቢ (Deposit) ጸድቋል! ባላንስዎ ተሞልቷል።")
         except: pass
         
-        bot.edit_message_caption(f"{call.message.caption}\n\n<b>✅ APPROVED (ጸድቋል)</b>", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML")
+        # በተኑን አጥፍቶ (reply_markup=None) ጽሁፉን ያሻሽላል
+        bot.edit_message_caption(f"{call.message.caption}\n\n<b>✅ APPROVED (ጸድቋል)</b>", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None, parse_mode="HTML")
         bot.answer_callback_query(call.id, "✅ Successfully Approved!")
 
     # --- 2. Deposit Reject ---
     elif action == "dep_rej":
-        _, user_id, tx_id = data
-        if redis.get(f"tx:{tx_id}") != b"pending" and redis.get(f"tx:{tx_id}") != "pending":
-            return bot.answer_callback_query(call.id, "❌ ይህ ጥያቄ ቀደም ብሎ ተስተናግዷል!", show_alert=True)
+        _, user_id, _ = data
         
         redis.set(f"tx:{tx_id}", "refund")
         update_history_status(user_id, tx_id, "refund")
+        
         try: bot.send_message(user_id, "❌ የላኩት የክፍያ ማረጋገጫ (Deposit) ውድቅ ተደርጓል። እባክዎ ትክክለኛ ደረሰኝ ይላኩ።")
         except: pass
         
-        bot.edit_message_caption(f"{call.message.caption}\n\n<b>❌ REJECTED (ውድቅ ተደርጓል)</b>", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML")
+        bot.edit_message_caption(f"{call.message.caption}\n\n<b>❌ REJECTED (ውድቅ ተደርጓል)</b>", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None, parse_mode="HTML")
         bot.answer_callback_query(call.id, "❌ Successfully Rejected!")
 
     # --- 3. Withdraw Paid ---
     elif action == "wit_paid":
-        _, user_id, amount, tx_id = data
+        _, user_id, amount, _ = data
         amount = float(amount)
-        if redis.get(f"tx:{tx_id}") != b"pending" and redis.get(f"tx:{tx_id}") != "pending":
-            return bot.answer_callback_query(call.id, "❌ ይህ ጥያቄ ቀደም ብሎ ተስተናግዷል!", show_alert=True)
         
         redis.set(f"tx:{tx_id}", "completed")
         update_history_status(user_id, tx_id, "completed")
-        try: bot.send_message(user_id, f"✅ የ {amount} ብር ወጪ ጥያቄዎ በቴሌብር ተልኮልዎታል!")
+        
+        # Auto-Notification ለተጫዋቹ
+        try: bot.send_message(user_id, f"✅ የ {amount} ብር ወጪ (Withdraw) ጥያቄዎ ተከፍሏል! ብሩ ተልኳል።")
         except: pass
         
-        bot.edit_message_text(f"{call.message.text}\n\n<b>✅ PAID (ተከፍሏል)</b>", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML")
+        bot.edit_message_text(f"{call.message.text}\n\n<b>✅ PAID (ተከፍሏል)</b>", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None, parse_mode="HTML")
         bot.answer_callback_query(call.id, "✅ Marked as Paid!")
 
     # --- 4. Withdraw Reject ---
     elif action == "wit_rej":
-        _, user_id, amount, tx_id = data
+        _, user_id, amount, _ = data
         amount = float(amount)
-        if redis.get(f"tx:{tx_id}") != b"pending" and redis.get(f"tx:{tx_id}") != "pending":
-            return bot.answer_callback_query(call.id, "❌ ይህ ጥያቄ ቀደም ብሎ ተስተናግዷል!", show_alert=True)
         
         redis.set(f"tx:{tx_id}", "refund")
         redis.hincrbyfloat("users:balance", user_id, amount) # የተቆረጠውን እንመልስለታለን
         update_history_status(user_id, tx_id, "refund")
+        
         try: bot.send_message(user_id, f"❌ የ {amount} ብር ወጪ ጥያቄዎ ውድቅ ተደርጓል። ብሩ ወደ ባላንስዎ ተመልሷል።")
         except: pass
         
-        bot.edit_message_text(f"{call.message.text}\n\n<b>❌ REJECTED & REFUNDED (ውድቅ ተደርጓል)</b>", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML")
+        bot.edit_message_text(f"{call.message.text}\n\n<b>❌ REJECTED & REFUNDED (ውድቅ ተደርጓል)</b>", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None, parse_mode="HTML")
         bot.answer_callback_query(call.id, "❌ Withdrawal Rejected & Refunded!")
 
 
@@ -224,19 +238,26 @@ def handle_deposit():
         amount = float(request.form.get("amount", 0))
         receipt = request.files.get("receipt")
         
-        # tx_id ወደ 8 ፊደል አሳጥሬዋለሁ (Callback data ቦታ እንዲበቃ)
         tx_id = str(uuid.uuid4())[:8]
         redis.set(f"tx:{tx_id}", "pending")
 
         caption = f"🔔 <b>አዲስ Deposit ጥያቄ</b>\n👤 ስም: {user_name}\n🆔 <code>{user_id}</code>\n💰 <b>{amount} ብር</b>"
         
-        # URL ወደ Callback Data ተቀይሯል
         markup = InlineKeyboardMarkup().add(
             InlineKeyboardButton("✅ አጽድቅ (Approve)", callback_data=f"dep_app|{user_id}|{amount}|{tx_id}"),
             InlineKeyboardButton("❌ ውድቅ (Reject)", callback_data=f"dep_rej|{user_id}|{tx_id}")
         )
         
-        bot.send_photo(ADMIN_GROUP_ID, photo=receipt.stream.read(), caption=caption, reply_markup=markup, parse_mode="HTML")
+        # ፎቶውን ወደ ተለዋዋጭ (bytes) መቀየር ለሁለት ቦታ ለመላክ
+        photo_bytes = receipt.read()
+        
+        # Dual Notification: ለግሩፕ እና ለ Private ቻት
+        try: bot.send_photo(ADMIN_GROUP_ID, photo=photo_bytes, caption=caption, reply_markup=markup, parse_mode="HTML")
+        except: pass
+        
+        try: bot.send_photo(MY_PRIVATE_CHAT_ID, photo=photo_bytes, caption=caption, reply_markup=markup, parse_mode="HTML")
+        except: pass
+        
         log_history(user_id, tx_id, "ገቢ", amount, "pending")
         return jsonify({"status": "success"})
     except Exception as e: return jsonify({"error": str(e)}), 500
@@ -257,13 +278,18 @@ def handle_withdraw():
     
     msg = f"💸 <b>Withdraw ጥያቄ!</b>\n👤 ስም: {user_name}\n🆔 <code>{user_id}</code>\n📱 ስልክ: <code>{phone}</code>\n💰 <b>{amount} ብር</b>"
     
-    # URL ወደ Callback Data ተቀይሯል
     markup = InlineKeyboardMarkup().add(
         InlineKeyboardButton("✅ ተከፍሏል", callback_data=f"wit_paid|{user_id}|{amount}|{tx_id}"),
         InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"wit_rej|{user_id}|{amount}|{tx_id}")
     )
     
-    bot.send_message(ADMIN_GROUP_ID, text=msg, reply_markup=markup, parse_mode="HTML")
+    # Dual Notification: ለግሩፕ እና ለ Private ቻት
+    try: bot.send_message(ADMIN_GROUP_ID, text=msg, reply_markup=markup, parse_mode="HTML")
+    except: pass
+    
+    try: bot.send_message(MY_PRIVATE_CHAT_ID, text=msg, reply_markup=markup, parse_mode="HTML")
+    except: pass
+    
     log_history(user_id, tx_id, "ወጪ", amount, "pending")
     return jsonify({"status": "success"})
 
