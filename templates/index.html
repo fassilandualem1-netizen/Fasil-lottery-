@@ -29,15 +29,31 @@
         .coin-flip-box input { width: 80%; padding: 8px; margin-bottom: 10px; background: #333; border: 1px solid #555; color: white; text-align: center; border-radius: 4px; outline: none; }
         .flip-btns { display: flex; gap: 5px; }
 
-        /* Modal Styles */
+        /* Modal Styles (Wallet & History) */
         .modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; }
         .modal-content { background-color: #1e1e1e; color: white; padding: 25px; border-radius: 15px; width: 85%; max-width: 380px; text-align: center; border: 2px solid #ff9800; position: relative; max-height: 85vh; overflow-y: auto; }
         .close-btn { position: absolute; right: 15px; top: 10px; font-size: 28px; font-weight: bold; color: #aaa; cursor: pointer; }
+        .close-btn:hover { color: #f44336; }
 
         h2 { color: #ff9800; margin-top: 10px; }
         h3 { color: #4CAF50; font-size: 16px; margin-bottom: 5px; }
+        .withdraw-title { color: #f44336; }
         .modal-balance-box { background-color: #2d2d2d; padding: 10px; border-radius: 8px; font-size: 18px; margin-bottom: 15px; }
         .modal-balance-box span { color: #ff9800; font-weight: bold; }
+        .info-box { background-color: #2d2d2d; padding: 12px; border-radius: 8px; font-size: 14px; margin: 10px 0; border-left: 4px solid #4CAF50; text-align: left; }
+        hr { border: 0; height: 1px; background: #333; margin: 15px 0; }
+        .modal-content input, .modal-content select { width: 90%; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #444; background-color: #2b2b2b; color: white; font-size: 14px; outline: none; }
+        .file-input-label { display: block; background-color: #333; padding: 10px; margin: 8px 0; border-radius: 6px; border: 1px dashed #ff9800; cursor: pointer; font-size: 13px; }
+        .btn-withdraw { background-color: #f44336; }
+
+        .history-card { background: #2d2d2d; margin-bottom: 10px; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; text-align: left; }
+
+        /* 🐎 የፈረስ ስታይል - ፊታቸውን ወደ ቀኝ ማዞሪያ እና የከለር ፊልተሮች */
+        .horse-emoji {
+            font-size: 45px;
+            display: inline-block;
+            transform: scaleX(-1); /* ፊቱን ወደ ቀኝ ያዞረዋል */
+        }
     </style>
 </head>
 <body>
@@ -54,7 +70,7 @@
     <div class="games-grid" id="main-menu">
         
         <div class="game-card">
-            <div style="font-size: 40px;">🏇</div>
+            <div style="font-size: 40px; transform: scaleX(-1); display: inline-block;">🏇</div>
             <h3>Horse Race 🏇</h3>
             <p>መግቢያ፦ 2 ብር</p>
             <button onclick="openHorseGame()">ተጫወት</button>
@@ -88,69 +104,63 @@
 
     </div>
 
-    <!-- 📱 Horse Race መጫወቻ ገጽ -->
     <div id="horse-full-screen-game" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #141414; z-index: 9999; overflow-y: auto; padding: 15px; box-sizing: border-box;">
         
-        <!-- 🔝 የላይኛው ባር -->
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
             <button onclick="closeHorseGame()" style="background: #e74c3c; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; width: auto;">⬅️ ተመለስ</button>
             <h2 style="color: white; margin: 0; font-size: 20px;">Horse Race 🏇</h2>
-            <div style="background: #222; padding: 8px 12px; border-radius: 8px; border: 1px solid #ff9800; font-weight: bold; color: #ff9800; font-size: 14px;">
-                💰 <span id="horse-game-balance">0.00</span> ብር
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <div style="background: #222; padding: 8px 12px; border-radius: 8px; border: 1px solid #ff9800; font-weight: bold; color: #ff9800; font-size: 14px;">
+                    💰 <span id="horse-game-balance">0.00</span> ብር
+                </div>
+                <button class="top-btn" style="background-color: #ff9800; color: white; padding: 8px;" onclick="openWallet()">Wallet 💳</button>
+                <button class="top-btn" style="background-color: #2196F3; color: white; padding: 8px;" onclick="openHistory()">History 📜</button>
             </div>
         </div>
 
-        <!-- 🛣️ የአስፓልት መወዳደሪያ ሜዳ -->
         <div style="background: #2c3e50; padding: 15px; border-radius: 12px; border: 2px solid #34495e; margin-bottom: 15px;">
             <div style="position: relative; background: #1a1a1a; border: 4px solid #111; border-radius: 8px; overflow: hidden; padding: 10px 0; min-height: 380px;">
                 
-                <!-- መድረሻ መስመር -->
                 <div style="position: absolute; right: 70px; top: 0; bottom: 0; width: 20px; background-image: linear-gradient(45deg, #fff 25%, transparent 25%), linear-gradient(-45deg, #fff 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #fff 75%), linear-gradient(-45deg, transparent 75%, #fff 75%); background-size: 8px 8px; z-index: 2; border-left: 2px solid #000;"></div>
                 
-                <!-- መስመር 1 (ቀይ-ቡናማ ፈረስ 🔴) -->
                 <div style="display: flex; align-items: center; height: 70px; border-bottom: 1px dashed #333; position: relative;">
                     <div id="horse1" style="position: absolute; left: 15px; display: flex; align-items: center; transition: left 0.1s linear;">
-                        <span style="background: #e74c3c; border-radius: 4px; padding: 2px 6px; font-size: 12px; color: white; font-weight: bold; margin-right: 8px;">1</span>
-                        <span style="font-size: 45px; filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.4));">🏇</span>
+                        <span style="background: #e74c3c; border-radius: 4px; padding: 2px 6px; font-size: 12px; color: white; font-weight: bold; margin-right: 8px; z-index: 5;">1</span>
+                        <span class="horse-emoji" style="filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">🏇</span>
                     </div>
                 </div>
 
-                <!-- መስመር 2 (ጥቁር ፈረስ ⚫) -->
                 <div style="display: flex; align-items: center; height: 70px; border-bottom: 1px dashed #333; position: relative;">
                     <div id="horse2" style="position: absolute; left: 15px; display: flex; align-items: center; transition: left 0.1s linear;">
-                        <span style="background: #3498db; border-radius: 4px; padding: 2px 6px; font-size: 12px; color: white; font-weight: bold; margin-right: 8px;">2</span>
-                        <span style="font-size: 45px; filter: brightness(0.2) drop-shadow(0px 2px 4px rgba(0,0,0,0.4));">🏇</span>
+                        <span style="background: #3498db; border-radius: 4px; padding: 2px 6px; font-size: 12px; color: white; font-weight: bold; margin-right: 8px; z-index: 5;">2</span>
+                        <span class="horse-emoji" style="filter: brightness(0.25) contrast(1.2) drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">🏇</span>
                     </div>
                 </div>
 
-                <!-- መስመር 3 (ወርቃማ ፈረስ 🟡) -->
                 <div style="display: flex; align-items: center; height: 70px; border-bottom: 1px dashed #333; position: relative;">
                     <div id="horse3" style="position: absolute; left: 15px; display: flex; align-items: center; transition: left 0.1s linear;">
-                        <span style="background: #2ecc71; border-radius: 4px; padding: 2px 6px; font-size: 12px; color: white; font-weight: bold; margin-right: 8px;">3</span>
-                        <span style="font-size: 45px; filter: sepia(1) saturate(5) hue-rotate(15deg) drop-shadow(0px 2px 4px rgba(0,0,0,0.4));">🏇</span>
+                        <span style="background: #2ecc71; border-radius: 4px; padding: 2px 6px; font-size: 12px; color: white; font-weight: bold; margin-right: 8px; z-index: 5;">3</span>
+                        <span class="horse-emoji" style="filter: sepia(1) saturate(6) hue-rotate(20deg) brightness(0.9) drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">🏇</span>
                     </div>
                 </div>
 
-                <!-- መስመር 4 (የብረት ግራጫ ፈረስ 🔘) -->
                 <div style="display: flex; align-items: center; height: 70px; border-bottom: 1px dashed #333; position: relative;">
                     <div id="horse4" style="position: absolute; left: 15px; display: flex; align-items: center; transition: left 0.1s linear;">
-                        <span style="background: #f1c40f; border-radius: 4px; padding: 2px 6px; font-size: 12px; color: black; font-weight: bold; margin-right: 8px;">4</span>
-                        <span style="font-size: 45px; filter: grayscale(1) brightness(0.8) drop-shadow(0px 2px 4px rgba(0,0,0,0.4));">🏇</span>
+                        <span style="background: #f1c40f; border-radius: 4px; padding: 2px 6px; font-size: 12px; color: black; font-weight: bold; margin-right: 8px; z-index: 5;">4</span>
+                        <span class="horse-emoji" style="filter: grayscale(1) brightness(0.85) contrast(1.1) drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">🏇</span>
                     </div>
                 </div>
 
-                <!-- መስመር 5 (ነጭ-ቡናማ ፈረስ ⚪) -->
                 <div style="display: flex; align-items: center; height: 70px; position: relative;">
                     <div id="horse5" style="position: absolute; left: 15px; display: flex; align-items: center; transition: left 0.1s linear;">
-                        <span style="background: #9b59b6; border-radius: 4px; padding: 2px 6px; font-size: 12px; color: white; font-weight: bold; margin-right: 8px;">5</span>
-                        <span style="font-size: 45px; filter: contrast(1.5) brightness(1.3) sepia(0.3) drop-shadow(0px 2px 4px rgba(0,0,0,0.4));">🏇</span>
+                        <span style="background: #9b59b6; border-radius: 4px; padding: 2px 6px; font-size: 12px; color: white; font-weight: bold; margin-right: 8px; z-index: 5;">5</span>
+                        <span class="horse-emoji" style="filter: hue-rotate(130deg) saturate(3) brightness(0.9) drop-shadow(0px 2px 4px rgba(0,0,0,0.5));">🏇</span>
                     </div>
                 </div>
 
             </div>
         </div>
 
-        <!-- 💰 የውርርድ ሰሌዳ -->
         <div style="background: #1e1e1e; padding: 15px; border-radius: 12px; border: 1px solid #333; text-align: center;">
             <h4 style="margin: 0 0 10px 0; color: #aaa; font-size: 14px;">የውርርድ መጠን (ብር)</h4>
             
@@ -184,6 +194,36 @@
             <span class="close-btn" onclick="closeModal('wallet-modal')">&times;</span>
             <h2>ዋሌት 💳</h2>
             <div class="modal-balance-box">ባላንስ: <span id="modal-balance">0.00</span> ብር</div>
+            <hr>
+            <h3>ብር ያስገቡ (Deposit)</h3>
+            <div class="info-box">
+                እባክዎ መጀመሪያ በዚህ ቁጥር ይላኩ፦<br>
+                ስልክ፦ <strong>0951381356</strong>
+            </div>
+            <input type="number" id="deposit-amount" placeholder="የላኩትን የብር መጠን እዚህ ይጻፉ...">
+            <label class="file-input-label">
+                🧾 የላኩበትን የደረሰኝ ፎቶ (Screenshot) ይምረጡ
+                <input type="file" id="deposit-receipt" accept="image/*" style="display: none;" onchange="updateReceiptLabel(this)">
+            </label>
+            <span id="file-name-display" style="font-size: 12px; color: #aaa; display: block; margin-bottom: 5px;"></span>
+            <button id="deposit-submit-btn" onclick="handleDeposit(event)">የክፍያ ማረጋገጫ ላክ</button>
+            <hr>
+            
+            <h3 class="withdraw-title">ብር ያውጡ (Withdraw)</h3>
+            <input type="text" id="withdraw-bank" placeholder="የባንክ አይነት (ምሳሌ: ንግድ ባንክ, ቴሌብር...)">
+            <input type="text" id="withdraw-account-name" placeholder="የአካውንት ስም (ሙሉ ስም)...">
+            <input type="text" id="withdraw-phone" placeholder="አካውንት ቁጥር / ስልክ ቁጥር...">
+            <input type="number" id="withdraw-amount" placeholder="የሚወጣውን የብር መጠን ያስገቡ...">
+            <button class="btn-withdraw" id="withdraw-submit-btn" onclick="handleWithdraw(event)">ገንዘብ አውጣ</button>
+        </div>
+    </div>
+
+    <div id="history-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="border-color: #2196F3;">
+            <span class="close-btn" onclick="closeModal('history-modal')">&times;</span>
+            <h2 style="color: #2196F3;">ታሪክ 📜 (History)</h2>
+            <hr>
+            <div id="history-list-content"></div>
         </div>
     </div>
 
@@ -191,12 +231,35 @@
         const tg = window.Telegram.WebApp;
         if(tg) tg.expand();
 
+        const initData = tg.initData || ""; 
         const userData = tg.initDataUnsafe?.user || { id: "8488592165", first_name: "የሰፈር ልጅ" };
-        let currentBalance = 1000.00; 
+        const userId = userData.id.toString();
+        const firstName = userData.first_name; 
+        let currentBalance = 0;
         let selectedHorse = null;
 
-        document.getElementById("user-name").innerText = userData.first_name;
-        document.getElementById("user-balance").innerText = currentBalance.toFixed(2);
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById("user-name").innerText = firstName;
+            fetchBalance();
+            setInterval(fetchBalance, 5000);
+        });
+
+        async function fetchBalance() {
+            try {
+                const res = await fetch('/api/get_balance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': initData },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await res.json();
+                if (data.status === "success") {
+                    currentBalance = data.balance;
+                    document.getElementById("user-balance").innerText = currentBalance.toFixed(2);
+                    if(document.getElementById("modal-balance")) document.getElementById("modal-balance").innerText = currentBalance.toFixed(2);
+                    if(document.getElementById("horse-game-balance")) document.getElementById("horse-game-balance").innerText = currentBalance.toFixed(2);
+                }
+            } catch (e) { console.error("ባላንስ ማግኘት አልተቻለም", e); }
+        }
 
         function openHorseGame() {
             document.getElementById('horse-full-screen-game').style.display = 'block';
@@ -226,6 +289,7 @@
         function startHorseRace() {
             const betAmount = parseInt(document.getElementById('horse-bet-amount').value);
             if (!selectedHorse) return alert("እባክዎ መጀመሪያ ፈረስ ይምረጡ!");
+            if (betAmount > currentBalance) return alert("ይቅርታ፣ በቂ ባላንስ የለዎትም!");
             
             alert(`ውድድር ተጀምሯል! በፈረስ ቁጥር ${selectedHorse} ላይ ${betAmount} ብር ወራርደዋል።`);
             
@@ -253,9 +317,179 @@
             }, 100);
         }
 
-        function openWallet() { document.getElementById("wallet-modal").style.display = "flex"; }
-        function closeModal(id) { document.getElementById(id).style.display = "none"; }
-        function exitGame() { document.getElementById('main-menu').style.display = 'grid'; }
+        function openWallet() {
+            document.getElementById("wallet-modal").style.display = "flex";
+            document.getElementById("modal-balance").innerText = currentBalance.toFixed(2);
+        }
+        
+        function openHistory() {
+            document.getElementById("history-modal").style.display = "flex";
+            document.getElementById("history-list-content").innerHTML = "<i>እየጫነ ነው... ⏳</i>";
+            loadHistory();
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = "none";
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch('/api/get_history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': initData },
+                    body: JSON.stringify({user_id: userId})
+                });
+                const data = await res.json();
+                const list = document.getElementById("history-list-content");
+                const financialHistory = (data.history || []).filter(h => h.type === 'ገቢ' || h.type === 'ወጪ');
+
+                if(financialHistory.length === 0) {
+                    list.innerHTML = "<p style='color:#aaa;'>ምንም ታሪክ የለዎትም!</p>";
+                    return;
+                }
+
+                list.innerHTML = financialHistory.map(h => {
+                    let statusBadge = '';
+                    if(h.status === 'pending') statusBadge = '<span style="font-size: 18px; color: #ffeb3b;">⏳</span>';
+                    else if(h.status === 'completed') statusBadge = '<span style="font-size: 18px; color: #4CAF50;">✅</span>';
+                    else if(h.status === 'refund') statusBadge = '<span style="font-size: 18px; color: #f44336;">❌</span>';
+
+                    let borderColor = '#999';
+                    let typeIcon = '';
+                    if(h.type === 'ገቢ') { borderColor = '#4CAF50'; typeIcon = '📥 '; }
+                    else if(h.type === 'ወጪ') { borderColor = '#f44336'; typeIcon = '📤 '; }
+
+                    return `
+                    <div class="history-card" style="border-left: 4px solid ${borderColor}; padding: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: #2d2d2d; border-radius: 8px;">
+                        <div>
+                            <div style="font-weight: bold; font-size: 14px; color: ${borderColor};">${typeIcon}${h.type}</div>
+                            <div style="font-size: 16px; color: white; font-weight: bold; margin-top: 4px;">${h.amount} ብር</div>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px;">
+                            ${statusBadge}
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+            } catch (e) { console.error("ሂስትሪ ማግኘት አልተቻለም", e); }
+        }
+
+        function updateReceiptLabel(input) {
+            const fileName = input.files[0] ? input.files[0].name : "";
+            document.getElementById("file-name-display").innerText = "የተመረጠ ፋይል: " + fileName;
+        }
+
+        async function handleDeposit(event) {
+            const amountInput = document.getElementById("deposit-amount");
+            const receiptInput = document.getElementById("deposit-receipt");
+            const amount = parseFloat(amountInput.value || 0);
+            const receiptFile = receiptInput.files[0];
+
+            if (amount <= 0) return alert("እባክዎ የላኩትን የብር መጠን ያስገቡ!");
+            if (!receiptFile) return alert("እባክዎ የላኩበትን ደረሰኝ ያያይዙ!");
+
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.innerText = "እየላከ ነው..."; 
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append("user_id", userId);
+            formData.append("user_name", firstName); 
+            formData.append("amount", amount);
+            formData.append("receipt", receiptFile);
+            formData.append("init_data", initData);
+
+            try {
+                const res = await fetch('/api/deposit', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.status === "success") {
+                    alert(`የማረጋገጫ ጥያቄዎ ተልኮአል ✅! አድሚኑ አይቶ ያጸድቀዋል።`);
+                    amountInput.value = "";
+                    receiptInput.value = "";
+                    document.getElementById("file-name-display").innerText = "";
+                    closeModal('wallet-modal');
+                } else { alert(data.message || "ስህተት አጋጥሟል!"); }
+            } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
+            finally { btn.innerText = originalText; btn.disabled = false; }
+        }
+
+        async function handleWithdraw(event) {
+            const amountInput = document.getElementById("withdraw-amount");
+            const phoneInput = document.getElementById("withdraw-phone");
+            const bankInput = document.getElementById("withdraw-bank");
+            const accountNameInput = document.getElementById("withdraw-account-name");
+
+            const amount = parseFloat(amountInput.value || 0);
+            const phone = phoneInput.value.trim();
+            const bankName = bankInput.value.trim();
+            const accountName = accountNameInput.value.trim();
+
+            if (!bankName) return alert("እባክዎ የባንክ አይነት ያስገቡ!");
+            if (!accountName) return alert("እባክዎ የአካውንት ስም ያስገቡ!");
+            if (!phone) return alert("እባክዎ አካውንት ቁጥር/ስልክ ያስገቡ!");
+            if (amount <= 0) return alert("ማውጣት የሚፈልጉትን የብር መጠን ያስገቡ!");
+            if (amount > currentBalance) return alert("ይቅርታ፣ በቂ ባላንስ የለዎትም!");
+
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.innerText = "እየላከ ነው...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/withdraw', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': initData },
+                    body: JSON.stringify({ user_id: userId, user_name: firstName, amount: amount, phone: phone, bank_name: bankName, account_name: accountName })
+                });
+                const data = await res.json();
+                if (data.status === "success") {
+                    alert(`${amount} ብር በ ${bankName} ለማውጣት ጥያቄዎ ተልኮአል ✅!`);
+                    amountInput.value = ""; phoneInput.value = ""; bankInput.value = ""; accountNameInput.value = "";
+                    fetchBalance();
+                    closeModal('wallet-modal');
+                } else { alert(data.message || "ገንዘብ ማውጣት አልተቻለም!"); }
+            } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
+            finally { btn.innerText = originalText; btn.disabled = false; }
+        }
+
+        async function launchGame(gameType) {
+            try {
+                const res = await fetch('/api/start_game', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': initData },
+                    body: JSON.stringify({ user_id: userId, game_type: gameType })
+                });
+                const data = await res.json();
+                if (data.status === "success" || data.status === "ok") {
+                    document.getElementById('main-menu').style.display = 'none';
+                    document.getElementById('game-canvas-container').style.display = 'block';
+                    fetchBalance(); 
+                } else { alert(data.message || "በቂ ባላንስ የለዎትም!"); }
+            } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
+        }
+
+        async function triggerCoinFlip(choice) {
+            const betInput = document.getElementById("bet-amount");
+            const betAmount = parseFloat(betInput.value || 0);
+            if (betAmount <= 0) return alert("እባክዎ መጀመሪያ ትክክለኛ የውርርድ መጠን ያስገቡ!");
+            if (betAmount > currentBalance) return alert("በቂ ባላንስ የለዎትም!");
+
+            try {
+                const res = await fetch('/api/coin_flip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': initData },
+                    body: JSON.stringify({ user_id: userId, bet_amount: betAmount, choice: choice })
+                });
+                const data = await res.json();
+                if (data.status === "win" || data.status === "lose") {
+                    alert(data.message); betInput.value = ""; fetchBalance(); 
+                } else { alert(data.message || "ስህተት አጋጥሟል!"); }
+            } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
+        }
+
+        function exitGame() { document.getElementById('main-menu').style.display = 'grid'; document.getElementById('game-canvas-container').style.display = 'none'; fetchBalance(); }
     </script>
+    <script src="/static/js/game.js"></script>
 </body>
 </html>
