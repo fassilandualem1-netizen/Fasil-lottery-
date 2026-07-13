@@ -118,41 +118,84 @@ def send_welcome(message):
     except: pass
     bot.reply_to(message, f"ሰላም <b>{message.from_user.first_name}</b>! 👋\n\n👇 የሰፈር ጨዋታዎችን ለመጀመር ከታች ያለውን ቁልፍ ይጫኑ!", reply_markup=markup)
 
+import re # ይህንን ከላይ ማምጣት እንዳትረሳ
+
 @bot.callback_query_handler(func=lambda call: True)
 def handle_admin_callback(call):
-    # 1. ጥያቄው ከአድሚን ግሩፕ መሆኑን ያረጋግጣል
-    if call.message.chat.id != ADMIN_GROUP_ID:
-        bot.answer_callback_query(call.id, "ይህ አዝራር በአድሚን ግሩፕ ብቻ ነው የሚሰራው!")
+    # 1. አዝራሩ ሲጫን ቴሌግራም ላይ የሚታየውን "Loading" ምልክት ወዲያው ያቆማል
+    bot.answer_callback_query(call.id)
+
+    # 2. ጥያቄው ከአድሚን ግሩፕ ወይም ከግል ቻትህ መሆኑን ያረጋግጣል
+    if call.message.chat.id not in [ADMIN_GROUP_ID, MY_PRIVATE_CHAT_ID]:
         return
 
-    # 2. የ callback ዳታውን ይተነትናል
-    # ዳታው እንደዚህ ነው የሚመጣው: action | user_id | amount | tx_id
     try:
+        # ዳታውን መተንተን (action | user_id | tx_id)
         data = call.data.split('|')
-        action, user_id, amount, tx_id = data[0], data[1], data[2], data[3]
+        action = data[0]
+        user_id = data[1]
+        tx_id = data[2]
+
+        # በጽሑፉ ውስጥ ያለውን የብር መጠን በ ረቂቅ ዘዴ መፈለግ (ለምሳሌ፡ "500 ብር" ወይም "500.0 ብር")
+        amount_match = re.search(r'([\d.]+)\s*ብር', call.message.caption or call.message.text)
+        amount = float(amount_match.group(1)) if amount_match else 0.0
+
+        # የግብይቱን ሁኔታ መፈተሽ
+        tx_status = redis.get(f"tx:{tx_id}")
+        if isinstance(tx_status, bytes):
+            tx_status = tx_status.decode('utf-8')
+
+        if tx_status and tx_status != "pending":
+            return # ቀድሞ የተስተናገደ ከሆነ ምንም አያደርግም
+
+        # 3. ተግባራትን መፈጸም እና ማሳወቂያ መላክ
+        message_text = call.message.caption or call.message.text
+        new_status = ""
+
+        if action == "da": # Deposit Approve
+            redis.set(f"tx:{tx_id}", "completed")
+            redis.hincrbyfloat("users:balance", user_id, amount)
+            update_history_status(user_id, tx_id, "completed")
+            
+            new_status = "✅ <b>ጸድቋል (Approved)</b>"
+            try: bot.send_message(user_id, f"🎉 የ {amount} ብር ገቢ ጥያቄዎ ጸድቋል! ባላንስዎ ላይ ተጨምሯል።")
+            except: pass
+
+        elif action == "dr": # Deposit Reject
+            redis.set(f"tx:{tx_id}", "refund")
+            update_history_status(user_id, tx_id, "refund")
+            
+            new_status = "❌ <b>ውድቅ ሆኗል (Rejected)</b>"
+            try: bot.send_message(user_id, f"⚠️ የ {amount} ብር የገቢ ጥያቄዎ ውድቅ ተደርጓል።")
+            except: pass
+
+        elif action == "wp": # Withdraw Paid
+            redis.set(f"tx:{tx_id}", "completed")
+            update_history_status(user_id, tx_id, "completed")
+            
+            new_status = "💰 <b>ክፍያ ተፈጽሟል (Paid)</b>"
+            try: bot.send_message(user_id, f"✅ የ {amount} ብር የወጪ ክፍያዎ ተልኮልዎታል።")
+            except: pass
+
+        elif action == "wr": # Withdraw Reject
+            redis.set(f"tx:{tx_id}", "refund")
+            redis.hincrbyfloat("users:balance", user_id, amount) # ብሩን መመለስ
+            update_history_status(user_id, tx_id, "refund")
+            
+            new_status = "❌ <b>ወጪ ጥያቄው ውድቅ ሆኗል (Refunded)</b>"
+            try: bot.send_message(user_id, f"❌ የ {amount} ብር የወጪ ጥያቄዎ ውድቅ ተደርጎ ብሩ ወደ ዋሌትዎ ተመልሷል።")
+            except: pass
+
+        # አዝራሮቹን ማጥፋት እና መልእክቱን ማሻሻል
+        if call.message.photo: # ፎቶ (Deposit) ከሆነ
+            bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                                     caption=f"{message_text}\n\n{new_status}", parse_mode="HTML", reply_markup=None)
+        else: # ጽሑፍ (Withdraw) ከሆነ
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                                  text=f"{message_text}\n\n{new_status}", parse_mode="HTML", reply_markup=None)
+
     except Exception as e:
-        bot.answer_callback_query(call.id, "ስህተት ተፈጥሯል!")
-        return
-
-    # 3. አዝራሩ ሲጫን የሚፈጸም እርምጃ
-    if action == "dep_app": # ገቢ ማጽደቅ
-        redis.set(f"tx:{tx_id}", "completed")
-        redis.hincrbyfloat("users:balance", user_id, float(amount))
-        update_history_status(user_id, tx_id, "completed")
-        
-        bot.send_message(user_id, f"✅ የ {amount} ብር ገቢ ጸድቋል! ባላንስዎ ተሞልቷል። 🎉")
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, 
-                              text=f"{call.message.text}\n\n✅ <b>ጸድቋል (Approved)</b>", parse_mode="HTML")
-        bot.answer_callback_query(call.id, "✅ ተጠናቋል!")
-
-    elif action == "dep_rej": # ገቢ ውድቅ ማድረግ
-        redis.set(f"tx:{tx_id}", "refund")
-        update_history_status(user_id, tx_id, "refund")
-        
-        bot.send_message(user_id, "❌ የላኩት የክፍያ ማረጋገጫ ውድቅ ተደርጓል። እባክዎ እንደገና ይሞክሩ።")
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, 
-                              text=f"{call.message.text}\n\n❌ <b>ውድቅ ሆኗል (Rejected)</b>", parse_mode="HTML")
-        bot.answer_callback_query(call.id, "❌ ተጠናቋል!")
+        print(f"Callback Error: {e}")
 
 
 # ==========================================
