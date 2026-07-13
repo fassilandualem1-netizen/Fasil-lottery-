@@ -20,6 +20,7 @@ REDIS_URL = os.environ.get("REDIS_URL")
 REDIS_TOKEN = os.environ.get("REDIS_TOKEN")
 WEB_APP_URL = "https://sefer-bot.onrender.com" 
 
+ADMIN_GROUP_ID = 
 MY_PRIVATE_CHAT_ID = 8488592165
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
@@ -119,100 +120,62 @@ def send_welcome(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_admin_callback(call):
-    if call.message.chat.id not in [ADMIN_GROUP_ID, MY_PRIVATE_CHAT_ID]:
-        bot.answer_callback_query(call.id, "Unauthorized!", show_alert=True)
+    # አዝራሩ ሲጫን ቴሌግራም ላይ የሚታየውን "Loading" ምልክት እናቆማለን
+    bot.answer_callback_query(call.id)
+    
+    # ዳታውን እንለያያለን (ለምሳሌ: "approve:12345:500:tx_99")
+    try:
+        parts = call.data.split(':')
+        action = parts[0]
+        user_id = int(parts[1])
+        amount = parts[2]
+        tx_id = parts[3]
+    except Exception as e:
+        print(f"Error parsing callback: {e}")
         return
 
+    # አድሚን መሆኑን ማረጋገጥ (Optional - ደህንነትን ለመጨመር)
+    if call.message.chat.id not in [ADMIN_GROUP_ID]:
+        return
+
+    # ተግባሩን መፈጸም
+    message_text = call.message.text
+    new_status = ""
+
+    if action == "approve":
+        # እዚህ ጋር Redis/Database ላይ ማስተካከያ ታደርጋለህ
+        # redis.hincrbyfloat("users:balance", user_id, amount)
+        new_status = "✅ ጸድቋል"
+        # ለተጠቃሚው ማሳወቂያ መላክ
+        try:
+            bot.send_message(user_id, f"🎉 እንኳን ደስ አለዎት! የ {amount} ብር ክፍያዎ ተቀባይነት አግኝቷል።")
+        except:
+            pass # ተጠቃሚው ቦቱን Block ካደረገው ችግር እንዳይፈጥር
+            
+    elif action == "reject":
+        new_status = "❌ ውድቅ ሆኗል"
+        try:
+            bot.send_message(user_id, f"⚠️ የ {amount} ብር የክፍያ ጥያቄዎ ውድቅ ሆኗል። ዝርዝር መረጃ ለማግኘት ያነጋግሩን።")
+        except:
+            pass
+
+    elif action == "paid":
+        new_status = "💰 ክፍያ ተፈጽሟል"
+        try:
+            bot.send_message(user_id, f"✅ የ {amount} ብር ወጪ ክፍያ ተልኮልዎታል!")
+        except:
+            pass
+
+    # አዝራሮቹን እናጠፋለን (የተጫነውን መልእክት እናዘምነዋለን)
     try:
-        data = call.data.split('|')
-        action = data[0]
-        tx_id = data[-1] 
-
-        tx_status = redis.get(f"tx:{tx_id}")
-        if isinstance(tx_status, bytes):
-            tx_status = tx_status.decode('utf-8')
-            
-        if not tx_status:
-            return bot.answer_callback_query(call.id, "❌ ይህ ግብይት በሲስተሙ ውስጥ አልተገኘም!", show_alert=True)
-
-        if tx_status != "pending":
-            try: bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
-            except: pass
-            return bot.answer_callback_query(call.id, "❌ ይህ ጥያቄ ቀደም ብሎ ተስተናግዷል!", show_alert=True)
-
-        # A. DEPOSIT APPROVE
-        if action == "dep_app":
-            _, user_id, amount, _ = data
-            amount = float(amount)
-            
-            redis.set(f"tx:{tx_id}", "completed")
-            redis.hincrbyfloat("users:balance", user_id, amount)
-            update_history_status(user_id, tx_id, "completed")
-            
-            try: bot.send_message(user_id, f"✅ የ {amount} ብር ገቢ (Deposit) ጸድቋል! ባላንስዎ ተሞልቷል። 🎉")
-            except: pass
-            
-            try:
-                bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
-                bot.send_message(call.message.chat.id, f"✅ <b>APPROVED</b>: የ {amount} ብር ገቢ ጸድቋል (ID: <code>{user_id}</code>)", parse_mode="HTML", reply_to_message_id=call.message.message_id)
-            except: pass
-            bot.answer_callback_query(call.id, "✅ በተሳካ ሁኔታ ጸድቋል!")
-
-        # B. DEPOSIT REJECT
-        elif action == "dep_rej":
-            _, user_id, amount, _ = data 
-            
-            redis.set(f"tx:{tx_id}", "refund")
-            update_history_status(user_id, tx_id, "refund")
-            
-            try: bot.send_message(user_id, "❌ የላኩት የክፍያ ማረጋገጫ (Deposit) ውድቅ ተደርጓል። እባክዎ ትክክለኛ ደረሰኝ ይላኩ።")
-            except: pass
-            
-            try:
-                bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
-                bot.send_message(call.message.chat.id, f"❌ <b>REJECTED</b>: የ {amount} ብር ገቢ ውድቅ ተደርጓል (ID: <code>{user_id}</code>)", parse_mode="HTML", reply_to_message_id=call.message.message_id)
-            except: pass
-            bot.answer_callback_query(call.id, "❌ ውድቅ ተደርጓል!")
-
-        # C. WITHDRAW PAID
-        elif action == "wit_paid":
-            _, user_id, amount, _ = data
-            amount = float(amount)
-            
-            redis.set(f"tx:{tx_id}", "completed")
-            update_history_status(user_id, tx_id, "completed")
-            
-            try: bot.send_message(user_id, f"✅ የ {amount} ብር ወጪ (Withdraw) ጥያቄዎ ተከፍሏል! ብሩን ወደ አካውንትዎ ልከናል። 💸")
-            except: pass
-            
-            try:
-                bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
-                bot.send_message(call.message.chat.id, f"✅ <b>PAID</b>: የ {amount} ብር ክፍያ ተልኳል (ID: <code>{user_id}</code>)", parse_mode="HTML", reply_to_message_id=call.message.message_id)
-            except: pass
-            bot.answer_callback_query(call.id, "✅ ክፍያው ተመዝግቧል!")
-
-        # D. WITHDRAW REJECT
-        elif action == "wit_rej":
-            _, user_id, amount, _ = data
-            amount = float(amount)
-            
-            redis.set(f"tx:{tx_id}", "refund")
-            redis.hincrbyfloat("users:balance", user_id, amount) 
-            update_history_status(user_id, tx_id, "refund")
-            
-            try: bot.send_message(user_id, f"❌ የ {amount} ብር ወጪ ጥያቄዎ ውድቅ ተደርጓል። ብሩ ወደ ባላንስዎ ተመልሷል።")
-            except: pass
-            
-            try:
-                bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
-                bot.send_message(call.message.chat.id, f"❌ <b>REJECTED & REFUNDED</b>: የ {amount} ብር ክፍያ ውድቅ ሆኗል (ID: <code>{user_id}</code>)", parse_mode="HTML", reply_to_message_id=call.message.message_id)
-            except: pass
-            bot.answer_callback_query(call.id, "❌ ውድቅ ተደርጎ ተመላሽ ሆኗል!")
-
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=f"{message_text}\n\nStatus: {new_status}",
+            reply_markup=None # አዝራሮቹ እንዲጠፉ ያደርጋል
+        )
     except Exception as e:
-        print(f"Callback Error: {e}")
-        try: bot.answer_callback_query(call.id, f"⚠️ ስህተት አጋጥሟል: {str(e)}", show_alert=True)
-        except: pass
+        print(f"Error updating message: {e}")
 
 
 # ==========================================
