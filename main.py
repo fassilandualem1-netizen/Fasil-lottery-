@@ -158,85 +158,6 @@ def handle_admin_callback(call):
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=new_text, parse_mode="HTML")
 
 
-# ==========================================
-# 6. Game & Wallet API Routes (የጌም ዳታ መቀበያ)
-# ==========================================
-@server.route('/api/get_balance', methods=['POST'])
-def get_balance():
-    if not check_auth(request): return jsonify({"error": "Unauthorized"}), 401
-    user_id = str(request.json.get('user_id'))
-    return jsonify({"status": "success", "balance": float(redis.hget("users:balance", user_id) or 0)})
-
-@server.route('/api/get_history', methods=['POST'])
-def get_history():
-    if not check_auth(request): return jsonify({"error": "Unauthorized"}), 401
-    user_id = str(request.json.get('user_id'))
-    records_raw = redis.lrange(f"users:history:{user_id}", 0, 19)
-    history = [json.loads(r) for r in records_raw] if records_raw else []
-    return jsonify({"status": "success", "history": history})
-
-@server.route('/api/start_game', methods=['POST'])
-def start_game():
-    if not check_auth(request): return jsonify({"error": "Unauthorized"}), 401
-    user_id, game_type = str(request.json.get('user_id')), request.json.get('game_type')
-    config = GAME_CONFIG.get(game_type)
-    
-    if not config: return jsonify({"status": "error", "message": "የጨዋታ አይነት አልተገኘም!"}), 400
-    if float(redis.hget("users:balance", user_id) or 0) < config["fee"]: 
-        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
-        
-    redis.hincrbyfloat("users:balance", user_id, -config["fee"])
-    redis.setex(f"active_game:{user_id}", 600, game_type)
-    log_history(user_id, str(uuid.uuid4())[:8], f"🎮 ተጀመረ: {config['name']}", -config["fee"], "completed")
-    return jsonify({"status": "success"})
-
-@server.route('/api/game_result', methods=['POST'])
-def game_result():
-    if not check_auth(request): return jsonify({"error": "Unauthorized"}), 401
-    data = request.json
-    user_id, game_type, score = str(data.get('user_id')), data.get('game_type'), float(data.get('score', 0))
-    
-    active_game = redis.get(f"active_game:{user_id}")
-    if isinstance(active_game, bytes):
-        active_game = active_game.decode('utf-8')
-        
-    if not active_game or active_game != game_type:
-        return jsonify({"status": "error", "message": "ያልተፈቀደ ሙከራ!"}), 400
-        
-    redis.delete(f"active_game:{user_id}")
-    config = GAME_CONFIG.get(game_type)
-    
-    if score < 0: score = 0
-    if score > config["max_score"]: score = config["max_score"]
-    
-    reward = score * config["multiplier"]
-    if reward > 0:
-        redis.hincrbyfloat("users:balance", user_id, reward)
-        log_history(user_id, str(uuid.uuid4())[:8], f"🏆 አሸነፉ: {config['name']}", round(reward, 2), "completed")
-        return jsonify({"status": "success", "reward": round(reward, 2), "message": f"በ {score} ነጥብ {round(reward, 2)} ብር አሸንፈዋል! 🎉"})
-    return jsonify({"status": "lose", "message": "ምንም ነጥብ አላገኙም።"})
-
-@server.route('/api/coin_flip', methods=['POST'])
-def coin_flip():
-    if not check_auth(request): return jsonify({"error": "Unauthorized"}), 401
-    data = request.json
-    user_id, bet_amount, choice = str(data.get('user_id')), float(data.get('bet_amount', 0)), data.get('choice')
-
-    if float(redis.hget("users:balance", user_id) or 0) < bet_amount:
-        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
-
-    redis.hincrbyfloat("users:balance", user_id, -bet_amount)
-    result = random.choice(['ዘውድ', 'ጎፈር'])
-    
-    if choice == result:
-        winnings = bet_amount * 2
-        redis.hincrbyfloat("users:balance", user_id, winnings)
-        log_history(user_id, str(uuid.uuid4())[:8], "🪙 ዘውድና ጎፈር", winnings, "completed")
-        return jsonify({"status": "win", "message": f"አሸንፈዋል! 🎉 ውጤቱ {result} ነበር። {winnings} ብር ተጨምሯል!"})
-    else:
-        log_history(user_id, str(uuid.uuid4())[:8], "🪙 ዘውድና ጎፈር", -bet_amount, "completed")
-        return jsonify({"status": "lose", "message": f"ተሸንፈዋል! 😢 ውጤቱ {result} ነበር።"})
-
 @server.route('/api/deposit', methods=['POST'])
 def handle_deposit():
     if not check_auth(request): return jsonify({"error": "Unauthorized"}), 401
@@ -251,9 +172,10 @@ def handle_deposit():
 
         caption = f"🔔 <b>አዲስ Deposit ጥያቄ</b>\n👤 ስም: {user_name}\n🆔 <code>{user_id}</code>\n💰 <b>{amount} ብር</b>"
         
+        # ማስተካከያው እዚህ ጋር ነው የተደረገው (callback_data አጠረ)
         markup = InlineKeyboardMarkup().add(
-            InlineKeyboardButton("✅ አጽድቅ (Approve)", callback_data=f"dep_app|{user_id}|{amount}|{tx_id}"),
-            InlineKeyboardButton("❌ ውድቅ (Reject)", callback_data=f"dep_rej|{user_id}|{amount}|{tx_id}")
+            InlineKeyboardButton("✅ አጽድቅ (Approve)", callback_data=f"da|{user_id}|{tx_id}"),
+            InlineKeyboardButton("❌ ውድቅ (Reject)", callback_data=f"dr|{user_id}|{tx_id}")
         )
         
         photo_bytes = receipt.read()
@@ -265,6 +187,7 @@ def handle_deposit():
         log_history(user_id, tx_id, "ገቢ", amount, "pending")
         return jsonify({"status": "success"})
     except Exception as e: return jsonify({"error": str(e)}), 500
+
 
 @server.route('/api/withdraw', methods=['POST'])
 def handle_withdraw():
@@ -294,9 +217,10 @@ def handle_withdraw():
         f"💰 የጠየቀው መጠን: <b>{amount} ብር</b>"
     )
     
+    # ማስተካከያው እዚህ ጋር ነው የተደረገው (callback_data አጠረ)
     markup = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("✅ ተከፍሏል", callback_data=f"wit_paid|{user_id}|{amount}|{tx_id}"),
-        InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"wit_rej|{user_id}|{amount}|{tx_id}")
+        InlineKeyboardButton("✅ ተከፍሏል", callback_data=f"wp|{user_id}|{tx_id}"),
+        InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"wr|{user_id}|{tx_id}")
     )
     
     try: bot.send_message(ADMIN_GROUP_ID, text=msg, reply_markup=markup, parse_mode="HTML")
@@ -307,7 +231,8 @@ def handle_withdraw():
     log_history(user_id, tx_id, "ወጪ", amount, "pending")
     return jsonify({"status": "success"})
 
-# ==========================================
+
+
 # 7. Application Runner (For Local Env)
 # ==========================================
 if __name__ == "__main__":
