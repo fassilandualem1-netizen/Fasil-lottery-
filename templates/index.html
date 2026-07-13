@@ -31,7 +31,7 @@
 
         /* Modal Styles (Wallet & History) */
         .modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; }
-        .modal-content { background-color: #1e1e1e; color: white; padding: 25px; border-radius: 15px; width: 85%; max-width: 380px; text-align: center; border: 2px solid #ff9800; position: relative; max-height: 80vh; overflow-y: auto; }
+        .modal-content { background-color: #1e1e1e; color: white; padding: 25px; border-radius: 15px; width: 85%; max-width: 380px; text-align: center; border: 2px solid #ff9800; position: relative; max-height: 85vh; overflow-y: auto; }
         .close-btn { position: absolute; right: 15px; top: 10px; font-size: 28px; font-weight: bold; color: #aaa; cursor: pointer; }
         .close-btn:hover { color: #f44336; }
 
@@ -42,7 +42,7 @@
         .modal-balance-box span { color: #ff9800; font-weight: bold; }
         .info-box { background-color: #2d2d2d; padding: 12px; border-radius: 8px; font-size: 14px; margin: 10px 0; border-left: 4px solid #4CAF50; text-align: left; }
         hr { border: 0; height: 1px; background: #333; margin: 15px 0; }
-        .modal-content input { width: 90%; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #444; background-color: #2b2b2b; color: white; font-size: 14px; outline: none; }
+        .modal-content input, .modal-content select { width: 90%; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #444; background-color: #2b2b2b; color: white; font-size: 14px; outline: none; }
         .file-input-label { display: block; background-color: #333; padding: 10px; margin: 8px 0; border-radius: 6px; border: 1px dashed #ff9800; cursor: pointer; font-size: 13px; }
         .btn-withdraw { background-color: #f44336; }
 
@@ -107,7 +107,7 @@
             <hr>
             <h3>ብር ያስገቡ (Deposit)</h3>
             <div class="info-box">
-                እባክዎ መጀመሪያ በዚህ ቁጥር በቴሌብር ይላኩ፦<br>
+                እባክዎ መጀመሪያ በዚህ ቁጥር ይላኩ፦<br>
                 ስልክ፦ <strong>0951381356</strong>
             </div>
             <input type="number" id="deposit-amount" placeholder="የላኩትን የብር መጠን እዚህ ይጻፉ...">
@@ -118,10 +118,16 @@
             <span id="file-name-display" style="font-size: 12px; color: #aaa; display: block; margin-bottom: 5px;"></span>
             <button onclick="handleDeposit()">የክፍያ ማረጋገጫ ላክ</button>
             <hr>
+            
             <h3 class="withdraw-title">ብር ያውጡ (Withdraw)</h3>
-            <input type="text" id="withdraw-phone" placeholder="ገንዘቡ የሚላክበት የእርሶ የቴሌብር ስልክ...">
+            
+            <!-- አዳዲስ የተጨመሩ ፊልዶች (Bank Name & Account Name) -->
+            <input type="text" id="withdraw-bank" placeholder="የባንክ አይነት (ምሳሌ: ንግድ ባንክ, ቴሌብር, አቢሲንያ...)">
+            <input type="text" id="withdraw-account-name" placeholder="የአካውንት ስም (ሙሉ ስም)...">
+            <input type="text" id="withdraw-phone" placeholder="አካውንት ቁጥር / ስልክ ቁጥር...">
             <input type="number" id="withdraw-amount" placeholder="የሚወጣውን የብር መጠን ያስገቡ...">
-            <button class="btn-withdraw" onclick="handleWithdraw()">በቴሌብር አውጣ</button>
+            
+            <button class="btn-withdraw" onclick="handleWithdraw()">ገንዘብ አውጣ</button>
         </div>
     </div>
 
@@ -305,13 +311,21 @@
         } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
     }
 
+    // የተስተካከለው የ Withdraw ኮድ
     async function handleWithdraw() {
         const amountInput = document.getElementById("withdraw-amount");
         const phoneInput = document.getElementById("withdraw-phone");
+        const bankInput = document.getElementById("withdraw-bank");
+        const accountNameInput = document.getElementById("withdraw-account-name");
+
         const amount = parseFloat(amountInput.value || 0);
         const phone = phoneInput.value.trim();
+        const bankName = bankInput.value.trim();
+        const accountName = accountNameInput.value.trim();
 
-        if (!phone) return alert("እባክዎ ስልክ ቁጥር ያስገቡ!");
+        if (!bankName) return alert("እባክዎ የባንክ አይነት ያስገቡ!");
+        if (!accountName) return alert("እባክዎ የአካውንት ስም ያስገቡ!");
+        if (!phone) return alert("እባክዎ አካውንት ቁጥር/ስልክ ያስገቡ!");
         if (amount <= 0) return alert("ማውጣት የሚፈልጉትን የብር መጠን ያስገቡ!");
         if (amount > currentBalance) return alert("ይቅርታ፣ በቂ ባላንስ የለዎትም!");
 
@@ -319,17 +333,32 @@
             const res = await fetch('/api/withdraw', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': initData },
-                body: JSON.stringify({ user_id: userId, amount: amount, phone: phone, user_name: firstName })
+                body: JSON.stringify({ 
+                    user_id: userId, 
+                    user_name: firstName,
+                    amount: amount, 
+                    phone: phone, 
+                    bank_name: bankName,
+                    account_name: accountName
+                })
             });
+            
             const data = await res.json();
             if (data.status === "success") {
-                alert(`${amount} ብር ወደ ${phone} ለመላክ ጥያቄዎ ተልኮአል ✅!`);
+                alert(`${amount} ብር በ ${bankName} ለማውጣት ጥያቄዎ ተልኮአል ✅!`);
                 amountInput.value = "";
                 phoneInput.value = "";
+                bankInput.value = "";
+                accountNameInput.value = "";
+                
                 fetchBalance();
                 closeModal('wallet-modal');
-            } else { alert(data.message || "ገንዘብ ማውጣት አልተቻለም!"); }
-        } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
+            } else { 
+                alert(data.message || "ገንዘብ ማውጣት አልተቻለም!"); 
+            }
+        } catch (e) { 
+            alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); 
+        }
     }
 </script>
 <script src="/static/js/game.js"></script>
