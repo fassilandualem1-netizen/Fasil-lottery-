@@ -187,46 +187,61 @@
     }
 
     async function loadHistory() {
-        try {
-            const res = await fetch('/api/get_history', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': initData },
-                body: JSON.stringify({user_id: userId})
-            });
-            const data = await res.json();
-            const list = document.getElementById("history-list-content");
-            
-            if(!data.history || data.history.length === 0) {
-                list.innerHTML = "<p style='color:#aaa;'>ምንም ታሪክ የለዎትም!</p>";
-                return;
+    try {
+        const res = await fetch('/api/get_history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': initData },
+            body: JSON.stringify({user_id: userId})
+        });
+        const data = await res.json();
+        const list = document.getElementById("history-list-content");
+        
+        // ገቢ እና ወጪን ብቻ ለይቶ ማውጣት
+        const financialHistory = (data.history || []).filter(h => h.type === 'ገቢ' || h.type === 'ወጪ');
+
+        if(financialHistory.length === 0) {
+            list.innerHTML = "<p style='color:#aaa;'>ምንም ታሪክ የለዎትም!</p>";
+            return;
+        }
+
+        list.innerHTML = financialHistory.map(h => {
+            // የሁኔታ ምልክቶች (Status Icons)
+            let statusBadge = '';
+            if(h.status === 'pending') {
+                statusBadge = '<span style="font-size: 18px; color: #ffeb3b;" title="በሂደት ላይ">⏳</span>';
+            } else if(h.status === 'completed') {
+                statusBadge = '<span style="font-size: 18px; color: #4CAF50;" title="ተጠናቋል">✅</span>';
+            } else if(h.status === 'refund') {
+                statusBadge = '<span style="font-size: 18px; color: #f44336;" title="ውድቅ/ተመላሽ">❌</span>';
+            } else {
+                statusBadge = `<span>${h.status}</span>`;
             }
 
-            list.innerHTML = data.history.map(h => {
-                let statusBadge = '';
-                if(h.status === 'pending') statusBadge = '<span style="color: #ffeb3b; font-weight:bold;">⏳ በሂደት ላይ</span>';
-                else if(h.status === 'completed') statusBadge = '<span style="color: #4CAF50; font-weight:bold;">✅ ተጠናቋል</span>';
-                else if(h.status === 'refund') statusBadge = '<span style="color: #f44336; font-weight:bold;">❌ ውድቅ/ተመላሽ</span>';
-                else statusBadge = `<span>${h.status}</span>`;
+            // የጎን መስመር ቀለም እና ምልክት (Type Icons)
+            let borderColor = '#999';
+            let typeIcon = '';
+            if(h.type === 'ገቢ') {
+                borderColor = '#4CAF50';
+                typeIcon = '📥 ';
+            } else if(h.type === 'ወጪ') {
+                borderColor = '#f44336';
+                typeIcon = '📤 ';
+            }
 
-                let borderColor = '#999';
-                if(h.type === 'ገቢ') borderColor = '#4CAF50';
-                else if(h.type === 'ወጪ') borderColor = '#f44336';
-                else if(h.type.includes('ጨዋታ') || h.type.includes('ዘውድ')) borderColor = '#2196F3';
-
-                return `
-                <div class="history-card" style="border-left: 4px solid ${borderColor};">
-                    <div>
-                        <div style="font-weight: bold; font-size: 14px; color: ${borderColor};">${h.type}</div>
-                        <div style="font-size: 15px; color: white;">${h.amount} ብር</div>
-                    </div>
-                    <div style="font-size: 12px; text-align: right;">
-                        ${statusBadge}
-                    </div>
+            return `
+            <div class="history-card" style="border-left: 4px solid ${borderColor}; padding: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: #2d2d2d; border-radius: 8px;">
+                <div>
+                    <div style="font-weight: bold; font-size: 14px; color: ${borderColor};">${typeIcon}${h.type}</div>
+                    <div style="font-size: 16px; color: white; font-weight: bold; margin-top: 4px;">${h.amount} ብር</div>
                 </div>
-                `;
-            }).join('');
-        } catch (e) { console.error("ሂስትሪ ማግኘት አልተቻለም", e); }
-    }
+                <div style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px;">
+                    ${statusBadge}
+                </div>
+            </div>
+            `;
+        }).join('');
+    } catch (e) { console.error("ሂስትሪ ማግኘት አልተቻለም", e); }
+}
 
     function updateReceiptLabel(input) {
         const fileName = input.files[0] ? input.files[0].name : "";
