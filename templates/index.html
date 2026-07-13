@@ -119,15 +119,13 @@
             </div>
 
             <h4 style="margin: 0 0 10px 0; color: #aaa; font-size: 14px;">የሚወዳደረውን ፈረስ ይምረጡ</h4>
-            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 15px;">
-                <button id="h-btn-1" onclick="selectHorse(1)" style="background: #e74c3c; padding: 10px 5px; font-size: 12px; border-radius: 6px; color: white; border: none;">ፈረስ 1</button>
-                <button id="h-btn-2" onclick="selectHorse(2)" style="background: #00e5ff; color: black; padding: 10px 5px; font-size: 12px; border-radius: 6px; border: none; font-weight: bold;">ፈረስ 2</button>
-                <button id="h-btn-3" onclick="selectHorse(3)" style="background: #2ecc71; padding: 10px 5px; font-size: 12px; border-radius: 6px; color: white; border: none;">ፈረስ 3</button>
-                <button id="h-btn-4" onclick="selectHorse(4)" style="background: #ff9800; color: white; padding: 10px 5px; font-size: 12px; border-radius: 6px; border: none; font-weight: bold;">ፈረስ 4</button>
-                <button id="h-btn-5" onclick="selectHorse(5)" style="background: #9b59b6; padding: 10px 5px; font-size: 12px; border-radius: 6px; color: white; border: none;">ፈረስ 5</button>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px;">
+                <button id="h-btn-1" onclick="selectHorse(1)" style="background: #e74c3c; padding: 12px 5px; font-size: 14px; border-radius: 8px; color: white; border: none; font-weight: bold;">ፈረስ 1</button>
+                <button id="h-btn-2" onclick="selectHorse(2)" style="background: #00e5ff; color: black; padding: 12px 5px; font-size: 14px; border-radius: 8px; border: none; font-weight: bold;">ፈረስ 2</button>
+                <button id="h-btn-3" onclick="selectHorse(3)" style="background: #2ecc71; padding: 12px 5px; font-size: 14px; border-radius: 8px; color: white; border: none; font-weight: bold;">ፈረስ 3</button>
             </div>
 
-            <button id="race-start-main-btn" onclick="startHorseRace()" style="background: linear-gradient(135deg, #ff9800, #f39c12); padding: 12px; font-size: 16px; border-radius: 8px; color: white; font-weight: bold; border: none; cursor: pointer; width: 100%;">🏇 ውድድሩን ጀምር!</button>
+            <button id="race-start-main-btn" onclick="startHorseRace()" style="background: linear-gradient(135deg, #ff9800, #f39c12); padding: 14px; font-size: 16px; border-radius: 8px; color: white; font-weight: bold; border: none; cursor: pointer; width: 100%;">🏇 ውድድሩን ጀምር!</button>
         </div>
     </div>
 
@@ -191,16 +189,14 @@
         const centerX = canvas.width / 2;
         const centerY = canvas.height / 2;
         
-        // የፈረሶች ውቅር እና ራዲየስ
+        // 🏇 የተስተካከለ የ3 ፈረሶች ውቅር (ራዲየስ ሰፋ ያሉ እና ጎልተው የተሰሩ)
         const horseConfig = [
-            { id: 1, color: '#e74c3c', name: 'ፈረስ 1', radius: 45 },
-            { id: 2, color: '#00e5ff', name: 'ፈረስ 2', radius: 65 },
-            { id: 3, color: '#2ecc71', name: 'ፈረስ 3', radius: 85 },
-            { id: 4, color: '#ff9800', name: 'ፈረስ 4', radius: 105 },
-            { id: 5, color: '#9b59b6', name: 'ፈረስ 5', radius: 125 }
+            { id: 1, color: '#e74c3c', name: 'ፈረስ 1', radius: 55 },
+            { id: 2, color: '#00e5ff', name: 'ፈረስ 2', radius: 95 },
+            { id: 3, color: '#2ecc71', name: 'ፈረስ 3', radius: 135 }
         ];
-        // መነሻ አንግል PI / 2 (ከታች መካከለኛ መስመር ላይ ይቆማሉ)
-        let horseAngles = [0, 0, 0, 0, 0];
+        
+        let horseAngles = [0, 0, 0];
 
         document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("user-name").innerText = firstName;
@@ -211,83 +207,84 @@
         });
 
         function resetHorseAngles() {
-            horseAngles = [Math.PI / 2, Math.PI / 2, Math.PI / 2, Math.PI / 2, Math.PI / 2];
+            horseAngles = [Math.PI / 2, Math.PI / 2, Math.PI / 2];
         }
 
-        // 🎨 ሜዳውን እና ፈረሶቹን በየመስመራቸው የመሳያ ዋና ፈንክሽን
+        // 🎨 የሩጫ ሜዳውን እና ፈረሶቹን ጎልቶ እንዲታይ አድርጎ መሳል
         function drawTrack() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // የውስጥ ሳር ሜዳ
+            // የውስጥ ሜዳ (ሳር)
             ctx.beginPath();
-            ctx.arc(centerX, centerY, 30, 0, Math.PI * 2);
+            ctx.arc(centerX, centerY, 35, 0, Math.PI * 2);
             ctx.fillStyle = '#1e3f20';
             ctx.fill();
             ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 3;
             ctx.stroke();
 
-            // የሩጫ መስመሮችን መሳል (Tracks)
+            // የሩጫ መስመሮች (Tracks) - መስመሮቹ ይበልጥ ሰፊ (lineWidth = 26) ተደርገዋል
             horseConfig.forEach(horse => {
                 ctx.beginPath();
                 ctx.arc(centerX, centerY, horse.radius, 0, Math.PI * 2);
-                ctx.strokeStyle = '#2d2d2d';
-                ctx.lineWidth = 14;
+                ctx.strokeStyle = '#282828';
+                ctx.lineWidth = 26; 
                 ctx.stroke();
                 
-                // ነጭ መለያ መስመር
+                // የትራክ መለያ ነጭ ቋሚ መስመር
                 ctx.beginPath();
                 ctx.arc(centerX, centerY, horse.radius, 0, Math.PI * 2);
-                ctx.strokeStyle = '#444';
-                ctx.lineWidth = 1;
-                ctx.setLineDash([5, 5]);
+                ctx.strokeStyle = '#555';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([6, 6]);
                 ctx.stroke();
                 ctx.setLineDash([]);
             });
 
-            // መነሻ / መድረሻ መስመር (🏁 Start Line)
+            // መነሻ / መድረሻ 🏁 መስመር
             ctx.beginPath();
             ctx.moveTo(centerX, centerY + 35);
-            ctx.lineTo(centerX, centerY + 135);
+            ctx.lineTo(centerX, centerY + 150);
             ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 4;
             ctx.stroke();
 
-            // ፈረሶቹን በክበብ ላይ መሳል
+            // ፈረሶችን ጎልቶ በሚታይ መጠን መሳል
             horseConfig.forEach((horse, index) => {
                 const angle = horseAngles[index]; 
                 const x = centerX + horse.radius * Math.cos(angle);
                 const y = centerY + horse.radius * Math.sin(angle);
 
-                // የፈረሱ መለያ ክብ ጀርባ
+                // የፈረስ ክብ መደብ (ትልቅ መጠን r = 14)
                 ctx.beginPath();
-                ctx.arc(x, y, 9, 0, Math.PI * 2);
+                ctx.arc(x, y, 14, 0, Math.PI * 2);
                 ctx.fillStyle = horse.color;
                 ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
 
-                // የፈረሱ ቁጥር
+                // የፈረስ ቁጥር በክቡ ላይ
                 ctx.fillStyle = (index === 1) ? 'black' : 'white';
-                ctx.font = 'bold 10px sans-serif';
+                ctx.font = 'bold 12px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(horse.id, x, y - 12);
+                ctx.fillText(horse.id, x, y - 18);
 
-                // 🏇 የፈረስ ኢሞጂ (ከሯጭ አቅጣጫ ጋር አብሮ የሚዞር)
+                // 🏇 የፈረስ ኢሞጂ (በጣም ትልቅ መጠን እና አቅጣጫውን የጠበቀ)
                 ctx.save();
                 ctx.translate(x, y);
-                // Tangent angle + ተገቢው ማስተካከያ ፊቱ ወደ ፊት እንዲሆን
                 ctx.rotate(angle + Math.PI / 2); 
-                ctx.font = '16px sans-serif';
+                ctx.font = '22px sans-serif'; // የፈረስ ኢሞጂው ጎልቶ እንዲታይ 22px ሆኗል
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                // በመጀመሪያው ኮድ transform: scaleX(-1) የነበረውን እዚህ እንተካዋለን
                 ctx.scale(-1, 1); 
                 ctx.fillText('🏇', 0, 0);
                 ctx.restore();
             });
         }
 
-        // 🏇 የፈረስ ውድድር ማስጀመሪያ
+        // 🏇 የፈረስ ውድድር ሎጂክ
         function startHorseRace() {
             if (isRacing) return;
             const betAmount = parseInt(document.getElementById('horse-bet-amount').value);
@@ -299,18 +296,16 @@
             document.getElementById("race-start-main-btn").innerText = "🏇 ውድድር ላይ ነው...";
 
             resetHorseAngles();
-            let laps = [0, 0, 0, 0, 0]; 
+            let laps = [0, 0, 0]; 
             let winner = null;
 
             let interval = setInterval(() => {
-                for(let i=0; i<5; i++) {
+                for(let i=0; i<3; i++) {
                     let speed = (Math.random() * 0.05) + 0.02;
                     let oldAngle = horseAngles[i];
                     
-                    // በሰዓት አቅጣጫ እንዲዞሩ አንግሉን እንጨምራለን
                     horseAngles[i] += speed;
 
-                    // 1 ሙሉ ዙር (2 * PI) ማጠናቀቃቸውን ማረጋገጫ (ከ Math.PI / 2 ተነስተው እዚያው ሲመለሱ)
                     if (oldAngle <= (Math.PI / 2 + Math.PI * 2) && horseAngles[i] >= (Math.PI / 2 + Math.PI * 2)) {
                         laps[i] = 1;
                         if (!winner) {
@@ -376,7 +371,7 @@
         function selectHorse(num) { 
             if(isRacing) return; 
             selectedHorse = num; 
-            for (let i = 1; i <= 5; i++) { 
+            for (let i = 1; i <= 3; i++) { 
                 document.getElementById(`h-btn-${i}`).style.border = "none"; 
             } 
             document.getElementById(`h-btn-${num}`).style.border = "3px solid white"; 
