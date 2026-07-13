@@ -23,7 +23,8 @@ WEB_APP_URL = "https://sefer-bot.onrender.com"
 ADMIN_GROUP_ID = -1003943321922
 MY_PRIVATE_CHAT_ID = 8488592165
 
-bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
+# 🔴 ዋናው ማስተካከያ 1: threaded=False አድርገነዋል (Render ላይ እንዳይቋረጥ)
+bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=False)
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 server = Flask(__name__)
 
@@ -34,7 +35,7 @@ GAME_CONFIG = {
 }
 
 # ==========================================
-# 2. Webhook Setup (ቴሌግራምን ከ Render ጋር ማገናኘት)
+# 2. Webhook Setup
 # ==========================================
 try:
     bot.remove_webhook()
@@ -45,7 +46,7 @@ except Exception as e:
     print(f"❌ Webhook Registration Error: {e}")
 
 # ==========================================
-# 3. Security & Helpers (ረዳት ፈንክሽኖች)
+# 3. Security & Helpers
 # ==========================================
 def verify_telegram_data(init_data: str, bot_token: str) -> bool:
     if not init_data: return False
@@ -73,39 +74,33 @@ def update_history_status(user_id, tx_id, new_status):
         records = redis.lrange(f"users:history:{user_id}", 0, 19)
         new_records = []
         for r in records:
-            if isinstance(r, bytes):
-                r = r.decode('utf-8')
+            if isinstance(r, bytes): r = r.decode('utf-8')
             rec = json.loads(r)
-            if rec.get("tx_id") == tx_id:
-                rec["status"] = new_status
+            if rec.get("tx_id") == tx_id: rec["status"] = new_status
             new_records.append(json.dumps(rec))
-
         if new_records:
             redis.delete(f"users:history:{user_id}")
-            for r in reversed(new_records): 
-                redis.lpush(f"users:history:{user_id}", r)
+            for r in reversed(new_records): redis.lpush(f"users:history:{user_id}", r)
     except Exception as e:
         print(f"History update failed: {e}")
 
 # ==========================================
-# 4. Flask Web Routes (የዌብ ገፅ እና ዌብሁክ)
+# 4. Flask Web Routes
 # ==========================================
 @server.route('/')
 def index():
-    # ይህ የጌም ገጽህን (index.html) እንዲከፈት የሚያደርገው ዋና ኮድ ነው
     return render_template('index.html')
 
 @server.route(f'/webhook/{TOKEN}', methods=['POST'])
 def webhook():
-    if request.is_json: 
-        json_string = request.get_data().decode('utf-8')
-        update = telebot.types.Update.de_json(json_string)
-        bot.process_new_updates([update])
-        return '', 200
-    return 'abort', 403
+    # 🔴 ዋናው ማስተካከያ 2: request.is_json የሚለውን አጥፍተናል (ብሎክ እንዳያደርግ)
+    json_string = request.get_data().decode('utf-8')
+    update = telebot.types.Update.de_json(json_string)
+    bot.process_new_updates([update])
+    return 'OK', 200
 
 # ==========================================
-# 5. Telegram Bot Handlers (ቦት ትዕዛዞች)
+# 5. Telegram Bot Handlers
 # ==========================================
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -122,10 +117,9 @@ def handle_admin_callback(call):
         bot.answer_callback_query(call.id)
 
         data = call.data.split('|')
-        action = data[0] # ok ወይም no ይሆናል
+        action = data[0]
         tx_id = data[1]
 
-        # ዳታውን ከ Redis ላይ ማምጣት
         tx_raw = redis.get(f"tx:{tx_id}")
         if not tx_raw:
             bot.send_message(call.message.chat.id, "⚠️ ይህ ጥያቄ አይገኝም ወይም ቀድሞ ተሰርዟል።")
@@ -171,17 +165,17 @@ def handle_admin_callback(call):
                 new_status_text = "❌ <b>ውድቅ ሆኗል (Rejected)</b>"
 
             elif tx_type == "withdraw":
-                redis.hincrbyfloat("users:balance", user_id, amount) # ብሩን መመለስ
+                redis.hincrbyfloat("users:balance", user_id, amount)
                 try: bot.send_message(user_id, f"❌ የ <b>{amount} ብር</b> የወጪ ጥያቄዎ ውድቅ ተደርጎ ብሩ ወደ ዋሌትዎ ተመልሷል።")
                 except: pass
                 new_status_text = "❌ <b>ውድቅ ሆኗል (ብሩ ተመልሷል)</b>"
 
-        # አዝራሩን አጥፍተን ጽሁፉን ማደስ
+        # 🔴 ማስተካከያ 3: አዝራሮቹ (Buttons) ከተነኩ በኋላ እንዲጠፉ `reply_markup=None` ጨምረናል
         msg_text = call.message.caption if call.message.photo else call.message.text
         if call.message.photo:
-            bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=f"{msg_text}\n\n{new_status_text}", parse_mode="HTML")
+            bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=f"{msg_text}\n\n{new_status_text}", reply_markup=None, parse_mode="HTML")
         else:
-            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"{msg_text}\n\n{new_status_text}", parse_mode="HTML")
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"{msg_text}\n\n{new_status_text}", reply_markup=None, parse_mode="HTML")
 
     except Exception as e:
         bot.send_message(call.message.chat.id, f"🚨 <b>ስህተት ተፈጥሯል:</b> <code>{str(e)}</code>")
@@ -195,8 +189,6 @@ def get_balance():
     try:
         data = request.json
         user_id = str(data.get("user_id"))
-        
-        # ባላንሱን ከ Redis ላይ መፈለግ
         balance = float(redis.hget("users:balance", user_id) or 0.0)
         return jsonify({"status": "success", "balance": balance})
     except Exception as e:
@@ -275,8 +267,5 @@ def handle_withdraw():
     return jsonify({"status": "success"})
 
 
-# ==========================================
-# 7. Application Runner (For Local Env)
-# ==========================================
 if __name__ == "__main__":
     server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
