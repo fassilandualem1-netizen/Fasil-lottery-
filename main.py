@@ -12,14 +12,16 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from flask import Flask, render_template, jsonify, request
 from upstash_redis import Redis
 
-# --- 1. Configuration ---
+# ==========================================
+# 1. Configuration (ማስተካከያዎች)
+# ==========================================
 TOKEN = os.environ.get("BOT_TOKEN", "8663228906:AAHSTP37xmp7z4cQF8AvSX1vP2UPbqVtssQ") 
 REDIS_URL = os.environ.get("REDIS_URL")
 REDIS_TOKEN = os.environ.get("REDIS_TOKEN")
 WEB_APP_URL = "https://sefer-bot.onrender.com" 
 
 ADMIN_GROUP_ID = -1003943321922
-MY_PRIVATE_CHAT_ID = (8488592165)
+MY_PRIVATE_CHAT_ID = 8488592165
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
@@ -31,7 +33,21 @@ GAME_CONFIG = {
     "anbessa_aden": {"name": "🦁 የአንበሳ አደን", "fee": 10, "multiplier": 1.50, "max_score": 200}
 }
 
-# --- 2. Security & Helpers ---
+# ==========================================
+# 2. Webhook Setup (ቴሌግራምን ከ Render ጋር ማገናኘት)
+# ==========================================
+try:
+    bot.remove_webhook()
+    time.sleep(0.5)
+    bot.set_webhook(url=f"{WEB_APP_URL}/webhook/{TOKEN}")
+    print("✅ Webhook successfully registered on Render!")
+except Exception as e:
+    print(f"❌ Webhook Registration Error: {e}")
+
+
+# ==========================================
+# 3. Security & Helpers (ረዳት ፈንክሽኖች)
+# ==========================================
 def verify_telegram_data(init_data: str, bot_token: str) -> bool:
     if not init_data: return False
     try:
@@ -48,13 +64,11 @@ def check_auth(req):
     init_data = req.headers.get("Authorization") or req.form.get("init_data")
     return verify_telegram_data(init_data, TOKEN)
 
-# ታሪክ መመዝገቢያ
 def log_history(user_id, tx_id, tx_type, amount, status):
     record = {"tx_id": tx_id, "type": tx_type, "amount": amount, "status": status, "time": int(time.time())}
     redis.lpush(f"users:history:{user_id}", json.dumps(record))
     redis.ltrim(f"users:history:{user_id}", 0, 19)
 
-# የ Pending የነበረውን ታሪክ ወደ Completed ወይም Refund የሚቀይር
 def update_history_status(user_id, tx_id, new_status):
     try:
         records = redis.lrange(f"users:history:{user_id}", 0, 19)
@@ -74,7 +88,27 @@ def update_history_status(user_id, tx_id, new_status):
     except Exception as e:
         print(f"History update failed: {e}")
 
-# --- 3. Telegram Bot Handlers (Admin Buttons Fix) ---
+
+# ==========================================
+# 4. Flask Web Routes (የዌብ ገፅ እና ዌብሁክ)
+# ==========================================
+@server.route('/')
+def index():
+    return render_template('index.html')
+
+@server.route(f'/webhook/{TOKEN}', methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return '', 200
+    return 'abort', 403
+
+
+# ==========================================
+# 5. Telegram Bot Handlers (ቦት ትዕዛዞች)
+# ==========================================
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     web_app_info = WebAppInfo(url=WEB_APP_URL)
@@ -86,7 +120,6 @@ def send_welcome(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_admin_callback(call):
-    # አድሚን መሆኑን ማረጋገጫ
     if call.message.chat.id not in [ADMIN_GROUP_ID, MY_PRIVATE_CHAT_ID]:
         bot.answer_callback_query(call.id, "Unauthorized!", show_alert=True)
         return
@@ -96,7 +129,6 @@ def handle_admin_callback(call):
         action = data[0]
         tx_id = data[-1] 
 
-        # ዳታቤዝ (Redis) ላይ ያለውን የግብይት ሁኔታ ማረጋገጥ
         tx_status = redis.get(f"tx:{tx_id}")
         if isinstance(tx_status, bytes):
             tx_status = tx_status.decode('utf-8')
@@ -109,9 +141,7 @@ def handle_admin_callback(call):
             except: pass
             return bot.answer_callback_query(call.id, "❌ ይህ ጥያቄ ቀደም ብሎ ተስተናግዷል!", show_alert=True)
 
-        # -----------------------------------------
-        # 1. DEPOSIT APPROVE (ገቢን ማጽደቅ)
-        # -----------------------------------------
+        # A. DEPOSIT APPROVE
         if action == "dep_app":
             _, user_id, amount, _ = data
             amount = float(amount)
@@ -120,21 +150,16 @@ def handle_admin_callback(call):
             redis.hincrbyfloat("users:balance", user_id, amount)
             update_history_status(user_id, tx_id, "completed")
             
-            # ለተጠቃሚው መልእክት መላክ
             try: bot.send_message(user_id, f"✅ የ {amount} ብር ገቢ (Deposit) ጸድቋል! ባላንስዎ ተሞልቷል። 🎉")
             except: pass
             
-            # የአድሚኑን ሜሴጅ ማስተካከል (Bot UI)
             try:
                 bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
                 bot.send_message(call.message.chat.id, f"✅ <b>APPROVED</b>: የ {amount} ብር ገቢ ጸድቋል (ID: <code>{user_id}</code>)", parse_mode="HTML", reply_to_message_id=call.message.message_id)
             except: pass
-            
             bot.answer_callback_query(call.id, "✅ በተሳካ ሁኔታ ጸድቋል!")
 
-        # -----------------------------------------
-        # 2. DEPOSIT REJECT (ገቢን ውድቅ ማድረግ)
-        # -----------------------------------------
+        # B. DEPOSIT REJECT
         elif action == "dep_rej":
             _, user_id, amount, _ = data 
             
@@ -148,12 +173,9 @@ def handle_admin_callback(call):
                 bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
                 bot.send_message(call.message.chat.id, f"❌ <b>REJECTED</b>: የ {amount} ብር ገቢ ውድቅ ተደርጓል (ID: <code>{user_id}</code>)", parse_mode="HTML", reply_to_message_id=call.message.message_id)
             except: pass
-            
             bot.answer_callback_query(call.id, "❌ ውድቅ ተደርጓል!")
 
-        # -----------------------------------------
-        # 3. WITHDRAW PAID (ወጪ ተከፍሏል / Paid)
-        # -----------------------------------------
+        # C. WITHDRAW PAID
         elif action == "wit_paid":
             _, user_id, amount, _ = data
             amount = float(amount)
@@ -168,17 +190,13 @@ def handle_admin_callback(call):
                 bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
                 bot.send_message(call.message.chat.id, f"✅ <b>PAID</b>: የ {amount} ብር ክፍያ ተልኳል (ID: <code>{user_id}</code>)", parse_mode="HTML", reply_to_message_id=call.message.message_id)
             except: pass
-            
             bot.answer_callback_query(call.id, "✅ ክፍያው ተመዝግቧል!")
 
-        # -----------------------------------------
-        # 4. WITHDRAW REJECT (ወጪን ውድቅ ማድረግ)
-        # -----------------------------------------
+        # D. WITHDRAW REJECT
         elif action == "wit_rej":
             _, user_id, amount, _ = data
             amount = float(amount)
             
-            # ብሩን ወደ ባላንሱ መመለስ (Refund)
             redis.set(f"tx:{tx_id}", "refund")
             redis.hincrbyfloat("users:balance", user_id, amount) 
             update_history_status(user_id, tx_id, "refund")
@@ -190,7 +208,6 @@ def handle_admin_callback(call):
                 bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
                 bot.send_message(call.message.chat.id, f"❌ <b>REJECTED & REFUNDED</b>: የ {amount} ብር ክፍያ ውድቅ ሆኗል (ID: <code>{user_id}</code>)", parse_mode="HTML", reply_to_message_id=call.message.message_id)
             except: pass
-            
             bot.answer_callback_query(call.id, "❌ ውድቅ ተደርጎ ተመላሽ ሆኗል!")
 
     except Exception as e:
@@ -199,21 +216,9 @@ def handle_admin_callback(call):
         except: pass
 
 
-# --- 4. Flask Web Routes ---
-@server.route('/')
-def index():
-    return render_template('index.html')
-
-@server.route(f'/webhook/{TOKEN}', methods=['POST'])
-def webhook():
-    if request.headers.get('content-type') == 'application/json':
-        json_string = request.get_data().decode('utf-8')
-        update = telebot.types.Update.de_json(json_string)
-        bot.process_new_updates([update])
-        return '', 200
-    return 'abort', 403
-
-# --- 5. Game & Wallet API Routes ---
+# ==========================================
+# 6. Game & Wallet API Routes (የጌም ዳታ መቀበያ)
+# ==========================================
 @server.route('/api/get_balance', methods=['POST'])
 def get_balance():
     if not check_auth(request): return jsonify({"error": "Unauthorized"}), 401
@@ -304,7 +309,6 @@ def handle_deposit():
 
         caption = f"🔔 <b>አዲስ Deposit ጥያቄ</b>\n👤 ስም: {user_name}\n🆔 <code>{user_id}</code>\n💰 <b>{amount} ብር</b>"
         
-        # የደህንነት ማሻሻያ፡ በ dep_rej ላይ {amount} ተጨምሯል
         markup = InlineKeyboardMarkup().add(
             InlineKeyboardButton("✅ አጽድቅ (Approve)", callback_data=f"dep_app|{user_id}|{amount}|{tx_id}"),
             InlineKeyboardButton("❌ ውድቅ (Reject)", callback_data=f"dep_rej|{user_id}|{amount}|{tx_id}")
@@ -361,8 +365,8 @@ def handle_withdraw():
     log_history(user_id, tx_id, "ወጪ", amount, "pending")
     return jsonify({"status": "success"})
 
+# ==========================================
+# 7. Application Runner (For Local Env)
+# ==========================================
 if __name__ == "__main__":
-    bot.remove_webhook()
-    time.sleep(1)
-    bot.set_webhook(url=f"{WEB_APP_URL}/webhook/{TOKEN}")
     server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
