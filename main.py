@@ -20,7 +20,7 @@ REDIS_URL = os.environ.get("REDIS_URL")
 REDIS_TOKEN = os.environ.get("REDIS_TOKEN")
 WEB_APP_URL = "https://sefer-bot.onrender.com" 
 
-ADMIN_GROUP_ID = 
+ADMIN_GROUP_ID = -1003943321922
 MY_PRIVATE_CHAT_ID = 8488592165
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
