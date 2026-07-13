@@ -65,7 +65,57 @@
         <div style="font-size: 40px;">🐑</div>
         <h3>Sheep Run 🐑</h3>
         <p>መግቢያ፦ 2 ብር</p>
-        <button onclick="launchGame('sheep_run')">ተጫወት</button> </div>
+        <button onclick="launchGame('sheep_run')">ተጫወት</button>
+
+        <!-- የሜዳው እና የ 5ቱ በጎች ዲዛይን እዚህ ይጀምራል -->
+        <div id="sheep-race-arena" style="background: #222; padding: 15px; border-radius: 12px; margin-top: 15px;">
+            <div class="track-field" style="position: relative; background: #333; border: 3px solid #444; border-radius: 8px; overflow: hidden; padding: 10px 0;">
+                
+                <!-- የመድረሻ መስመር (Checker Finish Line) -->
+                <div class="finish-line" style="position: absolute; right: 40px; top: 0; bottom: 0; width: 15px; background-image: linear-gradient(45deg, #fff 25%, transparent 25%), linear-gradient(-45deg, #fff 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #fff 75%), linear-gradient(-45deg, transparent 75%, #fff 75%); background-size: 6px 6px; background-position: 0 0, 0 3px, 3px -3px, -3px 0px; z-index: 1;"></div>
+                
+                <!-- መስመር 1 (በግ 1 - ቀይ 🔴) -->
+                <div class="lane" style="display: flex; align-items: center; height: 45px; border-bottom: 1px dashed #666; position: relative;">
+                    <div id="sheep1" class="sheep-avatar" style="position: absolute; left: 10px; font-size: 28px; transition: left 0.1s linear; display: flex; align-items: center;">
+                        🐑<span style="font-size: 10px; background: red; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; margin-left: -10px; margin-top: -15px; font-weight: bold; border: 1px solid white;">1</span>
+                    </div>
+                </div>
+
+                <!-- መስመር 2 (በግ 2 - ሰማያዊ 🔵) -->
+                <div class="lane" style="display: flex; align-items: center; height: 45px; border-bottom: 1px dashed #666; position: relative;">
+                    <div id="sheep2" class="sheep-avatar" style="position: absolute; left: 10px; font-size: 28px; transition: left 0.1s linear; display: flex; align-items: center;">
+                        🐑<span style="font-size: 10px; background: #2196F3; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; margin-left: -10px; margin-top: -15px; font-weight: bold; border: 1px solid white;">2</span>
+                    </div>
+                </div>
+
+                <!-- መስመር 3 (በግ 3 - አረንጓዴ 🟢) -->
+                <div class="lane" style="display: flex; align-items: center; height: 45px; border-bottom: 1px dashed #666; position: relative;">
+                    <div id="sheep3" class="sheep-avatar" style="position: absolute; left: 10px; font-size: 28px; transition: left 0.1s linear; display: flex; align-items: center;">
+                        🐑<span style="font-size: 10px; background: #4CAF50; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; margin-left: -10px; margin-top: -15px; font-weight: bold; border: 1px solid white;">3</span>
+                    </div>
+                </div>
+
+                <!-- መስመር 4 (በግ 4 - ቢጫ 🟡) -->
+                <div class="lane" style="display: flex; align-items: center; height: 45px; border-bottom: 1px dashed #666; position: relative;">
+                    <div id="sheep4" class="sheep-avatar" style="position: absolute; left: 10px; font-size: 28px; transition: left 0.1s linear; display: flex; align-items: center;">
+                        🐑<span style="font-size: 10px; background: #FFEB3B; color: black; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; margin-left: -10px; margin-top: -15px; font-weight: bold; border: 1px solid black;">4</span>
+                    </div>
+                </div>
+
+                <!-- መስመር 5 (በግ 5 - ሐምራዊ 🟣) -->
+                <div class="lane" style="display: flex; align-items: center; height: 45px; position: relative;">
+                    <div id="sheep5" class="sheep-avatar" style="position: absolute; left: 10px; font-size: 28px; transition: left 0.1s linear; display: flex; align-items: center;">
+                        🐑<span style="font-size: 10px; background: #9C27B0; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; margin-left: -10px; margin-top: -15px; font-weight: bold; border: 1px solid white;">5</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <!-- የሜዳው ዲዛይን እዚህ ያበቃል -->
+
+    </div> <!-- የ game-card መዝጊያ -->
+</div> <!-- የ games-grid መዝጊያ -->
+
 
         </div>
         <div class="game-card">
