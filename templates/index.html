@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>የሰፈር ጨዋታዎች - Virtual Betting 5 Horses Full WebApp</title>
+    <title>የሰፈር ጨዋታዎች - Virtual Betting 5 Horses 800m</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <style>
@@ -83,7 +83,7 @@
             box-sizing: border-box; 
         }
 
-        /* በደንብ ለጠጥ ያለ ሰፊ የሩጫ ሜዳ */
+        /* የሩጫ ሜዳ */
         .race-track-arena {
             position: relative;
             width: 100%;
@@ -132,7 +132,7 @@
             box-shadow: 0 0 8px rgba(255,255,255,0.4);
         }
 
-        /* የፈረስ ኮንቴይነር - ሙሉ በሙሉ ግልጽ (Transparent) */
+        /* የፈረስ ኮንቴይነር */
         .animated-horse-sprite-box {
             position: absolute;
             left: 10px;
@@ -145,31 +145,31 @@
             transition: left 0.04s linear;
         }
 
-        /* ቬክተር የፈረስ አኒሜሽን - ከምስል ነፃ እና ሁሌም የሚሰራ */
+        /* ፈረሱ ፊቱ ወደ ቀኝ እንዲዞር እና የራሱ ከለር እንዲኖረው የተደረገበት ሎጂክ */
         .horse-vector-render {
             font-size: 38px;
             line-height: 1;
             display: inline-block;
-            transform-origin: bottom center;
+            transform: scaleX(-1); /* ፊቱን ወደ ቀኝ ያዞረዋል */
             user-select: none;
         }
 
-        /* ሲሮጡ እውነተኛ የሩጫና የጋለቦታ (Galloping) እንቅስቃሴ የሚሰጥ */
+        /* እየሮጡ መሆኑን የሚያሳይ እውነተኛ የጋለቦታ አኒሜሽን */
         .animated-horse-sprite-box.running .horse-vector-render {
-            animation: gallopRun 0.25s infinite alternate ease-in-out;
+            animation: gallopRun 0.2s infinite alternate ease-in-out;
         }
 
         @keyframes gallopRun {
-            0% { transform: translateY(0) scaleX(1) rotate(0deg); }
-            50% { transform: translateY(-6px) scaleX(1.05) rotate(-4deg); }
-            100% { transform: translateY(2px) scaleX(0.95) rotate(6deg); }
+            0% { transform: scaleX(-1) translateY(0) rotate(-2deg); }
+            50% { transform: scaleX(-1) translateY(-8px) scaleY(0.9) rotate(3deg); }
+            100% { transform: scaleX(-1) translateY(3px) scaleY(1.05) rotate(-4deg); }
         }
 
-        /* የፈረሱ ቁጥር ባጅ - በግልጽ ኮርቻው ላይ መቀመጡን ለማረጋገጥ */
+        /* የፈረሱ ቁጥር ባጅ */
         .horse-badge-label {
             position: absolute;
-            top: 4px;
-            left: 12px;
+            top: -2px;
+            left: -2px;
             font-size: 11px;
             font-weight: bold;
             color: white;
@@ -369,8 +369,8 @@
     <div class="games-grid" id="main-menu">
         <div class="game-card">
             <div style="font-size: 50px;">🏟️🏇</div>
-            <h3>ቨርቹዋል የፈረስ ውድድር (100% Reliable Safe Edition)</h3>
-            <p>ከምስል ነፃ በሆነ ዘመናዊ የቬክተር አኒሜሽን የተሰራውና ፉርሽ የማይሆንበት የተሟላ ስሪት!</p>
+            <h3>ቨርቹዋል የፈረስ ውድድር (800m Race Track)</h3>
+            <p>አሁን ውድድሩ ይበልጥ ተራዝሟል! የ 800m ፈታኝ ሩጫ።</p>
             <button onclick="openHorseGame()">አሁኑኑ ይወራረዱ</button>
         </div>
     </div>
@@ -388,7 +388,7 @@
             <div class="track-lanes-container" id="live-race-track-lanes">
                 <!-- Lines generated dynamically -->
             </div>
-            <div class="video-overlay" id="race-status-overlay">🏁 ዝግጁ</div>
+            <div class="video-overlay" id="race-status-overlay">🏁 ርቀት: 800m | ዝግጁ</div>
         </div>
 
         <div class="betting-control">
@@ -490,17 +490,17 @@
         let isRacing = false;
 
         let horses = [
-            { id: 1, name: "አባይ ነብር", color: "#ef4444" },
-            { id: 2, name: "ዳሽን እሳት", color: "#3b82f6" },
-            { id: 3, name: "ሸገር ባቡር", color: "#10b981" },
-            { id: 4, name: "ጎንደር አንበሳ", color: "#eab308" },
-            { id: 5, name: "ባሊ ሮኬት", color: "#a855f7" }
+            { id: 1, name: "አባይ ነብር", color: "#ff4757" },
+            { id: 2, name: "ዳሽን እሳት", color: "#1e90ff" },
+            { id: 3, name: "ሸገር ባቡር", color: "#2ed573" },
+            { id: 4, name: "ጎንደር አንበሳ", color: "#ffa500" },
+            { id: 5, name: "ባሊ ሮኬት", color: "#e056fd" }
         ];
 
         document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("user-name").innerText = firstName;
             fetchBalance();
-            setInterval(fetchBalance, 6000); // Auto update every 6 seconds
+            setInterval(fetchBalance, 6000);
             regenerateOdds(); 
             initStaticTrack();
         });
@@ -512,8 +512,8 @@
                 container.innerHTML += `
                     <div class="lane-divider">
                         <div class="animated-horse-sprite-box" id="track-horse-${h.id}">
-                            <div class="horse-vector-render">🐎</div>
                             <div class="horse-badge-label" style="background-color: ${h.color};">${h.id}</div>
+                            <div class="horse-vector-render" style="color: ${h.color}; filter: drop-shadow(0px 0px 4px ${h.color});">🐎</div>
                         </div>
                     </div>
                 `;
@@ -603,7 +603,6 @@
             isRacing = true;
             document.getElementById("race-start-main-btn").disabled = true;
             document.getElementById("exit-game-btn").disabled = true;
-            document.getElementById("race-status-overlay").innerText = "🔴 የቀጥታ ውድድር...";
 
             horses.forEach(h => {
                 const el = document.getElementById(`track-horse-${h.id}`);
@@ -620,25 +619,26 @@
                 oddsWin: h.oddsWin,
                 oddsShow: h.oddsShow,
                 position: 10,
-                velocity: 0.15 + (Math.random() * 0.2), 
-                mass: 1.0 + (Math.random() * 0.6) 
+                velocity: 0.18 + (Math.random() * 0.22), 
+                mass: 1.0 + (Math.random() * 0.5) 
             }));
 
             const trackWidth = document.querySelector(".race-track-arena").clientWidth - 75; 
 
             let physicsInterval = setInterval(() => {
                 let someoneFinished = false;
+                let maxProgress = 10;
 
                 raceDetails.forEach(horse => {
                     if (horse.position >= trackWidth) return;
 
-                    let randomImpulse = Math.random() * 0.82;
-                    let drag = 0.12 * horse.velocity;
+                    let randomImpulse = Math.random() * 0.95;
+                    let drag = 0.14 * horse.velocity;
                     let acceleration = (randomImpulse - drag) / horse.mass;
                     
                     horse.velocity += acceleration;
                     if(horse.velocity < 0.1) horse.velocity = 0.1;
-                    if(horse.velocity > 2.3) horse.velocity = 2.3;
+                    if(horse.velocity > 2.5) horse.velocity = 2.5;
 
                     horse.position += horse.velocity;
 
@@ -647,13 +647,23 @@
                         el.style.left = `${Math.min(horse.position, trackWidth)}px`;
                     }
 
+                    if (horse.position > maxProgress) {
+                        maxProgress = horse.position;
+                    }
+
                     if (horse.position >= trackWidth) {
                         someoneFinished = true;
                     }
                 });
 
+                // የ 800m ሩጫን በሜትር መለኪያ ማሳያ ሎጂክ
+                let percentDone = (maxProgress - 10) / (trackWidth - 10);
+                let currentMeter = Math.max(0, Math.round(800 - (percentDone * 800)));
+                document.getElementById("race-status-overlay").innerText = `🔴 ርቀት: ${currentMeter}m | የቀጥታ ውድድር...`;
+
                 if (someoneFinished) {
                     clearInterval(physicsInterval);
+                    document.getElementById("race-status-overlay").innerText = `🏁 ርቀት: 0m | ተጠናቋል`;
                     horses.forEach(h => {
                         const el = document.getElementById(`track-horse-${h.id}`);
                         if(el) el.classList.remove("running");
@@ -669,8 +679,6 @@
             const winnerId = raceDetails[0].id;
             const silverId = raceDetails[1].id;
             const bronzeId = raceDetails[2].id;
-
-            document.getElementById("race-status-overlay").innerText = "🏁 ተጠናቋል";
 
             const chosenHorse = horses.find(h => h.id === selectedHorseId);
             let didWin = false;
