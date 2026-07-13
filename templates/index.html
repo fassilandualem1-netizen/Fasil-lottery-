@@ -440,7 +440,17 @@
             btn.disabled = false;
         }
     }
-</script>
-<script src="/static/js/game.js"></script>
+    <script>
+        // ... ሌሎች የነበሩ የጃቫስክሪፕት ኮዶች ...
+
+        // የ Sheep Run ገጽ መክፈቻ እና መዝጊያ ፈንክሽኖች
+        function openSheepGame() {
+            document.getElementById('sheep-full-screen-game').style.display = 'block';
+        }
+
+        function closeSheepGame() {
+            document.getElementById('sheep-full-screen-game').style.display = 'none';
+        }
+    </script> <script src="/static/js/game.js"></script>
 </body>
 </html>
