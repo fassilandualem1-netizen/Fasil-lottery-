@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>የሰፈር ጨዋታዎች - Virtual Betting 5 Horses Realistic Sprite Edition</title>
+    <title>የሰፈር ጨዋታዎች - Virtual Betting 5 Horses Full WebApp</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <style>
@@ -17,7 +17,7 @@
             overflow-x: hidden; 
         }
 
-        /* Header UI */
+        /* Glassmorphism Header */
         .header-ui { 
             display: flex; 
             justify-content: space-between; 
@@ -26,9 +26,10 @@
             background: rgba(15, 23, 42, 0.9); 
             backdrop-filter: blur(10px); 
             border-bottom: 3px solid #059669; 
+            box-shadow: 0 4px 20px rgba(5, 150, 105, 0.25);
         }
         .user-info { font-size: 15px; font-weight: bold; }
-        .balance-box { font-weight: 900; color: #10b981; font-size: 16px; }
+        .balance-box { font-weight: 900; color: #10b981; font-size: 16px; text-shadow: 0 0 10px rgba(16, 185, 129, 0.3); }
 
         .top-btn { 
             border: none; 
@@ -37,6 +38,7 @@
             cursor: pointer; 
             font-weight: bold; 
             font-size: 13px; 
+            transition: all 0.3s ease;
         }
         #wallet-btn { background: linear-gradient(135deg, #10b981, #059669); color: white; margin-left: 10px; }
         #history-btn { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; margin-left: 5px; }
@@ -50,7 +52,11 @@
             border-radius: 16px; 
             padding: 25px; 
             text-align: center; 
+            transition: all 0.3s ease;
         }
+        .game-card:hover { transform: translateY(-5px); border-color: #10b981; }
+        .game-card h3 { margin: 10px 0 5px 0; font-size: 20px; color: #f8fafc; }
+        .game-card p { font-size: 14px; color: #94a3b8; margin-bottom: 20px; }
         .game-card button { 
             background: #10b981; 
             color: #fff; 
@@ -59,6 +65,7 @@
             border-radius: 8px; 
             cursor: pointer; 
             font-weight: bold; 
+            font-size: 15px;
         }
 
         /* Arena - Full Screen Game */
@@ -76,12 +83,12 @@
             box-sizing: border-box; 
         }
 
-        /* በደንብ ለጠጥ ያለ ሰፊ የሩጫ ሜዳ (Wider & Taller Arena) */
+        /* በደንብ ለጠጥ ያለ ሰፊ የሩጫ ሜዳ */
         .race-track-arena {
             position: relative;
             width: 100%;
-            height: 380px; /* ሜዳው በደንብ ለጠጥ እንዲል ከፍታው ጨምሯል */
-            background: linear-gradient(#1e3a1e, #166534, #14532d); /* እውነተኛ የሳር ቀለም ስሜት */
+            height: 380px; 
+            background: linear-gradient(#1e3a1e, #166534, #14532d); 
             border-radius: 16px;
             overflow: hidden;
             border: 3px solid #334155;
@@ -101,7 +108,7 @@
         .lane-divider {
             position: relative;
             width: 100%;
-            height: 65px; /* ለእያንዳንዱ ፈረስ ሰፊ የሩጫ መስመር */
+            height: 65px; 
             border-bottom: 2px dashed rgba(255, 255, 255, 0.15);
             display: flex;
             align-items: center;
@@ -122,46 +129,47 @@
                 #000 16px
             );
             z-index: 5;
+            box-shadow: 0 0 8px rgba(255,255,255,0.4);
         }
 
-        /* 2D Sprite Sheet Horse Container - አራት ማዕዘን የሌለው እና ፊቱ ወደ ቀኝ የዞረ */
+        /* የፈረስ ኮንቴይነር - ሙሉ በሙሉ ግልጽ (Transparent) */
         .animated-horse-sprite-box {
             position: absolute;
             left: 10px;
-            width: 70px;
+            width: 65px;
             height: 55px;
-            background: transparent; /* አራት ማዕዘን ሳጥኑ ጠፍቷል */
+            background: transparent; 
             display: flex;
             align-items: center;
             justify-content: center;
             transition: left 0.04s linear;
         }
 
-        /* በ CSS ኮድ የተሰራ የፈረስ አካል እና 4ቱንም እግር በ 8 ፍሬም በፍጥነት የሚያንቀሳቅስ (Sprite Rendering) */
-        .horse-legs-sprite {
-            width: 64px;
-            height: 48px;
-            background-image: url('https://i.imgur.com/b9vW7Y2.png'); /* ፊቱ ወደ ቀኝ የዞረ እውነተኛ የፈረስ 4 እግሮች Sprite Sheet */
-            background-size: 512px 48px; /* 8 Frames (64px * 8 = 512px) */
-            background-repeat: no-repeat;
-            transform: scaleX(1); /* ፊታቸው በትክክል ወደ ቀኝ እንዲሆን ያደርጋል */
+        /* ቬክተር የፈረስ አኒሜሽን - ከምስል ነፃ እና ሁሌም የሚሰራ */
+        .horse-vector-render {
+            font-size: 38px;
+            line-height: 1;
+            display: inline-block;
+            transform-origin: bottom center;
+            user-select: none;
         }
 
-        /* ሲሮጡ እግራቸው በከፍተኛ ፍጥነት እንዲንቀሳቀስ ማድረጊያ */
-        .animated-horse-sprite-box.running .horse-legs-sprite {
-            animation: playSprite 0.4s steps(8) infinite;
+        /* ሲሮጡ እውነተኛ የሩጫና የጋለቦታ (Galloping) እንቅስቃሴ የሚሰጥ */
+        .animated-horse-sprite-box.running .horse-vector-render {
+            animation: gallopRun 0.25s infinite alternate ease-in-out;
         }
 
-        @keyframes playSprite {
-            from { background-position: 0px; }
-            to { background-position: -512px; }
+        @keyframes gallopRun {
+            0% { transform: translateY(0) scaleX(1) rotate(0deg); }
+            50% { transform: translateY(-6px) scaleX(1.05) rotate(-4deg); }
+            100% { transform: translateY(2px) scaleX(0.95) rotate(6deg); }
         }
 
-        /* የፈረሱ ቁጥር ባጅ - ኮርቻው ላይ በግልጽ ይቀመጣል */
+        /* የፈረሱ ቁጥር ባጅ - በግልጽ ኮርቻው ላይ መቀመጡን ለማረጋገጥ */
         .horse-badge-label {
             position: absolute;
-            top: 2px;
-            left: 15px;
+            top: 4px;
+            left: 12px;
             font-size: 11px;
             font-weight: bold;
             color: white;
@@ -188,6 +196,7 @@
             font-size: 13px;
             font-weight: bold;
             color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
             z-index: 10;
         }
 
@@ -214,6 +223,7 @@
             border-radius: 8px;
             font-weight: bold;
             cursor: pointer;
+            transition: all 0.2s;
         }
         .type-btn.active {
             border-color: #10b981;
@@ -237,6 +247,7 @@
             border-radius: 10px;
             padding: 10px 15px;
             cursor: pointer;
+            transition: all 0.2s;
         }
         .horse-row.selected {
             border-color: #10b981;
@@ -257,11 +268,13 @@
             border: none;
             cursor: pointer;
             width: 100%;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
         }
         #race-start-main-btn:disabled {
             background: #374151;
             color: #9ca3af;
             cursor: not-allowed;
+            box-shadow: none;
         }
 
         /* Modals */
@@ -285,11 +298,61 @@
             width: 85%; 
             max-width: 380px; 
             text-align: center; 
+            border: 1px solid #334155;
+            position: relative;
+            max-height: 85vh;
+            overflow-y: auto;
         }
-        .close-btn { position: absolute; right: 15px; top: 10px; font-size: 28px; color: #94a3b8; cursor: pointer; }
+        .close-btn { position: absolute; right: 15px; top: 10px; font-size: 28px; font-weight: bold; color: #94a3b8; cursor: pointer; }
+        .close-btn:hover { color: #ef4444; }
 
+        .modal-content input, .modal-content select { 
+            width: 90%; 
+            padding: 12px; 
+            margin: 8px 0; 
+            border-radius: 8px; 
+            border: 1px solid #334155; 
+            background-color: #0f172a; 
+            color: white; 
+            font-size: 14px; 
+            outline: none; 
+        }
+
+        .info-box { 
+            background-color: #0f172a; 
+            padding: 12px; 
+            border-radius: 8px; 
+            font-size: 14px; 
+            margin: 10px 0; 
+            border-left: 4px solid #10b981; 
+            text-align: left; 
+        }
+        .file-input-label { 
+            display: block; 
+            background-color: #0f172a; 
+            padding: 10px; 
+            margin: 8px 0; 
+            border-radius: 8px; 
+            border: 1px dashed #10b981; 
+            cursor: pointer; 
+            font-size: 13px; 
+        }
+        .history-card { 
+            background: #0f172a; 
+            margin-bottom: 10px; 
+            padding: 12px; 
+            border-radius: 8px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            text-align: left; 
+            border: 1px solid #334155; 
+        }
+
+        /* Result Board Table */
         .result-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         .result-table th, .result-table td { padding: 10px; border-bottom: 1px solid #334155; text-align: center; }
+        .result-table th { background: #0f172a; color: #94a3b8; }
     </style>
 </head>
 <body>
@@ -306,21 +369,20 @@
     <div class="games-grid" id="main-menu">
         <div class="game-card">
             <div style="font-size: 50px;">🏟️🏇</div>
-            <h3>ቨርቹዋል የፈረስ ውድድር (Realistic 2D Sprite Sheet)</h3>
-            <p>የ4ቱም እግሮች እንቅስቃሴ ፍፁም እውነተኛ የሆነበትና ሜዳው በደንብ ለጠጥ ያለ አዲስ ስሪት!</p>
+            <h3>ቨርቹዋል የፈረስ ውድድር (100% Reliable Safe Edition)</h3>
+            <p>ከምስል ነፃ በሆነ ዘመናዊ የቬክተር አኒሜሽን የተሰራውና ፉርሽ የማይሆንበት የተሟላ ስሪት!</p>
             <button onclick="openHorseGame()">አሁኑኑ ይወራረዱ</button>
         </div>
     </div>
 
+    <!-- Game Screen Arena -->
     <div id="horse-full-screen-game">
-        
-        <div style="display: flex; align-items: center; justify-content: space-between; background: #111827; padding: 12px; border-radius: 12px; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; background: #111827; padding: 12px; border-radius: 12px; margin-bottom: 12px; border: 1px solid #1f2937;">
             <button id="exit-game-btn" onclick="closeHorseGame()" style="background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer;">⬅️ ውጣ</button>
             <div style="font-weight: bold; color: #10b981; font-size: 15px;">💰 <span id="horse-game-balance">0.00</span> ብር</div>
             <button class="top-btn" style="background: #10b981; color: white;" onclick="openWallet()">Wallet 💳</button>
         </div>
 
-        <!-- Taller Wide Grass Track -->
         <div class="race-track-arena">
             <div class="finish-line-stripe"></div>
             <div class="track-lanes-container" id="live-race-track-lanes">
@@ -330,7 +392,6 @@
         </div>
 
         <div class="betting-control">
-            
             <div class="bet-type-selector">
                 <button id="btn-win" class="type-btn active" onclick="setBetType('win')">🥇 Win (1ኛ ብቻ)</button>
                 <button id="btn-show" class="type-btn" onclick="setBetType('show')">🥉 Show (ከ1-3ኛ)</button>
@@ -344,25 +405,73 @@
                     <button onclick="adjustHorseBet(5)" style="background: #374151; color: white; border: none; width: 32px; height: 32px; border-radius: 6px; font-weight: bold;">+</button>
                 </div>
             </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="font-size: 12px; color: #9ca3af; font-weight: bold;">ፈረስ ይምረጡ (በሂሳብ የተሰላ Odds)፦</div>
+            </div>
             
             <div class="horse-list" id="horse-selection-container"></div>
-
             <button id="race-start-main-btn" onclick="startHorseRace()">🏁 ውርርድ አስይዝ (ውድድር ጀምር)</button>
         </div>
     </div>
 
     <!-- Result Board Modal -->
     <div id="result-modal" class="modal" style="display: none;">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 420px;">
             <h2 id="result-title" style="color:#10b981; margin-bottom: 5px;">🎉 ውድድሩ ተጠናቋል!</h2>
+            <p style="font-size: 13px; color: #94a3b8; margin: 0;">የፎቶ ፊኒሽ (Photo Finish) ውጤት ሰሌዳ</p>
             <table class="result-table">
                 <thead>
-                    <tr><th>ደረጃ</th><th>ፈረስ</th><th>ስም</th></tr>
+                    <tr><th>ደረጃ</th><th>ፈረስ</th><th>የፈረስ ስም</th></tr>
                 </thead>
                 <tbody id="result-table-body"></tbody>
             </table>
-            <div id="reward-showbox" style="background-color: #0f172a; padding: 15px; border-radius: 12px; margin-top: 15px;"></div>
+            <div id="reward-showbox" style="background-color: #0f172a; padding: 15px; border-radius: 12px; margin-top: 15px; font-size: 16px; border: 1px solid #10b981;"></div>
             <button onclick="closeModal('result-modal')" style="background: #10b981; color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; margin-top: 15px; cursor: pointer;">እሺ መልስ</button>
+        </div>
+    </div>
+
+    <!-- Wallet Modal -->
+    <div id="wallet-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('wallet-modal')">&times;</span>
+            <h2>ዋሌት 💳</h2>
+            <div style="background-color: #0f172a; padding: 12px; border-radius: 10px; font-size: 18px; margin-bottom: 15px; border: 1px solid #10b981;">
+                ባላንስ: <span id="modal-balance" style="color:#10b981; font-weight:bold;">0.00</span> ብር
+            </div>
+            <hr style="border: 0; height: 1px; background: rgba(255, 255, 255, 0.1); margin: 15px 0;">
+            
+            <h3>ብር ያስገቡ (Deposit)</h3>
+            <div class="info-box">
+                እባክዎ መጀመሪያ በዚህ ቁጥር ይላኩ፦<br>
+                ስልክ፦ <strong>0951381356</strong>
+            </div>
+            <input type="number" id="deposit-amount" placeholder="የላኩትን የብር መጠን እዚህ ይጻፉ...">
+            <label class="file-input-label">
+                🧾 የላኩበትን የደረሰኝ ፎቶ (Screenshot) ይምረጡ
+                <input type="file" id="deposit-receipt" accept="image/*" style="display: none;" onchange="updateReceiptLabel(this)">
+            </label>
+            <span id="file-name-display" style="font-size: 12px; color: #aaa; display: block; margin-bottom: 5px;"></span>
+            <button id="deposit-submit-btn" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer;" onclick="handleDeposit(event)">የክፍያ ማረጋገጫ ላክ</button>
+            
+            <hr style="border: 0; height: 1px; background: rgba(255, 255, 255, 0.1); margin: 20px 0;">
+            
+            <h3 style="color: #ef4444;">ብር ያውጡ (Withdraw)</h3>
+            <input type="text" id="withdraw-bank" placeholder="የባንክ አይነት (ምሳሌ: ንግድ ባንክ, ቴሌብር...)">
+            <input type="text" id="withdraw-account-name" placeholder="የአካውንት ስም (ሙሉ ስም)...">
+            <input type="text" id="withdraw-phone" placeholder="አካውንት ቁጥር / ስልክ ቁጥር...">
+            <input type="number" id="withdraw-amount" placeholder="የሚወጣውን የብር መጠን ያስገቡ...">
+            <button id="withdraw-submit-btn" style="background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer;" onclick="handleWithdraw(event)">ገንዘብ አውጣ</button>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div id="history-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('history-modal')">&times;</span>
+            <h2>ታሪክ 📜 (History)</h2>
+            <hr style="border: 0; height: 1px; background: rgba(255, 255, 255, 0.1); margin: 15px 0;">
+            <div id="history-list-content"></div>
         </div>
     </div>
 
@@ -381,16 +490,17 @@
         let isRacing = false;
 
         let horses = [
-            { id: 1, name: "አባይ ነብር", color: "#ef4444", hue: "0deg" },
-            { id: 2, name: "ዳሽን እሳት", color: "#3b82f6", hue: "240deg" },
-            { id: 3, name: "ሸገር ባቡር", color: "#10b981", hue: "120deg" },
-            { id: 4, name: "ጎንደር አንበሳ", color: "#eab308", hue: "60deg" },
-            { id: 5, name: "ባሊ ሮኬት", color: "#a855f7", hue: "300deg" }
+            { id: 1, name: "አባይ ነብር", color: "#ef4444" },
+            { id: 2, name: "ዳሽን እሳት", color: "#3b82f6" },
+            { id: 3, name: "ሸገር ባቡር", color: "#10b981" },
+            { id: 4, name: "ጎንደር አንበሳ", color: "#eab308" },
+            { id: 5, name: "ባሊ ሮኬት", color: "#a855f7" }
         ];
 
         document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("user-name").innerText = firstName;
             fetchBalance();
+            setInterval(fetchBalance, 6000); // Auto update every 6 seconds
             regenerateOdds(); 
             initStaticTrack();
         });
@@ -402,8 +512,8 @@
                 container.innerHTML += `
                     <div class="lane-divider">
                         <div class="animated-horse-sprite-box" id="track-horse-${h.id}">
-                            <div class="horse-legs-sprite" style="filter: hue-rotate(${h.hue});"></div>
-                            <div class="horse-badge-label">${h.id}</div>
+                            <div class="horse-vector-render">🐎</div>
+                            <div class="horse-badge-label" style="background-color: ${h.color};">${h.id}</div>
                         </div>
                     </div>
                 `;
@@ -417,9 +527,10 @@
                 h.power = 10 + (Math.random() * 12);
                 totalPower += h.power;
             });
+            const margin = 0.92;
             horses.forEach(h => {
                 let winChance = h.power / totalPower;
-                h.oddsWin = parseFloat(( (1 / winChance) * 0.92 ).toFixed(2));
+                h.oddsWin = parseFloat(( (1 / winChance) * margin ).toFixed(2));
                 h.oddsShow = parseFloat((h.oddsWin * 0.42).toFixed(2));
                 if(h.oddsShow < 1.1) h.oddsShow = 1.1; 
             });
@@ -455,9 +566,10 @@
                 if (data.status === "success") {
                     currentBalance = data.balance;
                     document.getElementById("user-balance").innerText = currentBalance.toFixed(2);
-                    document.getElementById("horse-game-balance").innerText = currentBalance.toFixed(2);
+                    if(document.getElementById("modal-balance")) document.getElementById("modal-balance").innerText = currentBalance.toFixed(2);
+                    if(document.getElementById("horse-game-balance")) document.getElementById("horse-game-balance").innerText = currentBalance.toFixed(2);
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) { console.error("ባላንስ ማግኘት አልተቻለም", e); }
         }
 
         function setBetType(type) {
@@ -497,11 +609,10 @@
                 const el = document.getElementById(`track-horse-${h.id}`);
                 if(el) {
                     el.style.left = "10px";
-                    el.classList.add("running"); // Starts 4-leg sprite movement animation
+                    el.classList.add("running"); 
                 }
             });
 
-            // Wider random variance (High randomness so they spread out and overtake realistically)
             let raceDetails = horses.map(h => ({
                 id: h.id,
                 name: h.name,
@@ -510,7 +621,7 @@
                 oddsShow: h.oddsShow,
                 position: 10,
                 velocity: 0.15 + (Math.random() * 0.2), 
-                mass: 1.0 + (Math.random() * 0.5) 
+                mass: 1.0 + (Math.random() * 0.6) 
             }));
 
             const trackWidth = document.querySelector(".race-track-arena").clientWidth - 75; 
@@ -521,14 +632,13 @@
                 raceDetails.forEach(horse => {
                     if (horse.position >= trackWidth) return;
 
-                    // Large unpredictable impulses make horses break apart (Not running together)
-                    let randomImpulse = Math.random() * 0.75;
+                    let randomImpulse = Math.random() * 0.82;
                     let drag = 0.12 * horse.velocity;
                     let acceleration = (randomImpulse - drag) / horse.mass;
                     
                     horse.velocity += acceleration;
                     if(horse.velocity < 0.1) horse.velocity = 0.1;
-                    if(horse.velocity > 2.2) horse.velocity = 2.2;
+                    if(horse.velocity > 2.3) horse.velocity = 2.3;
 
                     horse.position += horse.velocity;
 
@@ -579,9 +689,9 @@
                 await fetch('/api/race_result', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': initData },
-                    body: JSON.stringify({ user_id: userId, bet_amount: betAmount, did_win: didWin, win_amount: winAmount })
+                    body: JSON.stringify({ user_id: userId, bet_amount: betAmount, did_win: didWin, win_amount: winAmount, details: `ውርርድ በ ፈረስ ${selectedHorseId} (${selectedBetType === 'win' ? 'Win' : 'Show'})` })
                 });
-            } catch (e) { console.error(e); }
+            } catch (e) { console.error("ውጤት መላክ አልተቻለም", e); }
 
             showResultBoard(raceDetails, didWin, winAmount, chosenHorse);
 
@@ -602,7 +712,7 @@
                 tbody.innerHTML += `
                     <tr>
                         <td style="font-weight:bold;">${medal}</td>
-                        <td><span style="background: ${raceDetails[i].color}; padding: 3px 8px; border-radius: 8px; font-weight:bold;">${raceDetails[i].id}</span></td>
+                        <td><span style="background: ${raceDetails[i].color}; padding: 4px 10px; border-radius: 12px; font-weight:bold;">${raceDetails[i].id}</span></td>
                         <td>${raceDetails[i].name}</td>
                     </tr>
                 `;
@@ -610,16 +720,133 @@
 
             const rewardBox = document.getElementById("reward-showbox");
             if (didWin) {
-                rewardBox.innerHTML = `<strong style="color: #10b981;">🎉 አሸንፈዋል! +${winAmount.toFixed(2)} ብር</strong>`;
+                rewardBox.style.borderColor = "#10b981";
+                rewardBox.innerHTML = `
+                    <span style="font-size: 24px;">🎉</span><br>
+                    <strong style="color: #10b981;">እንኳን ደስ አሰኘዎት! ማሸነፍዎን አረጋግጠናል!</strong><br>
+                    <span style="font-size: 14px; color: #94a3b8;">የመረጡት ፈረስ: ${chosenHorse.name}</span><br>
+                    <span style="font-size: 18px; font-weight: 900; color: #10b981; display:block; margin-top: 8px;">+ ${winAmount.toFixed(2)} ብር</span>
+                `;
             } else {
-                rewardBox.innerHTML = `<strong style="color: #ef4444;">😞 አልደረሰዎትም!</strong>`;
+                rewardBox.style.borderColor = "#ef4444";
+                rewardBox.innerHTML = `
+                    <span style="font-size: 24px;">😞</span><br>
+                    <strong style="color: #ef4444;">ይቅርታ! አልደረሰዎትም</strong><br>
+                    <span style="font-size: 14px; color: #94a3b8;">እንደገና ይሞክሩ፤ እድልዎ በሚቀጥለው ጨዋታ ሊቀና ይችላል።</span>
+                `;
             }
             document.getElementById("result-modal").style.display = "flex";
         }
 
         function openHorseGame() { document.getElementById('horse-full-screen-game').style.display = 'block'; initStaticTrack(); regenerateOdds(); }
-        function closeHorseGame() { if (!isRacing) document.getElementById('horse-full-screen-game').style.display = 'none'; }
+        function closeHorseGame() { if (isRacing) return alert("ውድድር ላይ እያሉ መውጣት አይቻልም!"); document.getElementById('horse-full-screen-game').style.display = 'none'; }
+        
+        function openWallet() { 
+            document.getElementById("wallet-modal").style.display = "flex"; 
+            document.getElementById("modal-balance").innerText = currentBalance.toFixed(2);
+        }
+        
+        function openHistory() { 
+            document.getElementById("history-modal").style.display = "flex"; 
+            document.getElementById("history-list-content").innerHTML = "<i>እየጫነ ነው... ⏳</i>";
+            loadHistory(); 
+        }
+
         function closeModal(id) { document.getElementById(id).style.display = "none"; if(id === 'result-modal') initStaticTrack(); }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch('/api/get_history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': initData },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await res.json();
+                const list = document.getElementById("history-list-content");
+                const financialHistory = (data.history || []).filter(h => h.type === 'ገቢ' || h.type === 'ወጪ');
+
+                if(financialHistory.length === 0) {
+                    list.innerHTML = "<p style='color:#aaa; text-align:center;'>ምንም ታሪክ የለዎትም!</p>";
+                    return;
+                }
+
+                list.innerHTML = financialHistory.map(h => {
+                    let statusBadge = h.status === 'pending' ? '<span style="font-size: 14px; color: #ffeb3b;">⏳ Pending</span>' : h.status === 'completed' ? '<span style="font-size: 14px; color: #4CAF50;">✅ Approved</span>' : '<span style="font-size: 14px; color: #f44336;">❌ Rejected</span>';
+                    let borderColor = h.type === 'ገቢ' ? '#10b981' : '#ef4444';
+                    return `
+                    <div class="history-card" style="border-left: 4px solid ${borderColor};">
+                        <div>
+                            <div style="font-weight: bold; font-size: 13px; color: ${borderColor};">${h.type === 'ገቢ' ? '📥 ገቢ' : '📤 ወጪ'}</div>
+                            <div style="font-size: 15px; color: white; font-weight: bold; margin-top: 4px;">${h.amount} ብር</div>
+                        </div>
+                        <div>${statusBadge}</div>
+                    </div>`;
+                }).join('');
+            } catch (e) { document.getElementById("history-list-content").innerHTML = "<p style='color:#ef4444; text-align:center;'>ታሪክ መጫን አልተቻለም!</p>"; }
+        }
+
+        function updateReceiptLabel(input) {
+            const fileName = input.files[0] ? input.files[0].name : "";
+            document.getElementById("file-name-display").innerText = "የተመረጠ ፋይል: " + fileName;
+        }
+
+        async function handleDeposit(event) {
+            const amountInput = document.getElementById("deposit-amount");
+            const receiptInput = document.getElementById("deposit-receipt");
+            const amount = parseFloat(amountInput.value || 0);
+            const receiptFile = receiptInput.files[0];
+
+            if (amount <= 0 || !receiptFile) return alert("እባክዎ መጠን እና ደረሰኝ በትክክል ያስገቡ!");
+
+            const btn = event.target;
+            btn.innerText = "እየላከ ነው..."; btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append("user_id", userId);
+            formData.append("user_name", firstName); 
+            formData.append("amount", amount);
+            formData.append("receipt", receiptFile);
+            formData.append("init_data", initData);
+
+            try {
+                const res = await fetch('/api/deposit', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.status === "success") {
+                    alert(`ጥያቄዎ ተልኮአል ✅!`);
+                    amountInput.value = ""; receiptInput.value = "";
+                    closeModal('wallet-modal');
+                } else { alert(data.message); }
+            } catch (e) { alert("ስህተት አጋጥሟል!"); }
+            finally { btn.innerText = "የክፍያ ማረጋገጫ ላክ"; btn.disabled = false; }
+        }
+
+        async function handleWithdraw(event) {
+            const amountInput = document.getElementById("withdraw-amount");
+            const phoneInput = document.getElementById("withdraw-phone");
+            const bankInput = document.getElementById("withdraw-bank");
+            const accountNameInput = document.getElementById("withdraw-account-name");
+            const amount = parseFloat(amountInput.value || 0);
+
+            if (!bankInput.value || !accountNameInput.value || !phoneInput.value || amount <= 0 || amount > currentBalance) return alert("እባክዎ መረጃዎችን በትክክል ያስገቡ!");
+
+            const btn = event.target;
+            btn.innerText = "እየላከ ነው..."; btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/withdraw', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': initData },
+                    body: JSON.stringify({ user_id: userId, user_name: firstName, amount: amount, phone: phoneInput.value, bank_name: bankInput.value, account_name: accountNameInput.value })
+                });
+                const data = await res.json();
+                if (data.status === "success") {
+                    alert(`የማውጣት ጥያቄዎ ተልኮአል ✅!`);
+                    closeModal('wallet-modal');
+                    fetchBalance();
+                }
+            } catch (e) { alert("ስህተት አጋጥሟል!"); }
+            finally { btn.innerText = "ገንዘብ አውጣ"; btn.disabled = false; }
+        }
     </script>
 </body>
 </html>
