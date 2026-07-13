@@ -73,7 +73,7 @@
             <div style="font-size: 40px;">🧀</div>
             <h3>የአይጧ ጨዋታ</h3>
             <p>መግቢያ፦ 5 ብር</p>
-            <button onclick="launchGame('ayit_game')">ተጫወት</button>
+            <button onclick="launchGame('avit_game')">ተጫወት</button>
         </div>
 
         <div class="game-card">
@@ -97,8 +97,10 @@
 
     </div>
 
+    <!-- 📱 የተሻሻለው የ Sheep Run Full Screen መጫወቻ ገጽ -->
     <div id="sheep-full-screen-game" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #141414; z-index: 9999; overflow-y: auto; padding: 15px; box-sizing: border-box;">
         
+        <!-- 🔝 የላይኛው ባር -->
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
             <button onclick="closeSheepGame()" style="background: #e74c3c; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; width: auto;">⬅️ ተመለስ</button>
             <h2 style="color: white; margin: 0; font-family: sans-serif; font-size: 20px;">Sheep Run 🐑</h2>
@@ -107,64 +109,138 @@
             </div>
         </div>
 
+        <!-- 🛣️ የአስፓልት መወዳደሪያ ሜዳ (በጎቹ አሁን እውነተኛ በግ ሆነዋል!) -->
         <div style="background: #2c3e50; padding: 15px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.5); border: 2px solid #34495e; margin-bottom: 15px;">
             <div class="track-field" style="position: relative; background: #222; border: 4px solid #111; border-radius: 8px; overflow: hidden; padding: 15px 0; min-height: 380px;">
                 
+                <!-- የቼከር መድረሻ መስመር -->
                 <div class="finish-line" style="position: absolute; right: 70px; top: 0; bottom: 0; width: 20px; background-image: linear-gradient(45deg, #fff 25%, transparent 25%), linear-gradient(-45deg, #fff 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #fff 75%), linear-gradient(-45deg, transparent 75%, #fff 75%); background-size: 8px 8px; background-position: 0 0, 0 4px, 4px -4px, -4px 0px; z-index: 2; border-left: 2px solid #000;"></div>
                 
+                <!-- መስመር 1 (ቀይ ኮርቻ 🔴) -->
                 <div class="lane" style="display: flex; align-items: center; height: 65px; border-bottom: 2px dashed #444; position: relative;">
                     <div id="sheep1" style="position: absolute; left: 20px; display: flex; align-items: center; transition: left 0.1s linear;">
-                        <span style="background: #e74c3c; border-radius: 4px; padding: 2px 6px; font-size: 11px; color: white; font-weight: bold; z-index: 4; border: 1px solid white; margin-right: -8px;">1</span>
-                        <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-                            <div style="position: absolute; width: 24px; height: 24px; background: #e74c3c; border-radius: 50%; top: 12px; left: 16px; z-index: 3; border: 1px solid #fff; opacity: 0.85;"></div>
-                            <img src="https://openclipart.org/image/800px/262235" style="width: 60px; height: 60px; transform: scaleX(-1); object-fit: contain; z-index: 2;" alt="Sheep 1">
-                        </div>
+                        <span style="background: #e74c3c; border-radius: 4px; padding: 2px 6px; font-size: 11px; color: white; font-weight: bold; z-index: 4; border: 1px solid white; margin-right: 5px;">1</span>
+                        <!-- 🐑 እውነተኛ የቬክተር በግ ምስል -->
+                        <svg viewBox="0 0 64 64" style="width: 55px; height: 55px; z-index: 2;">
+                            <circle cx="30" cy="30" r="14" fill="#ffffff"/>
+                            <circle cx="22" cy="24" r="8" fill="#ffffff"/>
+                            <circle cx="38" cy="24" r="8" fill="#ffffff"/>
+                            <circle cx="18" cy="34" r="8" fill="#ffffff"/>
+                            <circle cx="42" cy="34" r="8" fill="#ffffff"/>
+                            <circle cx="30" cy="40" r="8" fill="#ffffff"/>
+                            <!-- ቀይ ኮርቻ -->
+                            <ellipse cx="30" cy="30" rx="10" ry="6" fill="#e74c3c"/>
+                            <!-- ፊት -->
+                            <ellipse cx="42" cy="28" rx="8" ry="7" fill="#f3d1c1"/>
+                            <circle cx="44" cy="26" r="1.5" fill="#000000"/>
+                            <ellipse cx="38" cy="22" rx="2" ry="4" fill="#f3d1c1"/>
+                            <!-- እግሮች -->
+                            <rect x="24" y="42" width="3" height="10" fill="#222222"/>
+                            <rect x="32" y="42" width="3" height="10" fill="#222222"/>
+                        </svg>
                     </div>
                 </div>
 
+                <!-- መስመር 2 (ሰማያዊ ኮርቻ 🔵) -->
                 <div class="lane" style="display: flex; align-items: center; height: 65px; border-bottom: 2px dashed #444; position: relative;">
                     <div id="sheep2" style="position: absolute; left: 20px; display: flex; align-items: center; transition: left 0.1s linear;">
-                        <span style="background: #3498db; border-radius: 4px; padding: 2px 6px; font-size: 11px; color: white; font-weight: bold; z-index: 4; border: 1px solid white; margin-right: -8px;">2</span>
-                        <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-                            <div style="position: absolute; width: 24px; height: 24px; background: #3498db; border-radius: 50%; top: 12px; left: 16px; z-index: 3; border: 1px solid #fff; opacity: 0.85;"></div>
-                            <img src="https://openclipart.org/image/800px/262235" style="width: 60px; height: 60px; transform: scaleX(-1); object-fit: contain; z-index: 2;" alt="Sheep 2">
-                        </div>
+                        <span style="background: #3498db; border-radius: 4px; padding: 2px 6px; font-size: 11px; color: white; font-weight: bold; z-index: 4; border: 1px solid white; margin-right: 5px;">2</span>
+                        <svg viewBox="0 0 64 64" style="width: 55px; height: 55px; z-index: 2;">
+                            <circle cx="30" cy="30" r="14" fill="#ffffff"/>
+                            <circle cx="22" cy="24" r="8" fill="#ffffff"/>
+                            <circle cx="38" cy="24" r="8" fill="#ffffff"/>
+                            <circle cx="18" cy="34" r="8" fill="#ffffff"/>
+                            <circle cx="42" cy="34" r="8" fill="#ffffff"/>
+                            <circle cx="30" cy="40" r="8" fill="#ffffff"/>
+                            <!-- ሰማያዊ ኮርቻ -->
+                            <ellipse cx="30" cy="30" rx="10" ry="6" fill="#3498db"/>
+                            <!-- ፊት -->
+                            <ellipse cx="42" cy="28" rx="8" ry="7" fill="#f3d1c1"/>
+                            <circle cx="44" cy="26" r="1.5" fill="#000000"/>
+                            <ellipse cx="38" cy="22" rx="2" ry="4" fill="#f3d1c1"/>
+                            <!-- እግሮች -->
+                            <rect x="24" y="42" width="3" height="10" fill="#222222"/>
+                            <rect x="32" y="42" width="3" height="10" fill="#222222"/>
+                        </svg>
                     </div>
                 </div>
 
+                <!-- መስመር 3 (አረንጓዴ ኮርቻ 🟢) -->
                 <div class="lane" style="display: flex; align-items: center; height: 65px; border-bottom: 2px dashed #444; position: relative;">
                     <div id="sheep3" style="position: absolute; left: 20px; display: flex; align-items: center; transition: left 0.1s linear;">
-                        <span style="background: #2ecc71; border-radius: 4px; padding: 2px 6px; font-size: 11px; color: white; font-weight: bold; z-index: 4; border: 1px solid white; margin-right: -8px;">3</span>
-                        <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-                            <div style="position: absolute; width: 24px; height: 24px; background: #2ecc71; border-radius: 50%; top: 12px; left: 16px; z-index: 3; border: 1px solid #fff; opacity: 0.85;"></div>
-                            <img src="https://openclipart.org/image/800px/262235" style="width: 60px; height: 60px; transform: scaleX(-1); object-fit: contain; z-index: 2;" alt="Sheep 3">
-                        </div>
+                        <span style="background: #2ecc71; border-radius: 4px; padding: 2px 6px; font-size: 11px; color: white; font-weight: bold; z-index: 4; border: 1px solid white; margin-right: 5px;">3</span>
+                        <svg viewBox="0 0 64 64" style="width: 55px; height: 55px; z-index: 2;">
+                            <circle cx="30" cy="30" r="14" fill="#ffffff"/>
+                            <circle cx="22" cy="24" r="8" fill="#ffffff"/>
+                            <circle cx="38" cy="24" r="8" fill="#ffffff"/>
+                            <circle cx="18" cy="34" r="8" fill="#ffffff"/>
+                            <circle cx="42" cy="34" r="8" fill="#ffffff"/>
+                            <circle cx="30" cy="40" r="8" fill="#ffffff"/>
+                            <!-- አረንጓዴ ኮርቻ -->
+                            <ellipse cx="30" cy="30" rx="10" ry="6" fill="#2ecc71"/>
+                            <!-- ፊት -->
+                            <ellipse cx="42" cy="28" rx="8" ry="7" fill="#f3d1c1"/>
+                            <circle cx="44" cy="26" r="1.5" fill="#000000"/>
+                            <ellipse cx="38" cy="22" rx="2" ry="4" fill="#f3d1c1"/>
+                            <!-- እግሮች -->
+                            <rect x="24" y="42" width="3" height="10" fill="#222222"/>
+                            <rect x="32" y="42" width="3" height="10" fill="#222222"/>
+                        </svg>
                     </div>
                 </div>
 
+                <!-- መስመር 4 (ቢጫ ኮርቻ 🟡) -->
                 <div class="lane" style="display: flex; align-items: center; height: 65px; border-bottom: 2px dashed #444; position: relative;">
                     <div id="sheep4" style="position: absolute; left: 20px; display: flex; align-items: center; transition: left 0.1s linear;">
-                        <span style="background: #f1c40f; border-radius: 4px; padding: 2px 6px; font-size: 11px; color: black; font-weight: bold; z-index: 4; border: 1px solid black; margin-right: -8px;">4</span>
-                        <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-                            <div style="position: absolute; width: 24px; height: 24px; background: #f1c40f; border-radius: 50%; top: 12px; left: 16px; z-index: 3; border: 1px solid #000; opacity: 0.85;"></div>
-                            <img src="https://openclipart.org/image/800px/262235" style="width: 60px; height: 60px; transform: scaleX(-1); object-fit: contain; z-index: 2;" alt="Sheep 4">
-                        </div>
+                        <span style="background: #f1c40f; border-radius: 4px; padding: 2px 6px; font-size: 11px; color: black; font-weight: bold; z-index: 4; border: 1px solid black; margin-right: 5px;">4</span>
+                        <svg viewBox="0 0 64 64" style="width: 55px; height: 55px; z-index: 2;">
+                            <circle cx="30" cy="30" r="14" fill="#ffffff"/>
+                            <circle cx="22" cy="24" r="8" fill="#ffffff"/>
+                            <circle cx="38" cy="24" r="8" fill="#ffffff"/>
+                            <circle cx="18" cy="34" r="8" fill="#ffffff"/>
+                            <circle cx="42" cy="34" r="8" fill="#ffffff"/>
+                            <circle cx="30" cy="40" r="8" fill="#ffffff"/>
+                            <!-- ቢጫ ኮርቻ -->
+                            <ellipse cx="30" cy="30" rx="10" ry="6" fill="#f1c40f"/>
+                            <!-- ፊት -->
+                            <ellipse cx="42" cy="28" rx="8" ry="7" fill="#f3d1c1"/>
+                            <circle cx="44" cy="26" r="1.5" fill="#000000"/>
+                            <ellipse cx="38" cy="22" rx="2" ry="4" fill="#f3d1c1"/>
+                            <!-- እግሮች -->
+                            <rect x="24" y="42" width="3" height="10" fill="#222222"/>
+                            <rect x="32" y="42" width="3" height="10" fill="#222222"/>
+                        </svg>
                     </div>
                 </div>
 
+                <!-- መስመር 5 (ሐምራዊ ኮርቻ 🟣) -->
                 <div class="lane" style="display: flex; align-items: center; height: 65px; position: relative;">
                     <div id="sheep5" style="position: absolute; left: 20px; display: flex; align-items: center; transition: left 0.1s linear;">
-                        <span style="background: #9b59b6; border-radius: 4px; padding: 2px 6px; font-size: 11px; color: white; font-weight: bold; z-index: 4; border: 1px solid white; margin-right: -8px;">5</span>
-                        <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-                            <div style="position: absolute; width: 24px; height: 24px; background: #9b59b6; border-radius: 50%; top: 12px; left: 16px; z-index: 3; border: 1px solid #fff; opacity: 0.85;"></div>
-                            <img src="https://openclipart.org/image/800px/262235" style="width: 60px; height: 60px; transform: scaleX(-1); object-fit: contain; z-index: 2;" alt="Sheep 5">
-                        </div>
+                        <span style="background: #9b59b6; border-radius: 4px; padding: 2px 6px; font-size: 11px; color: white; font-weight: bold; z-index: 4; border: 1px solid white; margin-right: 5px;">5</span>
+                        <svg viewBox="0 0 64 64" style="width: 55px; height: 55px; z-index: 2;">
+                            <circle cx="30" cy="30" r="14" fill="#ffffff"/>
+                            <circle cx="22" cy="24" r="8" fill="#ffffff"/>
+                            <circle cx="38" cy="24" r="8" fill="#ffffff"/>
+                            <circle cx="18" cy="34" r="8" fill="#ffffff"/>
+                            <circle cx="42" cy="34" r="8" fill="#ffffff"/>
+                            <circle cx="30" cy="40" r="8" fill="#ffffff"/>
+                            <!-- ሐምራዊ ኮርቻ -->
+                            <ellipse cx="30" cy="30" rx="10" ry="6" fill="#9b59b6"/>
+                            <!-- ፊት -->
+                            <ellipse cx="42" cy="28" rx="8" ry="7" fill="#f3d1c1"/>
+                            <circle cx="44" cy="26" r="1.5" fill="#000000"/>
+                            <ellipse cx="38" cy="22" rx="2" ry="4" fill="#f3d1c1"/>
+                            <!-- እግሮች -->
+                            <rect x="24" y="42" width="3" height="10" fill="#222222"/>
+                            <rect x="32" y="42" width="3" height="10" fill="#222222"/>
+                        </svg>
                     </div>
                 </div>
 
             </div>
         </div>
 
+        <!-- 💰 የውርርድ ሰሌዳ (Betting Panel) -->
         <div style="background: #1e1e1e; padding: 15px; border-radius: 12px; border: 1px solid #333; text-align: center;">
             <h4 style="margin: 0 0 10px 0; color: #aaa; font-size: 14px;">የውርርድ መጠን (ብር)</h4>
             
@@ -193,6 +269,7 @@
         <button id="back-btn" onclick="exitGame()">ተመለስ ↩</button>
     </div>
 
+    <!-- የ Wallet ሞዳል -->
     <div id="wallet-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal('wallet-modal')">&times;</span>
@@ -224,6 +301,7 @@
         </div>
     </div>
 
+    <!-- የ History ሞዳል -->
     <div id="history-modal" class="modal" style="display: none;">
         <div class="modal-content" style="border-color: #2196F3;">
             <span class="close-btn" onclick="closeModal('history-modal')">&times;</span>
@@ -242,7 +320,7 @@
         const userId = userData.id.toString();
         const firstName = userData.first_name; 
         let currentBalance = 0;
-        let selectedSheep = null; // የ Sheep Run ተለዋዋጭ
+        let selectedSheep = null;
 
         document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("user-name").innerText = firstName;
@@ -267,7 +345,6 @@
             } catch (e) { console.error("ባላንስ ማግኘት አልተቻለም", e); }
         }
 
-        // የ Sheep Run መክፈቻ እና መዝጊያ ፈንክሽኖች
         function openSheepGame() {
             document.getElementById('sheep-full-screen-game').style.display = 'block';
             document.getElementById('sheep-game-balance').innerText = currentBalance.toFixed(2);
@@ -277,7 +354,6 @@
             document.getElementById('sheep-full-screen-game').style.display = 'none';
         }
 
-        // የውርርድ መጠን በ +/- 1 ማስተካከያ
         function adjustSheepBet(amount) {
             const betInput = document.getElementById('sheep-bet-amount');
             let currentBet = parseInt(betInput.value || 2);
@@ -286,7 +362,6 @@
             betInput.value = currentBet;
         }
 
-        // በግ መምረጫ ፈንክሽን
         function selectSheep(sheepNumber) {
             selectedSheep = sheepNumber;
             for (let i = 1; i <= 5; i++) {
@@ -299,7 +374,6 @@
             }
         }
 
-        // የሩጫ ማስጀመሪያ (ደረጃ 3 ላይ ከሰርቨር ጋር ይገናኛል)
         function startSheepRace() {
             const betAmount = parseInt(document.getElementById('sheep-bet-amount').value);
             if (!selectedSheep) {
@@ -344,9 +418,9 @@
 
                 list.innerHTML = financialHistory.map(h => {
                     let statusBadge = '';
-                    if(h.status === 'pending') statusBadge = '<span style="font-size: 18px; color: #ffeb3b;" title="በሂደት ላይ">⏳</span>';
-                    else if(h.status === 'completed') statusBadge = '<span style="font-size: 18px; color: #4CAF50;" title="ተጠናቋል">✅</span>';
-                    else if(h.status === 'refund') statusBadge = '<span style="font-size: 18px; color: #f44336;" title="ውድቅ/ተመላሽ">❌</span>';
+                    if(h.status === 'pending') statusBadge = '<span style="font-size: 18px; color: #ffeb3b;">⏳</span>';
+                    else if(h.status === 'completed') statusBadge = '<span style="font-size: 18px; color: #4CAF50;">✅</span>';
+                    else if(h.status === 'refund') statusBadge = '<span style="font-size: 18px; color: #f44336;">❌</span>';
 
                     let borderColor = '#999';
                     let typeIcon = '';
