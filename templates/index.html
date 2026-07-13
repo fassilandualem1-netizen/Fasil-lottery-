@@ -87,11 +87,11 @@
         .race-track-arena {
             position: relative;
             width: 100%;
-            height: 240px;
-            background: linear-gradient(#14532d, #166534); /* አረንጓዴ የሩጫ ሣር ሜዳ */
+            height: 250px;
+            background: linear-gradient(#15803d, #166534); /* አረንጓዴ የሩጫ ሣር ሜዳ */
             border-radius: 16px;
             overflow: hidden;
-            border: 2px solid #1e293b;
+            border: 2px solid #334155;
             margin-bottom: 12px;
             box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
         }
@@ -102,15 +102,15 @@
             flex-direction: column;
             justify-content: space-around;
             height: 100%;
-            padding: 10px 0;
+            padding: 5px 0;
             box-sizing: border-box;
         }
 
         .lane-divider {
             position: relative;
             width: 100%;
-            height: 38px;
-            border-bottom: 2px dashed rgba(255, 255, 255, 0.25);
+            height: 44px;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.2);
             display: flex;
             align-items: center;
         }
@@ -118,7 +118,7 @@
         /* Finish Line Checkerboard Pattern */
         .finish-line-stripe {
             position: absolute;
-            right: 45px;
+            right: 50px;
             top: 0;
             width: 12px;
             height: 100%;
@@ -130,40 +130,53 @@
                 #000 12px
             );
             z-index: 5;
-            box-shadow: 0 0 8px rgba(255,255,255,0.5);
+            box-shadow: 0 0 8px rgba(255,255,255,0.4);
         }
 
-        /* CSS Real Horse Gallop Animation using keyframes */
+        /* Pure CSS Transparent Horse Body with Gallop Effect */
         .animated-horse {
             position: absolute;
-            left: 0;
-            width: 42px;
-            height: 32px;
-            background-image: url('https://i.imgur.com/vH97Z9E.png'); /* ግልጽ ዳራ ያለው የፈረስ Sprite ፎቶ */
-            background-size: 168px 32px; /* 4 Frames አግድም */
-            transition: left 0.04s linear;
+            left: 10px;
+            width: 52px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            transition: left 0.05s linear;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.2);
         }
 
-        /* ሩጫው ሲጀምር እግሮቹ እንዲንቀሳቀሱ የሚያደርግ */
+        /* Running Gallop (Suspense Shake Animation) */
         .animated-horse.running {
-            animation: gallopCycle 0.4s steps(4) infinite;
+            animation: cssGallop 0.2s ease-in-out infinite alternate;
         }
 
-        @keyframes gallopCycle {
-            from { background-position: 0px; }
-            to { background-position: -168px; }
+        @keyframes cssGallop {
+            from { transform: translateY(-2px) scaleX(1); }
+            to { transform: translateY(2px) scaleX(1.05); }
         }
 
+        /* Badge design fixed to prevent overlapping */
         .horse-badge-label {
             position: absolute;
-            top: -6px;
-            left: -4px;
-            font-size: 9px;
+            bottom: -5px;
+            right: -5px;
+            font-size: 10px;
             font-weight: bold;
             color: white;
-            padding: 1px 4px;
-            border-radius: 4px;
-            z-index: 10;
+            background: #000;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid white;
+            z-index: 20;
         }
 
         /* Overlay text over track */
@@ -171,8 +184,8 @@
             position: absolute;
             top: 10px;
             left: 10px;
-            background: rgba(0,0,0,0.7);
-            padding: 6px 12px;
+            background: rgba(0,0,0,0.75);
+            padding: 6px 14px;
             border-radius: 6px;
             font-size: 12px;
             font-weight: bold;
@@ -296,7 +309,6 @@
         }
         .close-btn:hover { color: #ef4444; }
 
-        /* Input Styles inside Modals */
         .modal-content input, .modal-content select { 
             width: 90%; 
             padding: 12px; 
@@ -368,8 +380,8 @@
     <div class="games-grid" id="main-menu">
         <div class="game-card">
             <div style="font-size: 50px;">🏟️🏇</div>
-            <h3>ቨርቹዋል የፈረስ ውድድር (5 Horses Animated)</h3>
-            <p>በየጨዋታው በሂሳብ ስሌት የሚለዋወጥ Odds እና እውነተኛ የፈረስ አኒሜሽን ሜዳ!</p>
+            <h3>ቨርቹዋል የፈረስ ውድድር (5 Horses Fixed Edition)</h3>
+            <p>በየጨዋታው በሂሳብ ስሌት የሚለዋወጥ Odds እና Suspense የበዛበት የሩጫ ሜዳ!</p>
             <button onclick="openHorseGame()">አሁኑኑ ይወራረዱ</button>
         </div>
     </div>
@@ -382,11 +394,11 @@
             <button class="top-btn" style="background: #10b981; color: white;" onclick="openWallet()">Wallet 💳</button>
         </div>
 
-        <!-- Animated Arena Replaced the Video Element Here -->
+        <!-- Stable Pure CSS Race Track -->
         <div class="race-track-arena">
             <div class="finish-line-stripe"></div>
             <div class="track-lanes-container" id="live-race-track-lanes">
-                <!-- 5 Lanes and Horses will be rendered here dynamically via JS -->
+                <!-- Lanes generated dynamically -->
             </div>
             <div class="video-overlay" id="race-status-overlay">🏁 ዝግጁ</div>
         </div>
@@ -439,6 +451,7 @@
         </div>
     </div>
 
+    <!-- Wallet & History Modals -->
     <div id="wallet-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal('wallet-modal')">&times;</span>
@@ -495,12 +508,13 @@
         let selectedBetType = 'win'; 
         let isRacing = false;
 
+        // Hue-rotate values for distinct real colors
         let horses = [
-            { id: 1, name: "አባይ ነብር", color: "#ef4444", emoji: "🔴", oddsWin: 0, oddsShow: 0 },
-            { id: 2, name: "ዳሽን እሳት", color: "#3b82f6", emoji: "🔵", oddsWin: 0, oddsShow: 0 },
-            { id: 3, name: "ሸገር ባቡር", color: "#10b981", emoji: "🟢", oddsWin: 0, oddsShow: 0 },
-            { id: 4, name: "ጎንደር አንበሳ", color: "#eab308", emoji: "🟡", oddsWin: 0, oddsShow: 0 },
-            { id: 5, name: "ባሊ ሮኬት", color: "#a855f7", emoji: "🟣", oddsWin: 0, oddsShow: 0 }
+            { id: 1, name: "አባይ ነብር", color: "#ef4444", hue: "0deg", emoji: "🏇" },
+            { id: 2, name: "ዳሽን እሳት", color: "#3b82f6", hue: "240deg", emoji: "🏇" },
+            { id: 3, name: "ሸገር ባቡር", color: "#10b981", hue: "120deg", emoji: "🏇" },
+            { id: 4, name: "ጎንደር አንበሳ", color: "#eab308", hue: "60deg", emoji: "🏇" },
+            { id: 5, name: "ባሊ ሮኬት", color: "#a855f7", hue: "300deg", emoji: "🏇" }
         ];
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -508,18 +522,18 @@
             fetchBalance();
             setInterval(fetchBalance, 6000);
             regenerateOdds(); 
-            initStaticTrack(); // መጀመሪያ ሜዳውን እና ፈረሶቹን በባዶ ማዘጋጀት
+            initStaticTrack();
         });
 
-        // ፈረሶቹን በቅድሚያ መነሻ መስመር ላይ የማሰለፍ ስራ
         function initStaticTrack() {
             const container = document.getElementById("live-race-track-lanes");
             container.innerHTML = "";
             horses.forEach(h => {
                 container.innerHTML += `
                     <div class="lane-divider">
-                        <div class="animated-horse" id="track-horse-${h.id}" style="left: 10px; filter: drop-shadow(0 0 4px ${h.color});">
-                            <span class="horse-badge-label" style="background: ${h.color};">${h.id}</span>
+                        <div class="animated-horse" id="track-horse-${h.id}" style="left: 10px; background-color: ${h.color}33; filter: hue-rotate(${h.hue}); box-shadow: 0 0 10px ${h.color};">
+                            ${h.emoji}
+                            <div class="horse-badge-label">${h.id}</div>
                         </div>
                     </div>
                 `;
@@ -528,13 +542,11 @@
 
         function regenerateOdds() {
             if(isRacing) return;
-
             let totalPower = 0;
             horses.forEach(h => {
                 h.power = 10 + (Math.random() * 12);
                 totalPower += h.power;
             });
-
             const margin = 0.92; 
             horses.forEach(h => {
                 let winChance = h.power / totalPower;
@@ -542,18 +554,15 @@
                 h.oddsShow = parseFloat((h.oddsWin * 0.42).toFixed(2));
                 if(h.oddsShow < 1.1) h.oddsShow = 1.1; 
             });
-
             renderHorseSelectors();
         }
 
         function renderHorseSelectors() {
             const container = document.getElementById("horse-selection-container");
             container.innerHTML = "";
-
             horses.forEach(h => {
                 const isSelected = h.id === selectedHorseId ? "selected" : "";
                 const activeOdds = selectedBetType === 'win' ? h.oddsWin : h.oddsShow;
-
                 container.innerHTML += `
                     <div class="horse-row ${isSelected}" id="horse-row-${h.id}" onclick="selectHorse(${h.id})">
                         <div class="horse-info">
@@ -617,7 +626,6 @@
             document.getElementById("race-start-main-btn").innerText = "🏇 ሩጫው ተጀምሯል...";
             document.getElementById("race-status-overlay").innerText = "🔴 የቀጥታ ውድድር...";
 
-            // ፈረሶቹን መነሻ ላይ መልሶ አኒሜሽኑን ማስጀመር (Running class መጨመር)
             horses.forEach(h => {
                 const el = document.getElementById(`track-horse-${h.id}`);
                 if(el) {
@@ -626,7 +634,7 @@
                 }
             });
 
-            // Physics calculation matching visual positions
+            // Adjusted velocities for more suspense (takes around 8-12 seconds to finish)
             let raceDetails = horses.map(h => ({
                 id: h.id,
                 name: h.name,
@@ -634,13 +642,11 @@
                 oddsWin: h.oddsWin,
                 oddsShow: h.oddsShow,
                 position: 10,
-                velocity: 0.8 + (Math.random() * 0.4),
-                mass: 1.0
+                velocity: 0.2 + (Math.random() * 0.15), 
+                mass: 1.2
             }));
 
-            // የሜዳውን ስፋት ማግኘት
             const trackWidth = document.querySelector(".race-track-arena").clientWidth - 65; 
-            let finishedCount = 0;
 
             let physicsInterval = setInterval(() => {
                 let someoneFinished = false;
@@ -648,18 +654,17 @@
                 raceDetails.forEach(horse => {
                     if (horse.position >= trackWidth) return;
 
-                    let randomImpulse = Math.random() * 0.75;
-                    let drag = 0.06 * horse.velocity;
+                    // Adding micro-fluctuations to create realistic overtaking (Suspense)
+                    let randomImpulse = Math.random() * 0.45;
+                    let drag = 0.08 * horse.velocity;
                     let acceleration = (randomImpulse - drag) / horse.mass;
                     
                     horse.velocity += acceleration;
-                    // ፍጥነቱ በጣም እንዳያልፍ ወይም ወደኋላ እንዳይመለስ መገደብ
-                    if(horse.velocity < 0.5) horse.velocity = 0.5;
-                    if(horse.velocity > 5) horse.velocity = 5;
+                    if(horse.velocity < 0.1) horse.velocity = 0.1;
+                    if(horse.velocity > 1.8) horse.velocity = 1.8;
 
                     horse.position += horse.velocity;
 
-                    // በስክሪኑ ላይ ያለውን የፈረስ ምስል ማንቀሳቀስ
                     const el = document.getElementById(`track-horse-${horse.id}`);
                     if (el) {
                         el.style.left = `${Math.min(horse.position, trackWidth)}px`;
@@ -671,23 +676,17 @@
                 });
 
                 if (someoneFinished) {
-                    // ሁሉም ፈረሶች ማጠናቀቂያ ላይ ሲደርሱ ወይም አንደኛው ሙሉ በሙሉ ሲያጠናቅቅ ማቆም
-                    // ለፈጣን ጨዋታ አንደኛው መስመር ሲነካ ውድድሩ እንዲያበቃ እናድርግ፦
                     clearInterval(physicsInterval);
-                    
-                    // አኒሜሽኑን ማቆም
                     horses.forEach(h => {
                         const el = document.getElementById(`track-horse-${h.id}`);
                         if(el) el.classList.remove("running");
                     });
-
                     finishRace(raceDetails, betAmount);
                 }
-            }, 30); 
+            }, 40); // 40ms interval adds smoother movement and consistent timing
         }
 
         async function finishRace(raceDetails, betAmount) {
-            // በደረሱበት የትክክለኛ ፖዚሽን መሰረት ደረጃ መመደብ
             raceDetails.sort((a, b) => b.position - a.position);
 
             const winnerId = raceDetails[0].id;
@@ -702,32 +701,18 @@
             let winAmount = 0;
 
             if (selectedBetType === 'win') {
-                if (winnerId === selectedHorseId) {
-                    didWin = true;
-                    finalOdds = chosenHorse.oddsWin;
-                }
+                if (winnerId === selectedHorseId) { didWin = true; finalOdds = chosenHorse.oddsWin; }
             } else if (selectedBetType === 'show') {
-                if (winnerId === selectedHorseId || silverId === selectedHorseId || bronzeId === selectedHorseId) {
-                    didWin = true;
-                    finalOdds = chosenHorse.oddsShow;
-                }
+                if (winnerId === selectedHorseId || silverId === selectedHorseId || bronzeId === selectedHorseId) { didWin = true; finalOdds = chosenHorse.oddsShow; }
             }
 
-            if (didWin) {
-                winAmount = betAmount * finalOdds;
-            }
+            if (didWin) winAmount = betAmount * finalOdds;
 
             try {
-                const res = await fetch('/api/race_result', {
+                await fetch('/api/race_result', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': initData },
-                    body: JSON.stringify({
-                        user_id: userId,
-                        bet_amount: betAmount,
-                        did_win: didWin,
-                        win_amount: winAmount,
-                        details: `ውርርድ በ ፈረስ ${selectedHorseId} (${selectedBetType === 'win' ? 'Win' : 'Show'})`
-                    })
+                    body: JSON.stringify({ user_id: userId, bet_amount: betAmount, did_win: didWin, win_amount: winAmount, details: `ውርርድ በ ፈረስ ${selectedHorseId} (${selectedBetType === 'win' ? 'Win' : 'Show'})` })
                 });
             } catch (e) { console.error("ውጤት መላክ አልተቻለም", e); }
 
@@ -745,7 +730,6 @@
         function showResultBoard(raceDetails, didWin, winAmount, chosenHorse) {
             const tbody = document.getElementById("result-table-body");
             tbody.innerHTML = "";
-
             for(let i=0; i<5; i++) {
                 let medal = i === 0 ? "🥇 1ኛ" : i === 1 ? "🥈 2ኛ" : i === 2 ? "🥉 3ኛ" : `${i+1}ኛ`;
                 tbody.innerHTML += `
@@ -774,13 +758,12 @@
                     <span style="font-size: 14px; color: #94a3b8;">እንደገና ይሞክሩ፤ እድልዎ በሚቀጥለው ጨዋታ ሊቀና ይችላል።</span>
                 `;
             }
-
             document.getElementById("result-modal").style.display = "flex";
         }
 
         function openHorseGame() {
             document.getElementById('horse-full-screen-game').style.display = 'block';
-            initStaticTrack(); // ሜዳውን ማደስ
+            initStaticTrack();
             regenerateOdds();
         }
 
@@ -802,9 +785,7 @@
 
         function closeModal(id) { 
             document.getElementById(id).style.display = "none"; 
-            if(id === 'result-modal') {
-                initStaticTrack(); // ውጤቱን አይቶ ሲመለስ ፈረሶቹን ወደ መነሻ መስመር መመለስ
-            }
+            if(id === 'result-modal') initStaticTrack();
         }
 
         async function loadHistory() {
@@ -824,32 +805,18 @@
                 }
 
                 list.innerHTML = financialHistory.map(h => {
-                    let statusBadge = '';
-                    if(h.status === 'pending') statusBadge = '<span style="font-size: 14px; color: #ffeb3b;">⏳ Pending</span>';
-                    else if(h.status === 'completed') statusBadge = '<span style="font-size: 14px; color: #4CAF50;">✅ Approved</span>';
-                    else if(h.status === 'refund') statusBadge = '<span style="font-size: 14px; color: #f44336;">❌ Rejected</span>';
-
-                    let borderColor = '#999';
-                    let typeIcon = '';
-                    if(h.type === 'ገቢ') { borderColor = '#10b981'; typeIcon = '📥 '; }
-                    else if(h.type === 'ወጪ') { borderColor = '#ef4444'; typeIcon = '📤 '; }
-
+                    let statusBadge = h.status === 'pending' ? '<span style="font-size: 14px; color: #ffeb3b;">⏳ Pending</span>' : h.status === 'completed' ? '<span style="font-size: 14px; color: #4CAF50;">✅ Approved</span>' : '<span style="font-size: 14px; color: #f44336;">❌ Rejected</span>';
+                    let borderColor = h.type === 'ገቢ' ? '#10b981' : '#ef4444';
                     return `
                     <div class="history-card" style="border-left: 4px solid ${borderColor};">
                         <div>
-                            <div style="font-weight: bold; font-size: 13px; color: ${borderColor};">${typeIcon}${h.type}</div>
+                            <div style="font-weight: bold; font-size: 13px; color: ${borderColor};">${h.type === 'ገቢ' ? '📥 ገቢ' : '📤 ወጪ'}</div>
                             <div style="font-size: 15px; color: white; font-weight: bold; margin-top: 4px;">${h.amount} ብር</div>
                         </div>
-                        <div>
-                            ${statusBadge}
-                        </div>
-                    </div>
-                    `;
+                        <div>${statusBadge}</div>
+                    </div>`;
                 }).join('');
-            } catch (e) { 
-                console.error("ታሪክ ማግኘት አልተቻለም", e); 
-                document.getElementById("history-list-content").innerHTML = "<p style='color:#ef4444; text-align:center;'>ታሪክ መጫን አልተቻለም!</p>";
-            }
+            } catch (e) { document.getElementById("history-list-content").innerHTML = "<p style='color:#ef4444; text-align:center;'>ታሪክ መጫን አልተቻለም!</p>"; }
         }
 
         function updateReceiptLabel(input) {
@@ -863,11 +830,9 @@
             const amount = parseFloat(amountInput.value || 0);
             const receiptFile = receiptInput.files[0];
 
-            if (amount <= 0) return alert("እባክዎ የላኩትን የብር መጠን ያስገቡ!");
-            if (!receiptFile) return alert("እባክዎ የላኩበትን ደረሰኝ ያያይዙ!");
+            if (amount <= 0 || !receiptFile) return alert("እባክዎ መጠን እና ደረሰኝ በትክክል ያስገቡ!");
 
             const btn = event.target;
-            const originalText = btn.innerText;
             btn.innerText = "እየላከ ነው..."; btn.disabled = true;
 
             const formData = new FormData();
@@ -881,13 +846,12 @@
                 const res = await fetch('/api/deposit', { method: 'POST', body: formData });
                 const data = await res.json();
                 if (data.status === "success") {
-                    alert(`የማረጋገጫ ጥያቄዎ ተልኮአል ✅! አድሚኑ አይቶ ያጸድቀዋል።`);
+                    alert(`ጥያቄዎ ተልኮአል ✅!`);
                     amountInput.value = ""; receiptInput.value = "";
-                    document.getElementById("file-name-display").innerText = "";
                     closeModal('wallet-modal');
-                } else { alert(data.message || "ስህተት አጋጥሟል!"); }
-            } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
-            finally { btn.innerText = originalText; btn.disabled = false; }
+                } else { alert(data.message); }
+            } catch (e) { alert("ስህተት አጋጥሟል!"); }
+            finally { btn.innerText = "የክፍያ ማረጋገጫ ላክ"; btn.disabled = false; }
         }
 
         async function handleWithdraw(event) {
@@ -895,36 +859,27 @@
             const phoneInput = document.getElementById("withdraw-phone");
             const bankInput = document.getElementById("withdraw-bank");
             const accountNameInput = document.getElementById("withdraw-account-name");
-
             const amount = parseFloat(amountInput.value || 0);
-            const phone = phoneInput.value.trim();
-            const bankName = bankInput.value.trim();
-            const accountName = accountNameInput.value.trim();
 
-            if (!bankName) return alert("እባክዎ የባንክ አይነት ያስገቡ!");
-            if (!accountName) return alert("እባክዎ የአካውንት ስም ያስገቡ!");
-            if (!phone) return alert("እባክዎ አካውንት ቁጥር/ስልክ ያስገቡ!");
-            if (amount <= 0) return alert("ማውጣት የሚፈልጉትን የብር መጠን ያስገቡ!");
-            if (amount > currentBalance) return alert("ይቅርታ፣ በቂ ባላንስ የለዎትም!");
+            if (!bankInput.value || !accountNameInput.value || !phoneInput.value || amount <= 0 || amount > currentBalance) return alert("እባክዎ መረጃዎችን በትክክል ያስገቡ!");
 
             const btn = event.target;
-            const originalText = btn.innerText;
             btn.innerText = "እየላከ ነው..."; btn.disabled = true;
 
             try {
                 const res = await fetch('/api/withdraw', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': initData },
-                    body: JSON.stringify({ user_id: userId, user_name: firstName, amount: amount, phone: phone, bank_name: bankName, account_name: accountName })
+                    body: JSON.stringify({ user_id: userId, user_name: firstName, amount: amount, phone: phoneInput.value, bank_name: bankInput.value, account_name: accountNameInput.value })
                 });
                 const data = await res.json();
                 if (data.status === "success") {
-                    alert(`${amount} ብር በ ${bankName} ለማውጣት ጥያቄዎ ተልኮአል ✅!`);
-                    amountInput.value = ""; phoneInput.value = ""; bankInput.value = ""; accountNameInput.value = "";
-                    fetchBalance(); closeModal('wallet-modal');
-                } else { alert(data.message || "ገንዘብ ማውጣት አልተቻለም!"); }
-            } catch (e) { alert("ከሰርቨር ጋር መገናኘት አልተቻለም!"); }
-            finally { btn.innerText = originalText; btn.disabled = false; }
+                    alert(`የማውጣት ጥያቄዎ ተልኮአል ✅!`);
+                    closeModal('wallet-modal');
+                    fetchBalance();
+                }
+            } catch (e) { alert("ስህተት አጋጥሟል!"); }
+            finally { btn.innerText = "ገንዘብ አውጣ"; btn.disabled = false; }
         }
     </script>
 </body>
