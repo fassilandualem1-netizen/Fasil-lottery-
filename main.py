@@ -15,7 +15,7 @@ from upstash_redis import Redis
 # ==========================================
 # 1. Configuration (ማስተካከያዎች)
 # ==========================================
-TOKEN = os.environ.get("BOT_TOKEN", "8663228906:AAHSTP37xmp7z4cQF8AvSX1vP2UPbqVtssQ") 
+TOKEN = os.environ.get("BOT_TOKEN") 
 REDIS_URL = os.environ.get("REDIS_URL")
 REDIS_TOKEN = os.environ.get("REDIS_TOKEN")
 WEB_APP_URL = "https://sefer-bot.onrender.com" 
