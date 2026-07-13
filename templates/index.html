@@ -98,6 +98,7 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
+            display: block;
         }
 
         /* Overlay text over video */
@@ -112,6 +113,7 @@
             font-weight: bold;
             color: #10b981;
             border: 1px solid rgba(16, 185, 129, 0.3);
+            z-index: 10;
         }
 
         /* Betting Control Center */
@@ -298,7 +300,6 @@
         </div>
     </div>
 
-    <!-- Main Menu -->
     <div class="games-grid" id="main-menu">
         <div class="game-card">
             <div style="font-size: 50px;">🏟️🏇</div>
@@ -308,36 +309,29 @@
         </div>
     </div>
 
-    <!-- 🏟️ HORSE GAME ARENA -->
     <div id="horse-full-screen-game">
         
-        <!-- Arena Header -->
         <div style="display: flex; align-items: center; justify-content: space-between; background: #111827; padding: 12px; border-radius: 12px; margin-bottom: 12px; border: 1px solid #1f2937;">
             <button id="exit-game-btn" onclick="closeHorseGame()" style="background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer;">⬅️ ውጣ</button>
             <div style="font-weight: bold; color: #10b981; font-size: 15px;">💰 <span id="horse-game-balance">0.00</span> ብር</div>
             <button class="top-btn" style="background: #10b981; color: white;" onclick="openWallet()">Wallet 💳</button>
         </div>
 
-        <!-- Real Video Arena -->
         <div class="video-container">
-            <video id="raceVideo" preload="auto" playsinline muted loop>
-                <!-- 5 Horses Running Royalty-Free Video Loop -->
+            <video id="raceVideo" preload="auto" playsinline webkit-playsinline muted loop>
                 <source src="https://assets.mixkit.co/videos/preview/mixkit-racehorses-running-on-a-racecourse-41712-large.mp4" type="video/mp4">
                 Your browser does not support the video tag.
             </video>
             <div class="video-overlay" id="race-status-overlay">🏁 ዝግጁ</div>
         </div>
 
-        <!-- Betting Slip & Controls -->
         <div class="betting-control">
             
-            <!-- Bet Type Selector (Win vs Show) -->
             <div class="bet-type-selector">
                 <button id="btn-win" class="type-btn active" onclick="setBetType('win')">🥇 Win (1ኛ ብቻ)</button>
                 <button id="btn-show" class="type-btn" onclick="setBetType('show')">🥉 Show (ከ1-3ኛ)</button>
             </div>
 
-            <!-- Bet Amount Slider -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <span style="font-size: 13px; font-weight: bold; color: #9ca3af;">የውርርድ መጠን፦</span>
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -349,19 +343,15 @@
 
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <div style="font-size: 12px; color: #9ca3af; font-weight: bold;">ፈረስ ይምረጡ (በሂሳብ የተሰላ Odds)፦</div>
-                <button onclick="regenerateOdds()" id="odds-refresh-btn" style="background: #1f2937; border: 1px solid #374151; color: #10b981; font-size: 11px; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔄 አዲስ Odds ቀይር</button>
-            </div>
+                </div>
             
-            <!-- 5 Horses Betting Selectors -->
             <div class="horse-list" id="horse-selection-container">
-                <!-- Will be dynamically populated by JS -->
-            </div>
+                </div>
 
             <button id="race-start-main-btn" onclick="startHorseRace()">🏁 ውርርድ አስይዝ (ውድድር ጀምር)</button>
         </div>
     </div>
 
-    <!-- RESULT MODAL (PHOTO FINISH) -->
     <div id="result-modal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 420px;">
             <h2 id="result-title" style="color:#10b981; margin-bottom: 5px;">🎉 ውድድሩ ተጠናቋል!</h2>
@@ -376,19 +366,16 @@
                     </tr>
                 </thead>
                 <tbody id="result-table-body">
-                    <!-- Dynamic Results -->
-                </tbody>
+                    </tbody>
             </table>
 
             <div id="reward-showbox" style="background-color: #0f172a; padding: 15px; border-radius: 12px; margin-top: 15px; font-size: 16px; border: 1px solid #10b981;">
-                <!-- Result Message -->
-            </div>
+                </div>
 
             <button onclick="closeModal('result-modal')" style="background: #10b981; color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; margin-top: 15px; cursor: pointer;">እሺ መልስ</button>
         </div>
     </div>
 
-    <!-- WALLET MODAL -->
     <div id="wallet-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal('wallet-modal')">&times;</span>
@@ -398,7 +385,6 @@
             </div>
             <hr style="border: 0; height: 1px; background: rgba(255, 255, 255, 0.1); margin: 15px 0;">
             
-            <!-- Deposit -->
             <h3>ብር ያስገቡ (Deposit)</h3>
             <div class="info-box">
                 እባክዎ መጀመሪያ በዚህ ቁጥር ይላኩ፦<br>
@@ -414,7 +400,6 @@
             
             <hr style="border: 0; height: 1px; background: rgba(255, 255, 255, 0.1); margin: 20px 0;">
             
-            <!-- Withdraw -->
             <h3 style="color: #ef4444;">ብር ያውጡ (Withdraw)</h3>
             <input type="text" id="withdraw-bank" placeholder="የባንክ አይነት (ምሳሌ: ንግድ ባንክ, ቴሌብር...)">
             <input type="text" id="withdraw-account-name" placeholder="የአካውንት ስም (ሙሉ ስም)...">
@@ -424,7 +409,6 @@
         </div>
     </div>
 
-    <!-- HISTORY MODAL -->
     <div id="history-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal('history-modal')">&times;</span>
@@ -445,10 +429,9 @@
         
         let currentBalance = 0; 
         let selectedHorseId = null;
-        let selectedBetType = 'win'; // 'win' (1st place only) or 'show' (top 3)
+        let selectedBetType = 'win'; 
         let isRacing = false;
 
-        // 🏇 5 Horses with default parameters
         let horses = [
             { id: 1, name: "አባይ ነብር", color: "#ef4444", emoji: "🔴", oddsWin: 0, oddsShow: 0 },
             { id: 2, name: "ዳሽን እሳት", color: "#3b82f6", emoji: "🔵", oddsWin: 0, oddsShow: 0 },
@@ -461,37 +444,30 @@
             document.getElementById("user-name").innerText = firstName;
             fetchBalance();
             setInterval(fetchBalance, 6000);
-            regenerateOdds(); // Calculate initial random odds using Math & Physics logic
+            regenerateOdds(); 
         });
 
-        // Calculate dynamic mathematical odds for each game
+        // Calculate dynamic mathematical odds automatically
         function regenerateOdds() {
             if(isRacing) return;
 
-            // Step 1: Assign random "Power Coefficients" for each horse (Dynamic Horse Power)
-            // Power = Base Power (e.g., 10) + Random Variation (0 to 12)
             let totalPower = 0;
             horses.forEach(h => {
                 h.power = 10 + (Math.random() * 12);
                 totalPower += h.power;
             });
 
-            // Step 2: Calculate individual Win Odds based on power
-            // Formula: Odds = (Total Power / Individual Power) * House Margin (e.g., 0.90 margin)
-            const margin = 0.92; // 8% house edge
+            const margin = 0.92; 
             horses.forEach(h => {
                 let winChance = h.power / totalPower;
                 h.oddsWin = parseFloat(( (1 / winChance) * margin ).toFixed(2));
-                
-                // Show odds (Top 3) is always lower since win probability is higher (roughly x0.4 of win odds)
                 h.oddsShow = parseFloat((h.oddsWin * 0.42).toFixed(2));
-                if(h.oddsShow < 1.1) h.oddsShow = 1.1; // Floor limit
+                if(h.oddsShow < 1.1) h.oddsShow = 1.1; 
             });
 
             renderHorseSelectors();
         }
 
-        // Render horse rows with calculated odds
         function renderHorseSelectors() {
             const container = document.getElementById("horse-selection-container");
             container.innerHTML = "";
@@ -512,7 +488,6 @@
             });
         }
 
-        // Fetch user balance
         async function fetchBalance() {
             try {
                 const res = await fetch('/api/get_balance', {
@@ -551,7 +526,6 @@
             if (val >= 5) betInput.value = val;
         }
 
-        // 🏁 Physics-based race logic & Video activation
         function startHorseRace() {
             if (isRacing) return;
             if (!selectedHorseId) return alert("እባክዎ መጀመሪያ የሚወራረዱበትን ፈረስ ይምረጡ!");
@@ -561,18 +535,26 @@
 
             isRacing = true;
             document.getElementById("race-start-main-btn").disabled = true;
-            document.getElementById("odds-refresh-btn").disabled = true;
             document.getElementById("exit-game-btn").disabled = true;
             document.getElementById("race-start-main-btn").innerText = "🏇 ውድድሩ እየተካሄደ ነው (10s)...";
             document.getElementById("race-status-overlay").innerText = "🔴 የቀጥታ ውድድር...";
 
-            // 1. Play real video background
+            // 1. Play Video
             const video = document.getElementById("raceVideo");
             video.currentTime = 0;
-            video.play();
+            
+            // Forces reload and play to prevent black screen on some devices
+            video.load();
+            var playPromise = video.play();
+            if (playPromise !== undefined) {
+                playPromise.then(_ => {
+                    console.log("Video played successfully");
+                }).catch(error => {
+                    console.log("Auto-play was prevented. Trying fallback.");
+                });
+            }
 
-            // 2. Perform background Physics Simulation ($60\text{ FPS}$ calculation)
-            // We simulate running positions using physics step values
+            // 2. Physics simulation
             let raceDetails = horses.map(h => ({
                 id: h.id,
                 name: h.name,
@@ -580,17 +562,15 @@
                 oddsWin: h.oddsWin,
                 oddsShow: h.oddsShow,
                 position: 0,
-                velocity: 1 + (Math.random() * 0.5), // base velocity
-                mass: 1.0 // for friction calculations
+                velocity: 1 + (Math.random() * 0.5),
+                mass: 1.0
             }));
 
-            // Simulated time ticks (representing 10 seconds of physics calculations)
             let ticks = 0;
-            const maxTicks = 200; // ~8 seconds simulation
+            const maxTicks = 200; 
 
             let physicsInterval = setInterval(() => {
                 raceDetails.forEach(horse => {
-                    // Physics equations: Force = random impulse, Friction = drag
                     let randomImpulse = Math.random() * 0.6;
                     let drag = 0.05 * horse.velocity;
                     let acceleration = (randomImpulse - drag) / horse.mass;
@@ -604,24 +584,20 @@
                     clearInterval(physicsInterval);
                     finishRace(raceDetails, betAmount);
                 }
-            }, 40); // 25 fps calculation steps
+            }, 40); 
         }
 
-        // Finish line processing and DB balance updates
         async function finishRace(raceDetails, betAmount) {
-            // Sort by final physical position (highest position is winner)
             raceDetails.sort((a, b) => b.position - a.position);
 
             const winnerId = raceDetails[0].id;
             const silverId = raceDetails[1].id;
             const bronzeId = raceDetails[2].id;
 
-            // Pause & Reset Video
             const video = document.getElementById("raceVideo");
             video.pause();
             document.getElementById("race-status-overlay").innerText = "🏁 ተጠናቋል";
 
-            // Determine if player won
             const chosenHorse = horses.find(h => h.id === selectedHorseId);
             let didWin = false;
             let finalOdds = 1.0;
@@ -643,7 +619,6 @@
                 winAmount = betAmount * finalOdds;
             }
 
-            // Post result to Backend for secure DB updating
             try {
                 const res = await fetch('/api/race_result', {
                     method: 'POST',
@@ -658,25 +633,21 @@
                 });
             } catch (e) { console.error("ውጤት መላክ አልተቻለም", e); }
 
-            // Display Results
             showResultBoard(raceDetails, didWin, winAmount, chosenHorse);
 
-            // Clean up and unlock UI
             isRacing = false;
             document.getElementById("race-start-main-btn").disabled = false;
-            document.getElementById("odds-refresh-btn").disabled = false;
             document.getElementById("exit-game-btn").disabled = false;
             document.getElementById("race-start-main-btn").innerText = "🏁 ውርርድ አስይዝ (ውድድር ጀምር)";
 
-            fetchBalance(); // Reload new balance
-            regenerateOdds(); // Reset to fresh unpredictable odds for next race
+            fetchBalance(); 
+            regenerateOdds(); // Odds auto-regenerate ONLY after the game ends!
         }
 
         function showResultBoard(raceDetails, didWin, winAmount, chosenHorse) {
             const tbody = document.getElementById("result-table-body");
             tbody.innerHTML = "";
 
-            // Top 3 Display in Table
             for(let i=0; i<5; i++) {
                 let medal = i === 0 ? "🥇 1ኛ" : i === 1 ? "🥈 2ኛ" : i === 2 ? "🥉 3ኛ" : `${i+1}ኛ`;
                 tbody.innerHTML += `
@@ -732,7 +703,6 @@
 
         function closeModal(id) { document.getElementById(id).style.display = "none"; }
 
-        // Load Financial History
         async function loadHistory() {
             try {
                 const res = await fetch('/api/get_history', {
@@ -783,7 +753,6 @@
             document.getElementById("file-name-display").innerText = "የተመረጠ ፋይል: " + fileName;
         }
 
-        // Handle Deposit
         async function handleDeposit(event) {
             const amountInput = document.getElementById("deposit-amount");
             const receiptInput = document.getElementById("deposit-receipt");
@@ -817,7 +786,6 @@
             finally { btn.innerText = originalText; btn.disabled = false; }
         }
 
-        // Handle Withdraw
         async function handleWithdraw(event) {
             const amountInput = document.getElementById("withdraw-amount");
             const phoneInput = document.getElementById("withdraw-phone");
