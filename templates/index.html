@@ -65,56 +65,59 @@
         <div style="font-size: 40px;">🐑</div>
         <h3>Sheep Run 🐑</h3>
         <p>መግቢያ፦ 2 ብር</p>
-        <button onclick="launchGame('sheep_run')">ተጫወት</button>
+        <button onclick="openSheepGame()">ተጫወት</button> </div>
+</div>
 
-        <!-- የሜዳው እና የ 5ቱ በጎች ዲዛይን እዚህ ይጀምራል -->
-        <div id="sheep-race-arena" style="background: #222; padding: 15px; border-radius: 12px; margin-top: 15px;">
-            <div class="track-field" style="position: relative; background: #333; border: 3px solid #444; border-radius: 8px; overflow: hidden; padding: 10px 0;">
-                
-                <!-- የመድረሻ መስመር (Checker Finish Line) -->
-                <div class="finish-line" style="position: absolute; right: 40px; top: 0; bottom: 0; width: 15px; background-image: linear-gradient(45deg, #fff 25%, transparent 25%), linear-gradient(-45deg, #fff 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #fff 75%), linear-gradient(-45deg, transparent 75%, #fff 75%); background-size: 6px 6px; background-position: 0 0, 0 3px, 3px -3px, -3px 0px; z-index: 1;"></div>
-                
-                <!-- መስመር 1 (በግ 1 - ቀይ 🔴) -->
-                <div class="lane" style="display: flex; align-items: center; height: 45px; border-bottom: 1px dashed #666; position: relative;">
-                    <div id="sheep1" class="sheep-avatar" style="position: absolute; left: 10px; font-size: 28px; transition: left 0.1s linear; display: flex; align-items: center;">
-                        🐑<span style="font-size: 10px; background: red; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; margin-left: -10px; margin-top: -15px; font-weight: bold; border: 1px solid white;">1</span>
-                    </div>
+<div id="sheep-full-screen-game" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #141414; z-index: 9999; overflow-y: auto; padding: 20px; box-sizing: border-box;">
+    
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;">
+        <button onclick="closeSheepGame()" style="background: #e74c3c; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">⬅️ ተመለስ</button>
+        <h2 style="color: white; margin: 0; font-family: sans-serif; font-size: 24px; letter-spacing: 1px;">Sheep Run 🐑</h2>
+        <div style="width: 80px;"></div> </div>
+
+    <div style="background: #2c3e50; padding: 20px; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); border: 2px solid #34495e;">
+        <div class="track-field" style="position: relative; background: #222; border: 4px solid #111; border-radius: 12px; overflow: hidden; padding: 20px 0; min-height: 300px;">
+            
+            <div class="finish-line" style="position: absolute; right: 70px; top: 0; bottom: 0; width: 24px; background-image: linear-gradient(45deg, #fff 25%, transparent 25%), linear-gradient(-45deg, #fff 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #fff 75%), linear-gradient(-45deg, transparent 75%, #fff 75%); background-size: 8px 8px; background-position: 0 0, 0 4px, 4px -4px, -4px 0px; z-index: 2; border-left: 3px solid #000;"></div>
+            
+            <div class="lane" style="display: flex; align-items: center; height: 55px; border-bottom: 2px dashed #555; position: relative;">
+                <div id="sheep1" style="position: absolute; left: 20px; font-size: 42px; display: flex; align-items: center; transition: left 0.1s linear;">
+                    <span style="background: #e74c3c; border-radius: 6px; padding: 2px 8px; font-size: 13px; color: white; font-weight: bold; margin-right: -12px; z-index: 3; border: 1.5px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">1</span>
+                    🐑
                 </div>
-
-                <!-- መስመር 2 (በግ 2 - ሰማያዊ 🔵) -->
-                <div class="lane" style="display: flex; align-items: center; height: 45px; border-bottom: 1px dashed #666; position: relative;">
-                    <div id="sheep2" class="sheep-avatar" style="position: absolute; left: 10px; font-size: 28px; transition: left 0.1s linear; display: flex; align-items: center;">
-                        🐑<span style="font-size: 10px; background: #2196F3; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; margin-left: -10px; margin-top: -15px; font-weight: bold; border: 1px solid white;">2</span>
-                    </div>
-                </div>
-
-                <!-- መስመር 3 (በግ 3 - አረንጓዴ 🟢) -->
-                <div class="lane" style="display: flex; align-items: center; height: 45px; border-bottom: 1px dashed #666; position: relative;">
-                    <div id="sheep3" class="sheep-avatar" style="position: absolute; left: 10px; font-size: 28px; transition: left 0.1s linear; display: flex; align-items: center;">
-                        🐑<span style="font-size: 10px; background: #4CAF50; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; margin-left: -10px; margin-top: -15px; font-weight: bold; border: 1px solid white;">3</span>
-                    </div>
-                </div>
-
-                <!-- መስመር 4 (በግ 4 - ቢጫ 🟡) -->
-                <div class="lane" style="display: flex; align-items: center; height: 45px; border-bottom: 1px dashed #666; position: relative;">
-                    <div id="sheep4" class="sheep-avatar" style="position: absolute; left: 10px; font-size: 28px; transition: left 0.1s linear; display: flex; align-items: center;">
-                        🐑<span style="font-size: 10px; background: #FFEB3B; color: black; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; margin-left: -10px; margin-top: -15px; font-weight: bold; border: 1px solid black;">4</span>
-                    </div>
-                </div>
-
-                <!-- መስመር 5 (በግ 5 - ሐምራዊ 🟣) -->
-                <div class="lane" style="display: flex; align-items: center; height: 45px; position: relative;">
-                    <div id="sheep5" class="sheep-avatar" style="position: absolute; left: 10px; font-size: 28px; transition: left 0.1s linear; display: flex; align-items: center;">
-                        🐑<span style="font-size: 10px; background: #9C27B0; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; margin-left: -10px; margin-top: -15px; font-weight: bold; border: 1px solid white;">5</span>
-                    </div>
-                </div>
-
             </div>
-        </div>
-        <!-- የሜዳው ዲዛይን እዚህ ያበቃል -->
 
-    </div> <!-- የ game-card መዝጊያ -->
-</div> <!-- የ games-grid መዝጊያ -->
+            <div class="lane" style="display: flex; align-items: center; height: 55px; border-bottom: 2px dashed #555; position: relative;">
+                <div id="sheep2" style="position: absolute; left: 20px; font-size: 42px; display: flex; align-items: center; transition: left 0.1s linear;">
+                    <span style="background: #3498db; border-radius: 6px; padding: 2px 8px; font-size: 13px; color: white; font-weight: bold; margin-right: -12px; z-index: 3; border: 1.5px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">2</span>
+                    🐑
+                </div>
+            </div>
+
+            <div class="lane" style="display: flex; align-items: center; height: 55px; border-bottom: 2px dashed #555; position: relative;">
+                <div id="sheep3" style="position: absolute; left: 20px; font-size: 42px; display: flex; align-items: center; transition: left 0.1s linear;">
+                    <span style="background: #2ecc71; border-radius: 6px; padding: 2px 8px; font-size: 13px; color: white; font-weight: bold; margin-right: -12px; z-index: 3; border: 1.5px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">3</span>
+                    🐑
+                </div>
+            </div>
+
+            <div class="lane" style="display: flex; align-items: center; height: 55px; border-bottom: 2px dashed #555; position: relative;">
+                <div id="sheep4" style="position: absolute; left: 20px; font-size: 42px; display: flex; align-items: center; transition: left 0.1s linear;">
+                    <span style="background: #f1c40f; border-radius: 6px; padding: 2px 8px; font-size: 13px; color: black; font-weight: bold; margin-right: -12px; z-index: 3; border: 1.5px solid black; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">4</span>
+                    🐑
+                </div>
+            </div>
+
+            <div class="lane" style="display: flex; align-items: center; height: 55px; position: relative;">
+                <div id="sheep5" style="position: absolute; left: 20px; font-size: 42px; display: flex; align-items: center; transition: left 0.1s linear;">
+                    <span style="background: #9b59b6; border-radius: 6px; padding: 2px 8px; font-size: 13px; color: white; font-weight: bold; margin-right: -12px; z-index: 3; border: 1.5px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">5</span>
+                    🐑
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
 
 
         </div>
