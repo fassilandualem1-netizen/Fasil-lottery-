@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>የሰፈር ጨዋታዎች - Virtual Betting 5 Horses Edition</title>
+    <title>የሰፈር ጨዋታዎች - Virtual Betting 5 Horses Animated Edition</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <style>
@@ -83,25 +83,90 @@
             box-sizing: border-box; 
         }
 
-        /* Live Video Arena Container */
-        .video-container {
+        /* Animated Live Race Arena */
+        .race-track-arena {
             position: relative;
             width: 100%;
-            height: 200px;
-            background: #000;
+            height: 240px;
+            background: linear-gradient(#14532d, #166534); /* አረንጓዴ የሩጫ ሣር ሜዳ */
             border-radius: 16px;
             overflow: hidden;
             border: 2px solid #1e293b;
             margin-bottom: 12px;
-        }
-        .video-container video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
         }
 
-        /* Overlay text over video */
+        /* Moving Background Effect */
+        .track-lanes-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            height: 100%;
+            padding: 10px 0;
+            box-sizing: border-box;
+        }
+
+        .lane-divider {
+            position: relative;
+            width: 100%;
+            height: 38px;
+            border-bottom: 2px dashed rgba(255, 255, 255, 0.25);
+            display: flex;
+            align-items: center;
+        }
+
+        /* Finish Line Checkerboard Pattern */
+        .finish-line-stripe {
+            position: absolute;
+            right: 45px;
+            top: 0;
+            width: 12px;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                #fff,
+                #fff 6px,
+                #000 6px,
+                #000 12px
+            );
+            z-index: 5;
+            box-shadow: 0 0 8px rgba(255,255,255,0.5);
+        }
+
+        /* CSS Real Horse Gallop Animation using keyframes */
+        .animated-horse {
+            position: absolute;
+            left: 0;
+            width: 42px;
+            height: 32px;
+            background-image: url('https://i.imgur.com/vH97Z9E.png'); /* ግልጽ ዳራ ያለው የፈረስ Sprite ፎቶ */
+            background-size: 168px 32px; /* 4 Frames አግድም */
+            transition: left 0.04s linear;
+        }
+
+        /* ሩጫው ሲጀምር እግሮቹ እንዲንቀሳቀሱ የሚያደርግ */
+        .animated-horse.running {
+            animation: gallopCycle 0.4s steps(4) infinite;
+        }
+
+        @keyframes gallopCycle {
+            from { background-position: 0px; }
+            to { background-position: -168px; }
+        }
+
+        .horse-badge-label {
+            position: absolute;
+            top: -6px;
+            left: -4px;
+            font-size: 9px;
+            font-weight: bold;
+            color: white;
+            padding: 1px 4px;
+            border-radius: 4px;
+            z-index: 10;
+        }
+
+        /* Overlay text over track */
         .video-overlay {
             position: absolute;
             top: 10px;
@@ -303,8 +368,8 @@
     <div class="games-grid" id="main-menu">
         <div class="game-card">
             <div style="font-size: 50px;">🏟️🏇</div>
-            <h3>ቨርቹዋል የፈረስ ውድድር (5 Horses)</h3>
-            <p>በየጨዋታው በሂሳብ ስሌት የሚለዋወጥ Odds እና እውነተኛ የቪዲዮ አጨዋወት!</p>
+            <h3>ቨርቹዋል የፈረስ ውድድር (5 Horses Animated)</h3>
+            <p>በየጨዋታው በሂሳብ ስሌት የሚለዋወጥ Odds እና እውነተኛ የፈረስ አኒሜሽን ሜዳ!</p>
             <button onclick="openHorseGame()">አሁኑኑ ይወራረዱ</button>
         </div>
     </div>
@@ -317,11 +382,12 @@
             <button class="top-btn" style="background: #10b981; color: white;" onclick="openWallet()">Wallet 💳</button>
         </div>
 
-        <div class="video-container">
-            <video id="raceVideo" preload="auto" playsinline webkit-playsinline muted loop>
-                <source src="https://vjs.zencdn.net/v/oceans.mp4" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
+        <!-- Animated Arena Replaced the Video Element Here -->
+        <div class="race-track-arena">
+            <div class="finish-line-stripe"></div>
+            <div class="track-lanes-container" id="live-race-track-lanes">
+                <!-- 5 Lanes and Horses will be rendered here dynamically via JS -->
+            </div>
             <div class="video-overlay" id="race-status-overlay">🏁 ዝግጁ</div>
         </div>
 
@@ -343,10 +409,9 @@
 
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <div style="font-size: 12px; color: #9ca3af; font-weight: bold;">ፈረስ ይምረጡ (በሂሳብ የተሰላ Odds)፦</div>
-                </div>
+            </div>
             
-            <div class="horse-list" id="horse-selection-container">
-                </div>
+            <div class="horse-list" id="horse-selection-container"></div>
 
             <button id="race-start-main-btn" onclick="startHorseRace()">🏁 ውርርድ አስይዝ (ውድድር ጀምር)</button>
         </div>
@@ -365,12 +430,10 @@
                         <th>የፈረስ ስም</th>
                     </tr>
                 </thead>
-                <tbody id="result-table-body">
-                    </tbody>
+                <tbody id="result-table-body"></tbody>
             </table>
 
-            <div id="reward-showbox" style="background-color: #0f172a; padding: 15px; border-radius: 12px; margin-top: 15px; font-size: 16px; border: 1px solid #10b981;">
-                </div>
+            <div id="reward-showbox" style="background-color: #0f172a; padding: 15px; border-radius: 12px; margin-top: 15px; font-size: 16px; border: 1px solid #10b981;"></div>
 
             <button onclick="closeModal('result-modal')" style="background: #10b981; color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; margin-top: 15px; cursor: pointer;">እሺ መልስ</button>
         </div>
@@ -445,9 +508,24 @@
             fetchBalance();
             setInterval(fetchBalance, 6000);
             regenerateOdds(); 
+            initStaticTrack(); // መጀመሪያ ሜዳውን እና ፈረሶቹን በባዶ ማዘጋጀት
         });
 
-        // Calculate dynamic mathematical odds automatically
+        // ፈረሶቹን በቅድሚያ መነሻ መስመር ላይ የማሰለፍ ስራ
+        function initStaticTrack() {
+            const container = document.getElementById("live-race-track-lanes");
+            container.innerHTML = "";
+            horses.forEach(h => {
+                container.innerHTML += `
+                    <div class="lane-divider">
+                        <div class="animated-horse" id="track-horse-${h.id}" style="left: 10px; filter: drop-shadow(0 0 4px ${h.color});">
+                            <span class="horse-badge-label" style="background: ${h.color};">${h.id}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
         function regenerateOdds() {
             if(isRacing) return;
 
@@ -536,66 +614,86 @@
             isRacing = true;
             document.getElementById("race-start-main-btn").disabled = true;
             document.getElementById("exit-game-btn").disabled = true;
-            document.getElementById("race-start-main-btn").innerText = "🏇 ውድድሩ እየተካሄደ ነው (10s)...";
+            document.getElementById("race-start-main-btn").innerText = "🏇 ሩጫው ተጀምሯል...";
             document.getElementById("race-status-overlay").innerText = "🔴 የቀጥታ ውድድር...";
 
-            // 1. Play Video
-            const video = document.getElementById("raceVideo");
-            video.currentTime = 0;
-            
-            // Forces reload and play to prevent black screen on some devices
-            video.load();
-            var playPromise = video.play();
-            if (playPromise !== undefined) {
-                playPromise.then(_ => {
-                    console.log("Video played successfully");
-                }).catch(error => {
-                    console.log("Auto-play was prevented. Trying fallback.");
-                });
-            }
+            // ፈረሶቹን መነሻ ላይ መልሶ አኒሜሽኑን ማስጀመር (Running class መጨመር)
+            horses.forEach(h => {
+                const el = document.getElementById(`track-horse-${h.id}`);
+                if(el) {
+                    el.style.left = "10px";
+                    el.classList.add("running");
+                }
+            });
 
-            // 2. Physics simulation
+            // Physics calculation matching visual positions
             let raceDetails = horses.map(h => ({
                 id: h.id,
                 name: h.name,
                 color: h.color,
                 oddsWin: h.oddsWin,
                 oddsShow: h.oddsShow,
-                position: 0,
-                velocity: 1 + (Math.random() * 0.5),
+                position: 10,
+                velocity: 0.8 + (Math.random() * 0.4),
                 mass: 1.0
             }));
 
-            let ticks = 0;
-            const maxTicks = 200; 
+            // የሜዳውን ስፋት ማግኘት
+            const trackWidth = document.querySelector(".race-track-arena").clientWidth - 65; 
+            let finishedCount = 0;
 
             let physicsInterval = setInterval(() => {
+                let someoneFinished = false;
+
                 raceDetails.forEach(horse => {
-                    let randomImpulse = Math.random() * 0.6;
-                    let drag = 0.05 * horse.velocity;
+                    if (horse.position >= trackWidth) return;
+
+                    let randomImpulse = Math.random() * 0.75;
+                    let drag = 0.06 * horse.velocity;
                     let acceleration = (randomImpulse - drag) / horse.mass;
                     
                     horse.velocity += acceleration;
+                    // ፍጥነቱ በጣም እንዳያልፍ ወይም ወደኋላ እንዳይመለስ መገደብ
+                    if(horse.velocity < 0.5) horse.velocity = 0.5;
+                    if(horse.velocity > 5) horse.velocity = 5;
+
                     horse.position += horse.velocity;
+
+                    // በስክሪኑ ላይ ያለውን የፈረስ ምስል ማንቀሳቀስ
+                    const el = document.getElementById(`track-horse-${horse.id}`);
+                    if (el) {
+                        el.style.left = `${Math.min(horse.position, trackWidth)}px`;
+                    }
+
+                    if (horse.position >= trackWidth) {
+                        someoneFinished = true;
+                    }
                 });
 
-                ticks++;
-                if (ticks >= maxTicks) {
+                if (someoneFinished) {
+                    // ሁሉም ፈረሶች ማጠናቀቂያ ላይ ሲደርሱ ወይም አንደኛው ሙሉ በሙሉ ሲያጠናቅቅ ማቆም
+                    // ለፈጣን ጨዋታ አንደኛው መስመር ሲነካ ውድድሩ እንዲያበቃ እናድርግ፦
                     clearInterval(physicsInterval);
+                    
+                    // አኒሜሽኑን ማቆም
+                    horses.forEach(h => {
+                        const el = document.getElementById(`track-horse-${h.id}`);
+                        if(el) el.classList.remove("running");
+                    });
+
                     finishRace(raceDetails, betAmount);
                 }
-            }, 40); 
+            }, 30); 
         }
 
         async function finishRace(raceDetails, betAmount) {
+            // በደረሱበት የትክክለኛ ፖዚሽን መሰረት ደረጃ መመደብ
             raceDetails.sort((a, b) => b.position - a.position);
 
             const winnerId = raceDetails[0].id;
             const silverId = raceDetails[1].id;
             const bronzeId = raceDetails[2].id;
 
-            const video = document.getElementById("raceVideo");
-            video.pause();
             document.getElementById("race-status-overlay").innerText = "🏁 ተጠናቋል";
 
             const chosenHorse = horses.find(h => h.id === selectedHorseId);
@@ -641,7 +739,7 @@
             document.getElementById("race-start-main-btn").innerText = "🏁 ውርርድ አስይዝ (ውድድር ጀምር)";
 
             fetchBalance(); 
-            regenerateOdds(); // Odds auto-regenerate ONLY after the game ends!
+            regenerateOdds(); 
         }
 
         function showResultBoard(raceDetails, didWin, winAmount, chosenHorse) {
@@ -682,6 +780,7 @@
 
         function openHorseGame() {
             document.getElementById('horse-full-screen-game').style.display = 'block';
+            initStaticTrack(); // ሜዳውን ማደስ
             regenerateOdds();
         }
 
@@ -701,7 +800,12 @@
             loadHistory(); 
         }
 
-        function closeModal(id) { document.getElementById(id).style.display = "none"; }
+        function closeModal(id) { 
+            document.getElementById(id).style.display = "none"; 
+            if(id === 'result-modal') {
+                initStaticTrack(); // ውጤቱን አይቶ ሲመለስ ፈረሶቹን ወደ መነሻ መስመር መመለስ
+            }
+        }
 
         async function loadHistory() {
             try {
