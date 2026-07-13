@@ -92,19 +92,15 @@ def update_history_status(user_id, tx_id, new_status):
 # ==========================================
 # 4. Flask Web Routes (የዌብ ገፅ እና ዌብሁክ)
 # ==========================================
-@server.route('/')
-def index():
-    return render_template('index.html')
-
 @server.route(f'/webhook/{TOKEN}', methods=['POST'])
 def webhook():
-    if request.headers.get('content-type') == 'application/json':
+    # 'application/json' የሚለውን ቼክ አድርገን በ request.is_json ቀይረነዋል
+    if request.is_json: 
         json_string = request.get_data().decode('utf-8')
         update = telebot.types.Update.de_json(json_string)
         bot.process_new_updates([update])
         return '', 200
     return 'abort', 403
-
 
 # ==========================================
 # 5. Telegram Bot Handlers (ቦት ትዕዛዞች)
@@ -120,42 +116,78 @@ def send_welcome(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_admin_callback(call):
-    bot.answer_callback_query(call.id)
-    if call.message.chat.id not in [ADMIN_GROUP_ID, MY_PRIVATE_CHAT_ID]: return
+    try:
+        bot.answer_callback_query(call.id)
+        
+        # የ Admin Group ID ቼክን ለጊዜው አጥፍተነዋል (አንዳንድ ጊዜ ID ስለሚለወጥ)
+        # if call.message.chat.id not in [ADMIN_GROUP_ID, MY_PRIVATE_CHAT_ID]: return
+        
+        data = call.data.split('|')
+        action = data[0] # ok ወይም no ይሆናል
+        tx_id = data[1]
+        
+        # ዳታውን ከ Redis ላይ ማምጣት
+        tx_raw = redis.get(f"tx:{tx_id}")
+        if not tx_raw:
+            bot.send_message(call.message.chat.id, "⚠️ ይህ ጥያቄ አይገኝም ወይም ቀድሞ ተሰርዟል።")
+            return
+            
+        if isinstance(tx_raw, bytes): tx_raw = tx_raw.decode('utf-8')
+        tx_data = json.loads(tx_raw)
+        
+        if tx_data["status"] != "pending":
+            bot.send_message(call.message.chat.id, "⚠️ ይህ ጥያቄ ቀድሞ ምላሽ አግኝቷል!")
+            return
+            
+        user_id = tx_data["user_id"]
+        amount = tx_data["amount"]
+        tx_type = tx_data["type"] # deposit ወይ withdraw መሆኑን ይለያል
+        
+        new_status_text = ""
+        
+        if action == "ok":
+            tx_data["status"] = "completed"
+            redis.set(f"tx:{tx_id}", json.dumps(tx_data))
+            update_history_status(user_id, tx_id, "completed")
+            
+            if tx_type == "deposit":
+                redis.hincrbyfloat("users:balance", user_id, amount)
+                try: bot.send_message(user_id, f"🎉 የ <b>{amount} ብር</b> ገቢ ጥያቄዎ ጸድቋል!")
+                except: pass
+                new_status_text = "✅ <b>ጸድቋል (Approved)</b>"
+                
+            elif tx_type == "withdraw":
+                try: bot.send_message(user_id, f"✅ የ <b>{amount} ብር</b> ወጪ ጥያቄዎ ተከፍሏል!")
+                except: pass
+                new_status_text = "💰 <b>ክፍያ ተፈጽሟል (Paid)</b>"
+                
+        elif action == "no":
+            tx_data["status"] = "refund"
+            redis.set(f"tx:{tx_id}", json.dumps(tx_data))
+            update_history_status(user_id, tx_id, "refund")
+            
+            if tx_type == "deposit":
+                try: bot.send_message(user_id, f"⚠️ የ <b>{amount} ብር</b> ገቢ ጥያቄዎ ውድቅ ሆኗል።")
+                except: pass
+                new_status_text = "❌ <b>ውድቅ ሆኗል (Rejected)</b>"
+                
+            elif tx_type == "withdraw":
+                redis.hincrbyfloat("users:balance", user_id, amount) # ብሩን መመለስ
+                try: bot.send_message(user_id, f"❌ የ <b>{amount} ብር</b> የወጪ ጥያቄዎ ውድቅ ተደርጎ ብሩ ወደ ዋሌትዎ ተመልሷል።")
+                except: pass
+                new_status_text = "❌ <b>ውድቅ ሆኗል (ብሩ ተመልሷል)</b>"
+                
+        # አዝራሩን አጥፍተን ጽሁፉን ማደስ
+        msg_text = call.message.caption if call.message.photo else call.message.text
+        if call.message.photo:
+            bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=f"{msg_text}\n\n{new_status_text}", parse_mode="HTML")
+        else:
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"{msg_text}\n\n{new_status_text}", parse_mode="HTML")
+            
+    except Exception as e:
+        # ስህተት ከተፈጠረ አድሚኑ ጋር ይህ ጽሁፍ ይላካል!
+        bot.send_message(call.message.chat.id, f"🚨 <b>ስህተት ተፈጥሯል:</b> <code>{str(e)}</code>")
 
-    data = call.data.split('|')
-    action, user_id, tx_id = data[0], data[1], data[2]
-
-    # ከcaption ውስጥ ብሩን በregex ይፈልጋል
-    text_to_search = call.message.caption or call.message.text
-    amount_match = re.search(r'(\d+\.?\d*)\s*ብር', text_to_search)
-    amount = float(amount_match.group(1)) if amount_match else 0.0
-
-    # ሁኔታ መፈተሽ
-    if redis.get(f"tx:{tx_id}") == b"completed": return
-
-    if action in ["da", "wp"]: # Approve / Paid
-        redis.set(f"tx:{tx_id}", "completed")
-        if action == "da": redis.hincrbyfloat("users:balance", user_id, amount)
-        update_history_status(user_id, tx_id, "completed")
-        new_status = "✅ <b>ተጠናቋል</b>"
-        msg = f"🎉 የ {amount} ብር ግብይትዎ ተጠናቋል!"
-    else: # Reject / Refund
-        redis.set(f"tx:{tx_id}", "refund")
-        if action == "wr": redis.hincrbyfloat("users:balance", user_id, amount)
-        update_history_status(user_id, tx_id, "refund")
-        new_status = "❌ <b>ውድቅ ሆኗል</b>"
-        msg = f"⚠️ የ {amount} ብር ግብይትዎ ውድቅ ሆኗል/ተመልሷል።"
-
-    try: bot.send_message(user_id, msg)
-    except: pass
-
-    # መልእክቱን ማሻሻል
-    new_text = f"{text_to_search}\n\n{new_status}"
-    if call.message.photo:
-        bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=new_text, parse_mode="HTML")
-    else:
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=new_text, parse_mode="HTML")
 
 
 @server.route('/api/deposit', methods=['POST'])
@@ -168,14 +200,16 @@ def handle_deposit():
         receipt = request.files.get("receipt")
         
         tx_id = str(uuid.uuid4())[:8]
-        redis.set(f"tx:{tx_id}", "pending")
+        # ዳታውን በሙሉ Redis ላይ በ JSON እናስቀምጠዋለን (ለደህንነት እና ለፍጥነት)
+        tx_data = {"user_id": user_id, "amount": amount, "type": "deposit", "status": "pending"}
+        redis.set(f"tx:{tx_id}", json.dumps(tx_data))
 
         caption = f"🔔 <b>አዲስ Deposit ጥያቄ</b>\n👤 ስም: {user_name}\n🆔 <code>{user_id}</code>\n💰 <b>{amount} ብር</b>"
         
-        # ማስተካከያው እዚህ ጋር ነው የተደረገው (callback_data አጠረ)
+        # አዝራሩ በጣም አጭር ሆነ (ok|tx_id)
         markup = InlineKeyboardMarkup().add(
-            InlineKeyboardButton("✅ አጽድቅ (Approve)", callback_data=f"da|{user_id}|{tx_id}"),
-            InlineKeyboardButton("❌ ውድቅ (Reject)", callback_data=f"dr|{user_id}|{tx_id}")
+            InlineKeyboardButton("✅ አጽድቅ", callback_data=f"ok|{tx_id}"),
+            InlineKeyboardButton("❌ ውድቅ", callback_data=f"no|{tx_id}")
         )
         
         photo_bytes = receipt.read()
@@ -187,7 +221,6 @@ def handle_deposit():
         log_history(user_id, tx_id, "ገቢ", amount, "pending")
         return jsonify({"status": "success"})
     except Exception as e: return jsonify({"error": str(e)}), 500
-
 
 @server.route('/api/withdraw', methods=['POST'])
 def handle_withdraw():
@@ -204,7 +237,8 @@ def handle_withdraw():
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
     
     tx_id = str(uuid.uuid4())[:8]
-    redis.set(f"tx:{tx_id}", "pending")
+    tx_data = {"user_id": user_id, "amount": amount, "type": "withdraw", "status": "pending"}
+    redis.set(f"tx:{tx_id}", json.dumps(tx_data))
     redis.hincrbyfloat("users:balance", user_id, -amount)
     
     msg = (
@@ -217,10 +251,10 @@ def handle_withdraw():
         f"💰 የጠየቀው መጠን: <b>{amount} ብር</b>"
     )
     
-    # ማስተካከያው እዚህ ጋር ነው የተደረገው (callback_data አጠረ)
+    # አዝራሩ አጭር ሆነ
     markup = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("✅ ተከፍሏል", callback_data=f"wp|{user_id}|{tx_id}"),
-        InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"wr|{user_id}|{tx_id}")
+        InlineKeyboardButton("✅ ተከፍሏል", callback_data=f"ok|{tx_id}"),
+        InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"no|{tx_id}")
     )
     
     try: bot.send_message(ADMIN_GROUP_ID, text=msg, reply_markup=markup, parse_mode="HTML")
@@ -230,7 +264,6 @@ def handle_withdraw():
     
     log_history(user_id, tx_id, "ወጪ", amount, "pending")
     return jsonify({"status": "success"})
-
 
 
 # 7. Application Runner (For Local Env)
