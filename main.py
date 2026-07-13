@@ -86,6 +86,7 @@ def send_welcome(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_admin_callback(call):
+    # አድሚን መሆኑን ማረጋገጫ
     if call.message.chat.id not in [ADMIN_GROUP_ID, MY_PRIVATE_CHAT_ID]:
         bot.answer_callback_query(call.id, "Unauthorized!", show_alert=True)
         return
@@ -95,6 +96,7 @@ def handle_admin_callback(call):
         action = data[0]
         tx_id = data[-1] 
 
+        # ዳታቤዝ (Redis) ላይ ያለውን የግብይት ሁኔታ ማረጋገጥ
         tx_status = redis.get(f"tx:{tx_id}")
         if isinstance(tx_status, bytes):
             tx_status = tx_status.decode('utf-8')
@@ -107,7 +109,9 @@ def handle_admin_callback(call):
             except: pass
             return bot.answer_callback_query(call.id, "❌ ይህ ጥያቄ ቀደም ብሎ ተስተናግዷል!", show_alert=True)
 
-        # ---- DEPOSIT APPROVE ----
+        # -----------------------------------------
+        # 1. DEPOSIT APPROVE (ገቢን ማጽደቅ)
+        # -----------------------------------------
         if action == "dep_app":
             _, user_id, amount, _ = data
             amount = float(amount)
@@ -116,19 +120,23 @@ def handle_admin_callback(call):
             redis.hincrbyfloat("users:balance", user_id, amount)
             update_history_status(user_id, tx_id, "completed")
             
+            # ለተጠቃሚው መልእክት መላክ
             try: bot.send_message(user_id, f"✅ የ {amount} ብር ገቢ (Deposit) ጸድቋል! ባላንስዎ ተሞልቷል። 🎉")
             except: pass
             
+            # የአድሚኑን ሜሴጅ ማስተካከል (Bot UI)
             try:
                 bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
-                bot.edit_message_caption(caption=f"{call.message.caption or ''}\n\n<b>✅ APPROVED (ጸድቋል)</b>", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML")
+                bot.send_message(call.message.chat.id, f"✅ <b>APPROVED</b>: የ {amount} ብር ገቢ ጸድቋል (ID: <code>{user_id}</code>)", parse_mode="HTML", reply_to_message_id=call.message.message_id)
             except: pass
             
             bot.answer_callback_query(call.id, "✅ በተሳካ ሁኔታ ጸድቋል!")
 
-        # ---- DEPOSIT REJECT ----
+        # -----------------------------------------
+        # 2. DEPOSIT REJECT (ገቢን ውድቅ ማድረግ)
+        # -----------------------------------------
         elif action == "dep_rej":
-            _, user_id, amount, _ = data  # ወጥ በሆነው 4-split መሠረት የተስተካከለ
+            _, user_id, amount, _ = data 
             
             redis.set(f"tx:{tx_id}", "refund")
             update_history_status(user_id, tx_id, "refund")
@@ -138,12 +146,14 @@ def handle_admin_callback(call):
             
             try:
                 bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
-                bot.edit_message_caption(caption=f"{call.message.caption or ''}\n\n<b>❌ REJECTED (ውድቅ ተደርጓል)</b>", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML")
+                bot.send_message(call.message.chat.id, f"❌ <b>REJECTED</b>: የ {amount} ብር ገቢ ውድቅ ተደርጓል (ID: <code>{user_id}</code>)", parse_mode="HTML", reply_to_message_id=call.message.message_id)
             except: pass
             
             bot.answer_callback_query(call.id, "❌ ውድቅ ተደርጓል!")
 
-        # ---- WITHDRAW PAID ----
+        # -----------------------------------------
+        # 3. WITHDRAW PAID (ወጪ ተከፍሏል / Paid)
+        # -----------------------------------------
         elif action == "wit_paid":
             _, user_id, amount, _ = data
             amount = float(amount)
@@ -151,21 +161,24 @@ def handle_admin_callback(call):
             redis.set(f"tx:{tx_id}", "completed")
             update_history_status(user_id, tx_id, "completed")
             
-            try: bot.send_message(user_id, f"✅ የ {amount} ብር ወጪ (Withdraw) ጥያቄዎ ተከፍሏል! ብሩ ተልኳል። 💸")
+            try: bot.send_message(user_id, f"✅ የ {amount} ብር ወጪ (Withdraw) ጥያቄዎ ተከፍሏል! ብሩን ወደ አካውንትዎ ልከናል። 💸")
             except: pass
             
             try:
                 bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
-                bot.edit_message_text(text=f"{call.message.text or ''}\n\n<b>✅ PAID (ተከፍሏል)</b>", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML")
+                bot.send_message(call.message.chat.id, f"✅ <b>PAID</b>: የ {amount} ብር ክፍያ ተልኳል (ID: <code>{user_id}</code>)", parse_mode="HTML", reply_to_message_id=call.message.message_id)
             except: pass
             
             bot.answer_callback_query(call.id, "✅ ክፍያው ተመዝግቧል!")
 
-        # ---- WITHDRAW REJECT ----
+        # -----------------------------------------
+        # 4. WITHDRAW REJECT (ወጪን ውድቅ ማድረግ)
+        # -----------------------------------------
         elif action == "wit_rej":
             _, user_id, amount, _ = data
             amount = float(amount)
             
+            # ብሩን ወደ ባላንሱ መመለስ (Refund)
             redis.set(f"tx:{tx_id}", "refund")
             redis.hincrbyfloat("users:balance", user_id, amount) 
             update_history_status(user_id, tx_id, "refund")
@@ -175,7 +188,7 @@ def handle_admin_callback(call):
             
             try:
                 bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
-                bot.edit_message_text(text=f"{call.message.text or ''}\n\n<b>❌ REJECTED & REFUNDED (ውድቅ ተደርጓል)</b>", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML")
+                bot.send_message(call.message.chat.id, f"❌ <b>REJECTED & REFUNDED</b>: የ {amount} ብር ክፍያ ውድቅ ሆኗል (ID: <code>{user_id}</code>)", parse_mode="HTML", reply_to_message_id=call.message.message_id)
             except: pass
             
             bot.answer_callback_query(call.id, "❌ ውድቅ ተደርጎ ተመላሽ ሆኗል!")
@@ -184,6 +197,7 @@ def handle_admin_callback(call):
         print(f"Callback Error: {e}")
         try: bot.answer_callback_query(call.id, f"⚠️ ስህተት አጋጥሟል: {str(e)}", show_alert=True)
         except: pass
+
 
 # --- 4. Flask Web Routes ---
 @server.route('/')
