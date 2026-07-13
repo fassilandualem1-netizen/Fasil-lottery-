@@ -120,62 +120,39 @@ def send_welcome(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_admin_callback(call):
-    # አዝራሩ ሲጫን ቴሌግራም ላይ የሚታየውን "Loading" ምልክት እናቆማለን
-    bot.answer_callback_query(call.id)
-    
-    # ዳታውን እንለያያለን (ለምሳሌ: "approve:12345:500:tx_99")
-    try:
-        parts = call.data.split(':')
-        action = parts[0]
-        user_id = int(parts[1])
-        amount = parts[2]
-        tx_id = parts[3]
-    except Exception as e:
-        print(f"Error parsing callback: {e}")
+    # 1. ጥያቄው ከአድሚን ግሩፕ መሆኑን ያረጋግጣል
+    if call.message.chat.id != ADMIN_GROUP_ID:
+        bot.answer_callback_query(call.id, "ይህ አዝራር በአድሚን ግሩፕ ብቻ ነው የሚሰራው!")
         return
 
-    # አድሚን መሆኑን ማረጋገጥ (Optional - ደህንነትን ለመጨመር)
-    if call.message.chat.id not in [ADMIN_GROUP_ID]:
+    # 2. የ callback ዳታውን ይተነትናል
+    # ዳታው እንደዚህ ነው የሚመጣው: action | user_id | amount | tx_id
+    try:
+        data = call.data.split('|')
+        action, user_id, amount, tx_id = data[0], data[1], data[2], data[3]
+    except Exception as e:
+        bot.answer_callback_query(call.id, "ስህተት ተፈጥሯል!")
         return
 
-    # ተግባሩን መፈጸም
-    message_text = call.message.text
-    new_status = ""
+    # 3. አዝራሩ ሲጫን የሚፈጸም እርምጃ
+    if action == "dep_app": # ገቢ ማጽደቅ
+        redis.set(f"tx:{tx_id}", "completed")
+        redis.hincrbyfloat("users:balance", user_id, float(amount))
+        update_history_status(user_id, tx_id, "completed")
+        
+        bot.send_message(user_id, f"✅ የ {amount} ብር ገቢ ጸድቋል! ባላንስዎ ተሞልቷል። 🎉")
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, 
+                              text=f"{call.message.text}\n\n✅ <b>ጸድቋል (Approved)</b>", parse_mode="HTML")
+        bot.answer_callback_query(call.id, "✅ ተጠናቋል!")
 
-    if action == "approve":
-        # እዚህ ጋር Redis/Database ላይ ማስተካከያ ታደርጋለህ
-        # redis.hincrbyfloat("users:balance", user_id, amount)
-        new_status = "✅ ጸድቋል"
-        # ለተጠቃሚው ማሳወቂያ መላክ
-        try:
-            bot.send_message(user_id, f"🎉 እንኳን ደስ አለዎት! የ {amount} ብር ክፍያዎ ተቀባይነት አግኝቷል።")
-        except:
-            pass # ተጠቃሚው ቦቱን Block ካደረገው ችግር እንዳይፈጥር
-            
-    elif action == "reject":
-        new_status = "❌ ውድቅ ሆኗል"
-        try:
-            bot.send_message(user_id, f"⚠️ የ {amount} ብር የክፍያ ጥያቄዎ ውድቅ ሆኗል። ዝርዝር መረጃ ለማግኘት ያነጋግሩን።")
-        except:
-            pass
-
-    elif action == "paid":
-        new_status = "💰 ክፍያ ተፈጽሟል"
-        try:
-            bot.send_message(user_id, f"✅ የ {amount} ብር ወጪ ክፍያ ተልኮልዎታል!")
-        except:
-            pass
-
-    # አዝራሮቹን እናጠፋለን (የተጫነውን መልእክት እናዘምነዋለን)
-    try:
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=f"{message_text}\n\nStatus: {new_status}",
-            reply_markup=None # አዝራሮቹ እንዲጠፉ ያደርጋል
-        )
-    except Exception as e:
-        print(f"Error updating message: {e}")
+    elif action == "dep_rej": # ገቢ ውድቅ ማድረግ
+        redis.set(f"tx:{tx_id}", "refund")
+        update_history_status(user_id, tx_id, "refund")
+        
+        bot.send_message(user_id, "❌ የላኩት የክፍያ ማረጋገጫ ውድቅ ተደርጓል። እባክዎ እንደገና ይሞክሩ።")
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, 
+                              text=f"{call.message.text}\n\n❌ <b>ውድቅ ሆኗል (Rejected)</b>", parse_mode="HTML")
+        bot.answer_callback_query(call.id, "❌ ተጠናቋል!")
 
 
 # ==========================================
