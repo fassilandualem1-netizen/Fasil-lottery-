@@ -142,19 +142,24 @@
             margin: 0;
         }
 
-        /* Stat Panel */
+        /* Stat Panel (Updated for clean 2-column layout) */
         .stat-panel {
             background-color: var(--card-bg);
             border-radius: 12px;
-            padding: 10px 15px;
-            display: flex;
-            justify-content: space-around;
+            padding: 15px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             text-align: center;
             border: 1px solid rgba(255,255,255,0.05);
+            gap: 10px;
         }
 
-        .stat-box h4 { margin: 0; font-size: 0.8rem; color: #8a8a8a; }
-        .stat-box p { margin: 3px 0 0 0; font-weight: bold; color: var(--gold-color); }
+        .stat-box:first-child {
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-box h4 { margin: 0; font-size: 0.9rem; color: #8a8a8a; }
+        .stat-box p { margin: 5px 0 0 0; font-weight: bold; font-size: 1.1rem; color: var(--gold-color); }
 
         /* Game Cards List */
         .games-list {
@@ -488,7 +493,7 @@
             box-sizing: border-box;
         }
 
-        /* NEW: Telebirr Info Box Style */
+        /* Telebirr Info Box Style */
         .telebirr-box {
             background: linear-gradient(135deg, rgba(0, 143, 213, 0.1) 0%, rgba(15, 52, 96, 0.2) 100%);
             border: 1px dashed #008fd5;
@@ -512,7 +517,7 @@
             transform: scale(0.95);
         }
 
-        /* NEW: Modern & Lite Dropzone File Input */
+        /* Modern & Lite Dropzone File Input */
         .custom-file-upload {
             border: 2px dashed rgba(255, 255, 255, 0.15);
             border-radius: 10px;
@@ -761,15 +766,11 @@
             <p>የሚወዱትን ጨዋታ ይምረጡና ዕድልዎን ይሞክሩ።</p>
         </div>
 
-        <!-- STREAK & MINI STATS -->
+        <!-- STREAK & MINI STATS (Updated to 2 items only - Removed Today's Games) -->
         <div class="stat-panel">
             <div class="stat-box">
                 <h4>ተከታታይ ድል 🔥</h4>
                 <p id="streak-count">0 ጊዜ</p>
-            </div>
-            <div class="stat-box">
-                <h4>የዛሬ ጨዋታ 🎮</h4>
-                <p id="games-today">0</p>
             </div>
             <div class="stat-box">
                 <h4>የነጻ ዕድል 🎁</h4>
@@ -871,12 +872,11 @@
     </div>
 
     <!-- Modals -->
-    <!-- Deposit Modal (Telebirr Added & Lite Dropzone Screen implemented) -->
+    <!-- Deposit Modal (Telebirr Number Card & Custom Dropzone) -->
     <div class="modal" id="depositModal">
         <div class="modal-content">
             <h3>💳 ብር ማስገቢያ</h3>
             
-            <!-- NEW: Telebirr Info Box with Copy Action -->
             <div class="telebirr-box">
                 <div style="font-size: 0.8rem; color: #008fd5; font-weight: bold; text-transform: uppercase;">Telebirr Number</div>
                 <div class="telebirr-number" id="telebirr-num" onclick="copyTelebirrNumber()">0951381356</div>
@@ -885,7 +885,6 @@
 
             <input type="number" id="dep-amount" placeholder="የተላከውን የብር መጠን (ምሳሌ፡ 100)" min="1" pattern="[0-9]*" inputmode="numeric">
             
-            <!-- NEW: Modern Custom Dropzone File Input (No default ugly browser buttons) -->
             <div class="custom-file-upload" id="dropzone" onclick="document.getElementById('dep-receipt').click()">
                 <i class="fas fa-cloud-upload-alt"></i>
                 <span id="upload-label">የደረሰኝ (Screenshot) እዚህ ይስቀሉ</span>
@@ -947,7 +946,7 @@
             <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">ከፍተኛ ተከታታይ ድል (Streak) ያስመዘገቡ ጀግኖች</p>
             
             <div class="leaderboard-list" id="leaderboard-container">
-                <!-- Top players lists populated by JS dynamically -->
+                <!-- Loaded dynamically by JS -->
             </div>
 
             <button class="modal-btn btn-close" onclick="closeModal('leaderboardModal')" style="width: 100%; margin-top: 5px;">ዝጋ</button>
@@ -1033,7 +1032,7 @@
         }
 
         // ==========================================
-        // SMART HTML5 WEB AUDIO SYNTHESIZER
+        // HTML5 WEB AUDIO SYNTHESIZER
         // ==========================================
         let audioCtx = null;
 
@@ -1117,8 +1116,8 @@
         let isSpinning = false;
         let isWheelSpinning = false;
         
-        let todayGamesCount = 0;
-        let currentStreak = 0;
+        // PERSISTENT STREAK AND BALANCE CONTROLLERS
+        let currentStreak = parseInt(localStorage.getItem('coin_current_streak') || '0');
         let userBalance = 435.00; 
 
         if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
@@ -1130,6 +1129,8 @@
             const avatarChar = userName.trim() ? userName.trim().charAt(0).toUpperCase() : "U";
             document.getElementById('user-avatar').innerText = avatarChar;
         }
+
+        document.getElementById('streak-count').innerText = `${currentStreak} ጊዜ`;
 
         // Copy Telebirr Functionality
         function copyTelebirrNumber() {
@@ -1246,7 +1247,7 @@
         }
 
         // ==========================================
-        // DYNAMIC & CLEAN LEADERBOARD SYSTEM (No fake data)
+        // DYNAMIC LEADERBOARD (Completely No Dummy Data)
         // ==========================================
         function openLeaderboard() {
             document.getElementById('leaderboardModal').style.display = 'flex';
@@ -1275,25 +1276,32 @@
             const container = document.getElementById('leaderboard-container');
             container.innerHTML = '';
             
-            // Clean dynamic sorting of real active players
-            let list = leaders.map(l => {
+            // Exclude mock "ተጫዋች_2165" completely if present in server response
+            let list = leaders.filter(l => l.user_id !== '2165' && !l.user_name.includes('ተጫዋች_2165'));
+
+            let foundSelf = false;
+            list = list.map(l => {
                 if (l.user_id === userId) {
+                    foundSelf = true;
                     return { ...l, user_name: userName + " (አንተ)", streak: Math.max(currentStreak, l.streak) };
                 }
                 return l;
             });
 
-            // If current user is not in server response, add them with current streak
-            if (!list.some(l => l.user_id === userId)) {
+            if (!foundSelf) {
                 list.push({ user_id: userId, user_name: userName + " (አንተ)", streak: currentStreak });
             }
 
-            // Filter out any zero or unplayed users to prevent visual junk
+            // Remove items with 0 streak to avoid visual junk unless it's the current user
             list = list.filter(item => item.streak > 0 || item.user_id === userId);
 
-            // Sort descending by streak and slice top 5
             list.sort((a, b) => b.streak - a.streak);
             list = list.slice(0, 5);
+
+            if (list.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #8a8a8a;">ምንም ንቁ ተጫዋች የለም።</p>';
+                return;
+            }
 
             list.forEach((leader, idx) => {
                 const rank = idx + 1;
@@ -1313,11 +1321,11 @@
             });
         }
 
-        // Clean local fallback showing ONLY the user since no dummy data is needed
         function generateLocalLeaderboard() {
             const container = document.getElementById('leaderboard-container');
             container.innerHTML = '';
             
+            // Only user in fallback list
             const realOnly = [
                 { user_id: userId, user_name: userName + " (አንተ)", streak: currentStreak }
             ];
@@ -1338,7 +1346,7 @@
         }
 
         // ==========================================
-        // FLIP LOGIC
+        // FLIP LOGIC (With Persistent Streak Saving)
         // ==========================================
         function playGame() {
             const betInput = document.getElementById('bet-amount');
@@ -1457,6 +1465,7 @@
                         }
                         
                         currentStreak++;
+                        localStorage.setItem('coin_current_streak', currentStreak.toString()); // Save to localStorage
                         spawnConfetti(70);
 
                         if (currentStreak === 3) {
@@ -1474,15 +1483,13 @@
                         resultText.className = "result-alert result-lose";
                         
                         currentStreak = 0;
+                        localStorage.setItem('coin_current_streak', '0'); // Reset localStorage
                         if (data.new_balance !== undefined) {
                             userBalance = parseFloat(data.new_balance);
                         }
                     }
 
                     document.getElementById('user-balance').innerText = userBalance.toFixed(2);
-                    
-                    todayGamesCount++;
-                    document.getElementById('games-today').innerText = todayGamesCount;
                     document.getElementById('streak-count').innerText = `${currentStreak} ጊዜ`;
                     
                     saveLocalHistory(data.status === 'win' ? 'ጨዋታ (አሸነፉ)' : 'ጨዋታ (ተሸነፉ)', betAmount, data.status === 'win' ? 'አሸንፏል' : 'ተሸንፏል');
