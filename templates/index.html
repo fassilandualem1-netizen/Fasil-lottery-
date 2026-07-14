@@ -967,7 +967,7 @@
     </div>
 
     <script>
-        // ==========================================
+                // ==========================================
         // LOCAL NATIVE CONFETTI ENGINE
         // ==========================================
         const canvas = document.getElementById("confetti-canvas");
@@ -1047,7 +1047,6 @@
             return audioCtx;
         }
 
-        // ገጹ ላይ በሚደረግ የመጀመሪያ ንክኪ የድምፅ ሲስተሙን ማንቃት
         document.body.addEventListener('click', () => {
             getAudioContext();
         }, { once: true });
@@ -1118,7 +1117,6 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // Native Haptic Vibration wrapper
         function triggerHaptic(type, subtype = '') {
             try {
                 if (tg.HapticFeedback) {
@@ -1273,7 +1271,6 @@
             document.getElementById('game-view').style.display = 'flex';
             document.getElementById('history-view').style.display = 'none';
             
-            // Telegram Native Back Button ማሳያ
             tg.BackButton.show();
             tg.BackButton.onClick(() => {
                 switchTab('games');
@@ -1294,7 +1291,6 @@
             document.getElementById('dailyBonusModal').style.display = 'flex'; 
         }
 
-        // Leaderboard Retrieval
         function openLeaderboard() {
             triggerHaptic('impact', 'medium');
             document.getElementById('leaderboardModal').style.display = 'flex';
@@ -1389,8 +1385,32 @@
         }
 
         // ==========================================
-        // FLIP LOGIC
+        // SECURE RANDOM & COIN FLIP LOGIC
         // ==========================================
+        
+        // ደህንነቱ የተጠበቀ እና ሊገመት የማይችል የዘፈቀደ ምርጫ ማመንጫ (Cryptographic Random)
+        const getSecureCoinFlip = () => {
+            const array = new Uint32Array(1);
+            window.crypto.getRandomValues(array);
+            return (array[0] / 0xFFFFFFFF) < 0.5 ? 'ዘውድ' : 'ጎፈር';
+        };
+
+        // የተሻሻለው ፎልባክ ተግባር (በሰርቨር እምቢተኛነት ጊዜ የሚሰራ)
+        const fallbackCoinFlip = (betAmount) => {
+            const randomVal = getSecureCoinFlip(); 
+            const isWin = selectedChoice === randomVal;
+            
+            // የድል ማባዣ (Multiplier) ቀመሩ እዚህም ደህንነቱ በተጠበቀ መልኩ ተተግብሯል
+            const multiplier = currentStreak >= 3 ? 1.5 : 1;
+            let winAddition = isWin ? ((betAmount * 2) * multiplier) : 0;
+            
+            return {
+                status: isWin ? 'win' : 'lose',
+                result: randomVal,
+                win_addition: winAddition
+            };
+        };
+
         function playGame() {
             const betInput = document.getElementById('bet-amount');
             const betAmount = parseFloat(betInput.value);
@@ -1417,7 +1437,7 @@
 
             resultText.className = "result-alert";
 
-            // ደህንነቱ የተጠበቀ ሂሳብ ቅነሳ (ኤፒአይ ካልሰራ ሪፈንድ ይደረጋል)
+            // ደህንነቱ የተጠበቀ ጊዜያዊ ሂሳብ ቅነሳ
             userBalance -= betAmount;
             document.getElementById('user-balance').innerText = userBalance.toFixed(2);
 
@@ -1438,7 +1458,6 @@
                 currentY += Math.floor(Math.random() * 80) + 40;
                 coin.style.transform = `rotateX(${currentX}deg) rotateY(${currentY}deg)`;
                 
-                // ሳንቲሙ ሲሽከረከር የሚሰማ ንዝረት
                 if (soundTicks % 2 === 0) {
                     triggerHaptic('impact', 'light');
                 }
@@ -1448,17 +1467,6 @@
                 }
                 soundTicks++;
             }, 50);
-
-            const fallbackCoinFlip = () => {
-                const randomVal = Math.random() < 0.5 ? 'ዘውድ' : 'ጎፈር';
-                const isWin = selectedChoice === randomVal;
-                let winAddition = isWin ? (betAmount * 2) : 0;
-                return {
-                    status: isWin ? 'win' : 'lose',
-                    result: randomVal,
-                    win_addition: winAddition
-                };
-            };
 
             fetch('/api/coin_flip', {
                 method: 'POST',
@@ -1488,17 +1496,22 @@
             })
             .catch(err => {
                 console.warn("Using local fallback game logic:", err);
-                const localResult = fallbackCoinFlip();
+                const localResult = fallbackCoinFlip(betAmount);
                 processResult(localResult, spinInterval, coin, resultText, betAmount);
             });
         }
 
+        // አኒሜሽኑን እና ውጤቱን የሚያቀናጅ ደህንነቱ የተጠበቀ ተግባር
         function processResult(data, spinInterval, coin, resultText, betAmount) {
+            // ከሰርቨር የመጣው ዳታ ባዶ ከሆነ ወይም 'result' ከሌለው ፎልባኩን በደህንነት ይጠራል
+            const finalResult = (data && data.result) ? data.result : getSecureCoinFlip();
+
             setTimeout(() => {
                 clearInterval(spinInterval);
                 coin.style.transition = 'transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
                 
-                if (data.result === 'ዘውድ') {
+                // ሳንቲሙ መጨረሻ ላይ የሚቆምበትን አቅጣጫ መወሰን
+                if (finalResult === 'ዘውድ') {
                     coin.style.transform = 'rotateX(0deg) rotateY(1440deg)';
                 } else {
                     coin.style.transform = 'rotateX(0deg) rotateY(1620deg)';
@@ -1509,7 +1522,11 @@
 
                     if (data.status === 'win') {
                         triggerHaptic('notification', 'success');
-                        const winAmount = (betAmount * 2);
+                        
+                        // የStreak ጉርሻን ያካተተ ትክክለኛው የድል ስሌት
+                        const multiplier = currentStreak >= 3 ? 1.5 : 1;
+                        const winAmount = (betAmount * 2) * multiplier;
+                        
                         resultText.innerText = `አሸነፉ! +${winAmount.toFixed(2)} ብር`;
                         resultText.className = "result-alert result-won";
 
