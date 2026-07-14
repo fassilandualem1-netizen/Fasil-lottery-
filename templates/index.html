@@ -29,6 +29,18 @@
             min-height: 100vh;
             user-select: none;
             -webkit-user-select: none;
+            overflow-x: hidden;
+        }
+
+        /* Confetti Canvas Container */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 999;
         }
 
         /* Header Style */
@@ -62,6 +74,31 @@
             justify-content: center;
             font-weight: bold;
             font-size: 1.2rem;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .leaderboard-trigger {
+            background-color: rgba(255, 215, 0, 0.15);
+            border: 1px solid var(--gold-color);
+            color: var(--gold-color);
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .leaderboard-trigger:active {
+            transform: scale(0.9);
         }
 
         .balance-box {
@@ -103,6 +140,20 @@
             color: #8a8a8a;
             margin: 0;
         }
+
+        /* Stat Panel */
+        .stat-panel {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .stat-box h4 { margin: 0; font-size: 0.8rem; color: #8a8a8a; }
+        .stat-box p { margin: 3px 0 0 0; font-weight: bold; color: var(--gold-color); }
 
         /* Game Cards List */
         .games-list {
@@ -189,9 +240,7 @@
             background-color: var(--accent-color);
         }
 
-        /* ==========================================
-           ADVANCED 3D REAL COIN SPIN & BOUNCE
-           ========================================== */
+        /* Coin Toss View Styles */
         .coin-wrapper {
             perspective: 1500px;
             margin: 25px auto;
@@ -228,14 +277,12 @@
             box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(0,0,0,0.4);
         }
 
-        /* 👑 ዘውድ */
         .coin-front {
             background: radial-gradient(circle, #ffe57f 0%, #ffb300 70%, #ff8f00 100%);
             color: #4e342e;
             z-index: 2;
         }
 
-        /* 🦁 ጎፈር */
         .coin-back {
             background: radial-gradient(circle, #ffffff 0%, #b0bec5 70%, #78909c 100%);
             color: #263238;
@@ -250,7 +297,6 @@
             filter: drop-shadow(0px 3px 5px rgba(0,0,0,0.4));
         }
 
-        /* Physics Bounce Animation */
         @keyframes coin-toss-bounce {
             0% { transform: translateY(0) scale(1); }
             20% { transform: translateY(-130px) scale(1.2); }
@@ -264,7 +310,7 @@
             animation: coin-toss-bounce 3.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
         }
 
-        /* Controls Card (Compact) */
+        /* Controls Card */
         .controls-card {
             background-color: var(--card-bg);
             width: 100%;
@@ -303,6 +349,31 @@
             border-color: var(--gold-color);
             box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
             background-color: rgba(255, 215, 0, 0.1);
+        }
+
+        /* NEW Multiplier Buttons Layout */
+        .multiplier-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 5px;
+        }
+
+        .multi-btn {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            color: var(--light-text);
+            padding: 6px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+
+        .multi-btn:active {
+            background-color: var(--text-color);
+            border-color: var(--text-color);
         }
 
         .input-group {
@@ -389,9 +460,11 @@
             display: flex;
             flex-direction: column;
             gap: 15px;
+            position: relative;
         }
 
-        .modal-content h3 { margin: 0; color: var(--text-color); }
+        .modal-content h3 { margin: 0; color: var(--text-color); text-align: center;}
+        
         .modal-content input {
             background-color: var(--bg-color);
             border: 1px solid rgba(255, 255, 255, 0.2);
@@ -423,6 +496,51 @@
             border-left: 4px solid var(--accent-color);
         }
 
+        /* Leaderboard Modal Specifics */
+        .leaderboard-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 5px;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: rgba(255, 255, 255, 0.03);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .leaderboard-item.rank-1 {
+            border-color: var(--gold-color);
+            background-color: rgba(255, 215, 0, 0.05);
+        }
+
+        .leaderboard-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .rank-badge {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .rank-1 .rank-badge { background-color: var(--gold-color); color: #000; }
+        .rank-2 .rank-badge { background-color: #c0c0c0; color: #000; }
+        .rank-3 .rank-badge { background-color: #cd7f32; color: #000; }
+        .rank-other .rank-badge { background-color: var(--accent-color); color: #fff; }
+
         /* Bottom Nav */
         .nav-bar {
             position: fixed;
@@ -450,9 +568,99 @@
 
         .nav-item.active { color: var(--text-color); }
         .nav-item i { font-size: 1.2rem; }
+
+        /* Daily Wheel Styles */
+        .wheel-container {
+            width: 240px;
+            height: 240px;
+            margin: 15px auto;
+            position: relative;
+            border-radius: 50%;
+            border: 8px solid var(--gold-color);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+            overflow: hidden;
+        }
+
+        .wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            position: relative;
+            transition: transform 4s cubic-bezier(0.25, 0.1, 0.1, 1);
+            background: conic-gradient(
+                #e94560 0deg 72deg, 
+                #0f3460 72deg 144deg, 
+                #4e9f3d 144deg 216deg, 
+                #ffd700 216deg 288deg, 
+                #8a1253 288deg 360deg
+            );
+        }
+
+        .wheel-pin {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 25px solid #fff;
+            z-index: 10;
+            filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
+        }
+
+        .wheel-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            background-color: white;
+            border-radius: 50%;
+            z-index: 5;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+
+        .wheel-label {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            font-weight: bold;
+            color: #fff;
+            font-size: 1.1rem;
+            transform-origin: center;
+        }
+
+        /* Streak PopUp Badge */
+        .streak-badge-popup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: radial-gradient(circle, #ffd700, #ff8f00);
+            color: #1a1a2e;
+            padding: 20px;
+            border-radius: 15px;
+            font-weight: bold;
+            text-align: center;
+            z-index: 200;
+            box-shadow: 0 0 30px rgba(255,215,0,0.8);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+        }
+
+        .streak-badge-popup.show {
+            transform: translate(-50%, -50%) scale(1);
+        }
     </style>
 </head>
 <body>
+
+    <!-- Native Canvas Confetti Effect (No external library required) -->
+    <canvas id="confetti-canvas"></canvas>
 
     <!-- Upper Header -->
     <div class="header">
@@ -460,9 +668,15 @@
             <div class="user-avatar" id="user-avatar">U</div>
             <span id="user-name">የሰፈር ልጅ</span>
         </div>
-        <div class="balance-box">
-            <i class="fas fa-wallet"></i>
-            <span id="user-balance">0.00</span> ብር
+        <div class="header-actions">
+            <!-- Leaderboard Trophy Trigger Button -->
+            <div class="leaderboard-trigger" onclick="openLeaderboard()" title="የመሪዎች ሰሌዳ">
+                <i class="fas fa-trophy"></i>
+            </div>
+            <div class="balance-box">
+                <i class="fas fa-wallet"></i>
+                <span id="user-balance">0.00</span> ብር
+            </div>
         </div>
     </div>
 
@@ -471,6 +685,22 @@
         <div class="welcome-msg">
             <h1>ሰላም፣ <span id="welcome-name">ተጫዋች</span>!</h1>
             <p>የሚወዱትን ጨዋታ ይምረጡና ዕድልዎን ይሞክሩ።</p>
+        </div>
+
+        <!-- STREAK & MINI STATS -->
+        <div class="stat-panel">
+            <div class="stat-box">
+                <h4>ተከታታይ ድል 🔥</h4>
+                <p id="streak-count">0 ጊዜ</p>
+            </div>
+            <div class="stat-box">
+                <h4>የዛሬ ጨዋታ 🎮</h4>
+                <p id="games-today">0</p>
+            </div>
+            <div class="stat-box">
+                <h4>የነጻ ዕድል 🎁</h4>
+                <p id="free-gift-btn" style="cursor: pointer; text-decoration: underline; color: #4e9f3d;" onclick="openDailyBonusModal()">ውሰድ</p>
+            </div>
         </div>
 
         <div class="actions-grid">
@@ -499,7 +729,14 @@
     </div>
 
     <!-- 2. COIN FLIP GAME VIEW -->
-    <div class="container" id="game-view" style="display: none;">
+    <div class="container" id="game-view" style="display: none; position: relative;">
+        <!-- Streak Multiplier Popup alert inside the game area -->
+        <div class="streak-badge-popup" id="streak-popup">
+            <div style="font-size: 3rem;">🔥 1.5X</div>
+            <div style="font-size: 1.2rem; margin-top: 5px;">ተከታታይ 3ኛ ድል!</div>
+            <div style="font-size: 0.9rem;">ተጨማሪ ጉርሻ ተጨምሮልዎታል!</div>
+        </div>
+
         <div class="back-nav" onclick="switchTab('games')">
             <i class="fas fa-arrow-left"></i> ወደ ማውጫ ተመለስ
         </div>
@@ -509,7 +746,7 @@
             <p style="color: #aaa; margin: 0; font-size: 0.9rem;">ፍጹም የማይገመት የሳይንስ አልጎሪዝም!</p>
         </div>
         
-        <!-- Interactive 3D Real Physics Coin (Enlarged) -->
+        <!-- Interactive 3D Real Physics Coin -->
         <div class="coin-wrapper" id="coin-container">
             <div class="coin" id="game-coin">
                 <div class="coin-side coin-front">
@@ -525,7 +762,7 @@
 
         <div class="result-alert" id="result-text">ምርጫዎን ይምረጡና ይጫወቱ!</div>
 
-        <!-- Inputs Card -->
+        <!-- Controls Card -->
         <div class="controls-card">
             <div class="choice-grid">
                 <button class="choice-btn" id="btn-heads" onclick="selectChoice('ዘውድ')">
@@ -540,7 +777,14 @@
 
             <div class="input-group">
                 <label>የውርርድ መጠን (ቢያንስ 2 ብር)</label>
-                <input type="number" id="bet-amount" placeholder="ምሳሌ፡ 50" min="2">
+                <!-- Quick Bet Multiplier Buttons -->
+                <div class="multiplier-bar">
+                    <button class="multi-btn" onclick="applyMultiplier('min')">Min (2)</button>
+                    <button class="multi-btn" onclick="applyMultiplier('half')">1/2 (ግማሽ)</button>
+                    <button class="multi-btn" onclick="applyMultiplier('double')">2X (እጥፍ)</button>
+                    <button class="multi-btn" onclick="applyMultiplier('max')">Max (ሙሉ)</button>
+                </div>
+                <input type="number" id="bet-amount" placeholder="ምሳሌ፡ 50" min="2" pattern="[0-9]*" inputmode="numeric" style="margin-top: 8px;">
             </div>
 
             <button class="play-btn" id="flip-btn" onclick="playGame()">ሳንቲሙን ግልበጥ</button>
@@ -560,8 +804,8 @@
     <div class="modal" id="depositModal">
         <div class="modal-content">
             <h3>💳 ብር ማስገቢያ (Deposit)</h3>
-            <p style="font-size: 0.85rem; color: #ccc; margin: 0;">የባንክ ደረሰኝ (Screenshot) እዚህ ይስቀሉ</p>
-            <input type="number" id="dep-amount" placeholder="የብር መጠን (ምሳሌ፡ 100)" min="1">
+            <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">የባንክ ደረሰኝ (Screenshot) እዚህ ይስቀሉ</p>
+            <input type="number" id="dep-amount" placeholder="የብር መጠን (ምሳሌ፡ 100)" min="1" pattern="[0-9]*" inputmode="numeric">
             <input type="file" id="dep-receipt" accept="image/*">
             <div class="modal-buttons">
                 <button class="modal-btn btn-submit" onclick="submitDeposit()">ላክ</button>
@@ -575,13 +819,52 @@
         <div class="modal-content">
             <h3>💸 ብር ማውጫ (Withdraw)</h3>
             <input type="text" id="wit-bank" placeholder="የባንክ ስም (ምሳሌ፡ ንግድ ባንክ)">
-            <input type="text" id="wit-acc-name" placeholder="የአካውንት ባለቤት ስም">
-            <input type="text" id="wit-phone" placeholder="የሂሳብ ቁጥር ወይም ስልክ">
-            <input type="number" id="wit-amount" placeholder="የብር መጠን">
+            <input type="text" id="wit-acc-name" placeholder="የአካውንት ባለቤት ሙሉ ስም">
+            <input type="tel" id="wit-phone" placeholder="የሂሳብ ቁጥር (አካውንት)" pattern="[0-9]*" inputmode="numeric">
+            <input type="tel" id="wit-user-phone" placeholder="ስልክ ቁጥር" pattern="[0-9]*" inputmode="numeric">
+            <input type="number" id="wit-amount" placeholder="የብር መጠን" pattern="[0-9]*" inputmode="numeric">
             <div class="modal-buttons">
                 <button class="modal-btn btn-submit" onclick="submitWithdraw()">ጠይቅ</button>
                 <button class="modal-btn btn-close" onclick="closeModal('withdrawModal')">ዝጋ</button>
             </div>
+        </div>
+    </div>
+
+    <!-- FORTUNE WHEEL MODAL -->
+    <div class="modal" id="dailyBonusModal">
+        <div class="modal-content" style="max-width: 330px;">
+            <h3>🎁 የዕለቱ ነጻ ዕድል ሩሌት</h3>
+            <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">በየ24 ሰዓቱ እየመጡ ነጻ ድጋፍ ያሽከርክሩ!</p>
+            
+            <div class="wheel-pin"></div>
+            <div class="wheel-container">
+                <div class="wheel-center"></div>
+                <div class="wheel" id="bonus-wheel">
+                    <div class="wheel-label" style="transform: rotate(36deg) translateY(15px);">1 ብር</div>
+                    <div class="wheel-label" style="transform: rotate(108deg) translateY(15px);">2 ብር</div>
+                    <div class="wheel-label" style="transform: rotate(180deg) translateY(15px);">5 ብር</div>
+                    <div class="wheel-label" style="transform: rotate(252deg) translateY(15px);">3 ብር</div>
+                    <div class="wheel-label" style="transform: rotate(324deg) translateY(15px);">4 ብር</div>
+                </div>
+            </div>
+
+            <button class="play-btn" id="spin-wheel-btn" onclick="spinDailyWheel()" style="background-color: var(--success-color);">ሩሌቱን አሽከርክር</button>
+            <div style="text-align: center; min-height: 20px; font-weight: bold;" id="wheel-status"></div>
+            <button class="modal-btn btn-close" onclick="closeModal('dailyBonusModal')" style="width: 100%;">ዝጋ</button>
+        </div>
+    </div>
+
+    <!-- LEADERBOARD MODAL (NEW) -->
+    <div class="modal" id="leaderboardModal">
+        <div class="modal-content">
+            <h3>🏆 የሳምንቱ ምርጥ 5 ተጫዋቾች</h3>
+            <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">ከፍተኛ ተከታታይ ድል (Streak) ያስመዘገቡ ጀግኖች</p>
+            
+            <div class="leaderboard-list" id="leaderboard-container">
+                <!-- Top 5 lists populated by JS dynamically -->
+            </div>
+
+            <button class="modal-btn btn-close" onclick="closeModal('leaderboardModal')" style="width: 100%; margin-top: 5px;">ዝጋ</button>
         </div>
     </div>
 
@@ -599,14 +882,146 @@
 
     <script>
         // ==========================================
-        // AUDIO RESOURCES (SOUNDS)
+        // LOCAL NATIVE CONFETTI ENGINE (HTML5 Canvas)
         // ==========================================
-        const spinSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2014/2014-84.wav'); 
-        const landSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2009/2009-84.wav'); 
+        const canvas = document.getElementById("confetti-canvas");
+        const ctx = canvas.getContext("2d");
+        let confetti = [];
+        let animationFrameId = null;
 
-        spinSound.volume = 0.5;
-        landSound.volume = 0.6;
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener("resize", resizeCanvas);
+        resizeCanvas();
 
+        class Confetto {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * -canvas.height - 20;
+                this.size = Math.random() * 8 + 6;
+                this.color = ["#e94560", "#4e9f3d", "#ffd700", "#00bcd4", "#9c27b0"][Math.floor(Math.random() * 5)];
+                this.speedX = Math.random() * 3 - 1.5;
+                this.speedY = Math.random() * 4 + 4;
+                this.rotation = Math.random() * 360;
+                this.rotationSpeed = Math.random() * 4 - 2;
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.rotation += this.rotationSpeed;
+            }
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate((this.rotation * Math.PI) / 180);
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+                ctx.restore();
+            }
+        }
+
+        function spawnConfetti(count = 100) {
+            confetti = [];
+            for (let i = 0; i < count; i++) {
+                confetti.push(new Confetto());
+            }
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            animateConfetti();
+        }
+
+        function animateConfetti() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let alive = false;
+            confetti.forEach((p) => {
+                p.update();
+                p.draw();
+                if (p.y < canvas.height) alive = true;
+            });
+            if (alive) {
+                animationFrameId = requestAnimationFrame(animateConfetti);
+            } else {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        // ==========================================
+        // SMART HTML5 WEB AUDIO SYNTHESIZER
+        // ==========================================
+        let audioCtx = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playTumbleSound() {
+            try {
+                const ctxAudio = getAudioContext();
+                const osc = ctxAudio.createOscillator();
+                const gain = ctxAudio.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(280, ctxAudio.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, ctxAudio.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.25, ctxAudio.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctxAudio.currentTime + 0.12);
+                osc.connect(gain);
+                gain.connect(ctxAudio.destination);
+                osc.start();
+                osc.stop(ctxAudio.currentTime + 0.12);
+            } catch (e) { console.log(e); }
+        }
+
+        function playClinkSound() {
+            try {
+                const ctxAudio = getAudioContext();
+                const osc1 = ctxAudio.createOscillator();
+                const osc2 = ctxAudio.createOscillator();
+                const gain = ctxAudio.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(987.77, ctxAudio.currentTime);
+                osc1.frequency.exponentialRampToValueAtTime(880, ctxAudio.currentTime + 0.25);
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(1318.51, ctxAudio.currentTime);
+                osc2.frequency.exponentialRampToValueAtTime(1100, ctxAudio.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.35, ctxAudio.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctxAudio.currentTime + 0.3);
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(ctxAudio.destination);
+                osc1.start();
+                osc2.start();
+                osc1.stop(ctxAudio.currentTime + 0.3);
+                osc2.stop(ctxAudio.currentTime + 0.3);
+            } catch (e) { console.log(e); }
+        }
+
+        function playStreakFanfare() {
+            try {
+                const ctxAudio = getAudioContext();
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    const osc = ctxAudio.createOscillator();
+                    const gain = ctxAudio.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, ctxAudio.currentTime + idx * 0.12);
+                    gain.gain.setValueAtTime(0.25, ctxAudio.currentTime + idx * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctxAudio.currentTime + idx * 0.12 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(ctxAudio.destination);
+                    osc.start(ctxAudio.currentTime + idx * 0.12);
+                    osc.stop(ctxAudio.currentTime + idx * 0.12 + 0.3);
+                });
+            } catch(e) { console.log(e); }
+        }
+
+        // Telegram Setup
         const tg = window.Telegram.WebApp;
         tg.expand();
 
@@ -614,6 +1029,11 @@
         let userName = "የሰፈር ልጅ";
         let selectedChoice = null;
         let isSpinning = false;
+        let isWheelSpinning = false;
+        
+        let todayGamesCount = 0;
+        let currentStreak = 0;
+        let userBalance = 0.00;
 
         if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
             userId = tg.initDataUnsafe.user.id;
@@ -634,14 +1054,42 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
-                    document.getElementById('user-balance').innerText = parseFloat(data.balance).toFixed(2);
+                    userBalance = parseFloat(data.balance);
+                    document.getElementById('user-balance').innerText = userBalance.toFixed(2);
                 }
             })
             .catch(err => console.error("Error loading balance:", err));
         }
 
+        // ==========================================
+        // MULTIPLIER BUTTONS CONTROLLER (NEW)
+        // ==========================================
+        function applyMultiplier(type) {
+            const betInput = document.getElementById('bet-amount');
+            if (isNaN(userBalance) || userBalance <= 0) return;
+
+            let calculatedBet = 2; // Default fallback to minimum
+
+            if (type === 'min') {
+                calculatedBet = 2;
+            } else if (type === 'half') {
+                calculatedBet = Math.max(2, Math.floor(userBalance / 2));
+            } else if (type === 'double') {
+                let currentVal = parseFloat(betInput.value) || 2;
+                calculatedBet = Math.min(userBalance, currentVal * 2);
+            } else if (type === 'max') {
+                calculatedBet = Math.floor(userBalance);
+            }
+
+            // Fallback check
+            if (calculatedBet < 2) calculatedBet = 2;
+
+            betInput.value = calculatedBet;
+            playTumbleSound();
+        }
+
         function switchTab(tab) {
-            if (isSpinning) return;
+            if (isSpinning || isWheelSpinning) return;
             if (tab === 'games') {
                 document.getElementById('main-view').style.display = 'flex';
                 document.getElementById('game-view').style.display = 'none';
@@ -659,6 +1107,7 @@
         }
 
         function switchToGame() {
+            getAudioContext();
             document.getElementById('main-view').style.display = 'none';
             document.getElementById('game-view').style.display = 'flex';
             document.getElementById('history-view').style.display = 'none';
@@ -666,7 +1115,86 @@
 
         function openDepositModal() { document.getElementById('depositModal').style.display = 'flex'; }
         function openWithdrawModal() { document.getElementById('withdrawModal').style.display = 'flex'; }
-        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        function openDailyBonusModal() { 
+            getAudioContext();
+            document.getElementById('dailyBonusModal').style.display = 'flex'; 
+        }
+
+        // ==========================================
+        // LEADERBOARD LOAD ENGINE (NEW)
+        // ==========================================
+        function openLeaderboard() {
+            document.getElementById('leaderboardModal').style.display = 'flex';
+            const container = document.getElementById('leaderboard-container');
+            container.innerHTML = '<p style="text-align: center; color: #8a8a8a;">በመጫን ላይ...</p>';
+
+            // Simulating or loading top 5 leaderboard stats from backend
+            fetch('/api/get_leaderboard', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success' && data.leaders.length > 0) {
+                    container.innerHTML = '';
+                    data.leaders.forEach((leader, idx) => {
+                        const rank = idx + 1;
+                        const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
+                        const crown = rank === 1 ? '👑 ' : '';
+                        
+                        const div = document.createElement('div');
+                        div.className = `leaderboard-item ${rankClass}`;
+                        div.innerHTML = `
+                            <div class="leaderboard-user">
+                                <div class="rank-badge">${rank}</div>
+                                <span><b>${crown}${leader.user_name}</b></span>
+                            </div>
+                            <span style="color: var(--gold-color); font-weight: bold;">${leader.streak} Streak 🔥</span>
+                        `;
+                        container.appendChild(div);
+                    });
+                } else {
+                    // Fallback Dummy Data if backend api doesn't respond for local testing
+                    generateLocalLeaderboard();
+                }
+            })
+            .catch(() => {
+                generateLocalLeaderboard();
+            });
+        }
+
+        function generateLocalLeaderboard() {
+            const container = document.getElementById('leaderboard-container');
+            container.innerHTML = '';
+            const dummies = [
+                { user_name: "ዮናስ ስልጣን", streak: 8 },
+                { user_name: "ሳሚ_77", streak: 6 },
+                { user_name: userName + " (አንተ)", streak: Math.max(currentStreak, 3) },
+                { user_name: "እንዳልካቸው", streak: 2 },
+                { user_name: "ማርታ_ፍቅር", streak: 1 }
+            ];
+            dummies.sort((a,b) => b.streak - a.streak).forEach((leader, idx) => {
+                const rank = idx + 1;
+                const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
+                const crown = rank === 1 ? '👑 ' : '';
+                const div = document.createElement('div');
+                div.className = `leaderboard-item ${rankClass}`;
+                div.innerHTML = `
+                    <div class="leaderboard-user">
+                        <div class="rank-badge">${rank}</div>
+                        <span><b>${crown}${leader.user_name}</b></span>
+                    </div>
+                    <span style="color: var(--gold-color); font-weight: bold;">${leader.streak} Streak 🔥</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function closeModal(id) { 
+            if (isWheelSpinning) return;
+            document.getElementById(id).style.display = 'none'; 
+        }
 
         function selectChoice(choice) {
             if (isSpinning) return;
@@ -676,7 +1204,7 @@
         }
 
         // ==========================================
-        // ADVANCED PHYSICS SPINNING LOGIC (WITH SOUND)
+        // FLIP LOGIC (WITH CONFETTI TRIGGER)
         // ==========================================
         function playGame() {
             const betInput = document.getElementById('bet-amount');
@@ -694,27 +1222,31 @@
                 tg.showAlert('የመደብ መጠን ቢያንስ 2 ብር መሆን አለበት!');
                 return;
             }
+            if (betAmount > userBalance) {
+                tg.showAlert('በቂ የብር መጠን የሎትም! እባክዎ መጀመሪያ ሂሳብዎን ይሙሉ!');
+                return;
+            }
 
             isSpinning = true;
             flipBtn.disabled = true;
             resultText.innerText = "ሳንቲሙ በአየር ላይ እየተገላበጠ ነው... 🪙";
 
-            // play audio
-            spinSound.currentTime = 0;
-            spinSound.play().catch(e => console.log("Audio play blocked by browser."));
-
-            // Start 3D toss animation
             container.classList.remove('animate-toss');
             container.offsetHeight; 
             container.classList.add('animate-toss');
 
-            // Rapid tumbling rotation
             let currentX = 0;
             let currentY = 0;
+            let soundTicks = 0;
             const spinInterval = setInterval(() => {
                 currentX += Math.floor(Math.random() * 80) + 40;
                 currentY += Math.floor(Math.random() * 80) + 40;
                 coin.style.transform = `rotateX(${currentX}deg) rotateY(${currentY}deg)`;
+                
+                if (soundTicks % 3 === 0) {
+                    playTumbleSound();
+                }
+                soundTicks++;
             }, 50);
 
             fetch('/api/coin_flip', {
@@ -723,20 +1255,19 @@
                 body: JSON.stringify({
                     user_id: userId,
                     bet_amount: betAmount,
-                    choice: selectedChoice
+                    choice: selectedChoice,
+                    streak: currentStreak
                 })
             })
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'error') {
                     clearInterval(spinInterval);
-                    spinSound.pause();
                     tg.showAlert(data.message);
                     resetGameUI();
                     return;
                 }
 
-                // Smoothly stop the tumble and align with the result
                 setTimeout(() => {
                     clearInterval(spinInterval);
                     coin.style.transition = 'transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
@@ -747,14 +1278,38 @@
                         coin.style.transform = 'rotateX(0deg) rotateY(1620deg)';
                     }
 
-                    // Sound on landing
                     setTimeout(() => {
-                        spinSound.pause();
-                        landSound.currentTime = 0;
-                        landSound.play().catch(e => console.log("Audio blocked."));
+                        playClinkSound();
 
                         resultText.innerText = data.message;
-                        document.getElementById('user-balance').innerText = parseFloat(data.new_balance).toFixed(2);
+                        userBalance = parseFloat(data.new_balance);
+                        document.getElementById('user-balance').innerText = userBalance.toFixed(2);
+                        
+                        todayGamesCount++;
+                        document.getElementById('games-today').innerText = todayGamesCount;
+                        
+                        if (data.message.includes('አሸንፈዋል') || data.status === 'win') {
+                            currentStreak++;
+                            
+                            // Trigger Normal Win Confetti Animation
+                            spawnConfetti(70);
+
+                            // Check for 3-streak multiplier bonus trigger
+                            if (currentStreak === 3) {
+                                playStreakFanfare();
+                                spawnConfetti(180); // Bigger Confetti blast
+
+                                const popup = document.getElementById('streak-popup');
+                                popup.classList.add('show');
+                                setTimeout(() => {
+                                    popup.classList.remove('show');
+                                }, 3000);
+                            }
+                        } else {
+                            currentStreak = 0;
+                        }
+                        
+                        document.getElementById('streak-count').innerText = `${currentStreak} ጊዜ`;
                         resetGameUI();
                     }, 800);
 
@@ -762,7 +1317,6 @@
             })
             .catch(err => {
                 clearInterval(spinInterval);
-                spinSound.pause();
                 console.error(err);
                 tg.showAlert('የሰርቨር ግንኙነት ችግር ተፈጥሯል!');
                 resetGameUI();
@@ -773,6 +1327,78 @@
             isSpinning = false;
             document.getElementById('flip-btn').disabled = false;
             document.getElementById('game-coin').style.transition = 'none';
+        }
+
+        // ==========================================
+        // FORTUNE WHEEL SPIN LOGIC (DAILY BONUS)
+        // ==========================================
+        function spinDailyWheel() {
+            if (isWheelSpinning) return;
+
+            const wheel = document.getElementById('bonus-wheel');
+            const spinBtn = document.getElementById('spin-wheel-btn');
+            const status = document.getElementById('wheel-status');
+
+            isWheelSpinning = true;
+            spinBtn.disabled = true;
+            status.innerText = "ዕድልዎ እየተሽከረከረ ነው... 🍀";
+
+            let wheelSoundInterval = setInterval(() => {
+                playTumbleSound();
+            }, 180);
+
+            fetch('/api/claim_daily', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const amount = data.gift_amount;
+                    
+                    let degrees = 0;
+                    if (amount === 1) degrees = 1800 + 324;
+                    else if (amount === 2) degrees = 1800 + 252;
+                    else if (amount === 5) degrees = 1800 + 180;
+                    else if (amount === 3) degrees = 1800 + 108;
+                    else if (amount === 4) degrees = 1800 + 36;
+
+                    wheel.style.transform = `rotate(${degrees}deg)`;
+
+                    setTimeout(() => {
+                        clearInterval(wheelSoundInterval);
+                        playStreakFanfare();
+                        
+                        // Spawn Confetti Celebration for Daily Bonus Win
+                        spawnConfetti(90);
+
+                        status.innerText = `እንኳን ደስ አለዎት! 🎁 ${amount} ብር አሸንፈዋል!`;
+                        
+                        document.getElementById('free-gift-btn').innerText = "ተወስዷል";
+                        document.getElementById('free-gift-btn').style.color = "#8a8a8a";
+                        document.getElementById('free-gift-btn').onclick = null;
+                        
+                        loadBalance();
+                        isWheelSpinning = false;
+                        spinBtn.disabled = false;
+                    }, 4000);
+
+                } else {
+                    clearInterval(wheelSoundInterval);
+                    tg.showAlert(data.message);
+                    status.innerText = "ዛሬ ቀድመው ወስደዋል!";
+                    isWheelSpinning = false;
+                    spinBtn.disabled = false;
+                }
+            })
+            .catch(err => {
+                clearInterval(wheelSoundInterval);
+                console.error(err);
+                tg.showAlert("ማሽከርከር አልተቻለም!");
+                isWheelSpinning = false;
+                spinBtn.disabled = false;
+            });
         }
 
         function submitDeposit() {
@@ -807,9 +1433,10 @@
             const bank = document.getElementById('wit-bank').value;
             const accName = document.getElementById('wit-acc-name').value;
             const phone = document.getElementById('wit-phone').value;
+            const userPhone = document.getElementById('wit-user-phone').value;
             const amount = parseFloat(document.getElementById('wit-amount').value);
 
-            if (!bank || !accName || !phone || isNaN(amount) || amount <= 0) {
+            if (!bank || !accName || !phone || !userPhone || isNaN(amount) || amount <= 0) {
                 tg.showAlert("እባክዎ ሁሉንም መረጃዎች በትክክል ያስገቡ!");
                 return;
             }
@@ -821,7 +1448,8 @@
                     user_id: userId,
                     user_name: userName,
                     amount: amount,
-                    phone: phone,
+                    account_number: phone,
+                    phone_number: userPhone,
                     bank_name: bank,
                     account_name: accName
                 })
