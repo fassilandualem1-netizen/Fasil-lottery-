@@ -1,1 +1,474 @@
-h
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>የሰፈር ጨዋታዎች - ዘውድና ጎፈር</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+            background: #090d16; 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            color: #fff; 
+            overflow-x: hidden; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Top Header */
+        .game-header {
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            background: #111827; 
+            padding: 12px; 
+            border-bottom: 2px solid #1f2937;
+        }
+
+        .exit-btn {
+            background: #ef4444; 
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            border-radius: 8px; 
+            font-weight: bold; 
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .balance-box { 
+            font-weight: 900; 
+            color: #10b981; 
+            font-size: 16px; 
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.3); 
+        }
+
+        .game-container {
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* 3D Coin Wrapper & Flip Styling */
+        .coin-wrapper {
+            perspective: 1000px;
+            margin: 40px 0;
+        }
+
+        .coin {
+            width: 150px;
+            height: 150px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .coin div {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            border-radius: 50%;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.4rem;
+            border: 5px solid #d4af37; /* የወርቅ ከለር */
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.4), inset 0 0 20px rgba(0,0,0,0.5);
+            box-sizing: border-box;
+        }
+
+        .coin .heads {
+            background: linear-gradient(135deg, #fcd34d, #b45309);
+            color: #fff;
+        }
+
+        .coin .tails {
+            background: linear-gradient(135deg, #fcd34d, #b45309);
+            color: #fff;
+            transform: rotateY(180deg);
+        }
+
+        .coin-icon {
+            font-size: 3.5rem;
+            margin-bottom: 5px;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+
+        /* Animation Keyframes */
+        .flip-heads {
+            animation: spinHeads 1.2s forwards ease-out;
+        }
+        .flip-tails {
+            animation: spinTails 1.2s forwards ease-out;
+        }
+
+        @keyframes spinHeads {
+            0% { transform: rotateY(0); }
+            100% { transform: rotateY(1800deg); } /* 5 ሙሉ ዙር ዞሮ 0 ላይ ያርፋል */
+        }
+
+        @keyframes spinTails {
+            0% { transform: rotateY(0); }
+            100% { transform: rotateY(1980deg); } /* 5 ዙር ተኩል ዞሮ 180 ዲግሪ ጀርባውን ያሳያል */
+        }
+
+        /* Game Controls */
+        .controls-panel {
+            width: 100%;
+            background: #111827;
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid #1f2937;
+            box-sizing: border-box;
+        }
+
+        .choice-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .choice-btn {
+            background: #1f2937;
+            border: 2px solid #374151;
+            color: #9ca3af;
+            padding: 15px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .choice-btn.selected {
+            border-color: #10b981;
+            color: white;
+            background: rgba(16, 185, 129, 0.1);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+        }
+
+        .bet-adjuster {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .bet-input-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .adj-btn {
+            background: #374151; 
+            color: white; 
+            border: none; 
+            width: 36px; 
+            height: 36px; 
+            border-radius: 8px; 
+            font-weight: bold;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        #bet-amount {
+            width: 80px; 
+            text-align: center; 
+            background: #1f2937; 
+            border: 1px solid #374151; 
+            color: white; 
+            padding: 8px; 
+            font-size: 16px; 
+            font-weight: bold; 
+            border-radius: 6px;
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, #10b981, #047857);
+            padding: 15px;
+            font-size: 16px;
+            border-radius: 12px;
+            color: white;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .action-btn:disabled {
+            background: #374151;
+            color: #9ca3af;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* Result Display Status Overlay */
+        .status-msg {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-top: 15px;
+            min-height: 30px;
+            text-align: center;
+        }
+
+        /* Result Modal */
+        .modal { 
+            position: fixed; 
+            z-index: 10000; 
+            left: 0; 
+            top: 0; 
+            width: 100%; 
+            height: 100%; 
+            background-color: rgba(0,0,0,0.85); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+        }
+        .modal-content { 
+            background-color: #1e293b; 
+            color: white; 
+            padding: 25px; 
+            border-radius: 20px; 
+            width: 85%; 
+            max-width: 360px; 
+            text-align: center; 
+            border: 1px solid #334155;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="game-header">
+        <button id="exit-btn" class="exit-btn" onclick="goToMainMenu()"><i class="fas fa-arrow-left"></i> ማውጫ</button>
+        <div class="balance-box">💰 <span id="game-balance">0.00</span> ብር</div>
+        <div style="width: 75px;"></div> <!-- ሚዛን ለመጠበቅ -->
+    </div>
+
+    <div class="game-container">
+        
+        <h2 style="margin: 5px 0 0 0; color: #fcd34d;">🪙 እጥፍ ወይስ ባዶ</h2>
+        <p style="color: #94a3b8; font-size: 0.9rem; margin: 5px 0 0 0;">ምርጫዎን ይምረጡና ሳንቲሙን ያሽከርክሩ!</p>
+
+        <!-- 3D Coin Arena -->
+        <div class="coin-wrapper">
+            <div class="coin" id="coin">
+                <div class="heads">
+                    <span class="coin-icon">👑</span>
+                    <span>ዘውድ</span>
+                </div>
+                <div class="tails">
+                    <span class="coin-icon">🦁</span>
+                    <span>ጎፈር</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="status-text" class="status-msg" style="color: #94a3b8;">ምርጫዎን በመጠባበቅ ላይ...</div>
+        <br>
+
+        <!-- Controls panel -->
+        <div class="controls-panel">
+            
+            <!-- Choice Selection Grid -->
+            <div class="choice-grid">
+                <button id="btn-heads" class="choice-btn" onclick="selectSide('heads')">
+                    <span style="font-size: 2rem;">👑</span>
+                    <span>ዘውድ</span>
+                </button>
+                <button id="btn-tails" class="choice-btn" onclick="selectSide('tails')">
+                    <span style="font-size: 2rem;">🦁</span>
+                    <span>ጎፈር</span>
+                </button>
+            </div>
+
+            <!-- Bet Adjuster -->
+            <div class="bet-adjuster">
+                <span style="font-weight: bold; color: #9ca3af; font-size: 0.95rem;">የውርርድ መጠን፦</span>
+                <div class="bet-input-box">
+                    <button class="adj-btn" onclick="adjustBet(-5)">-</button>
+                    <input type="number" id="bet-amount" value="10" readonly>
+                    <button class="adj-btn" onclick="adjustBet(5)">+</button>
+                </div>
+            </div>
+
+            <button id="flip-btn" class="action-btn" onclick="startCoinFlip()">🪙 ሳንቲሙን አሽከርክር</button>
+        </div>
+
+    </div>
+
+    <!-- Result PopUp Modal -->
+    <div id="result-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2 id="modal-title" style="margin-bottom: 10px;"></h2>
+            <div id="modal-body" style="background-color: #0f172a; padding: 15px; border-radius: 12px; font-size: 1.1rem; margin: 15px 0; border: 1px solid #10b981;"></div>
+            <button onclick="closeModal()" style="background: #10b981; color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; font-size: 1rem;">እሺ ቀጥል</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        if(tg) tg.expand();
+
+        const initData = tg.initData || ""; 
+        const userData = tg.initDataUnsafe?.user || { id: "8488592165", first_name: "የሰፈር ልጅ" };
+        const userId = userData.id.toString();
+
+        let currentBalance = 0;
+        let selectedSide = null;
+        let isFlipping = false;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            fetchBalance();
+            setInterval(fetchBalance, 6000);
+        });
+
+        function goToMainMenu() {
+            if (isFlipping) return;
+            window.location.href = '/';
+        }
+
+        async function fetchBalance() {
+            try {
+                const res = await fetch('/api/get_balance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await res.json();
+                if (data.status === "success") {
+                    currentBalance = data.balance;
+                    document.getElementById("game-balance").innerText = currentBalance.toFixed(2);
+                }
+            } catch (e) { console.error("ባላንስ መጫን አልተቻለም", e); }
+        }
+
+        function selectSide(side) {
+            if (isFlipping) return;
+            selectedSide = side;
+            document.getElementById("btn-heads").classList.toggle("selected", side === 'heads');
+            document.getElementById("btn-tails").classList.toggle("selected", side === 'tails');
+            document.getElementById("status-text").innerText = side === 'heads' ? "የመረጡት፡ ዘውድ 👑" : "የመረጡት፡ ጎፈር 🦁";
+            document.getElementById("status-text").style.color = "#fcd34d";
+        }
+
+        function adjustBet(amount) {
+            if (isFlipping) return;
+            const betInput = document.getElementById('bet-amount');
+            let val = parseInt(betInput.value || 10) + amount;
+            if (val >= 5) betInput.value = val;
+        }
+
+        function startCoinFlip() {
+            if (isFlipping) return;
+            if (!selectedSide) return alert("እባክዎ መጀመሪያ ዘውድ ወይም ጎፈር ይምረጡ!");
+
+            const betAmount = parseInt(document.getElementById('bet-amount').value);
+            if (betAmount > currentBalance) return alert("ይቅርታ፣ ውርርድ ለማስያዝ በቂ ባላንስ የለዎትም!");
+
+            isFlipping = true;
+            document.getElementById("flip-btn").disabled = true;
+            document.getElementById("exit-btn").disabled = true;
+            document.getElementById("status-text").innerText = "ሳንቲሙ እየተሽከረከረ ነው... ⏳";
+            document.getElementById("status-text").style.color = "#94a3b8";
+
+            const coin = document.getElementById("coin");
+            // የቀድሞ አኒሜሽን ካለ ክሊር ማድረግ
+            coin.classList.remove("flip-heads", "flip-tails");
+            void coin.offsetWidth; // CSS ለመቀስቀስ (reflow)
+
+            // 50/50 የዘፈቀደ የኮምፒውተር ስሌት (ሊገመት የማይችል!)
+            let rand = Math.random();
+            let finalResult = rand < 0.5 ? 'heads' : 'tails';
+
+            // አኒሜሽኑን መጀመር
+            if (finalResult === 'heads') {
+                coin.classList.add("flip-heads");
+            } else {
+                coin.classList.add("flip-tails");
+            }
+
+            // አኒሜሽኑ ሲያበቃ (ከ 1.2 ሰከንድ በኋላ) ውጤቱን ማስላት
+            setTimeout(() => {
+                processResult(finalResult, betAmount);
+            }, 1200);
+        }
+
+        async function processResult(finalResult, betAmount) {
+            let didWin = selectedSide === finalResult;
+            let multiplier = 1.90; // 1.90x ማባዣ (10 ብር መደብ 19 ብር ያሸንፋል)
+            let winAmount = didWin ? (betAmount * multiplier) : 0;
+
+            let resultAmharic = finalResult === 'heads' ? 'ዘውድ 👑' : 'ጎፈር 🦁';
+
+            // ወደ API መረጃ መላክ
+            try {
+                await fetch('/api/race_result', { // የፈረስ API መጋሪያውን ለዚህም ተጠቅመንበታል
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        user_id: userId, 
+                        bet_amount: betAmount, 
+                        did_win: didWin, 
+                        win_amount: winAmount, 
+                        details: `ዘውድና ጎፈር ጨዋታ (የወጣው: ${resultAmharic})` 
+                    })
+                });
+            } catch (e) { console.error("ውጤት መላክ አልተቻለም", e); }
+
+            // ውጤቱን በፖፕ አፕ ማሳየት
+            const modalTitle = document.getElementById("modal-title");
+            const modalBody = document.getElementById("modal-body");
+            const modal = document.getElementById("result-modal");
+
+            if (didWin) {
+                modalTitle.innerText = "🎉 እንኳን ደስ አለዎት!";
+                modalTitle.style.color = "#10b981";
+                modalBody.parentNode.style.borderColor = "#10b981";
+                modalBody.innerHTML = `የወጣው ውጤት: <strong>${resultAmharic}</strong><br><br><span style="color:#10b981; font-weight:900; font-size:1.3rem;">+ ${winAmount.toFixed(2)} ብር አሸንፈዋል!</span>`;
+            } else {
+                modalTitle.innerText = "😞 አልደረሰዎትም!";
+                modalTitle.style.color = "#ef4444";
+                modalBody.parentNode.style.borderColor = "#ef4444";
+                modalBody.innerHTML = `የወጣው ውጤት: <strong>${resultAmharic}</strong><br>የእርስዎ ምርጫ: <strong>${selectedSide === 'heads' ? 'ዘውድ 👑' : 'ጎፈር 🦁'}</strong><br><br><span style="color:#ef4444;">በሚቀጥለው ይሞክሩ፣ ዕድልዎ ሊቀና ይችላል!</span>`;
+            }
+
+            modal.style.display = "flex";
+
+            // ሁኔታዎችን ወደ መጀመሪያው መመለስ
+            isFlipping = false;
+            document.getElementById("flip-btn").disabled = false;
+            document.getElementById("exit-btn").disabled = false;
+            document.getElementById("status-text").innerText = "ጨዋታው ተጠናቋል። በድጋሚ ይጫወቱ!";
+            
+            fetchBalance();
+        }
+
+        function closeModal() {
+            document.getElementById("result-modal").style.display = "none";
+            // ሳንቲሙን ወደ መጀመሪያ ቦታው መመለስ
+            document.getElementById("coin").classList.remove("flip-heads", "flip-tails");
+        }
+    </script>
+</body>
+</html>
