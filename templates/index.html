@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>የሰፈር ጨዋታዎች</title>
+    <title>ዘውድና ጎፈር</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -125,6 +125,7 @@
             margin-bottom: 80px;
         }
 
+        /* CHANGED: Welcome layout */
         .welcome-msg {
             text-align: center;
             margin-top: 10px;
@@ -351,7 +352,6 @@
             background-color: rgba(255, 215, 0, 0.1);
         }
 
-        /* MODIFIED Multiplier Buttons Layout (Removed 2X) */
         .multiplier-bar {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -418,9 +418,20 @@
 
         .result-alert {
             text-align: center;
-            font-size: 1.05rem;
+            font-size: 1.2rem;
             font-weight: bold;
             min-height: 25px;
+            transition: color 0.3s ease;
+        }
+        
+        .result-won {
+            color: #4e9f3d;
+            text-shadow: 0 0 10px rgba(78, 159, 61, 0.3);
+        }
+
+        .result-lose {
+            color: #e94560;
+            text-shadow: 0 0 10px rgba(233, 69, 96, 0.3);
         }
 
         .back-nav {
@@ -659,7 +670,6 @@
 </head>
 <body>
 
-    <!-- Native Canvas Confetti Effect (No external library required) -->
     <canvas id="confetti-canvas"></canvas>
 
     <!-- Upper Header -->
@@ -669,7 +679,6 @@
             <span id="user-name">የሰፈር ልጅ</span>
         </div>
         <div class="header-actions">
-            <!-- Leaderboard Trophy Trigger Button -->
             <div class="leaderboard-trigger" onclick="openLeaderboard()" title="የመሪዎች ሰሌዳ">
                 <i class="fas fa-trophy"></i>
             </div>
@@ -682,8 +691,9 @@
 
     <!-- 1. MAIN MENU VIEW -->
     <div class="container" id="main-view">
+        <!-- CHANGED: "ሰላም" to "Welcome" -->
         <div class="welcome-msg">
-            <h1>ሰላም፣ <span id="welcome-name">ተጫዋች</span>!</h1>
+            <h1>Welcome, <span id="welcome-name">ተጫዋች</span>!</h1>
             <p>የሚወዱትን ጨዋታ ይምረጡና ዕድልዎን ይሞክሩ።</p>
         </div>
 
@@ -703,7 +713,6 @@
             </div>
         </div>
 
-        <!-- TRANSLATED ACTION BUTTONS -->
         <div class="actions-grid">
             <button class="action-btn" onclick="openDepositModal()">
                 <i class="fas fa-arrow-down" style="color: #4e9f3d;"></i> ብር አስገባ
@@ -716,13 +725,12 @@
         <h2>🎮 ጨዋታዎች</h2>
         
         <div class="games-list">
-            <!-- UPDATED GAME TITLE -->
             <div class="game-card" onclick="switchToGame()">
                 <div class="game-details">
                     <div class="game-icon">🪙</div>
                     <div class="game-info">
-                        <h3>ዘውድ ወይስ ጎፈር</h3>
-                        <p>ዘውድ ወይስ ጎፈር? የመረጡት ከመጣ ባላንስዎን እጥፍ ያድርጉ!</p>
+                        <h3>ዘውድና ጎፈር</h3>
+                        <p>ምርጫዎን ይምረጡና ዕድልዎን ይሞክሩ!</p>
                     </div>
                 </div>
                 <div class="play-arrow"><i class="fas fa-chevron-right"></i></div>
@@ -732,7 +740,6 @@
 
     <!-- 2. COIN FLIP GAME VIEW -->
     <div class="container" id="game-view" style="display: none; position: relative;">
-        <!-- Streak Multiplier Popup alert inside the game area -->
         <div class="streak-badge-popup" id="streak-popup">
             <div style="font-size: 3rem;">🔥 1.5X</div>
             <div style="font-size: 1.2rem; margin-top: 5px;">ተከታታይ 3ኛ ድል!</div>
@@ -743,12 +750,12 @@
             <i class="fas fa-arrow-left"></i> ወደ ማውጫ ተመለስ
         </div>
 
+        <!-- CHANGED: Professional Clean Subtitle & Header -->
         <div style="text-align: center;">
             <h2 style="margin: 5px 0;">🪙 ዘውድና ጎፈር</h2>
-            <p style="color: #aaa; margin: 0; font-size: 0.9rem;">ፍጹም የማይገመት የሳይንስ አልጎሪዝም!</p>
+            <p style="color: #aaa; margin: 0; font-size: 0.95rem;">ዕድልዎን ይሞክሩ!</p>
         </div>
         
-        <!-- Interactive 3D Real Physics Coin -->
         <div class="coin-wrapper" id="coin-container">
             <div class="coin" id="game-coin">
                 <div class="coin-side coin-front">
@@ -762,6 +769,7 @@
             </div>
         </div>
 
+        <!-- Result Text Area -->
         <div class="result-alert" id="result-text">ምርጫዎን ይምረጡና ይጫወቱ!</div>
 
         <!-- Controls Card -->
@@ -779,7 +787,6 @@
 
             <div class="input-group">
                 <label>የውርርድ መጠን (ቢያንስ 2 ብር)</label>
-                <!-- MODIFIED Multiplier Buttons (Removed 2X Button) -->
                 <div class="multiplier-bar">
                     <button class="multi-btn" onclick="applyMultiplier('min')">Min (2)</button>
                     <button class="multi-btn" onclick="applyMultiplier('half')">1/2 (ግማሽ)</button>
@@ -801,7 +808,7 @@
     </div>
 
     <!-- Modals -->
-    <!-- Deposit Modal (Translated Title) -->
+    <!-- Deposit Modal -->
     <div class="modal" id="depositModal">
         <div class="modal-content">
             <h3>💳 ብር ማስገቢያ</h3>
@@ -815,7 +822,7 @@
         </div>
     </div>
 
-    <!-- Withdraw Modal (Translated Title) -->
+    <!-- Withdraw Modal -->
     <div class="modal" id="withdrawModal">
         <div class="modal-content">
             <h3>💸 ብር ማውጫ</h3>
@@ -883,7 +890,7 @@
 
     <script>
         // ==========================================
-        // LOCAL NATIVE CONFETTI ENGINE (HTML5 Canvas)
+        // LOCAL NATIVE CONFETTI ENGINE
         // ==========================================
         const canvas = document.getElementById("confetti-canvas");
         const ctx = canvas.getContext("2d");
@@ -1034,7 +1041,7 @@
         
         let todayGamesCount = 0;
         let currentStreak = 0;
-        let userBalance = 435.00; // ስክሪንሹቱ ላይ ባለው መሰረት 435 ብር
+        let userBalance = 435.00; 
 
         if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
             userId = tg.initDataUnsafe.user.id;
@@ -1063,14 +1070,11 @@
             .catch(err => console.error("Error loading balance:", err));
         }
 
-        // ==========================================
-        // MULTIPLIER BUTTONS CONTROLLER
-        // ==========================================
         function applyMultiplier(type) {
             const betInput = document.getElementById('bet-amount');
             if (isNaN(userBalance) || userBalance <= 0) return;
 
-            let calculatedBet = 2; // Default fallback to minimum
+            let calculatedBet = 2; 
 
             if (type === 'min') {
                 calculatedBet = 2;
@@ -1119,7 +1123,7 @@
         }
 
         // ==========================================
-        // LEADERBOARD LOAD ENGINE
+        // DYNAMIC & FIXED LEADERBOARD SYSTEM
         // ==========================================
         function openLeaderboard() {
             document.getElementById('leaderboardModal').style.display = 'flex';
@@ -1134,23 +1138,7 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success' && data.leaders.length > 0) {
-                    container.innerHTML = '';
-                    data.leaders.forEach((leader, idx) => {
-                        const rank = idx + 1;
-                        const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
-                        const crown = rank === 1 ? '👑 ' : '';
-                        
-                        const div = document.createElement('div');
-                        div.className = `leaderboard-item ${rankClass}`;
-                        div.innerHTML = `
-                            <div class="leaderboard-user">
-                                <div class="rank-badge">${rank}</div>
-                                <span><b>${crown}${leader.user_name}</b></span>
-                            </div>
-                            <span style="color: var(--gold-color); font-weight: bold;">${leader.streak} Streak 🔥</span>
-                        `;
-                        container.appendChild(div);
-                    });
+                    renderLeaderboard(data.leaders);
                 } else {
                     generateLocalLeaderboard();
                 }
@@ -1160,20 +1148,33 @@
             });
         }
 
-        function generateLocalLeaderboard() {
+        function renderLeaderboard(leaders) {
             const container = document.getElementById('leaderboard-container');
             container.innerHTML = '';
-            const dummies = [
-                { user_name: "ዮናስ ስልጣን", streak: 8 },
-                { user_name: "ሳሚ_77", streak: 6 },
-                { user_name: userName + " (አንተ)", streak: Math.max(currentStreak, 3) },
-                { user_name: "እንዳልካቸው", streak: 2 },
-                { user_name: "ማርታ_ፍቅር", streak: 1 }
-            ];
-            dummies.sort((a,b) => b.streak - a.streak).forEach((leader, idx) => {
+            
+            // Ensure current user is in the list with correct dynamic values
+            let foundCurrentUser = false;
+            let list = leaders.map(l => {
+                if (l.user_id === userId) {
+                    foundCurrentUser = true;
+                    return { ...l, user_name: userName + " (አንተ)", streak: Math.max(currentStreak, l.streak) };
+                }
+                return l;
+            });
+
+            if (!foundCurrentUser) {
+                list.push({ user_id: userId, user_name: userName + " (አንተ)", streak: currentStreak });
+            }
+
+            // Sort descending by streak and slice top 5
+            list.sort((a, b) => b.streak - a.streak);
+            list = list.slice(0, 5);
+
+            list.forEach((leader, idx) => {
                 const rank = idx + 1;
                 const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
                 const crown = rank === 1 ? '👑 ' : '';
+                
                 const div = document.createElement('div');
                 div.className = `leaderboard-item ${rankClass}`;
                 div.innerHTML = `
@@ -1185,6 +1186,21 @@
                 `;
                 container.appendChild(div);
             });
+        }
+
+        function generateLocalLeaderboard() {
+            const container = document.getElementById('leaderboard-container');
+            container.innerHTML = '';
+            
+            const dummies = [
+                { user_id: 991, user_name: "ዮናስ ስልጣን", streak: 8 },
+                { user_id: 992, user_name: "ሳሚ_77", streak: 6 },
+                { user_id: userId, user_name: userName + " (አንተ)", streak: currentStreak },
+                { user_id: 994, user_name: "እንዳልካቸው", streak: 2 },
+                { user_id: 995, user_name: "ማርታ_ፍቅር", streak: 1 }
+            ];
+            
+            renderLeaderboard(dummies);
         }
 
         function closeModal(id) { 
@@ -1200,7 +1216,7 @@
         }
 
         // ==========================================
-        // FLIP LOGIC (With Dynamic Wallet & Proper Streak Reset)
+        // FLIP LOGIC (With Dynamic Wallet, Won/Lose Alerts)
         // ==========================================
         function playGame() {
             const betInput = document.getElementById('bet-amount');
@@ -1223,7 +1239,10 @@
                 return;
             }
 
-            // 1. መደቡ ወዲያው ከዋሌቱ ይቀነሳል
+            // Remove previous result styling
+            resultText.className = "result-alert";
+
+            // 1. Deduct bet amount immediately
             userBalance -= betAmount;
             document.getElementById('user-balance').innerText = userBalance.toFixed(2);
 
@@ -1249,27 +1268,15 @@
                 soundTicks++;
             }, 50);
 
-            // Client-side fallback logic (If back-end connection is lost)
+            // Local fallback simulator logic
             const fallbackCoinFlip = () => {
                 const randomVal = Math.random() < 0.5 ? 'ዘውድ' : 'ጎፈር';
                 const isWin = selectedChoice === randomVal;
-                let addedWinBalance = 0;
-                let message = "";
-
-                if (isWin) {
-                    // ሲያሸንፍ የራሱ መደብ + ማሸነፊያው (2x) ሙሉ በሙሉ ተመልሶ ይደመርለታል
-                    addedWinBalance = betAmount * 2;
-                    message = `🎉 እንኳን ደስ አለዎት! ውጤቱ ${randomVal} ሆኗል። ${betAmount} ብር አሸንፈዋል!`;
-                } else {
-                    addedWinBalance = 0;
-                    message = `😢 ድጋሚ ይሞክሩ! ውጤቱ ${randomVal} ሆኗል። ${betAmount} ብር ተሸንፈዋል።`;
-                }
-
+                let winAddition = isWin ? (betAmount * 2) : 0;
                 return {
                     status: isWin ? 'win' : 'lose',
                     result: randomVal,
-                    win_addition: addedWinBalance,
-                    message: message
+                    win_addition: winAddition
                 };
             };
 
@@ -1291,7 +1298,6 @@
                 if (data.status === 'error') {
                     clearInterval(spinInterval);
                     tg.showAlert(data.message);
-                    // በሰርቨር ስህተት ጨዋታው ካልተጀመረ የተቆረጠውን ይመልሳል
                     userBalance += betAmount;
                     document.getElementById('user-balance').innerText = userBalance.toFixed(2);
                     resetGameUI();
@@ -1320,21 +1326,21 @@
                 setTimeout(() => {
                     playClinkSound();
 
-                    resultText.innerText = data.message;
-                    
-                    // አሸናፊ ከሆነ ሙሉው ይጨመርለታል
+                    // CHANGED: Professional "Won X ብር" / "Lose" alert display
                     if (data.status === 'win') {
-                        // የሰርቨር ምላሽ አዲስ ባላንስ ከላከ እሱን እንጠቀማለን፣ ካልሆነ በlocal ስሌት እንደምራለን
+                        const winAmount = (betAmount * 2);
+                        resultText.innerText = `Won ${winAmount.toFixed(2)} ብር`;
+                        resultText.className = "result-alert result-won";
+
                         if (data.new_balance !== undefined) {
                             userBalance = parseFloat(data.new_balance);
                         } else {
-                            userBalance += (betAmount * 2);
+                            userBalance += winAmount;
                         }
                         
                         currentStreak++;
                         spawnConfetti(70);
 
-                        // ተከታታይ 3 ጊዜ በትክክል ካሸነፈ ብቻ ነው የ streak popup የሚመጣው
                         if (currentStreak === 3) {
                             playStreakFanfare();
                             spawnConfetti(180); 
@@ -1346,7 +1352,9 @@
                             }, 3000);
                         }
                     } else {
-                        // መሃል ላይ ከተሸነፈ Streak ወዲያውኑ ይበላሻል (ወደ 0 ይመለሳል)
+                        resultText.innerText = "Lose";
+                        resultText.className = "result-alert result-lose";
+                        
                         currentStreak = 0;
                         if (data.new_balance !== undefined) {
                             userBalance = parseFloat(data.new_balance);
@@ -1438,7 +1446,7 @@
                     
                     spawnConfetti(90);
 
-                    status.innerText = `እንኳን ደስ አለዎት! 🎁 ${amount} ብር አሸንፈዋል!`;
+                    status.innerText = `Won ${amount.toFixed(2)} ብር`;
                     
                     document.getElementById('free-gift-btn').innerText = "ተወስዷል";
                     document.getElementById('free-gift-btn').style.color = "#8a8a8a";
@@ -1488,7 +1496,7 @@
                     tg.showAlert("ስህተት ተፈጥሯል፣ እባክዎ እንደገና ይሞክሩ።");
                 }
             })
-            .catch(err => {
+            .catch(() => {
                 tg.showAlert("የማስገቢያ ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል!");
                 saveLocalHistory('ብር ማስገቢያ', amount, 'pending');
                 closeModal('depositModal');
@@ -1532,7 +1540,7 @@
                     tg.showAlert(data.message || "ስህተት ተፈጥሯል!");
                 }
             })
-            .catch(err => {
+            .catch(() => {
                 tg.showAlert("የወጪ ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል!");
                 userBalance -= amount;
                 loadBalance();
