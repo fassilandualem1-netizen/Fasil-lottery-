@@ -188,6 +188,91 @@
             background-color: var(--accent-color);
         }
 
+        /* Modals style */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal-content {
+            background-color: var(--card-bg);
+            border-radius: 15px;
+            padding: 20px;
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid var(--accent-color);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .modal-content h3 {
+            margin: 0;
+            color: var(--text-color);
+        }
+
+        .modal-content input, .modal-content select {
+            background-color: var(--bg-color);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 10px;
+            border-radius: 8px;
+            color: var(--light-text);
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .modal-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .modal-btn {
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .btn-submit {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .btn-close {
+            background-color: #555;
+            color: white;
+        }
+
+        /* History List Style */
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+
         /* Footer Navigation */
         .nav-bar {
             position: fixed;
@@ -237,7 +322,7 @@
     </div>
 
     <!-- Main Container -->
-    <div class="container">
+    <div class="container" id="main-view">
         
         <div class="welcome-msg">
             <h1>ሰላም፣ <span id="welcome-name">ተጫዋች</span>!</h1>
@@ -246,10 +331,10 @@
 
         <!-- Quick Actions -->
         <div class="actions-grid">
-            <button class="action-btn" onclick="tg.showAlert('የገቢ ማስገቢያ ሲስተም በቅርቡ ይዘመናል!')">
+            <button class="action-btn" onclick="openDepositModal()">
                 <i class="fas fa-arrow-down" style="color: #4e9f3d;"></i> ብር አስገባ
             </button>
-            <button class="action-btn" onclick="tg.showAlert('የወጪ መውጫ ሲስተም በቅርቡ ይዘመናል!')">
+            <button class="action-btn" onclick="openWithdrawModal()">
                 <i class="fas fa-arrow-up" style="color: #e94560;"></i> ብር አውጣ
             </button>
         </div>
@@ -258,8 +343,6 @@
         
         <!-- Game List Links -->
         <div class="games-list">
-            
-            <!-- Game: Coin Flip Only -->
             <a href="/coin_flip_game" class="game-card">
                 <div class="game-details">
                     <div class="game-icon">🪙</div>
@@ -270,42 +353,76 @@
                 </div>
                 <div class="play-arrow"><i class="fas fa-chevron-right"></i></div>
             </a>
-
         </div>
+    </div>
 
+    <!-- History View Container -->
+    <div class="container" id="history-view" style="display: none;">
+        <h2>📜 የጨዋታና የሂሳብ ታሪክ</h2>
+        <div class="history-list" id="history-container">
+            <p style="text-align: center; color: #8a8a8a;">ምንም ታሪክ የለም።</p>
+        </div>
+    </div>
+
+    <!-- Deposit Modal -->
+    <div class="modal" id="depositModal">
+        <div class="modal-content">
+            <h3>💳 ብር ማስገቢያ (Deposit)</h3>
+            <p style="font-size: 0.85rem; color: #ccc; margin: 0;">የባንክ ደረሰኝ (Screenshot) እዚህ ይስቀሉ</p>
+            <input type="number" id="dep-amount" placeholder="የብር መጠን (ምሳሌ፡ 100)" min="1">
+            <input type="file" id="dep-receipt" accept="image/*">
+            <div class="modal-buttons">
+                <button class="modal-btn btn-submit" onclick="submitDeposit()">ላክ</button>
+                <button class="modal-btn btn-close" onclick="closeModal('depositModal')">ዝጋ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Withdraw Modal -->
+    <div class="modal" id="withdrawModal">
+        <div class="modal-content">
+            <h3>💸 ብር ማውጫ (Withdraw)</h3>
+            <input type="text" id="wit-bank" placeholder="የባንክ ስም (ምሳሌ፡ ንግድ ባንክ)">
+            <input type="text" id="wit-acc-name" placeholder="የአካውንት ባለቤት ስም">
+            <input type="text" id="wit-phone" placeholder="የሂሳብ ቁጥር ወይም ስልክ">
+            <input type="number" id="wit-amount" placeholder="የብር መጠን">
+            <div class="modal-buttons">
+                <button class="modal-btn btn-submit" onclick="submitWithdraw()">ጠይቅ</button>
+                <button class="modal-btn btn-close" onclick="closeModal('withdrawModal')">ዝጋ</button>
+            </div>
+        </div>
     </div>
 
     <!-- Bottom Navigation Bar -->
     <div class="nav-bar">
-        <div class="nav-item active">
+        <div class="nav-item active" id="nav-games" onclick="switchTab('games')">
             <i class="fas fa-gamepad"></i>
             <span>ጨዋታዎች</span>
         </div>
-        <div class="nav-item" onclick="tg.showAlert('የታሪክ ማሳያ ገጽ በቅርቡ ይጨመራል!')">
+        <div class="nav-item" id="nav-history" onclick="switchTab('history')">
             <i class="fas fa-history"></i>
             <span>ታሪክ</span>
         </div>
     </div>
 
     <script>
-        // Telegram WebApp ማነሳሳት
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        let userId = 123456789; // ለሙከራ እንዲሆን 
+        let userId = 123456789;
         let userName = "የሰፈር ልጅ";
 
-        // እውነተኛ የ Telegram መረጃዎችን መውሰድ
         if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
             userId = tg.initDataUnsafe.user.id;
-            userName = tg.initDataUnsafe.user.first_name;
+            userName = tg.initDataUnsafe.user.first_name || "የሰፈር ልጅ";
             
             document.getElementById('user-name').innerText = userName;
             document.getElementById('welcome-name').innerText = userName;
-            document.getElementById('user-avatar').innerText = userName.charAt(0).toUpperCase();
+            // ስሙ ነጥብ ወይም ባዶ ከሆነ እንዳይበላሽ መከላከያ
+            const avatarChar = userName.trim() ? userName.trim().charAt(0).toUpperCase() : "U";
+            document.getElementById('user-avatar').innerText = avatarChar;
         }
 
-        // ባላንስ ከ API ላይ መጫን
         function loadBalance() {
             fetch('/api/get_balance', {
                 method: 'POST',
@@ -321,7 +438,128 @@
             .catch(err => console.error("Error loading balance:", err));
         }
 
-        // ገጹ ሲጫን ባላንሱን አምጣ
+        // Tab Switcher (ጨዋታዎች VS ታሪክ)
+        function switchTab(tab) {
+            if (tab === 'games') {
+                document.getElementById('main-view').style.display = 'flex';
+                document.getElementById('history-view').style.display = 'none';
+                document.getElementById('nav-games').classList.add('active');
+                document.getElementById('nav-history').classList.remove('active');
+            } else {
+                document.getElementById('main-view').style.display = 'none';
+                document.getElementById('history-view').style.display = 'flex';
+                document.getElementById('nav-games').classList.remove('active');
+                document.getElementById('nav-history').classList.add('active');
+                loadHistory();
+            }
+        }
+
+        // Modals Management
+        function openDepositModal() { document.getElementById('depositModal').style.display = 'flex'; }
+        function openWithdrawModal() { document.getElementById('withdrawModal').style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        // Submit Deposit
+        function submitDeposit() {
+            const amount = parseFloat(document.getElementById('dep-amount').value);
+            const receiptInput = document.getElementById('dep-receipt');
+            
+            if (isNaN(amount) || amount <= 0 || !receiptInput.files[0]) {
+                tg.showAlert("እባክዎ መጠን እና ደረሰኝ በትክክል ያስገቡ!");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('user_id', userId);
+            formData.append('user_name', userName);
+            formData.append('amount', amount);
+            formData.append('receipt', receiptInput.files[0]);
+
+            fetch('/api/deposit', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    tg.showAlert("የማስገቢያ ጥያቄዎ ለአድሚን ተልኳል! በቅርቡ ይጸድቃል።");
+                    closeModal('depositModal');
+                } else {
+                    tg.showAlert("ስህተት ተፈጥሯል፣ እባክዎ እንደገና ይሞክሩ።");
+                }
+            })
+            .catch(err => tg.showAlert("ሰርቨር ማግኘት አልተቻለም!"));
+        }
+
+        // Submit Withdraw
+        function submitWithdraw() {
+            const bank = document.getElementById('wit-bank').value;
+            const accName = document.getElementById('wit-acc-name').value;
+            const phone = document.getElementById('wit-phone').value;
+            const amount = parseFloat(document.getElementById('wit-amount').value);
+
+            if (!bank || !accName || !phone || isNaN(amount) || amount <= 0) {
+                tg.showAlert("እባክዎ ሁሉንም መረጃዎች በትክክል ያስገቡ!");
+                return;
+            }
+
+            fetch('/api/withdraw', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: userId,
+                    user_name: userName,
+                    amount: amount,
+                    phone: phone,
+                    bank_name: bank,
+                    account_name: accName
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    tg.showAlert("የወጪ ጥያቄዎ ለአድሚን ቀርቧል!");
+                    closeModal('withdrawModal');
+                } else {
+                    tg.showAlert(data.message || "ስህተት ተፈጥሯል!");
+                }
+            })
+            .catch(err => tg.showAlert("የግንኙነት ስህተት!"));
+        }
+
+        // Load History
+        function loadHistory() {
+            const container = document.getElementById('history-container');
+            container.innerHTML = '<p style="text-align: center; color: #8a8a8a;">በመጫን ላይ...</p>';
+
+            fetch('/api/get_history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success' && data.history.length > 0) {
+                    container.innerHTML = '';
+                    data.history.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'history-item';
+                        div.innerHTML = `
+                            <span><b>${item.type}</b></span>
+                            <span>${item.amount} ብር</span>
+                            <span style="color: ${item.status.includes('አሸንፏል') || item.status === 'completed' ? '#63e2b7' : '#e94560'}">${item.status}</span>
+                        `;
+                        container.appendChild(div);
+                    });
+                } else {
+                    container.innerHTML = '<p style="text-align: center; color: #8a8a8a;">ምንም ታሪክ አልተገኘም።</p>';
+                }
+            })
+            .catch(err => {
+                container.innerHTML = '<p style="text-align: center; color: #e94560;">ታሪኩን ማምጣት አልተቻለም።</p>';
+            });
+        }
+
         window.onload = loadBalance;
     </script>
 </body>
