@@ -43,7 +43,7 @@ def coin_flip_page():
     return render_template('coin_flip.html')
 
 # ==========================================
-# API Routes (Core Wallet & Coin Flip)
+# API Routes (Core Wallet & History)
 # ==========================================
 
 @server.route('/api/get_balance', methods=['POST'])
@@ -138,17 +138,17 @@ def handle_withdraw():
     return jsonify({"status": "success"})
 
 # ==========================================
-# Coin Flip Game Core Logic (Server-Side)
+# G1. Coin Flip Core Logic (With Streak Tracking)
 # ==========================================
 @server.route('/api/coin_flip', methods=['POST'])
 def coin_flip():
     data = request.json or {}
     user_id = data.get("user_id")
     bet_amount = float(data.get("bet_amount", 0))
-    choice = data.get("choice")  # "ዘውድ" ወይም "ጎፈር"
+    choice = data.get("choice")
     
-    if bet_amount <= 0:
-        return jsonify({"status": "error", "message": "ትክክለኛ የብር መጠን ያስገቡ!"})
+    if not user_id or bet_amount <= 0 or not choice:
+        return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ!"})
         
     current_balance = float(redis.hget("users:balance", user_id) or 0.0)
     if current_balance < bet_amount:
@@ -157,20 +157,40 @@ def coin_flip():
     sides = ["ዘውድ", "ጎፈር"]
     result = random.choice(sides)
     
+    # የተጠቃሚውን ስም ለLeaderboard ለማዘጋጀት ከቴሌግራም ዳታቤዝ ወይም በነባሪ መውሰድ
+    user_name = redis.hget("users:username", user_id) or f"ተጫዋች_{str(user_id)[-4:]}"
+    
     if choice == result:
-        # አሸናፊ ሲሆን ውርርዱን በ 2 አባዝተን የተጣራውን (net win = bet_amount) በRedis እንጨምራለን
-        redis.hincrbyfloat("users:balance", user_id, bet_amount)
+        # አሸናፊ ሲሆን የStreak ቁጥር በ 1 ይጨምራል
+        current_streak = int(redis.hincrby("users:current_streak", user_id, 1))
+        
+        # 3ኛ ተከታታይ ድል ላይ ሲደርስ 1.5x የStreak ቦነስ ማበረታቻ መስጠት
+        if current_streak == 3:
+            bonus_amount = bet_amount * 1.5
+            redis.hincrbyfloat("users:balance", user_id, bonus_amount)
+            msg = f"🪙 ውጤቱ {result} ሆኗል! 🔥 የ 3x STREAK ቦነስ ጨምሮ {bet_amount + bonus_amount} ብር አሸንፈዋል! 🎉"
+        else:
+            redis.hincrbyfloat("users:balance", user_id, bet_amount)
+            msg = f"🪙 ውጤቱ {result} ሆኗል! እንኳን ደስ አለዎት {bet_amount * 2} ብር አሸንፈዋል! 🎉"
+            
         status = "win"
-        msg = f"🪙 ውጤቱ {result} ሆኗል! እንኳን ደስ አለዎት {bet_amount * 2} ብር አሸንፈዋል! 🎉"
         status_history = "አሸንፏል 🎉"
+        
+        # ከፍተኛውን Streak (Best Streak) ካሸነፈ በሊደርቦርዱ Sorted Set ላይ ማዘመን
+        best_streak = int(redis.hget("users:best_streak", user_id) or 0)
+        if current_streak > best_streak:
+            redis.hset("users:best_streak", user_id, current_streak)
+            # Redis Sorted Set (ZADD) በመጠቀም ለሊደርቦርድ ማስቀመጥ
+            redis.zadd("leaderboard:streaks", {f"{user_name}": current_streak})
+            
     else:
-        # ሲሸነፍ ያስያዘው ብር ይቀነሳል
+        # ከተሸነፈ የStreak ዜሮ (0) ይሆናል
+        redis.hset("users:current_streak", user_id, 0)
         redis.hincrbyfloat("users:balance", user_id, -bet_amount)
         status = "lose"
         msg = f"🪙 ውጤቱ {result} ሆኗል! ይቅርታ፣ {bet_amount} ብር ተሸንፈዋል።"
         status_history = "ተሸንፏል 😞"
         
-    # ባላንሱን ዳግም ማንበብ
     new_balance = float(redis.hget("users:balance", user_id) or 0.0)
     
     # ታሪክ መዝገብ
@@ -185,6 +205,74 @@ def coin_flip():
         "message": msg,
         "new_balance": new_balance
     })
+
+# ==========================================
+# G2. Fortune Wheel API (Daily Cooldown System)
+# ==========================================
+@server.route('/api/claim_daily', methods=['POST'])
+def claim_daily():
+    data = request.json or {}
+    user_id = data.get("user_id")
+    
+    if not user_id:
+        return jsonify({"status": "error", "message": "Missing user_id"}), 400
+        
+    # በየ 24 ሰዓቱ (86400 ሰከንድ) አንድ ጊዜ ብቻ እንዲሽከረከር መቆጣጠሪያ ኪይ (Key)
+    cooldown_key = f"daily_cooldown:{user_id}"
+    is_claimed = redis.get(cooldown_key)
+    
+    if is_claimed:
+        return jsonify({"status": "error", "message": "የዕለቱን ነጻ ዕድል አስቀድመው ወስደዋል! ከ24 ሰዓት በኋላ ይሞክሩ።"})
+        
+    # በነባሪነት የሩሌቱ ዕድሎች (1, 2, 3, 4, 5 ብር)
+    wheel_options = [1, 2, 3, 4, 5]
+    gift_amount = random.choice(wheel_options)
+    
+    # ባላንስ ላይ መጨመር
+    redis.hincrbyfloat("users:balance", user_id, float(gift_amount))
+    
+    # የ 24 ሰዓት ገደብ ማስቀመጥ (TTL = 86400)
+    redis.setex(cooldown_key, 86400, "claimed")
+    
+    # ወደ ታሪክ መዝገብ ማስገባት
+    history_data = redis.get(f"history:{user_id}")
+    history_list = json.loads(history_data) if history_data else []
+    history_list.insert(0, {"type": "ነጻ ሩሌት ስጦታ 🎁", "amount": float(gift_amount), "status": "ተጠናቋል"})
+    redis.set(f"history:{user_id}", json.dumps(history_list))
+    
+    return jsonify({
+        "status": "success",
+        "gift_amount": gift_amount,
+        "message": f"እንኳን ደስ አለዎት! {gift_amount} ብር ወደ አካውንትዎ ተጨምሯል።"
+    })
+
+# ==========================================
+# G3. Leaderboard API (Top 5 Active Streak Heroes)
+# ==========================================
+@server.route('/api/get_leaderboard', methods=['POST'])
+def get_leaderboard():
+    try:
+        # ከRedis Sorted Set ላይ ከፍተኛ የ-Streak ውጤት ያላቸውን ምርጥ 5 ተጫዋቾች በቅደም ተከተል መውሰድ
+        # ZREVRANGEBYSCORE ወይም zrevrange በ upstash-redis አጠቃቀም መሠረት
+        top_leaders = redis.zrevrange("leaderboard:streaks", 0, 4, withscores=True)
+        
+        leaders_list = []
+        # top_leaders ፎርማት [['ዮናስ', 8], ['ሳሚ', 6]...] ሊሆን ይችላል
+        for leader in top_leaders:
+            name = leader[0]
+            streak_score = int(leader[1])
+            leaders_list.append({
+                "user_name": name,
+                "streak": streak_score
+            })
+            
+        return jsonify({
+            "status": "success",
+            "leaders": leaders_list
+        })
+    except Exception as e:
+        print(f"Leaderboard Error: {e}")
+        return jsonify({"status": "error", "message": "ሊደርቦርዱን ማምጣት አልተቻለም"}), 500
 
 # ==========================================
 # Callback & Webhook Handlers
@@ -236,10 +324,16 @@ def webhook():
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
+    user_id = message.from_user.id
+    first_name = message.from_user.first_name or "የሰፈር ልጅ"
+    
+    # የተጠቃሚውን ስም ለሊደርቦርድ እንዲያገለግል በRedis ማስቀመጥ
+    redis.hset("users:username", user_id, first_name)
+    
     web_app_info = WebAppInfo(url=WEB_APP_URL)
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("🎮 Play", web_app=web_app_info))
-    bot.reply_to(message, "እንኳን ደህና መጡ! ጨዋታዎችን ለመጀመር Play ን ይጫኑ።", reply_markup=markup)
+    bot.reply_to(message, f"እንኳን ደህና መጡ {first_name}! ጨዋታዎችን ለመጀመር Play ን ይጫኑ።", reply_markup=markup)
 
 if __name__ == "__main__":
     server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
