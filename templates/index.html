@@ -351,10 +351,10 @@
             background-color: rgba(255, 215, 0, 0.1);
         }
 
-        /* NEW Multiplier Buttons Layout */
+        /* MODIFIED Multiplier Buttons Layout (Removed 2X) */
         .multiplier-bar {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 8px;
             margin-top: 5px;
         }
@@ -675,7 +675,7 @@
             </div>
             <div class="balance-box">
                 <i class="fas fa-wallet"></i>
-                <span id="user-balance">432.00</span> ብር
+                <span id="user-balance">435.00</span> ብር
             </div>
         </div>
     </div>
@@ -703,6 +703,7 @@
             </div>
         </div>
 
+        <!-- TRANSLATED ACTION BUTTONS -->
         <div class="actions-grid">
             <button class="action-btn" onclick="openDepositModal()">
                 <i class="fas fa-arrow-down" style="color: #4e9f3d;"></i> ብር አስገባ
@@ -715,11 +716,12 @@
         <h2>🎮 ጨዋታዎች</h2>
         
         <div class="games-list">
+            <!-- UPDATED GAME TITLE -->
             <div class="game-card" onclick="switchToGame()">
                 <div class="game-details">
                     <div class="game-icon">🪙</div>
                     <div class="game-info">
-                        <h3>እጥፍ ወይስ ባዶ (ዘውድና ጎፈር)</h3>
+                        <h3>ዘውድ ወይስ ጎፈር</h3>
                         <p>ዘውድ ወይስ ጎፈር? የመረጡት ከመጣ ባላንስዎን እጥፍ ያድርጉ!</p>
                     </div>
                 </div>
@@ -777,11 +779,10 @@
 
             <div class="input-group">
                 <label>የውርርድ መጠን (ቢያንስ 2 ብር)</label>
-                <!-- Quick Bet Multiplier Buttons -->
+                <!-- MODIFIED Multiplier Buttons (Removed 2X Button) -->
                 <div class="multiplier-bar">
                     <button class="multi-btn" onclick="applyMultiplier('min')">Min (2)</button>
                     <button class="multi-btn" onclick="applyMultiplier('half')">1/2 (ግማሽ)</button>
-                    <button class="multi-btn" onclick="applyMultiplier('double')">2X (እጥፍ)</button>
                     <button class="multi-btn" onclick="applyMultiplier('max')">Max (ሙሉ)</button>
                 </div>
                 <input type="number" id="bet-amount" placeholder="ምሳሌ፡ 50" min="2" pattern="[0-9]*" inputmode="numeric" style="margin-top: 8px;">
@@ -800,10 +801,10 @@
     </div>
 
     <!-- Modals -->
-    <!-- Deposit Modal -->
+    <!-- Deposit Modal (Translated Title) -->
     <div class="modal" id="depositModal">
         <div class="modal-content">
-            <h3>💳 ብር ማስገቢያ (Deposit)</h3>
+            <h3>💳 ብር ማስገቢያ</h3>
             <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">የባንክ ደረሰኝ (Screenshot) እዚህ ይስቀሉ</p>
             <input type="number" id="dep-amount" placeholder="የብር መጠን (ምሳሌ፡ 100)" min="1" pattern="[0-9]*" inputmode="numeric">
             <input type="file" id="dep-receipt" accept="image/*">
@@ -814,10 +815,10 @@
         </div>
     </div>
 
-    <!-- Withdraw Modal -->
+    <!-- Withdraw Modal (Translated Title) -->
     <div class="modal" id="withdrawModal">
         <div class="modal-content">
-            <h3>💸 ብር ማውጫ (Withdraw)</h3>
+            <h3>💸 ብር ማውጫ</h3>
             <input type="text" id="wit-bank" placeholder="የባንክ ስም (ምሳሌ፡ ንግድ ባንክ)">
             <input type="text" id="wit-acc-name" placeholder="የአካውንት ባለቤት ሙሉ ስም">
             <input type="tel" id="wit-phone" placeholder="የሂሳብ ቁጥር (አካውንት)" pattern="[0-9]*" inputmode="numeric">
@@ -854,7 +855,7 @@
         </div>
     </div>
 
-    <!-- LEADERBOARD MODAL (NEW) -->
+    <!-- LEADERBOARD MODAL -->
     <div class="modal" id="leaderboardModal">
         <div class="modal-content">
             <h3>🏆 የሳምንቱ ምርጥ 5 ተጫዋቾች</h3>
@@ -1033,7 +1034,7 @@
         
         let todayGamesCount = 0;
         let currentStreak = 0;
-        let userBalance = 432.00; // ስክሪንሹቱ ላይ ባለው መሰረት መነሻ ባላንሱን አድርጌዋለሁ
+        let userBalance = 435.00; // ስክሪንሹቱ ላይ ባለው መሰረት 435 ብር
 
         if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
             userId = tg.initDataUnsafe.user.id;
@@ -1046,7 +1047,6 @@
         }
 
         function loadBalance() {
-            // በሰርቨር ችግር ወቅትም ባላንሱ እንዳይጠፋ Local Fallback ተጨምሯል
             document.getElementById('user-balance').innerText = userBalance.toFixed(2);
             fetch('/api/get_balance', {
                 method: 'POST',
@@ -1076,9 +1076,6 @@
                 calculatedBet = 2;
             } else if (type === 'half') {
                 calculatedBet = Math.max(2, Math.floor(userBalance / 2));
-            } else if (type === 'double') {
-                let currentVal = parseFloat(betInput.value) || 2;
-                calculatedBet = Math.min(userBalance, currentVal * 2);
             } else if (type === 'max') {
                 calculatedBet = Math.floor(userBalance);
             }
@@ -1203,7 +1200,7 @@
         }
 
         // ==========================================
-        // FLIP LOGIC (ሰርቨሩ ባይሰራም ራሱ ሒሳብ ሰርቶ እንዲጫወት ተደርጓል)
+        // FLIP LOGIC (With Dynamic Wallet & Proper Streak Reset)
         // ==========================================
         function playGame() {
             const betInput = document.getElementById('bet-amount');
@@ -1225,6 +1222,10 @@
                 tg.showAlert('በቂ የብር መጠን የሎትም! እባክዎ መጀመሪያ ሂሳብዎን ይሙሉ!');
                 return;
             }
+
+            // 1. መደቡ ወዲያው ከዋሌቱ ይቀነሳል
+            userBalance -= betAmount;
+            document.getElementById('user-balance').innerText = userBalance.toFixed(2);
 
             isSpinning = true;
             flipBtn.disabled = true;
@@ -1248,25 +1249,26 @@
                 soundTicks++;
             }, 50);
 
-            // ሰርቨር ባይሰራ በቀጥታ በስልኩ እንዲጫወት (Client-side fallback)
+            // Client-side fallback logic (If back-end connection is lost)
             const fallbackCoinFlip = () => {
                 const randomVal = Math.random() < 0.5 ? 'ዘውድ' : 'ጎፈር';
                 const isWin = selectedChoice === randomVal;
-                let newBalance = userBalance;
+                let addedWinBalance = 0;
                 let message = "";
 
                 if (isWin) {
-                    newBalance += betAmount; // ዕድሉ ሲመጣ መደቡን ያህል ያተርፋል
+                    // ሲያሸንፍ የራሱ መደብ + ማሸነፊያው (2x) ሙሉ በሙሉ ተመልሶ ይደመርለታል
+                    addedWinBalance = betAmount * 2;
                     message = `🎉 እንኳን ደስ አለዎት! ውጤቱ ${randomVal} ሆኗል። ${betAmount} ብር አሸንፈዋል!`;
                 } else {
-                    newBalance -= betAmount;
+                    addedWinBalance = 0;
                     message = `😢 ድጋሚ ይሞክሩ! ውጤቱ ${randomVal} ሆኗል። ${betAmount} ብር ተሸንፈዋል።`;
                 }
 
                 return {
                     status: isWin ? 'win' : 'lose',
                     result: randomVal,
-                    new_balance: newBalance,
+                    win_addition: addedWinBalance,
                     message: message
                 };
             };
@@ -1289,14 +1291,16 @@
                 if (data.status === 'error') {
                     clearInterval(spinInterval);
                     tg.showAlert(data.message);
+                    // በሰርቨር ስህተት ጨዋታው ካልተጀመረ የተቆረጠውን ይመልሳል
+                    userBalance += betAmount;
+                    document.getElementById('user-balance').innerText = userBalance.toFixed(2);
                     resetGameUI();
                     return;
                 }
                 processResult(data, spinInterval, coin, resultText, betAmount);
             })
             .catch(err => {
-                // ሰርቨሩ ሲቋረጥ ጌሙ ሳይበላሽ እንዲጫወት
-                console.warn("Using local fallback game logic due to server issue:", err);
+                console.warn("Using local fallback game logic:", err);
                 const localResult = fallbackCoinFlip();
                 processResult(localResult, spinInterval, coin, resultText, betAmount);
             });
@@ -1317,22 +1321,23 @@
                     playClinkSound();
 
                     resultText.innerText = data.message;
-                    userBalance = parseFloat(data.new_balance);
-                    document.getElementById('user-balance').innerText = userBalance.toFixed(2);
                     
-                    todayGamesCount++;
-                    document.getElementById('games-today').innerText = todayGamesCount;
-                    
-                    if (data.message.includes('አሸንፈዋል') || data.status === 'win') {
-                        currentStreak++;
+                    // አሸናፊ ከሆነ ሙሉው ይጨመርለታል
+                    if (data.status === 'win') {
+                        // የሰርቨር ምላሽ አዲስ ባላንስ ከላከ እሱን እንጠቀማለን፣ ካልሆነ በlocal ስሌት እንደምራለን
+                        if (data.new_balance !== undefined) {
+                            userBalance = parseFloat(data.new_balance);
+                        } else {
+                            userBalance += (betAmount * 2);
+                        }
                         
-                        // Trigger Normal Win Confetti Animation
+                        currentStreak++;
                         spawnConfetti(70);
 
-                        // Check for 3-streak multiplier bonus trigger
+                        // ተከታታይ 3 ጊዜ በትክክል ካሸነፈ ብቻ ነው የ streak popup የሚመጣው
                         if (currentStreak === 3) {
                             playStreakFanfare();
-                            spawnConfetti(180); // Bigger Confetti blast
+                            spawnConfetti(180); 
 
                             const popup = document.getElementById('streak-popup');
                             popup.classList.add('show');
@@ -1341,13 +1346,20 @@
                             }, 3000);
                         }
                     } else {
+                        // መሃል ላይ ከተሸነፈ Streak ወዲያውኑ ይበላሻል (ወደ 0 ይመለሳል)
                         currentStreak = 0;
+                        if (data.new_balance !== undefined) {
+                            userBalance = parseFloat(data.new_balance);
+                        }
                     }
+
+                    document.getElementById('user-balance').innerText = userBalance.toFixed(2);
                     
+                    todayGamesCount++;
+                    document.getElementById('games-today').innerText = todayGamesCount;
                     document.getElementById('streak-count').innerText = `${currentStreak} ጊዜ`;
                     
-                    // ታሪክ ላይ እንዲመዘገብ (ሎካል መዝገብ)
-                    saveLocalHistory(data.result === selectedChoice ? 'ጨዋታ (አሸነፉ)' : 'ጨዋታ (ተሸነፉ)', betAmount, data.result === selectedChoice ? 'አሸንፏል' : 'ተሸንፏል');
+                    saveLocalHistory(data.status === 'win' ? 'ጨዋታ (አሸነፉ)' : 'ጨዋታ (ተሸነፉ)', betAmount, data.status === 'win' ? 'አሸንፏል' : 'ተሸንፏል');
                     
                     resetGameUI();
                 }, 800);
@@ -1477,7 +1489,6 @@
                 }
             })
             .catch(err => {
-                // ሰርቨር ባይኖርም ለአድሚን ተልኳል በሚል ለአሁኑ ያስኬዳል
                 tg.showAlert("የማስገቢያ ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል!");
                 saveLocalHistory('ብር ማስገቢያ', amount, 'pending');
                 closeModal('depositModal');
@@ -1531,7 +1542,7 @@
         }
 
         // ==========================================
-        // LOCAL HISTORY CONTROLLER (ከመስመር ውጭም ታሪክ እንዲመዘግብ)
+        // LOCAL HISTORY CONTROLLER
         // ==========================================
         let localHistory = [];
 
@@ -1542,7 +1553,7 @@
                 status: status
             };
             localHistory.unshift(newItem);
-            if (localHistory.length > 20) localHistory.pop(); // ቢበዛ 20 ያስቀምጣል
+            if (localHistory.length > 20) localHistory.pop();
         }
 
         function loadHistory() {
