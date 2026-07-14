@@ -147,15 +147,8 @@
             background-color: var(--card-bg);
             border-radius: 12px;
             padding: 15px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
             text-align: center;
             border: 1px solid rgba(255,255,255,0.05);
-            gap: 10px;
-        }
-
-        .stat-box:first-child {
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .stat-box h4 { margin: 0; font-size: 0.9rem; color: #8a8a8a; }
@@ -715,35 +708,12 @@
             font-size: 1.1rem;
             transform-origin: center;
         }
-
-        /* Streak PopUp Badge */
-        .streak-badge-popup {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(0);
-            background: radial-gradient(circle, #ffd700, #ff8f00);
-            color: #1a1a2e;
-            padding: 20px;
-            border-radius: 15px;
-            font-weight: bold;
-            text-align: center;
-            z-index: 200;
-            box-shadow: 0 0 30px rgba(255,215,0,0.8);
-            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            pointer-events: none;
-        }
-
-        .streak-badge-popup.show {
-            transform: translate(-50%, -50%) scale(1);
-        }
     </style>
 </head>
 <body>
 
     <canvas id="confetti-canvas"></canvas>
 
-    <!-- Upper Header -->
     <div class="header">
         <div class="user-info">
             <div class="user-avatar" id="user-avatar">U</div>
@@ -760,19 +730,13 @@
         </div>
     </div>
 
-    <!-- 1. MAIN MENU VIEW -->
     <div class="container" id="main-view">
         <div class="welcome-msg">
             <h1>Welcome, <span id="welcome-name">ተጫዋች</span>!</h1>
             <p>የሚወዱትን ጨዋታ ይምረጡና ዕድልዎን ይሞክሩ።</p>
         </div>
 
-        <!-- STREAK & MINI STATS -->
         <div class="stat-panel">
-            <div class="stat-box">
-                <h4>ተከታታይ ድል 🔥</h4>
-                <p id="streak-count">0 ጊዜ</p>
-            </div>
             <div class="stat-box">
                 <h4>የነጻ ዕድል 🎁</h4>
                 <p id="free-gift-btn" style="cursor: pointer; text-decoration: underline; color: #4e9f3d;" onclick="openDailyBonusModal()">ውሰድ</p>
@@ -804,14 +768,7 @@
         </div>
     </div>
 
-    <!-- 2. COIN FLIP GAME VIEW -->
     <div class="container" id="game-view" style="display: none; position: relative;">
-        <div class="streak-badge-popup" id="streak-popup">
-            <div style="font-size: 3rem;">🔥 1.5X</div>
-            <div style="font-size: 1.2rem; margin-top: 5px;">ተከታታይ 3ኛ ድል!</div>
-            <div style="font-size: 0.9rem;">ተጨማሪ ጉርሻ ተጨምሮልዎታል!</div>
-        </div>
-
         <div class="back-nav" onclick="switchTab('games')">
             <i class="fas fa-arrow-left"></i> ወደ ማውጫ ተመለስ
         </div>
@@ -834,10 +791,8 @@
             </div>
         </div>
 
-        <!-- Result Text Area -->
         <div class="result-alert" id="result-text">ምርጫዎን ይምረጡና ይጫወቱ!</div>
 
-        <!-- Controls Card -->
         <div class="controls-card">
             <div class="choice-grid">
                 <button class="choice-btn" id="btn-heads" onclick="selectChoice('ዘውድ')">
@@ -864,16 +819,13 @@
         </div>
     </div>
 
-    <!-- 3. HISTORY VIEW -->
     <div class="container" id="history-view" style="display: none;">
-        <h2>📜 የጨዋታና የሂሳብ ታሪክ</h2>
+        <h2>📜 የሂሳብ ታሪክ (ገቢና ወጪ)</h2>
         <div class="history-list" id="history-container">
             <p style="text-align: center; color: #8a8a8a;">ምንም ታሪክ የለም።</p>
         </div>
     </div>
 
-    <!-- Modals -->
-    <!-- Deposit Modal -->
     <div class="modal" id="depositModal">
         <div class="modal-content">
             <h3>💳 ብር ማስገቢያ</h3>
@@ -900,7 +852,6 @@
         </div>
     </div>
 
-    <!-- Withdraw Modal -->
     <div class="modal" id="withdrawModal">
         <div class="modal-content">
             <h3>💸 ብር ማውጫ</h3>
@@ -916,7 +867,6 @@
         </div>
     </div>
 
-    <!-- FORTUNE WHEEL MODAL -->
     <div class="modal" id="dailyBonusModal">
         <div class="modal-content" style="max-width: 330px;">
             <h3>🎁 የዕለቱ ነጻ ዕድል ሩሌት</h3>
@@ -940,21 +890,18 @@
         </div>
     </div>
 
-    <!-- LEADERBOARD MODAL -->
     <div class="modal" id="leaderboardModal">
         <div class="modal-content">
             <h3>🏆 የሳምንቱ ምርጥ ተጫዋቾች</h3>
-            <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">ከፍተኛ ተከታታይ ድል (Streak) ያስመዘገቡ ጀግኖች</p>
+            <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">ከፍተኛ ነጥብ ያስመዘገቡ ጀግኖች</p>
             
             <div class="leaderboard-list" id="leaderboard-container">
-                <!-- Loaded dynamically by JS -->
-            </div>
+                </div>
 
             <button class="modal-btn btn-close" onclick="closeModal('leaderboardModal')" style="width: 100%; margin-top: 5px;">ዝጋ</button>
         </div>
     </div>
 
-    <!-- Bottom Navigation Bar -->
     <div class="nav-bar">
         <div class="nav-item active" id="nav-games" onclick="switchTab('games')">
             <i class="fas fa-gamepad"></i>
@@ -967,7 +914,7 @@
     </div>
 
     <script>
-                // ==========================================
+        // ==========================================
         // LOCAL NATIVE CONFETTI ENGINE
         // ==========================================
         const canvas = document.getElementById("confetti-canvas");
@@ -1136,8 +1083,6 @@
         let selectedChoice = null;
         let isSpinning = false;
         let isWheelSpinning = false;
-        
-        let currentStreak = parseInt(localStorage.getItem('coin_current_streak') || '0');
         let userBalance = 435.00; 
 
         if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
@@ -1149,8 +1094,6 @@
             const avatarChar = userName.trim() ? userName.trim().charAt(0).toUpperCase() : "U";
             document.getElementById('user-avatar').innerText = avatarChar;
         }
-
-        document.getElementById('streak-count').innerText = `${currentStreak} ጊዜ`;
 
         // Copy Telebirr Number
         function copyTelebirrNumber() {
@@ -1325,17 +1268,16 @@
             list = list.map(l => {
                 if (l.user_id === userId) {
                     foundSelf = true;
-                    return { ...l, user_name: userName + " (አንተ)", streak: Math.max(currentStreak, l.streak) };
+                    return { ...l, user_name: userName + " (አንተ)", balance: Math.max(userBalance, l.balance || 0) };
                 }
                 return l;
             });
 
             if (!foundSelf) {
-                list.push({ user_id: userId, user_name: userName + " (አንተ)", streak: currentStreak });
+                list.push({ user_id: userId, user_name: userName + " (አንተ)", balance: userBalance });
             }
 
-            list = list.filter(item => item.streak > 0 || item.user_id === userId);
-            list.sort((a, b) => b.streak - a.streak);
+            list.sort((a, b) => b.balance - a.balance);
             list = list.slice(0, 5);
 
             if (list.length === 0) {
@@ -1355,7 +1297,7 @@
                         <div class="rank-badge">${rank}</div>
                         <span><b>${crown}${leader.user_name}</b></span>
                     </div>
-                    <span style="color: var(--gold-color); font-weight: bold;">${leader.streak} Streak 🔥</span>
+                    <span style="color: var(--gold-color); font-weight: bold;">${parseFloat(leader.balance || 0).toFixed(2)} ብር</span>
                 `;
                 container.appendChild(div);
             });
@@ -1365,7 +1307,7 @@
             const container = document.getElementById('leaderboard-container');
             container.innerHTML = '';
             const realOnly = [
-                { user_id: userId, user_name: userName + " (አንተ)", streak: currentStreak }
+                { user_id: userId, user_name: userName + " (አንተ)", balance: userBalance }
             ];
             renderLeaderboard(realOnly);
         }
@@ -1387,22 +1329,16 @@
         // ==========================================
         // SECURE RANDOM & COIN FLIP LOGIC
         // ==========================================
-        
-        // ደህንነቱ የተጠበቀ እና ሊገመት የማይችል የዘፈቀደ ምርጫ ማመንጫ (Cryptographic Random)
         const getSecureCoinFlip = () => {
             const array = new Uint32Array(1);
             window.crypto.getRandomValues(array);
             return (array[0] / 0xFFFFFFFF) < 0.5 ? 'ዘውድ' : 'ጎፈር';
         };
 
-        // የተሻሻለው ፎልባክ ተግባር (በሰርቨር እምቢተኛነት ጊዜ የሚሰራ)
         const fallbackCoinFlip = (betAmount) => {
             const randomVal = getSecureCoinFlip(); 
             const isWin = selectedChoice === randomVal;
-            
-            // የድል ማባዣ (Multiplier) ቀመሩ እዚህም ደህንነቱ በተጠበቀ መልኩ ተተግብሯል
-            const multiplier = currentStreak >= 3 ? 1.5 : 1;
-            let winAddition = isWin ? ((betAmount * 2) * multiplier) : 0;
+            let winAddition = isWin ? (betAmount * 2) : 0;
             
             return {
                 status: isWin ? 'win' : 'lose',
@@ -1436,14 +1372,12 @@
             }
 
             resultText.className = "result-alert";
-
-            // ደህንነቱ የተጠበቀ ጊዜያዊ ሂሳብ ቅነሳ
             userBalance -= betAmount;
             document.getElementById('user-balance').innerText = userBalance.toFixed(2);
 
             isSpinning = true;
             flipBtn.disabled = true;
-            resultText.innerText = "ሳንቲሙ በአየር ላይ እየተገላበጠ ነው... 🪙";
+            resultText.innerText = "ሳንቲሙ እየተሽከረከረ ነው 🔥... 🪙";
 
             container.classList.remove('animate-toss');
             container.offsetHeight; 
@@ -1461,7 +1395,6 @@
                 if (soundTicks % 2 === 0) {
                     triggerHaptic('impact', 'light');
                 }
-
                 if (soundTicks % 3 === 0) {
                     playTumbleSound();
                 }
@@ -1474,8 +1407,7 @@
                 body: JSON.stringify({
                     user_id: userId,
                     bet_amount: betAmount,
-                    choice: selectedChoice,
-                    streak: currentStreak
+                    choice: selectedChoice
                 })
             })
             .then(res => {
@@ -1487,7 +1419,7 @@
                     clearInterval(spinInterval);
                     triggerHaptic('notification', 'error');
                     tg.showAlert(data.message);
-                    userBalance += betAmount; // ስህተት ሲፈጠር ሪፈንድ ማድረግ
+                    userBalance += betAmount; 
                     document.getElementById('user-balance').innerText = userBalance.toFixed(2);
                     resetGameUI();
                     return;
@@ -1501,16 +1433,13 @@
             });
         }
 
-        // አኒሜሽኑን እና ውጤቱን የሚያቀናጅ ደህንነቱ የተጠበቀ ተግባር
         function processResult(data, spinInterval, coin, resultText, betAmount) {
-            // ከሰርቨር የመጣው ዳታ ባዶ ከሆነ ወይም 'result' ከሌለው ፎልባኩን በደህንነት ይጠራል
             const finalResult = (data && data.result) ? data.result : getSecureCoinFlip();
 
             setTimeout(() => {
                 clearInterval(spinInterval);
                 coin.style.transition = 'transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
                 
-                // ሳንቲሙ መጨረሻ ላይ የሚቆምበትን አቅጣጫ መወሰን
                 if (finalResult === 'ዘውድ') {
                     coin.style.transform = 'rotateX(0deg) rotateY(1440deg)';
                 } else {
@@ -1522,12 +1451,9 @@
 
                     if (data.status === 'win') {
                         triggerHaptic('notification', 'success');
+                        const winAmount = (betAmount * 2);
                         
-                        // የStreak ጉርሻን ያካተተ ትክክለኛው የድል ስሌት
-                        const multiplier = currentStreak >= 3 ? 1.5 : 1;
-                        const winAmount = (betAmount * 2) * multiplier;
-                        
-                        resultText.innerText = `አሸነፉ! +${winAmount.toFixed(2)} ብር`;
+                        resultText.innerText = `won! +${winAmount.toFixed(2)} ብር`;
                         resultText.className = "result-alert result-won";
 
                         if (data.new_balance !== undefined && data.new_balance !== null) {
@@ -1536,27 +1462,11 @@
                             userBalance += winAmount;
                         }
                         
-                        currentStreak++;
-                        localStorage.setItem('coin_current_streak', currentStreak.toString());
                         spawnConfetti(70);
-
-                        if (currentStreak === 3) {
-                            playStreakFanfare();
-                            spawnConfetti(180); 
-
-                            const popup = document.getElementById('streak-popup');
-                            popup.classList.add('show');
-                            setTimeout(() => {
-                                popup.classList.remove('show');
-                            }, 3000);
-                        }
                     } else {
                         triggerHaptic('notification', 'error');
-                        resultText.innerText = "ተሸነፉ! በድጋሚ ይሞክሩ።";
+                        resultText.innerText = "lose! በድጋሚ ይሞክሩ።";
                         resultText.className = "result-alert result-lose";
-                        
-                        currentStreak = 0;
-                        localStorage.setItem('coin_current_streak', '0');
                         
                         if (data.new_balance !== undefined && data.new_balance !== null) {
                             userBalance = parseFloat(data.new_balance);
@@ -1564,10 +1474,6 @@
                     }
 
                     document.getElementById('user-balance').innerText = userBalance.toFixed(2);
-                    document.getElementById('streak-count').innerText = `${currentStreak} ጊዜ`;
-                    
-                    saveLocalHistory(data.status === 'win' ? 'ጨዋታ (አሸነፉ)' : 'ጨዋታ (ተሸነፉ)', betAmount, data.status === 'win' ? 'አሸንፏል' : 'ተሸንፏል');
-                    
                     resetGameUI();
                 }, 800);
 
@@ -1760,18 +1666,21 @@
         }
 
         // ==========================================
-        // LOCAL HISTORY CONTROLLER
+        // LOCAL HISTORY CONTROLLER (DEPOSIT & WITHDRAW ONLY)
         // ==========================================
         let localHistory = [];
 
         function saveLocalHistory(type, amount, status) {
-            const newItem = {
-                type: type,
-                amount: amount,
-                status: status
-            };
-            localHistory.unshift(newItem);
-            if (localHistory.length > 20) localHistory.pop();
+            // በታሪክ ገጽ ላይ ገቢ እና ወጪ ብቻ እንዲመዘገብ መገደብ
+            if (type === 'ብር ማስገቢያ' || type === 'ብር ማውጫ' || type === 'ነጻ ዕድል') {
+                const newItem = {
+                    type: type,
+                    amount: amount,
+                    status: status
+                };
+                localHistory.unshift(newItem);
+                if (localHistory.length > 20) localHistory.pop();
+            }
         }
 
         function loadHistory() {
@@ -1787,16 +1696,29 @@
             .then(data => {
                 if (data.status === 'success' && data.history.length > 0) {
                     container.innerHTML = '';
-                    data.history.forEach(item => {
-                        const div = document.createElement('div');
-                        div.className = 'history-item';
-                        div.innerHTML = `
-                            <span><b>${item.type}</b></span>
-                            <span>${item.amount} ብር</span>
-                            <span style="color: ${item.status.includes('አሸንፏል') || item.status === 'completed' ? '#63e2b7' : '#e94560'}">${item.status}</span>
-                        `;
-                        container.appendChild(div);
-                    });
+                    // ሰርቨሩ የጨዋታ ታሪክ ቢልክ እንኳ እዚህ ጋር ገቢና ወጪዎችን ብቻ እናጣራለን
+                    const filteredHistory = data.history.filter(item => 
+                        item.type === 'ብር ማስገቢያ' || 
+                        item.type === 'ብር ማውጫ' || 
+                        item.type === 'ነጻ ዕድል' || 
+                        item.type.includes('Deposit') || 
+                        item.type.includes('Withdraw')
+                    );
+
+                    if (filteredHistory.length > 0) {
+                        filteredHistory.forEach(item => {
+                            const div = document.createElement('div');
+                            div.className = 'history-item';
+                            div.innerHTML = `
+                                <span><b>${item.type}</b></span>
+                                <span>${item.amount} ብር</span>
+                                <span style="color: ${item.status === 'completed' || item.status.includes('approved') ? '#63e2b7' : '#e94560'}">${item.status}</span>
+                            `;
+                            container.appendChild(div);
+                        });
+                    } else {
+                        renderLocalHistory();
+                    }
                 } else {
                     renderLocalHistory();
                 }
@@ -1813,7 +1735,7 @@
                 localHistory.forEach(item => {
                     const div = document.createElement('div');
                     div.className = 'history-item';
-                    const isCompleted = item.status === 'completed' || item.status === 'አሸንፏል';
+                    const isCompleted = item.status === 'completed' || item.status === 'approved';
                     div.innerHTML = `
                         <span><b>${item.type}</b></span>
                         <span>${item.amount} ብር</span>
@@ -1822,7 +1744,7 @@
                     container.appendChild(div);
                 });
             } else {
-                container.innerHTML = '<p style="text-align: center; color: #8a8a8a;">ምንም ታሪክ አልተገኘም።</p>';
+                container.innerHTML = '<p style="text-align: center; color: #8a8a8a;">ምንም የሂሳብ ታሪክ አልተገኘም።</p>';
             }
         }
 
