@@ -1440,65 +1440,71 @@
         }
 
         function processResult(data, spinInterval, coin, resultText, betAmount) {
-            setTimeout(() => {
-                clearInterval(spinInterval);
-                coin.style.transition = 'transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-                
-                if (data.result === 'ዘውድ') {
-                    coin.style.transform = 'rotateX(0deg) rotateY(1440deg)';
-                } else {
-                    coin.style.transform = 'rotateX(0deg) rotateY(1620deg)';
-                }
-
-                setTimeout(() => {
-                    playClinkSound();
-
-                    if (data.status === 'win') {
-                        const winAmount = (betAmount * 2);
-                        resultText.innerText = `Won ${winAmount.toFixed(2)} ብር`;
-                        resultText.className = "result-alert result-won";
-
-                        if (data.new_balance !== undefined) {
-                            userBalance = parseFloat(data.new_balance);
-                        } else {
-                            userBalance += winAmount;
-                        }
-                        
-                        currentStreak++;
-                        localStorage.setItem('coin_current_streak', currentStreak.toString()); // Save to localStorage
-                        spawnConfetti(70);
-
-                        if (currentStreak === 3) {
-                            playStreakFanfare();
-                            spawnConfetti(180); 
-
-                            const popup = document.getElementById('streak-popup');
-                            popup.classList.add('show');
-                            setTimeout(() => {
-                                popup.classList.remove('show');
-                            }, 3000);
-                        }
-                    } else {
-                        resultText.innerText = "Lose";
-                        resultText.className = "result-alert result-lose";
-                        
-                        currentStreak = 0;
-                        localStorage.setItem('coin_current_streak', '0'); // Reset localStorage
-                        if (data.new_balance !== undefined) {
-                            userBalance = parseFloat(data.new_balance);
-                        }
-                    }
-
-                    document.getElementById('user-balance').innerText = userBalance.toFixed(2);
-                    document.getElementById('streak-count').innerText = `${currentStreak} ጊዜ`;
-                    
-                    saveLocalHistory(data.status === 'win' ? 'ጨዋታ (አሸነፉ)' : 'ጨዋታ (ተሸነፉ)', betAmount, data.status === 'win' ? 'አሸንፏል' : 'ተሸንፏል');
-                    
-                    resetGameUI();
-                }, 800);
-
-            }, 2400); 
+    setTimeout(() => {
+        clearInterval(spinInterval);
+        coin.style.transition = 'transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        
+        if (data.result === 'ዘውድ') {
+            coin.style.transform = 'rotateX(0deg) rotateY(1440deg)';
+        } else {
+            coin.style.transform = 'rotateX(0deg) rotateY(1620deg)';
         }
+
+        setTimeout(() => {
+            playClinkSound();
+
+            if (data.status === 'win') {
+                const winAmount = (betAmount * 2);
+                resultText.innerText = `Won ${winAmount.toFixed(2)} ብር`;
+                resultText.className = "result-alert result-won";
+
+                // የሂሳብ ሎጂክ ማስተካከያ፦
+                // አገልጋዩ (Server) አዲስ ባላንስ ከላከ ቀጥታ እሱን እንወስዳለን፣ ካልላከ ግን ቀድሞ የተቀነሰውን ታሳቢ በማድረግ የድል አበል (winAmount) ብቻ እንደምራለን።
+                if (data.new_balance !== undefined && data.new_balance !== null) {
+                    userBalance = parseFloat(data.new_balance);
+                } else {
+                    userBalance += winAmount; 
+                }
+                
+                currentStreak++;
+                localStorage.setItem('coin_current_streak', currentStreak.toString());
+                spawnConfetti(70);
+
+                if (currentStreak === 3) {
+                    playStreakFanfare();
+                    spawnConfetti(180); 
+
+                    const popup = document.getElementById('streak-popup');
+                    popup.classList.add('show');
+                    setTimeout(() => {
+                        popup.classList.remove('show');
+                    }, 3000);
+                }
+            } else {
+                resultText.innerText = "Lose";
+                resultText.className = "result-alert result-lose";
+                
+                currentStreak = 0;
+                localStorage.setItem('coin_current_streak', '0');
+                
+                // የሂሳብ ሎጂክ ማስተካከያ፦
+                // ሲሸነፍ ቀድሞውኑ በ playGame() ውስጥ userBalance -= betAmount ተደርጓል።
+                // ስለዚህ አገልጋዩ አዲስ ባላንስ ከላከ ብቻ እሱን እንተካለን፣ ካልላከ ግን በድጋሚ መቀነስ አያስፈልግም!
+                if (data.new_balance !== undefined && data.new_balance !== null) {
+                    userBalance = parseFloat(data.new_balance);
+                }
+            }
+
+            document.getElementById('user-balance').innerText = userBalance.toFixed(2);
+            document.getElementById('streak-count').innerText = `${currentStreak} ጊዜ`;
+            
+            saveLocalHistory(data.status === 'win' ? 'ጨዋታ (አሸነፉ)' : 'ጨዋታ (ተሸነፉ)', betAmount, data.status === 'win' ? 'አሸንፏል' : 'ተሸንፏል');
+            
+            resetGameUI();
+        }, 800);
+
+    }, 2400); 
+}
 
         function resetGameUI() {
             isSpinning = false;
