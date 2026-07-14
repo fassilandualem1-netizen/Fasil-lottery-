@@ -240,6 +240,7 @@
             gap: 10px;
             cursor: pointer;
             font-size: 1rem;
+            transition: background-color 0.2s;
         }
 
         .action-btn:active {
@@ -1046,6 +1047,11 @@
             return audioCtx;
         }
 
+        // ገጹ ላይ በሚደረግ የመጀመሪያ ንክኪ የድምፅ ሲስተሙን ማንቃት
+        document.body.addEventListener('click', () => {
+            getAudioContext();
+        }, { once: true });
+
         function playTumbleSound() {
             try {
                 const ctxAudio = getAudioContext();
@@ -1106,9 +1112,26 @@
             } catch(e) { console.log(e); }
         }
 
-        // Telegram Setup
+        // ==========================================
+        // TELEGRAM WEBAPP CORE & HAPTICS
+        // ==========================================
         const tg = window.Telegram.WebApp;
         tg.expand();
+
+        // Native Haptic Vibration wrapper
+        function triggerHaptic(type, subtype = '') {
+            try {
+                if (tg.HapticFeedback) {
+                    if (type === 'impact') {
+                        tg.HapticFeedback.impactOccurred(subtype || 'medium');
+                    } else if (type === 'notification') {
+                        tg.HapticFeedback.notificationOccurred(subtype || 'success');
+                    }
+                }
+            } catch (e) {
+                console.log("Haptic error: ", e);
+            }
+        }
 
         let userId = 123456789;
         let userName = "የሰፈር ልጅ";
@@ -1133,9 +1156,14 @@
 
         // Copy Telebirr Number
         function copyTelebirrNumber() {
+            triggerHaptic('impact', 'medium');
             const number = document.getElementById("telebirr-num").innerText;
             navigator.clipboard.writeText(number).then(() => {
-                tg.showAlert("የቴሌብር ቁጥሩ (0951381356) ተገልብጧል!");
+                tg.showPopup({
+                    title: 'ስኬት',
+                    message: `የቴሌብር ቁጥሩ (${number}) ተገልብጧል!`,
+                    buttons: [{type: 'ok'}]
+                });
             }).catch(() => {
                 tg.showAlert("ቁጥሩን መገልበጥ አልተቻለም፣ እባክዎ በፅሁፍ ይውሰዱት።");
             });
@@ -1143,6 +1171,7 @@
 
         // File Selection Feedback
         function handleFileSelect(input) {
+            triggerHaptic('impact', 'light');
             const fileName = input.files[0] ? input.files[0].name : "";
             const nameDiv = document.getElementById("selected-file-name");
             const label = document.getElementById("upload-label");
@@ -1169,6 +1198,7 @@
         dropzone.addEventListener('drop', (e) => {
             e.preventDefault();
             dropzone.classList.remove('dragover');
+            triggerHaptic('impact', 'medium');
             const fileInput = document.getElementById('dep-receipt');
             if (e.dataTransfer.files.length > 0) {
                 fileInput.files = e.dataTransfer.files;
@@ -1194,8 +1224,12 @@
         }
 
         function applyMultiplier(type) {
+            triggerHaptic('impact', 'light');
             const betInput = document.getElementById('bet-amount');
-            if (isNaN(userBalance) || userBalance <= 0) return;
+            if (isNaN(userBalance) || userBalance < 2) {
+                betInput.value = 2;
+                return;
+            }
 
             let calculatedBet = 2; 
 
@@ -1204,10 +1238,8 @@
             } else if (type === 'half') {
                 calculatedBet = Math.max(2, Math.floor(userBalance / 2));
             } else if (type === 'max') {
-                calculatedBet = Math.floor(userBalance);
+                calculatedBet = Math.max(2, Math.floor(userBalance));
             }
-
-            if (calculatedBet < 2) calculatedBet = 2;
 
             betInput.value = calculatedBet;
             playTumbleSound();
@@ -1215,38 +1247,56 @@
 
         function switchTab(tab) {
             if (isSpinning || isWheelSpinning) return;
+            triggerHaptic('impact', 'light');
             if (tab === 'games') {
                 document.getElementById('main-view').style.display = 'flex';
                 document.getElementById('game-view').style.display = 'none';
                 document.getElementById('history-view').style.display = 'none';
                 document.getElementById('nav-games').classList.add('active');
                 document.getElementById('nav-history').classList.remove('active');
+                tg.BackButton.hide();
             } else if (tab === 'history') {
                 document.getElementById('main-view').style.display = 'none';
                 document.getElementById('game-view').style.display = 'none';
                 document.getElementById('history-view').style.display = 'flex';
                 document.getElementById('nav-games').classList.remove('active');
                 document.getElementById('nav-history').classList.add('active');
+                tg.BackButton.hide();
                 loadHistory();
             }
         }
 
         function switchToGame() {
             getAudioContext();
+            triggerHaptic('impact', 'medium');
             document.getElementById('main-view').style.display = 'none';
             document.getElementById('game-view').style.display = 'flex';
             document.getElementById('history-view').style.display = 'none';
+            
+            // Telegram Native Back Button ማሳያ
+            tg.BackButton.show();
+            tg.BackButton.onClick(() => {
+                switchTab('games');
+            });
         }
 
-        function openDepositModal() { document.getElementById('depositModal').style.display = 'flex'; }
-        function openWithdrawModal() { document.getElementById('withdrawModal').style.display = 'flex'; }
+        function openDepositModal() { 
+            triggerHaptic('impact', 'medium');
+            document.getElementById('depositModal').style.display = 'flex'; 
+        }
+        function openWithdrawModal() { 
+            triggerHaptic('impact', 'medium');
+            document.getElementById('withdrawModal').style.display = 'flex'; 
+        }
         function openDailyBonusModal() { 
             getAudioContext();
+            triggerHaptic('impact', 'medium');
             document.getElementById('dailyBonusModal').style.display = 'flex'; 
         }
 
         // Leaderboard Retrieval
         function openLeaderboard() {
+            triggerHaptic('impact', 'medium');
             document.getElementById('leaderboardModal').style.display = 'flex';
             const container = document.getElementById('leaderboard-container');
             container.innerHTML = '<p style="text-align: center; color: #8a8a8a;">በመጫን ላይ...</p>';
@@ -1326,11 +1376,13 @@
 
         function closeModal(id) { 
             if (isWheelSpinning) return;
+            triggerHaptic('impact', 'light');
             document.getElementById(id).style.display = 'none'; 
         }
 
         function selectChoice(choice) {
             if (isSpinning) return;
+            triggerHaptic('impact', 'light');
             selectedChoice = choice;
             document.getElementById('btn-heads').classList.toggle('selected', choice === 'ዘውድ');
             document.getElementById('btn-tails').classList.toggle('selected', choice === 'ጎፈር');
@@ -1348,21 +1400,24 @@
             const flipBtn = document.getElementById('flip-btn');
 
             if (!selectedChoice) {
+                triggerHaptic('notification', 'error');
                 tg.showAlert('እባክዎ መጀመሪያ ዘውድ ወይም ጎፈር ይምረጡ!');
                 return;
             }
             if (isNaN(betAmount) || betAmount < 2) {
+                triggerHaptic('notification', 'error');
                 tg.showAlert('የመደብ መጠን ቢያንስ 2 ብር መሆን አለበት!');
                 return;
             }
             if (betAmount > userBalance) {
+                triggerHaptic('notification', 'error');
                 tg.showAlert('በቂ የብር መጠን የሎትም! እባክዎ መጀመሪያ ሂሳብዎን ይሙሉ!');
                 return;
             }
 
             resultText.className = "result-alert";
 
-            // ቅድሚያ ሂሳብ ቀንሥ
+            // ደህንነቱ የተጠበቀ ሂሳብ ቅነሳ (ኤፒአይ ካልሰራ ሪፈንድ ይደረጋል)
             userBalance -= betAmount;
             document.getElementById('user-balance').innerText = userBalance.toFixed(2);
 
@@ -1377,11 +1432,17 @@
             let currentX = 0;
             let currentY = 0;
             let soundTicks = 0;
+            
             const spinInterval = setInterval(() => {
                 currentX += Math.floor(Math.random() * 80) + 40;
                 currentY += Math.floor(Math.random() * 80) + 40;
                 coin.style.transform = `rotateX(${currentX}deg) rotateY(${currentY}deg)`;
                 
+                // ሳንቲሙ ሲሽከረከር የሚሰማ ንዝረት
+                if (soundTicks % 2 === 0) {
+                    triggerHaptic('impact', 'light');
+                }
+
                 if (soundTicks % 3 === 0) {
                     playTumbleSound();
                 }
@@ -1416,8 +1477,9 @@
             .then(data => {
                 if (data.status === 'error') {
                     clearInterval(spinInterval);
+                    triggerHaptic('notification', 'error');
                     tg.showAlert(data.message);
-                    userBalance += betAmount; // refund on error
+                    userBalance += betAmount; // ስህተት ሲፈጠር ሪፈንድ ማድረግ
                     document.getElementById('user-balance').innerText = userBalance.toFixed(2);
                     resetGameUI();
                     return;
@@ -1446,8 +1508,9 @@
                     playClinkSound();
 
                     if (data.status === 'win') {
+                        triggerHaptic('notification', 'success');
                         const winAmount = (betAmount * 2);
-                        resultText.innerText = `Won ${winAmount.toFixed(2)} ብር`;
+                        resultText.innerText = `አሸነፉ! +${winAmount.toFixed(2)} ብር`;
                         resultText.className = "result-alert result-won";
 
                         if (data.new_balance !== undefined && data.new_balance !== null) {
@@ -1471,7 +1534,8 @@
                             }, 3000);
                         }
                     } else {
-                        resultText.innerText = "Lose";
+                        triggerHaptic('notification', 'error');
+                        resultText.innerText = "ተሸነፉ! በድጋሚ ይሞክሩ።";
                         resultText.className = "result-alert result-lose";
                         
                         currentStreak = 0;
@@ -1514,6 +1578,7 @@
             status.innerText = "ዕድልዎ እየተሽከረከረ ነው... 🍀";
 
             let wheelSoundInterval = setInterval(() => {
+                triggerHaptic('impact', 'light');
                 playTumbleSound();
             }, 180);
 
@@ -1560,11 +1625,12 @@
 
                 setTimeout(() => {
                     clearInterval(wheelSoundInterval);
+                    triggerHaptic('notification', 'success');
                     playStreakFanfare();
                     
                     spawnConfetti(90);
 
-                    status.innerText = `Won ${amount.toFixed(2)} ብር`;
+                    status.innerText = `ተሳክቷል! +${amount.toFixed(2)} ብር`;
                     
                     document.getElementById('free-gift-btn').innerText = "ተወስዷል";
                     document.getElementById('free-gift-btn').style.color = "#8a8a8a";
@@ -1581,6 +1647,7 @@
 
             } else {
                 clearInterval(wheelSoundInterval);
+                triggerHaptic('notification', 'error');
                 tg.showAlert(data.message);
                 status.innerText = "ዛሬ ቀድመው ወስደዋል!";
                 isWheelSpinning = false;
@@ -1593,6 +1660,7 @@
             const receiptInput = document.getElementById('dep-receipt');
             
             if (isNaN(amount) || amount <= 0 || !receiptInput.files[0]) {
+                triggerHaptic('notification', 'error');
                 tg.showAlert("እባክዎ መጠን እና ደረሰኝ በትክክል ያስገቡ!");
                 return;
             }
@@ -1607,14 +1675,17 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
+                    triggerHaptic('notification', 'success');
                     tg.showAlert("የማስገቢያ ጥያቄዎ ለአድሚን ተልኳል! በቅርቡ ይጸድቃል።");
                     saveLocalHistory('ብር ማስገቢያ', amount, 'pending');
                     closeModal('depositModal');
                 } else {
+                    triggerHaptic('notification', 'error');
                     tg.showAlert("ስህተት ተፈጥሯል፣ እባክዎ እንደገና ይሞክሩ።");
                 }
             })
             .catch(() => {
+                triggerHaptic('notification', 'success');
                 tg.showAlert("የማስገቢያ ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል!");
                 saveLocalHistory('ብር ማስገቢያ', amount, 'pending');
                 closeModal('depositModal');
@@ -1629,6 +1700,7 @@
             const amount = parseFloat(document.getElementById('wit-amount').value);
 
             if (!bank || !accName || !phone || !userPhone || isNaN(amount) || amount <= 0) {
+                triggerHaptic('notification', 'error');
                 tg.showAlert("እባክዎ ሁሉንም መረጃዎች በትክክል ያስገቡ!");
                 return;
             }
@@ -1649,16 +1721,19 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
+                    triggerHaptic('notification', 'success');
                     tg.showAlert("የወጪ ጥያቄዎ ለአድሚን ቀርቧል!");
                     userBalance -= amount;
                     loadBalance();
                     saveLocalHistory('ብር ማውጫ', amount, 'pending');
                     closeModal('withdrawModal');
                 } else {
+                    triggerHaptic('notification', 'error');
                     tg.showAlert(data.message || "ስህተት ተፈጥሯል!");
                 }
             })
             .catch(() => {
+                triggerHaptic('notification', 'success');
                 tg.showAlert("የወጪ ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል!");
                 userBalance -= amount;
                 loadBalance();
