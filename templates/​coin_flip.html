@@ -85,7 +85,7 @@
             justify-content: center;
             font-weight: bold;
             font-size: 1.4rem;
-            border: 5px solid #d4af37; /* የወርቅ ከለር */
+            border: 5px solid #d4af37; 
             box-shadow: 0 0 20px rgba(212, 175, 55, 0.4), inset 0 0 20px rgba(0,0,0,0.5);
             box-sizing: border-box;
         }
@@ -117,12 +117,12 @@
 
         @keyframes spinHeads {
             0% { transform: rotateY(0); }
-            100% { transform: rotateY(1800deg); } /* 5 ሙሉ ዙር ዞሮ 0 ላይ ያርፋል */
+            100% { transform: rotateY(1800deg); } 
         }
 
         @keyframes spinTails {
             0% { transform: rotateY(0); }
-            100% { transform: rotateY(1980deg); } /* 5 ዙር ተኩል ዞሮ 180 ዲግሪ ጀርባውን ያሳያል */
+            100% { transform: rotateY(1980deg); } 
         }
 
         /* Game Controls */
@@ -262,7 +262,7 @@
     <div class="game-header">
         <button id="exit-btn" class="exit-btn" onclick="goToMainMenu()"><i class="fas fa-arrow-left"></i> ማውጫ</button>
         <div class="balance-box">💰 <span id="game-balance">0.00</span> ብር</div>
-        <div style="width: 75px;"></div> <!-- ሚዛን ለመጠበቅ -->
+        <div style="width: 75px;"></div> 
     </div>
 
     <div class="game-container">
@@ -393,22 +393,18 @@
             document.getElementById("status-text").style.color = "#94a3b8";
 
             const coin = document.getElementById("coin");
-            // የቀድሞ አኒሜሽን ካለ ክሊር ማድረግ
             coin.classList.remove("flip-heads", "flip-tails");
-            void coin.offsetWidth; // CSS ለመቀስቀስ (reflow)
+            void coin.offsetWidth; 
 
-            // 50/50 የዘፈቀደ የኮምፒውተር ስሌት (ሊገመት የማይችል!)
             let rand = Math.random();
             let finalResult = rand < 0.5 ? 'heads' : 'tails';
 
-            // አኒሜሽኑን መጀመር
             if (finalResult === 'heads') {
                 coin.classList.add("flip-heads");
             } else {
                 coin.classList.add("flip-tails");
             }
 
-            // አኒሜሽኑ ሲያበቃ (ከ 1.2 ሰከንድ በኋላ) ውጤቱን ማስላት
             setTimeout(() => {
                 processResult(finalResult, betAmount);
             }, 1200);
@@ -416,14 +412,17 @@
 
         async function processResult(finalResult, betAmount) {
             let didWin = selectedSide === finalResult;
-            let multiplier = 1.90; // 1.90x ማባዣ (10 ብር መደብ 19 ብር ያሸንፋል)
-            let winAmount = didWin ? (betAmount * multiplier) : 0;
+            let multiplier = 1.90; 
+            
+            // 💡 የሂሳብ ማስተካከያ፡ ካሸነፈ የዋሌት አሰራሩ (win_amount - bet_amount) ስለሆነ 
+            // መጫወቻው ብር + የተጣራ ትርፉ ተደምሮ ወደ API ይላካል።
+            let winAmount = didWin ? (betAmount + (betAmount * multiplier)) : 0;
+            let displayProfit = betAmount * multiplier; // ለፖፕአፑ ማሳያ ብቻ
 
             let resultAmharic = finalResult === 'heads' ? 'ዘውድ 👑' : 'ጎፈር 🦁';
 
-            // ወደ API መረጃ መላክ
             try {
-                await fetch('/api/race_result', { // የፈረስ API መጋሪያውን ለዚህም ተጠቅመንበታል
+                await fetch('/api/race_result', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -436,7 +435,6 @@
                 });
             } catch (e) { console.error("ውጤት መላክ አልተቻለም", e); }
 
-            // ውጤቱን በፖፕ አፕ ማሳየት
             const modalTitle = document.getElementById("modal-title");
             const modalBody = document.getElementById("modal-body");
             const modal = document.getElementById("result-modal");
@@ -445,7 +443,7 @@
                 modalTitle.innerText = "🎉 እንኳን ደስ አለዎት!";
                 modalTitle.style.color = "#10b981";
                 modalBody.parentNode.style.borderColor = "#10b981";
-                modalBody.innerHTML = `የወጣው ውጤት: <strong>${resultAmharic}</strong><br><br><span style="color:#10b981; font-weight:900; font-size:1.3rem;">+ ${winAmount.toFixed(2)} ብር አሸንፈዋል!</span>`;
+                modalBody.innerHTML = `የወጣው ውጤት: <strong>${resultAmharic}</strong><br><br><span style="color:#10b981; font-weight:900; font-size:1.3rem;">+ ${displayProfit.toFixed(2)} ብር አሸንፈዋል!</span>`;
             } else {
                 modalTitle.innerText = "😞 አልደረሰዎትም!";
                 modalTitle.style.color = "#ef4444";
@@ -455,7 +453,6 @@
 
             modal.style.display = "flex";
 
-            // ሁኔታዎችን ወደ መጀመሪያው መመለስ
             isFlipping = false;
             document.getElementById("flip-btn").disabled = false;
             document.getElementById("exit-btn").disabled = false;
@@ -466,7 +463,6 @@
 
         function closeModal() {
             document.getElementById("result-modal").style.display = "none";
-            // ሳንቲሙን ወደ መጀመሪያ ቦታው መመለስ
             document.getElementById("coin").classList.remove("flip-heads", "flip-tails");
         }
     </script>
