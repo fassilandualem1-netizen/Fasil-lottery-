@@ -297,9 +297,7 @@
         <!-- የሩጫ ሜዳ -->
         <div class="race-track-arena">
             <div class="finish-line-stripe"></div>
-            <div class="track-lanes-container" id="live-race-track-lanes">
-                <!-- Lines generated dynamically -->
-            </div>
+            <div class="track-lanes-container" id="live-race-track-lanes"></div>
             <div class="video-overlay" id="race-status-overlay">🏁 ርቀት: 800m | ዝግጁ</div>
         </div>
 
@@ -377,7 +375,7 @@
 
         function goToWallet() {
             if (isRacing) return alert("ውድድር ላይ እያሉ መውጣት አይቻልም!");
-            window.location.href = '/'; // ዋናው ገጽ ላይ ዋሌት እንዲከፈት
+            window.location.href = '/'; 
         }
 
         function initStaticTrack() {
@@ -555,7 +553,6 @@
             const chosenHorse = horses.find(h => h.id === selectedHorseId);
             let didWin = false;
             let finalOdds = 1.0;
-            let winAmount = 0;
 
             if (selectedBetType === 'win') {
                 if (winnerId === selectedHorseId) { didWin = true; finalOdds = chosenHorse.oddsWin; }
@@ -563,7 +560,9 @@
                 if (winnerId === selectedHorseId || silverId === selectedHorseId || bronzeId === selectedHorseId) { didWin = true; finalOdds = chosenHorse.oddsShow; }
             }
 
-            if (didWin) winAmount = betAmount * finalOdds;
+            // 💡 የሂሳብ ማስተካከያ፡ (win_amount - bet_amount) ቀመር በትክክል እንዲሰራ መጫወቻው + የተጣራ ትርፉ ተደምሮ ይላካል
+            let winAmount = didWin ? (betAmount + (betAmount * finalOdds)) : 0;
+            let displayProfit = betAmount * finalOdds; // ለፖፕ አፕ ማሳያ ብቻ
 
             try {
                 await fetch('/api/race_result', {
@@ -579,7 +578,7 @@
                 });
             } catch (e) { console.error("ውጤት መላክ አልተቻለም", e); }
 
-            showResultBoard(raceDetails, didWin, winAmount, chosenHorse);
+            showResultBoard(raceDetails, didWin, displayProfit, chosenHorse);
 
             isRacing = false;
             document.getElementById("race-start-main-btn").disabled = false;
@@ -589,7 +588,7 @@
             regenerateOdds(); 
         }
 
-        function showResultBoard(raceDetails, didWin, winAmount, chosenHorse) {
+        function showResultBoard(raceDetails, didWin, displayProfit, chosenHorse) {
             const tbody = document.getElementById("result-table-body");
             tbody.innerHTML = "";
             for(let i=0; i<5; i++) {
@@ -610,7 +609,7 @@
                     <span style="font-size: 24px;">🎉</span><br>
                     <strong style="color: #10b981;">እንኳን ደስ አሰኘዎት! ማሸነፍዎን አረጋግጠናል!</strong><br>
                     <span style="font-size: 14px; color: #94a3b8;">የመረጡት ፈረስ: ${chosenHorse.name}</span><br>
-                    <span style="font-size: 18px; font-weight: 900; color: #10b981; display:block; margin-top: 8px;">+ ${winAmount.toFixed(2)} ብር</span>
+                    <span style="font-size: 18px; font-weight: 900; color: #10b981; display:block; margin-top: 8px;">+ ${displayProfit.toFixed(2)} ብር</span>
                 `;
             } else {
                 rewardBox.style.borderColor = "#ef4444";
