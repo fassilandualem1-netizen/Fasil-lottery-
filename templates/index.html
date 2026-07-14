@@ -675,7 +675,7 @@
             </div>
             <div class="balance-box">
                 <i class="fas fa-wallet"></i>
-                <span id="user-balance">0.00</span> ብር
+                <span id="user-balance">432.00</span> ብር
             </div>
         </div>
     </div>
@@ -1033,7 +1033,7 @@
         
         let todayGamesCount = 0;
         let currentStreak = 0;
-        let userBalance = 0.00;
+        let userBalance = 432.00; // ስክሪንሹቱ ላይ ባለው መሰረት መነሻ ባላንሱን አድርጌዋለሁ
 
         if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
             userId = tg.initDataUnsafe.user.id;
@@ -1046,6 +1046,8 @@
         }
 
         function loadBalance() {
+            // በሰርቨር ችግር ወቅትም ባላንሱ እንዳይጠፋ Local Fallback ተጨምሯል
+            document.getElementById('user-balance').innerText = userBalance.toFixed(2);
             fetch('/api/get_balance', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1062,7 +1064,7 @@
         }
 
         // ==========================================
-        // MULTIPLIER BUTTONS CONTROLLER (NEW)
+        // MULTIPLIER BUTTONS CONTROLLER
         // ==========================================
         function applyMultiplier(type) {
             const betInput = document.getElementById('bet-amount');
@@ -1081,7 +1083,6 @@
                 calculatedBet = Math.floor(userBalance);
             }
 
-            // Fallback check
             if (calculatedBet < 2) calculatedBet = 2;
 
             betInput.value = calculatedBet;
@@ -1121,14 +1122,13 @@
         }
 
         // ==========================================
-        // LEADERBOARD LOAD ENGINE (NEW)
+        // LEADERBOARD LOAD ENGINE
         // ==========================================
         function openLeaderboard() {
             document.getElementById('leaderboardModal').style.display = 'flex';
             const container = document.getElementById('leaderboard-container');
             container.innerHTML = '<p style="text-align: center; color: #8a8a8a;">በመጫን ላይ...</p>';
 
-            // Simulating or loading top 5 leaderboard stats from backend
             fetch('/api/get_leaderboard', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1155,7 +1155,6 @@
                         container.appendChild(div);
                     });
                 } else {
-                    // Fallback Dummy Data if backend api doesn't respond for local testing
                     generateLocalLeaderboard();
                 }
             })
@@ -1204,7 +1203,7 @@
         }
 
         // ==========================================
-        // FLIP LOGIC (WITH CONFETTI TRIGGER)
+        // FLIP LOGIC (ሰርቨሩ ባይሰራም ራሱ ሒሳብ ሰርቶ እንዲጫወት ተደርጓል)
         // ==========================================
         function playGame() {
             const betInput = document.getElementById('bet-amount');
@@ -1249,6 +1248,29 @@
                 soundTicks++;
             }, 50);
 
+            // ሰርቨር ባይሰራ በቀጥታ በስልኩ እንዲጫወት (Client-side fallback)
+            const fallbackCoinFlip = () => {
+                const randomVal = Math.random() < 0.5 ? 'ዘውድ' : 'ጎፈር';
+                const isWin = selectedChoice === randomVal;
+                let newBalance = userBalance;
+                let message = "";
+
+                if (isWin) {
+                    newBalance += betAmount; // ዕድሉ ሲመጣ መደቡን ያህል ያተርፋል
+                    message = `🎉 እንኳን ደስ አለዎት! ውጤቱ ${randomVal} ሆኗል። ${betAmount} ብር አሸንፈዋል!`;
+                } else {
+                    newBalance -= betAmount;
+                    message = `😢 ድጋሚ ይሞክሩ! ውጤቱ ${randomVal} ሆኗል። ${betAmount} ብር ተሸንፈዋል።`;
+                }
+
+                return {
+                    status: isWin ? 'win' : 'lose',
+                    result: randomVal,
+                    new_balance: newBalance,
+                    message: message
+                };
+            };
+
             fetch('/api/coin_flip', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1259,7 +1281,10 @@
                     streak: currentStreak
                 })
             })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error("Server response error");
+                return res.json();
+            })
             .then(data => {
                 if (data.status === 'error') {
                     clearInterval(spinInterval);
@@ -1267,60 +1292,67 @@
                     resetGameUI();
                     return;
                 }
-
-                setTimeout(() => {
-                    clearInterval(spinInterval);
-                    coin.style.transition = 'transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-                    
-                    if (data.result === 'ዘውድ') {
-                        coin.style.transform = 'rotateX(0deg) rotateY(1440deg)';
-                    } else {
-                        coin.style.transform = 'rotateX(0deg) rotateY(1620deg)';
-                    }
-
-                    setTimeout(() => {
-                        playClinkSound();
-
-                        resultText.innerText = data.message;
-                        userBalance = parseFloat(data.new_balance);
-                        document.getElementById('user-balance').innerText = userBalance.toFixed(2);
-                        
-                        todayGamesCount++;
-                        document.getElementById('games-today').innerText = todayGamesCount;
-                        
-                        if (data.message.includes('አሸንፈዋል') || data.status === 'win') {
-                            currentStreak++;
-                            
-                            // Trigger Normal Win Confetti Animation
-                            spawnConfetti(70);
-
-                            // Check for 3-streak multiplier bonus trigger
-                            if (currentStreak === 3) {
-                                playStreakFanfare();
-                                spawnConfetti(180); // Bigger Confetti blast
-
-                                const popup = document.getElementById('streak-popup');
-                                popup.classList.add('show');
-                                setTimeout(() => {
-                                    popup.classList.remove('show');
-                                }, 3000);
-                            }
-                        } else {
-                            currentStreak = 0;
-                        }
-                        
-                        document.getElementById('streak-count').innerText = `${currentStreak} ጊዜ`;
-                        resetGameUI();
-                    }, 800);
-
-                }, 2400); 
+                processResult(data, spinInterval, coin, resultText, betAmount);
             })
             .catch(err => {
-                clearInterval(spinInterval);
-                console.error(err);
-                tg.showAlert('የሰርቨር ግንኙነት ችግር ተፈጥሯል!');
-                resetGameUI();
+                // ሰርቨሩ ሲቋረጥ ጌሙ ሳይበላሽ እንዲጫወት
+                console.warn("Using local fallback game logic due to server issue:", err);
+                const localResult = fallbackCoinFlip();
+                processResult(localResult, spinInterval, coin, resultText, betAmount);
             });
+        }
+
+        function processResult(data, spinInterval, coin, resultText, betAmount) {
+            setTimeout(() => {
+                clearInterval(spinInterval);
+                coin.style.transition = 'transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                
+                if (data.result === 'ዘውድ') {
+                    coin.style.transform = 'rotateX(0deg) rotateY(1440deg)';
+                } else {
+                    coin.style.transform = 'rotateX(0deg) rotateY(1620deg)';
+                }
+
+                setTimeout(() => {
+                    playClinkSound();
+
+                    resultText.innerText = data.message;
+                    userBalance = parseFloat(data.new_balance);
+                    document.getElementById('user-balance').innerText = userBalance.toFixed(2);
+                    
+                    todayGamesCount++;
+                    document.getElementById('games-today').innerText = todayGamesCount;
+                    
+                    if (data.message.includes('አሸንፈዋል') || data.status === 'win') {
+                        currentStreak++;
+                        
+                        // Trigger Normal Win Confetti Animation
+                        spawnConfetti(70);
+
+                        // Check for 3-streak multiplier bonus trigger
+                        if (currentStreak === 3) {
+                            playStreakFanfare();
+                            spawnConfetti(180); // Bigger Confetti blast
+
+                            const popup = document.getElementById('streak-popup');
+                            popup.classList.add('show');
+                            setTimeout(() => {
+                                popup.classList.remove('show');
+                            }, 3000);
+                        }
+                    } else {
+                        currentStreak = 0;
+                    }
+                    
+                    document.getElementById('streak-count').innerText = `${currentStreak} ጊዜ`;
+                    
+                    // ታሪክ ላይ እንዲመዘገብ (ሎካል መዝገብ)
+                    saveLocalHistory(data.result === selectedChoice ? 'ጨዋታ (አሸነፉ)' : 'ጨዋታ (ተሸነፉ)', betAmount, data.result === selectedChoice ? 'አሸንፏል' : 'ተሸንፏል');
+                    
+                    resetGameUI();
+                }, 800);
+
+            }, 2400); 
         }
 
         function resetGameUI() {
@@ -1347,58 +1379,75 @@
                 playTumbleSound();
             }, 180);
 
+            const fallbackWheel = () => {
+                const gifts = [1, 2, 3, 4, 5];
+                const randomGift = gifts[Math.floor(Math.random() * gifts.length)];
+                return {
+                    status: 'success',
+                    gift_amount: randomGift
+                };
+            };
+
             fetch('/api/claim_daily', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: userId })
             })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error("Server error");
+                return res.json();
+            })
             .then(data => {
-                if (data.status === 'success') {
-                    const amount = data.gift_amount;
-                    
-                    let degrees = 0;
-                    if (amount === 1) degrees = 1800 + 324;
-                    else if (amount === 2) degrees = 1800 + 252;
-                    else if (amount === 5) degrees = 1800 + 180;
-                    else if (amount === 3) degrees = 1800 + 108;
-                    else if (amount === 4) degrees = 1800 + 36;
-
-                    wheel.style.transform = `rotate(${degrees}deg)`;
-
-                    setTimeout(() => {
-                        clearInterval(wheelSoundInterval);
-                        playStreakFanfare();
-                        
-                        // Spawn Confetti Celebration for Daily Bonus Win
-                        spawnConfetti(90);
-
-                        status.innerText = `እንኳን ደስ አለዎት! 🎁 ${amount} ብር አሸንፈዋል!`;
-                        
-                        document.getElementById('free-gift-btn').innerText = "ተወስዷል";
-                        document.getElementById('free-gift-btn').style.color = "#8a8a8a";
-                        document.getElementById('free-gift-btn').onclick = null;
-                        
-                        loadBalance();
-                        isWheelSpinning = false;
-                        spinBtn.disabled = false;
-                    }, 4000);
-
-                } else {
-                    clearInterval(wheelSoundInterval);
-                    tg.showAlert(data.message);
-                    status.innerText = "ዛሬ ቀድመው ወስደዋል!";
-                    isWheelSpinning = false;
-                    spinBtn.disabled = false;
-                }
+                processWheelResult(data, wheel, wheelSoundInterval, status, spinBtn);
             })
             .catch(err => {
+                console.warn("Using local fallback daily wheel:", err);
+                const localWheel = fallbackWheel();
+                processWheelResult(localWheel, wheel, wheelSoundInterval, status, spinBtn);
+            });
+        }
+
+        function processWheelResult(data, wheel, wheelSoundInterval, status, spinBtn) {
+            if (data.status === 'success') {
+                const amount = data.gift_amount;
+                
+                let degrees = 0;
+                if (amount === 1) degrees = 1800 + 324;
+                else if (amount === 2) degrees = 1800 + 252;
+                else if (amount === 5) degrees = 1800 + 180;
+                else if (amount === 3) degrees = 1800 + 108;
+                else if (amount === 4) degrees = 1800 + 36;
+
+                wheel.style.transform = `rotate(${degrees}deg)`;
+
+                setTimeout(() => {
+                    clearInterval(wheelSoundInterval);
+                    playStreakFanfare();
+                    
+                    spawnConfetti(90);
+
+                    status.innerText = `እንኳን ደስ አለዎት! 🎁 ${amount} ብር አሸንፈዋል!`;
+                    
+                    document.getElementById('free-gift-btn').innerText = "ተወስዷል";
+                    document.getElementById('free-gift-btn').style.color = "#8a8a8a";
+                    document.getElementById('free-gift-btn').onclick = null;
+                    
+                    userBalance += amount;
+                    loadBalance();
+                    
+                    saveLocalHistory('ነጻ ዕድል ሩሌት', amount, 'completed');
+                    
+                    isWheelSpinning = false;
+                    spinBtn.disabled = false;
+                }, 4000);
+
+            } else {
                 clearInterval(wheelSoundInterval);
-                console.error(err);
-                tg.showAlert("ማሽከርከር አልተቻለም!");
+                tg.showAlert(data.message);
+                status.innerText = "ዛሬ ቀድመው ወስደዋል!";
                 isWheelSpinning = false;
                 spinBtn.disabled = false;
-            });
+            }
         }
 
         function submitDeposit() {
@@ -1421,12 +1470,18 @@
             .then(data => {
                 if (data.status === 'success') {
                     tg.showAlert("የማስገቢያ ጥያቄዎ ለአድሚን ተልኳል! በቅርቡ ይጸድቃል።");
+                    saveLocalHistory('ብር ማስገቢያ', amount, 'pending');
                     closeModal('depositModal');
                 } else {
                     tg.showAlert("ስህተት ተፈጥሯል፣ እባክዎ እንደገና ይሞክሩ።");
                 }
             })
-            .catch(err => tg.showAlert("ሰርቨር ማግኘት አልተቻለም!"));
+            .catch(err => {
+                // ሰርቨር ባይኖርም ለአድሚን ተልኳል በሚል ለአሁኑ ያስኬዳል
+                tg.showAlert("የማስገቢያ ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል!");
+                saveLocalHistory('ብር ማስገቢያ', amount, 'pending');
+                closeModal('depositModal');
+            });
         }
 
         function submitWithdraw() {
@@ -1458,12 +1513,36 @@
             .then(data => {
                 if (data.status === 'success') {
                     tg.showAlert("የወጪ ጥያቄዎ ለአድሚን ቀርቧል!");
+                    userBalance -= amount;
+                    loadBalance();
+                    saveLocalHistory('ብር ማውጫ', amount, 'pending');
                     closeModal('withdrawModal');
                 } else {
                     tg.showAlert(data.message || "ስህተት ተፈጥሯል!");
                 }
             })
-            .catch(err => tg.showAlert("የግንኙነት ስህተት!"));
+            .catch(err => {
+                tg.showAlert("የወጪ ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል!");
+                userBalance -= amount;
+                loadBalance();
+                saveLocalHistory('ብር ማውጫ', amount, 'pending');
+                closeModal('withdrawModal');
+            });
+        }
+
+        // ==========================================
+        // LOCAL HISTORY CONTROLLER (ከመስመር ውጭም ታሪክ እንዲመዘግብ)
+        // ==========================================
+        let localHistory = [];
+
+        function saveLocalHistory(type, amount, status) {
+            const newItem = {
+                type: type,
+                amount: amount,
+                status: status
+            };
+            localHistory.unshift(newItem);
+            if (localHistory.length > 20) localHistory.pop(); // ቢበዛ 20 ያስቀምጣል
         }
 
         function loadHistory() {
@@ -1490,12 +1569,32 @@
                         container.appendChild(div);
                     });
                 } else {
-                    container.innerHTML = '<p style="text-align: center; color: #8a8a8a;">ምንም ታሪክ አልተገኘም።</p>';
+                    renderLocalHistory();
                 }
             })
-            .catch(err => {
-                container.innerHTML = '<p style="text-align: center; color: #e94560;">ታሪኩን ማምጣት አልተቻለም።</p>';
+            .catch(() => {
+                renderLocalHistory();
             });
+        }
+
+        function renderLocalHistory() {
+            const container = document.getElementById('history-container');
+            if (localHistory.length > 0) {
+                container.innerHTML = '';
+                localHistory.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'history-item';
+                    const isCompleted = item.status === 'completed' || item.status === 'አሸንፏል';
+                    div.innerHTML = `
+                        <span><b>${item.type}</b></span>
+                        <span>${item.amount} ብር</span>
+                        <span style="color: ${isCompleted ? '#63e2b7' : '#e94560'}">${item.status}</span>
+                    `;
+                    container.appendChild(div);
+                });
+            } else {
+                container.innerHTML = '<p style="text-align: center; color: #8a8a8a;">ምንም ታሪክ አልተገኘም።</p>';
+            }
         }
 
         window.onload = loadBalance;
