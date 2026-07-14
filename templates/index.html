@@ -163,7 +163,7 @@
             font-size: 1.2rem;
         }
 
-        /* Quick Action Buttons (Deposit/Withdraw) */
+        /* Quick Action Buttons */
         .actions-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -190,22 +190,25 @@
         }
 
         /* ==========================================
-           3D Real Coin Physics & Animation CSS
+           ADVANCED 3D REAL COIN SPIN & BOUNCE
            ========================================== */
         .coin-wrapper {
-            perspective: 1000px;
-            margin: 30px auto;
-            width: 140px;
-            height: 140px;
+            perspective: 1500px;
+            margin: 25px auto;
+            width: 190px;
+            height: 190px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         .coin {
-            width: 100%;
-            height: 100%;
+            width: 180px;
+            height: 180px;
             position: relative;
             transform-style: preserve-3d;
-            transform: rotateY(0deg);
-            transition: transform 3s cubic-bezier(0.2, 0.8, 0.3, 1.05);
+            transform: rotateX(0deg) rotateY(0deg);
+            transition: transform 0.1s linear;
         }
 
         .coin-side {
@@ -218,77 +221,82 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            font-size: 1.4rem;
             font-weight: bold;
-            border: 6px solid var(--gold-color);
-            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5), inset 0 0 15px rgba(0, 0, 0, 0.3);
+            font-size: 1.7rem;
             box-sizing: border-box;
+            border: 9px solid #cc9900;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(0,0,0,0.4);
         }
 
-        /* ዘውድ ጎን (ወርቃማ) */
+        /* 👑 ዘውድ */
         .coin-front {
-            background: radial-gradient(circle, #ffe875, #b38600);
-            color: #3d2d00;
-            text-shadow: 1px 1px 2px rgba(255,255,255,0.5);
+            background: radial-gradient(circle, #ffe57f 0%, #ffb300 70%, #ff8f00 100%);
+            color: #4e342e;
+            z-index: 2;
         }
 
-        /* ጎፈር ጎን (ብርማ) */
+        /* 🦁 ጎፈር */
         .coin-back {
-            background: radial-gradient(circle, #ffffff, #7f8c8d);
-            color: #2c3e50;
+            background: radial-gradient(circle, #ffffff 0%, #b0bec5 70%, #78909c 100%);
+            color: #263238;
             transform: rotateY(180deg);
-            text-shadow: 1px 1px 2px rgba(255,255,255,0.5);
+            border-color: #90a4ae;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(0,0,0,0.3);
         }
 
         .coin-emoji {
-            font-size: 2.2rem;
-            margin-bottom: 2px;
+            font-size: 3.5rem;
+            margin-bottom: 4px;
+            filter: drop-shadow(0px 3px 5px rgba(0,0,0,0.4));
         }
 
-        /* 3D Spin Animations with bouncing physics */
-        @keyframes toss-up {
-            0% { transform: scale(1) translateY(0); }
-            50% { transform: scale(1.2) translateY(-60px); }
-            100% { transform: scale(1) translateY(0); }
+        /* Physics Bounce Animation */
+        @keyframes coin-toss-bounce {
+            0% { transform: translateY(0) scale(1); }
+            20% { transform: translateY(-130px) scale(1.2); }
+            70% { transform: translateY(0) scale(0.95); }
+            80% { transform: translateY(-18px) scale(1.05); }
+            90% { transform: translateY(0) scale(0.98); }
+            100% { transform: translateY(0) scale(1); }
         }
 
-        .coin.tossing {
-            animation: toss-up 3s ease-in-out;
+        .coin-wrapper.animate-toss {
+            animation: coin-toss-bounce 3.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
         }
 
-        /* Controls */
+        /* Controls Card (Compact) */
         .controls-card {
             background-color: var(--card-bg);
             width: 100%;
-            padding: 20px;
+            padding: 15px;
             border-radius: 15px;
             box-sizing: border-box;
             border: 1px solid rgba(255, 255, 255, 0.1);
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 12px;
         }
 
         .choice-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
+            gap: 12px;
         }
 
         .choice-btn {
             background-color: var(--accent-color);
             border: 2px solid transparent;
-            padding: 15px;
+            padding: 12px;
             border-radius: 10px;
             color: var(--light-text);
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: bold;
             cursor: pointer;
             transition: 0.2s;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 5px;
+            gap: 3px;
         }
 
         .choice-btn.selected {
@@ -300,21 +308,21 @@
         .input-group {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 5px;
         }
 
         .input-group label {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: #aaaaaa;
         }
 
         .input-group input {
             background-color: var(--bg-color);
             border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 12px;
-            border-radius: 10px;
+            padding: 10px;
+            border-radius: 8px;
             color: var(--light-text);
-            font-size: 1.1rem;
+            font-size: 1rem;
             text-align: center;
             outline: none;
         }
@@ -323,9 +331,9 @@
             background-color: var(--text-color);
             color: var(--light-text);
             border: none;
-            padding: 15px;
-            border-radius: 10px;
-            font-size: 1.2rem;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1.1rem;
             font-weight: bold;
             cursor: pointer;
             width: 100%;
@@ -339,7 +347,7 @@
 
         .result-alert {
             text-align: center;
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             font-weight: bold;
             min-height: 25px;
         }
@@ -355,9 +363,7 @@
             margin-bottom: 10px;
         }
 
-        /* ==========================================
-           Modals & History style
-           ========================================== */
+        /* Modals & History */
         .modal {
             display: none;
             position: fixed;
@@ -386,7 +392,7 @@
         }
 
         .modal-content h3 { margin: 0; color: var(--text-color); }
-        .modal-content input, .modal-content select {
+        .modal-content input {
             background-color: var(--bg-color);
             border: 1px solid rgba(255, 255, 255, 0.2);
             padding: 12px;
@@ -467,7 +473,6 @@
             <p>የሚወዱትን ጨዋታ ይምረጡና ዕድልዎን ይሞክሩ።</p>
         </div>
 
-        <!-- Quick Actions -->
         <div class="actions-grid">
             <button class="action-btn" onclick="openDepositModal()">
                 <i class="fas fa-arrow-down" style="color: #4e9f3d;"></i> ብር አስገባ
@@ -501,11 +506,11 @@
 
         <div style="text-align: center;">
             <h2 style="margin: 5px 0;">🪙 ዘውድና ጎፈር</h2>
-            <p style="color: #aaa; margin: 0; font-size: 0.9rem;">ዕድልዎን በሳይንሳዊ አልጎሪዝም ይሞክሩ!</p>
+            <p style="color: #aaa; margin: 0; font-size: 0.9rem;">ፍጹም የማይገመት የሳይንስ አልጎሪዝም!</p>
         </div>
         
-        <!-- Interactive 3D Physics Coin -->
-        <div class="coin-wrapper">
+        <!-- Interactive 3D Real Physics Coin (Enlarged) -->
+        <div class="coin-wrapper" id="coin-container">
             <div class="coin" id="game-coin">
                 <div class="coin-side coin-front">
                     <span class="coin-emoji">👑</span>
@@ -524,18 +529,18 @@
         <div class="controls-card">
             <div class="choice-grid">
                 <button class="choice-btn" id="btn-heads" onclick="selectChoice('ዘውድ')">
-                    <span style="font-size: 1.5rem;">👑</span>
+                    <span style="font-size: 1.4rem;">👑</span>
                     <span>ዘውድ</span>
                 </button>
                 <button class="choice-btn" id="btn-tails" onclick="selectChoice('ጎፈር')">
-                    <span style="font-size: 1.5rem;">🦁</span>
+                    <span style="font-size: 1.4rem;">🦁</span>
                     <span>ጎፈር</span>
                 </button>
             </div>
 
             <div class="input-group">
-                <label>የውርርድ መጠን (ብር)</label>
-                <input type="number" id="bet-amount" placeholder="ምሳሌ፡ 50" min="1">
+                <label>የውርርድ መጠን (ቢያንስ 2 ብር)</label>
+                <input type="number" id="bet-amount" placeholder="ምሳሌ፡ 50" min="2">
             </div>
 
             <button class="play-btn" id="flip-btn" onclick="playGame()">ሳንቲሙን ግልበጥ</button>
@@ -593,6 +598,15 @@
     </div>
 
     <script>
+        // ==========================================
+        // AUDIO RESOURCES (SOUNDS)
+        // ==========================================
+        const spinSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2014/2014-84.wav'); 
+        const landSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2009/2009-84.wav'); 
+
+        spinSound.volume = 0.5;
+        landSound.volume = 0.6;
+
         const tg = window.Telegram.WebApp;
         tg.expand();
 
@@ -628,7 +642,6 @@
 
         function switchTab(tab) {
             if (isSpinning) return;
-            
             if (tab === 'games') {
                 document.getElementById('main-view').style.display = 'flex';
                 document.getElementById('game-view').style.display = 'none';
@@ -663,38 +676,46 @@
         }
 
         // ==========================================
-        // Real Physics Spinning Logic
+        // ADVANCED PHYSICS SPINNING LOGIC (WITH SOUND)
         // ==========================================
         function playGame() {
             const betInput = document.getElementById('bet-amount');
             const betAmount = parseFloat(betInput.value);
             const resultText = document.getElementById('result-text');
             const coin = document.getElementById('game-coin');
+            const container = document.getElementById('coin-container');
             const flipBtn = document.getElementById('flip-btn');
 
             if (!selectedChoice) {
                 tg.showAlert('እባክዎ መጀመሪያ ዘውድ ወይም ጎፈር ይምረጡ!');
                 return;
             }
-            if (isNaN(betAmount) || betAmount <= 0) {
-                tg.showAlert('እባክዎ ትክክለኛ የብር መጠን ያስገቡ!');
+            if (isNaN(betAmount) || betAmount < 2) {
+                tg.showAlert('የመደብ መጠን ቢያንስ 2 ብር መሆን አለበት!');
                 return;
             }
 
-            // Start animation & lock UI
             isSpinning = true;
             flipBtn.disabled = true;
-            resultText.innerText = "ሳንቲሙ በአየር ላይ እየተሽከረከረ ነው... 🪙";
-            
-            // 3D ፊዚክስ አኒሜሽን ለመጀመር - ወደ ላይ መወርወር እና ያለማቋረጥ ማሽከርከር
-            coin.classList.add('tossing');
-            coin.style.transition = 'none';
-            coin.style.transform = 'rotateY(0deg)';
-            coin.offsetHeight; // force repaint
-            
-            // ፈጣንና ረጅም ሽክርክሪት (3600 ዲግሪ)
-            coin.style.transition = 'transform 3s cubic-bezier(0.2, 0.8, 0.3, 1)';
-            coin.style.transform = 'rotateY(3600deg)'; 
+            resultText.innerText = "ሳንቲሙ በአየር ላይ እየተገላበጠ ነው... 🪙";
+
+            // play audio
+            spinSound.currentTime = 0;
+            spinSound.play().catch(e => console.log("Audio play blocked by browser."));
+
+            // Start 3D toss animation
+            container.classList.remove('animate-toss');
+            container.offsetHeight; 
+            container.classList.add('animate-toss');
+
+            // Rapid tumbling rotation
+            let currentX = 0;
+            let currentY = 0;
+            const spinInterval = setInterval(() => {
+                currentX += Math.floor(Math.random() * 80) + 40;
+                currentY += Math.floor(Math.random() * 80) + 40;
+                coin.style.transform = `rotateX(${currentX}deg) rotateY(${currentY}deg)`;
+            }, 50);
 
             fetch('/api/coin_flip', {
                 method: 'POST',
@@ -708,30 +729,40 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'error') {
+                    clearInterval(spinInterval);
+                    spinSound.pause();
                     tg.showAlert(data.message);
                     resetGameUI();
                     return;
                 }
 
-                // ሽክርክሪቱ ካለቀ በኋላ ሳንቲሙ የሚያርፍበትን ጎን መወሰን
+                // Smoothly stop the tumble and align with the result
                 setTimeout(() => {
-                    coin.style.transition = 'transform 0.5s ease-out';
-                    if (data.result === 'ዘውድ') {
-                        coin.style.transform = 'rotateY(1800deg)'; // 1800 ዲግሪ (ዘውድ ፊት ለፊት)
-                    } else {
-                        coin.style.transform = 'rotateY(1980deg)'; // 1980 ዲግሪ (ጎፈር ጀርባ ወደ ፊት)
-                    }
+                    clearInterval(spinInterval);
+                    coin.style.transition = 'transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
                     
-                    // ውጤቱን ማሳየት
+                    if (data.result === 'ዘውድ') {
+                        coin.style.transform = 'rotateX(0deg) rotateY(1440deg)';
+                    } else {
+                        coin.style.transform = 'rotateX(0deg) rotateY(1620deg)';
+                    }
+
+                    // Sound on landing
                     setTimeout(() => {
+                        spinSound.pause();
+                        landSound.currentTime = 0;
+                        landSound.play().catch(e => console.log("Audio blocked."));
+
                         resultText.innerText = data.message;
                         document.getElementById('user-balance').innerText = parseFloat(data.new_balance).toFixed(2);
                         resetGameUI();
-                    }, 600);
+                    }, 800);
 
-                }, 2400); // አኒሜሽኑ ከማብቃቱ 0.6 ሰከንድ በፊት ወደ መጨረሻው ውጤት ማስተካከል
+                }, 2400); 
             })
             .catch(err => {
+                clearInterval(spinInterval);
+                spinSound.pause();
                 console.error(err);
                 tg.showAlert('የሰርቨር ግንኙነት ችግር ተፈጥሯል!');
                 resetGameUI();
@@ -741,10 +772,9 @@
         function resetGameUI() {
             isSpinning = false;
             document.getElementById('flip-btn').disabled = false;
-            document.getElementById('game-coin').classList.remove('tossing');
+            document.getElementById('game-coin').style.transition = 'none';
         }
 
-        // Deposit/Withdraw & History fetch (ቀደም ሲል የነበሩት የተሳኩ ኮዶች ሳይነኩ ቀጥለዋል)
         function submitDeposit() {
             const amount = parseFloat(document.getElementById('dep-amount').value);
             const receiptInput = document.getElementById('dep-receipt');
@@ -760,10 +790,7 @@
             formData.append('amount', amount);
             formData.append('receipt', receiptInput.files[0]);
 
-            fetch('/api/deposit', {
-                method: 'POST',
-                body: formData
-            })
+            fetch('/api/deposit', { method: 'POST', body: formData })
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
