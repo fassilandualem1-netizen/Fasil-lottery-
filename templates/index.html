@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>የሰፈር ጨዋታዎች - ዋና ማውጫ</title>
+    <title>የሰፈር ጨዋታዎች</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -14,6 +14,7 @@
             --text-color: #e94560;
             --light-text: #ffffff;
             --success-color: #4e9f3d;
+            --gold-color: #ffd700;
         }
 
         body {
@@ -188,7 +189,150 @@
             background-color: var(--accent-color);
         }
 
-        /* Modals style */
+        /* ==========================================
+           Coin Flip Game UI (Embedded in Same File)
+           ========================================== */
+        .coin-wrapper {
+            perspective: 1000px;
+            margin: 20px auto;
+            width: 120px;
+            height: 120px;
+        }
+
+        .coin {
+            width: 120px;
+            height: 120px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .coin-side {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            font-weight: bold;
+            border: 5px solid var(--gold-color);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+            box-sizing: border-box;
+        }
+
+        .coin-front {
+            background: radial-gradient(circle, #ffe066, #b38600);
+            color: #4d3300;
+        }
+
+        .coin-back {
+            background: radial-gradient(circle, #f0f0f0, #8c8c8c);
+            color: #333333;
+            transform: rotateY(180deg);
+        }
+
+        .spin-to-heads { transform: rotateY(1800deg); }
+        .spin-to-tails { transform: rotateY(1980deg); }
+
+        .controls-card {
+            background-color: var(--card-bg);
+            width: 100%;
+            padding: 20px;
+            border-radius: 15px;
+            box-sizing: border-box;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .choice-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .choice-btn {
+            background-color: var(--accent-color);
+            border: 2px solid transparent;
+            padding: 15px;
+            border-radius: 10px;
+            color: var(--light-text);
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .choice-btn.selected {
+            border-color: var(--gold-color);
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-group label {
+            font-size: 0.9rem;
+            color: #aaaaaa;
+        }
+
+        .input-group input {
+            background-color: var(--bg-color);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 12px;
+            border-radius: 10px;
+            color: var(--light-text);
+            font-size: 1.1rem;
+            text-align: center;
+            outline: none;
+        }
+
+        .play-btn {
+            background-color: var(--text-color);
+            color: var(--light-text);
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            transition: 0.2s;
+        }
+
+        .play-btn:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+
+        .result-alert {
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            min-height: 25px;
+        }
+
+        .back-nav {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: var(--text-color);
+            margin-bottom: 10px;
+        }
+
+        /* ==========================================
+           Modals Style
+           ========================================== */
         .modal {
             display: none;
             position: fixed;
@@ -224,7 +368,7 @@
         .modal-content input, .modal-content select {
             background-color: var(--bg-color);
             border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 10px;
+            padding: 12px;
             border-radius: 8px;
             color: var(--light-text);
             font-size: 1rem;
@@ -238,39 +382,33 @@
         }
 
         .modal-btn {
-            padding: 10px;
+            padding: 12px;
             border-radius: 8px;
             border: none;
             font-weight: bold;
             cursor: pointer;
         }
 
-        .btn-submit {
-            background-color: var(--success-color);
-            color: white;
-        }
-
-        .btn-close {
-            background-color: #555;
-            color: white;
-        }
+        .btn-submit { background-color: var(--success-color); color: white; }
+        .btn-close { background-color: #555; color: white; }
 
         /* History List Style */
         .history-list {
             display: flex;
             flex-direction: column;
             gap: 10px;
-            max-height: 300px;
+            max-height: 400px;
             overflow-y: auto;
         }
 
         .history-item {
             background-color: rgba(255, 255, 255, 0.05);
-            padding: 10px;
+            padding: 12px;
             border-radius: 8px;
             display: flex;
             justify-content: space-between;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            border-left: 4px solid var(--accent-color);
         }
 
         /* Footer Navigation */
@@ -321,9 +459,8 @@
         </div>
     </div>
 
-    <!-- Main Container -->
+    <!-- 1. MAIN MENU VIEW -->
     <div class="container" id="main-view">
-        
         <div class="welcome-msg">
             <h1>ሰላም፣ <span id="welcome-name">ተጫዋች</span>!</h1>
             <p>የሚወዱትን ጨዋታ ይምረጡና ዕድልዎን ይሞክሩ።</p>
@@ -341,9 +478,8 @@
 
         <h2>🎮 ጨዋታዎች</h2>
         
-        <!-- Game List Links -->
         <div class="games-list">
-            <a href="/coin_flip_game" class="game-card">
+            <div class="game-card" onclick="switchToGame()">
                 <div class="game-details">
                     <div class="game-icon">🪙</div>
                     <div class="game-info">
@@ -352,11 +488,48 @@
                     </div>
                 </div>
                 <div class="play-arrow"><i class="fas fa-chevron-right"></i></div>
-            </a>
+            </div>
         </div>
     </div>
 
-    <!-- History View Container -->
+    <!-- 2. COIN FLIP GAME VIEW (Hidden by default) -->
+    <div class="container" id="game-view" style="display: none;">
+        <div class="back-nav" onclick="switchTab('games')">
+            <i class="fas fa-arrow-left"></i> ወደ ማውጫ ተመለስ
+        </div>
+
+        <div style="text-align: center;">
+            <h2 style="margin: 5px 0;">🪙 ዘውድና ጎፈር</h2>
+            <p style="color: #aaa; margin: 0; font-size: 0.9rem;">ዕድልዎን ይሞክሩ!</p>
+        </div>
+        
+        <!-- Interactive 3D Coin -->
+        <div class="coin-wrapper">
+            <div class="coin" id="game-coin">
+                <div class="coin-side coin-front">👑 ዘውድ</div>
+                <div class="coin-side coin-back">🦁 ጎፈር</div>
+            </div>
+        </div>
+
+        <div class="result-alert" id="result-text">ምርጫዎን ይምረጡና ይጫወቱ!</div>
+
+        <!-- Inputs Card -->
+        <div class="controls-card">
+            <div class="choice-grid">
+                <button class="choice-btn" id="btn-heads" onclick="selectChoice('ዘውድ')">👑 ዘውድ</button>
+                <button class="choice-btn" id="btn-tails" onclick="selectChoice('ጎፈር')">🦁 ጎፈር</button>
+            </div>
+
+            <div class="input-group">
+                <label>የውርርድ መጠን (ብር)</label>
+                <input type="number" id="bet-amount" placeholder="ምሳሌ፡ 50" min="1">
+            </div>
+
+            <button class="play-btn" id="flip-btn" onclick="playGame()">ሳንቲሙን ግልበጥ</button>
+        </div>
+    </div>
+
+    <!-- 3. HISTORY VIEW (Hidden by default) -->
     <div class="container" id="history-view" style="display: none;">
         <h2>📜 የጨዋታና የሂሳብ ታሪክ</h2>
         <div class="history-list" id="history-container">
@@ -364,6 +537,9 @@
         </div>
     </div>
 
+    <!-- ==========================================
+       Modals
+       ========================================== -->
     <!-- Deposit Modal -->
     <div class="modal" id="depositModal">
         <div class="modal-content">
@@ -411,6 +587,8 @@
 
         let userId = 123456789;
         let userName = "የሰፈር ልጅ";
+        let selectedChoice = null;
+        let isSpinning = false;
 
         if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
             userId = tg.initDataUnsafe.user.id;
@@ -418,11 +596,11 @@
             
             document.getElementById('user-name').innerText = userName;
             document.getElementById('welcome-name').innerText = userName;
-            // ስሙ ነጥብ ወይም ባዶ ከሆነ እንዳይበላሽ መከላከያ
             const avatarChar = userName.trim() ? userName.trim().charAt(0).toUpperCase() : "U";
             document.getElementById('user-avatar').innerText = avatarChar;
         }
 
+        // Load Balance From API
         function loadBalance() {
             fetch('/api/get_balance', {
                 method: 'POST',
@@ -438,15 +616,19 @@
             .catch(err => console.error("Error loading balance:", err));
         }
 
-        // Tab Switcher (ጨዋታዎች VS ታሪክ)
+        // Switching Tabs (Main Menu, Game Screen, History)
         function switchTab(tab) {
+            if (isSpinning) return; // ጨዋታ መሃል ላይ ከሆነ ታብ መቀየር አይቻልም
+            
             if (tab === 'games') {
                 document.getElementById('main-view').style.display = 'flex';
+                document.getElementById('game-view').style.display = 'none';
                 document.getElementById('history-view').style.display = 'none';
                 document.getElementById('nav-games').classList.add('active');
                 document.getElementById('nav-history').classList.remove('active');
-            } else {
+            } else if (tab === 'history') {
                 document.getElementById('main-view').style.display = 'none';
+                document.getElementById('game-view').style.display = 'none';
                 document.getElementById('history-view').style.display = 'flex';
                 document.getElementById('nav-games').classList.remove('active');
                 document.getElementById('nav-history').classList.add('active');
@@ -454,10 +636,92 @@
             }
         }
 
+        function switchToGame() {
+            document.getElementById('main-view').style.display = 'none';
+            document.getElementById('game-view').style.display = 'flex';
+            document.getElementById('history-view').style.display = 'none';
+        }
+
         // Modals Management
         function openDepositModal() { document.getElementById('depositModal').style.display = 'flex'; }
         function openWithdrawModal() { document.getElementById('withdrawModal').style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        // Coin Flip Logic
+        function selectChoice(choice) {
+            if (isSpinning) return;
+            selectedChoice = choice;
+            document.getElementById('btn-heads').classList.toggle('selected', choice === 'ዘውድ');
+            document.getElementById('btn-tails').classList.toggle('selected', choice === 'ጎፈር');
+        }
+
+        function playGame() {
+            const betInput = document.getElementById('bet-amount');
+            const betAmount = parseFloat(betInput.value);
+            const resultText = document.getElementById('result-text');
+            const coin = document.getElementById('game-coin');
+            const flipBtn = document.getElementById('flip-btn');
+
+            if (!selectedChoice) {
+                tg.showAlert('እባክዎ መጀመሪያ ዘውድ ወይም ጎፈር ይምረጡ!');
+                return;
+            }
+            if (isNaN(betAmount) || betAmount <= 0) {
+                tg.showAlert('እባክዎ ትክክለኛ የብር መጠን ያስገቡ!');
+                return;
+            }
+
+            // Start animation & disable buttons
+            isSpinning = true;
+            flipBtn.disabled = true;
+            resultText.innerText = "ሳንቲሙ እየተገላበጠ ነው... 🪙";
+            
+            coin.style.transition = 'none';
+            coin.style.transform = 'rotateY(0deg)';
+            coin.offsetHeight; // repaint force
+            coin.style.transition = 'transform 3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+
+            fetch('/api/coin_flip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: userId,
+                    bet_amount: betAmount,
+                    choice: selectedChoice
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'error') {
+                    tg.showAlert(data.message);
+                    resetGameUI();
+                    return;
+                }
+
+                // Play animation based on response
+                if (data.result === 'ዘውድ') {
+                    coin.className = 'coin spin-to-heads';
+                } else {
+                    coin.className = 'coin spin-to-tails';
+                }
+
+                setTimeout(() => {
+                    resultText.innerText = data.message;
+                    document.getElementById('user-balance').innerText = parseFloat(data.new_balance).toFixed(2);
+                    resetGameUI();
+                }, 3000);
+            })
+            .catch(err => {
+                console.error(err);
+                tg.showAlert('የሰርቨር ግንኙነት ችግር ተፈጥሯል!');
+                resetGameUI();
+            });
+        }
+
+        function resetGameUI() {
+            isSpinning = false;
+            document.getElementById('flip-btn').disabled = false;
+        }
 
         // Submit Deposit
         function submitDeposit() {
