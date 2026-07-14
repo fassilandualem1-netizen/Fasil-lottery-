@@ -128,11 +128,11 @@
         /* Welcome layout */
         .welcome-msg {
             text-align: center;
-            margin-top: 10px;
+            margin-top: 5px;
         }
 
         .welcome-msg h1 {
-            font-size: 1.8rem;
+            font-size: 1.6rem;
             color: var(--text-color);
             margin: 0 0 5px 0;
         }
@@ -140,13 +140,14 @@
         .welcome-msg p {
             color: #8a8a8a;
             margin: 0;
+            font-size: 0.9rem;
         }
 
-        /* Stat Panel (Updated for clean 2-column layout) */
+        /* Stat Panel */
         .stat-panel {
             background-color: var(--card-bg);
             border-radius: 12px;
-            padding: 15px;
+            padding: 12px;
             display: grid;
             grid-template-columns: 1fr 1fr;
             text-align: center;
@@ -158,67 +159,8 @@
             border-right: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .stat-box h4 { margin: 0; font-size: 0.9rem; color: #8a8a8a; }
-        .stat-box p { margin: 5px 0 0 0; font-weight: bold; font-size: 1.1rem; color: var(--gold-color); }
-
-        /* Game Cards List */
-        .games-list {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .game-card {
-            background-color: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-            transition: transform 0.2s, border-color 0.2s;
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .game-card:active {
-            transform: scale(0.98);
-            border-color: var(--text-color);
-        }
-
-        .game-details {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .game-icon {
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, var(--accent-color), var(--text-color));
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-        }
-
-        .game-info h3 {
-            margin: 0 0 5px 0;
-            font-size: 1.1rem;
-        }
-
-        .game-info p {
-            margin: 0;
-            font-size: 0.85rem;
-            color: #aaaaaa;
-        }
-
-        .play-arrow {
-            color: var(--text-color);
-            font-size: 1.2rem;
-        }
+        .stat-box h4 { margin: 0; font-size: 0.85rem; color: #8a8a8a; }
+        .stat-box p { margin: 5px 0 0 0; font-weight: bold; font-size: 1rem; color: var(--gold-color); }
 
         /* Quick Action Buttons */
         .actions-grid {
@@ -246,20 +188,20 @@
             background-color: var(--accent-color);
         }
 
-        /* Coin Toss View Styles */
+        /* Unified Coin Toss Area */
         .coin-wrapper {
             perspective: 1500px;
-            margin: 25px auto;
-            width: 190px;
-            height: 190px;
+            margin: 15px auto;
+            width: 170px;
+            height: 170px;
             display: flex;
             justify-content: center;
             align-items: center;
         }
 
         .coin {
-            width: 180px;
-            height: 180px;
+            width: 160px;
+            height: 160px;
             position: relative;
             transform-style: preserve-3d;
             transform: rotateX(0deg) rotateY(0deg);
@@ -277,10 +219,10 @@
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            font-size: 1.7rem;
+            font-size: 1.5rem;
             box-sizing: border-box;
-            border: 9px solid #cc9900;
-            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(0,0,0,0.4);
+            border: 8px solid #cc9900;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6), inset 0 0 18px rgba(0,0,0,0.4);
         }
 
         .coin-front {
@@ -294,21 +236,21 @@
             color: #263238;
             transform: rotateY(180deg);
             border-color: #90a4ae;
-            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6), inset 0 0 18px rgba(0,0,0,0.3);
         }
 
         .coin-emoji {
-            font-size: 3.5rem;
-            margin-bottom: 4px;
-            filter: drop-shadow(0px 3px 5px rgba(0,0,0,0.4));
+            font-size: 3rem;
+            margin-bottom: 2px;
+            filter: drop-shadow(0px 3px 4px rgba(0,0,0,0.4));
         }
 
         @keyframes coin-toss-bounce {
             0% { transform: translateY(0) scale(1); }
-            20% { transform: translateY(-130px) scale(1.2); }
+            20% { transform: translateY(-110px) scale(1.15); }
             70% { transform: translateY(0) scale(0.95); }
-            80% { transform: translateY(-18px) scale(1.05); }
-            90% { transform: translateY(0) scale(0.98); }
+            80% { transform: translateY(-15px) scale(1.03); }
+            90% { transform: translateY(0) scale(0.99); }
             100% { transform: translateY(0) scale(1); }
         }
 
@@ -414,6 +356,8 @@
             cursor: pointer;
             width: 100%;
             transition: 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .play-btn:disabled {
@@ -437,17 +381,6 @@
         .result-lose {
             color: #e94560;
             text-shadow: 0 0 10px rgba(233, 69, 96, 0.3);
-        }
-
-        .back-nav {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 1.1rem;
-            color: var(--text-color);
-            margin-bottom: 10px;
         }
 
         /* Modals & History */
@@ -493,7 +426,6 @@
             box-sizing: border-box;
         }
 
-        /* Telebirr Info Box Style */
         .telebirr-box {
             background: linear-gradient(135deg, rgba(0, 143, 213, 0.1) 0%, rgba(15, 52, 96, 0.2) 100%);
             border: 1px dashed #008fd5;
@@ -517,7 +449,6 @@
             transform: scale(0.95);
         }
 
-        /* Modern & Lite Dropzone File Input */
         .custom-file-upload {
             border: 2px dashed rgba(255, 255, 255, 0.15);
             border-radius: 10px;
@@ -759,14 +690,14 @@
         </div>
     </div>
 
-    <!-- 1. MAIN MENU VIEW -->
+    <!-- 1. MAIN / GAME SINGLE VIEW -->
     <div class="container" id="main-view">
         <div class="welcome-msg">
             <h1>Welcome, <span id="welcome-name">ተጫዋች</span>!</h1>
-            <p>የሚወዱትን ጨዋታ ይምረጡና ዕድልዎን ይሞክሩ።</p>
+            <p>ምርጫዎን ይምረጡና ዕድልዎን በ 'Play' ይሞክሩ።</p>
         </div>
 
-        <!-- STREAK & MINI STATS (Updated to 2 items only - Removed Today's Games) -->
+        <!-- STREAK & MINI STATS -->
         <div class="stat-panel">
             <div class="stat-box">
                 <h4>ተከታታይ ድል 🔥</h4>
@@ -778,6 +709,7 @@
             </div>
         </div>
 
+        <!-- Quick Actions -->
         <div class="actions-grid">
             <button class="action-btn" onclick="openDepositModal()">
                 <i class="fas fa-arrow-down" style="color: #4e9f3d;"></i> ብር አስገባ
@@ -787,69 +719,43 @@
             </button>
         </div>
 
-        <h2>🎮 ጨዋታዎች</h2>
-        
-        <div class="games-list">
-            <div class="game-card" onclick="switchToGame()">
-                <div class="game-details">
-                    <div class="game-icon">🪙</div>
-                    <div class="game-info">
-                        <h3>ዘውድና ጎፈር</h3>
-                        <p>ምርጫዎን ይምረጡና ዕድልዎን ይሞክሩ!</p>
+        <!-- UNIFIED COIN GAME AREA -->
+        <div style="background-color: var(--card-bg); padding: 15px; border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.05); position: relative;">
+            <div class="streak-badge-popup" id="streak-popup">
+                <div style="font-size: 2.5rem;">🔥 1.5X</div>
+                <div style="font-size: 1rem; margin-top: 5px;">ተከታታይ 3ኛ ድል!</div>
+                <div style="font-size: 0.8rem;">ተጨማሪ ጉርሻ ተጨምሮልዎታል!</div>
+            </div>
+
+            <div class="coin-wrapper" id="coin-container">
+                <div class="coin" id="game-coin">
+                    <div class="coin-side coin-front">
+                        <span class="coin-emoji">👑</span>
+                        <span>ዘውድ</span>
+                    </div>
+                    <div class="coin-side coin-back">
+                        <span class="coin-emoji">🦁</span>
+                        <span>ጎፈር</span>
                     </div>
                 </div>
-                <div class="play-arrow"><i class="fas fa-chevron-right"></i></div>
             </div>
-        </div>
-    </div>
 
-    <!-- 2. COIN FLIP GAME VIEW -->
-    <div class="container" id="game-view" style="display: none; position: relative;">
-        <div class="streak-badge-popup" id="streak-popup">
-            <div style="font-size: 3rem;">🔥 1.5X</div>
-            <div style="font-size: 1.2rem; margin-top: 5px;">ተከታታይ 3ኛ ድል!</div>
-            <div style="font-size: 0.9rem;">ተጨማሪ ጉርሻ ተጨምሮልዎታል!</div>
-        </div>
+            <!-- Result Text Area -->
+            <div class="result-alert" id="result-text" style="margin-bottom: 15px;">ምርጫዎን ይምረጡና ይጫወቱ!</div>
 
-        <div class="back-nav" onclick="switchTab('games')">
-            <i class="fas fa-arrow-left"></i> ወደ ማውጫ ተመለስ
-        </div>
-
-        <div style="text-align: center;">
-            <h2 style="margin: 5px 0;">🪙 ዘውድና ጎፈር</h2>
-            <p style="color: #aaa; margin: 0; font-size: 0.95rem;">ዕድልዎን ይሞክሩ!</p>
-        </div>
-        
-        <div class="coin-wrapper" id="coin-container">
-            <div class="coin" id="game-coin">
-                <div class="coin-side coin-front">
-                    <span class="coin-emoji">👑</span>
-                    <span>ዘውድ</span>
-                </div>
-                <div class="coin-side coin-back">
-                    <span class="coin-emoji">🦁</span>
-                    <span>ጎፈር</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Result Text Area -->
-        <div class="result-alert" id="result-text">ምርጫዎን ይምረጡና ይጫወቱ!</div>
-
-        <!-- Controls Card -->
-        <div class="controls-card">
+            <!-- Controls -->
             <div class="choice-grid">
                 <button class="choice-btn" id="btn-heads" onclick="selectChoice('ዘውድ')">
-                    <span style="font-size: 1.4rem;">👑</span>
+                    <span style="font-size: 1.2rem;">👑</span>
                     <span>ዘውድ</span>
                 </button>
                 <button class="choice-btn" id="btn-tails" onclick="selectChoice('ጎፈር')">
-                    <span style="font-size: 1.4rem;">🦁</span>
+                    <span style="font-size: 1.2rem;">🦁</span>
                     <span>ጎፈር</span>
                 </button>
             </div>
 
-            <div class="input-group">
+            <div class="input-group" style="margin-top: 12px;">
                 <label>የውርርድ መጠን (ቢያንስ 2 ብር)</label>
                 <div class="multiplier-bar">
                     <button class="multi-btn" onclick="applyMultiplier('min')">Min (2)</button>
@@ -859,11 +765,11 @@
                 <input type="number" id="bet-amount" placeholder="ምሳሌ፡ 50" min="2" pattern="[0-9]*" inputmode="numeric" style="margin-top: 8px;">
             </div>
 
-            <button class="play-btn" id="flip-btn" onclick="playGame()">ሳንቲሙን ግልበጥ</button>
+            <button class="play-btn" id="flip-btn" onclick="playGame()" style="margin-top: 15px;">Play</button>
         </div>
     </div>
 
-    <!-- 3. HISTORY VIEW -->
+    <!-- 2. HISTORY VIEW -->
     <div class="container" id="history-view" style="display: none;">
         <h2>📜 የጨዋታና የሂሳብ ታሪክ</h2>
         <div class="history-list" id="history-container">
@@ -872,7 +778,7 @@
     </div>
 
     <!-- Modals -->
-    <!-- Deposit Modal (Telebirr Number Card & Custom Dropzone) -->
+    <!-- Deposit Modal -->
     <div class="modal" id="depositModal">
         <div class="modal-content">
             <h3>💳 ብር ማስገቢያ</h3>
@@ -1218,25 +1124,16 @@
             if (isSpinning || isWheelSpinning) return;
             if (tab === 'games') {
                 document.getElementById('main-view').style.display = 'flex';
-                document.getElementById('game-view').style.display = 'none';
                 document.getElementById('history-view').style.display = 'none';
                 document.getElementById('nav-games').classList.add('active');
                 document.getElementById('nav-history').classList.remove('active');
             } else if (tab === 'history') {
                 document.getElementById('main-view').style.display = 'none';
-                document.getElementById('game-view').style.display = 'none';
                 document.getElementById('history-view').style.display = 'flex';
                 document.getElementById('nav-games').classList.remove('active');
                 document.getElementById('nav-history').classList.add('active');
                 loadHistory();
             }
-        }
-
-        function switchToGame() {
-            getAudioContext();
-            document.getElementById('main-view').style.display = 'none';
-            document.getElementById('game-view').style.display = 'flex';
-            document.getElementById('history-view').style.display = 'none';
         }
 
         function openDepositModal() { document.getElementById('depositModal').style.display = 'flex'; }
@@ -1276,7 +1173,6 @@
             const container = document.getElementById('leaderboard-container');
             container.innerHTML = '';
             
-            // Exclude mock "ተጫዋች_2165" completely if present in server response
             let list = leaders.filter(l => l.user_id !== '2165' && !l.user_name.includes('ተጫዋች_2165'));
 
             let foundSelf = false;
@@ -1292,7 +1188,6 @@
                 list.push({ user_id: userId, user_name: userName + " (አንተ)", streak: currentStreak });
             }
 
-            // Remove items with 0 streak to avoid visual junk unless it's the current user
             list = list.filter(item => item.streak > 0 || item.user_id === userId);
 
             list.sort((a, b) => b.streak - a.streak);
@@ -1325,7 +1220,6 @@
             const container = document.getElementById('leaderboard-container');
             container.innerHTML = '';
             
-            // Only user in fallback list
             const realOnly = [
                 { user_id: userId, user_name: userName + " (አንተ)", streak: currentStreak }
             ];
@@ -1346,9 +1240,10 @@
         }
 
         // ==========================================
-        // FLIP LOGIC (With Persistent Streak Saving)
+        // FLIP LOGIC (With Single Screen & Persistent Streak)
         // ==========================================
         function playGame() {
+            getAudioContext();
             const betInput = document.getElementById('bet-amount');
             const betAmount = parseFloat(betInput.value);
             const resultText = document.getElementById('result-text');
@@ -1440,71 +1335,65 @@
         }
 
         function processResult(data, spinInterval, coin, resultText, betAmount) {
-    setTimeout(() => {
-        clearInterval(spinInterval);
-        coin.style.transition = 'transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-        
-        if (data.result === 'ዘውድ') {
-            coin.style.transform = 'rotateX(0deg) rotateY(1440deg)';
-        } else {
-            coin.style.transform = 'rotateX(0deg) rotateY(1620deg)';
-        }
-
-        setTimeout(() => {
-            playClinkSound();
-
-            if (data.status === 'win') {
-                const winAmount = (betAmount * 2);
-                resultText.innerText = `Won ${winAmount.toFixed(2)} ብር`;
-                resultText.className = "result-alert result-won";
-
-                // የሂሳብ ሎጂክ ማስተካከያ፦
-                // አገልጋዩ (Server) አዲስ ባላንስ ከላከ ቀጥታ እሱን እንወስዳለን፣ ካልላከ ግን ቀድሞ የተቀነሰውን ታሳቢ በማድረግ የድል አበል (winAmount) ብቻ እንደምራለን።
-                if (data.new_balance !== undefined && data.new_balance !== null) {
-                    userBalance = parseFloat(data.new_balance);
+            setTimeout(() => {
+                clearInterval(spinInterval);
+                coin.style.transition = 'transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                
+                if (data.result === 'ዘውድ') {
+                    coin.style.transform = 'rotateX(0deg) rotateY(1440deg)';
                 } else {
-                    userBalance += winAmount; 
+                    coin.style.transform = 'rotateX(0deg) rotateY(1620deg)';
                 }
-                
-                currentStreak++;
-                localStorage.setItem('coin_current_streak', currentStreak.toString());
-                spawnConfetti(70);
 
-                if (currentStreak === 3) {
-                    playStreakFanfare();
-                    spawnConfetti(180); 
+                setTimeout(() => {
+                    playClinkSound();
 
-                    const popup = document.getElementById('streak-popup');
-                    popup.classList.add('show');
-                    setTimeout(() => {
-                        popup.classList.remove('show');
-                    }, 3000);
-                }
-            } else {
-                resultText.innerText = "Lose";
-                resultText.className = "result-alert result-lose";
-                
-                currentStreak = 0;
-                localStorage.setItem('coin_current_streak', '0');
-                
-                // የሂሳብ ሎጂክ ማስተካከያ፦
-                // ሲሸነፍ ቀድሞውኑ በ playGame() ውስጥ userBalance -= betAmount ተደርጓል።
-                // ስለዚህ አገልጋዩ አዲስ ባላንስ ከላከ ብቻ እሱን እንተካለን፣ ካልላከ ግን በድጋሚ መቀነስ አያስፈልግም!
-                if (data.new_balance !== undefined && data.new_balance !== null) {
-                    userBalance = parseFloat(data.new_balance);
-                }
-            }
+                    if (data.status === 'win') {
+                        const winAmount = (betAmount * 2);
+                        resultText.innerText = `Won ${winAmount.toFixed(2)} ብር`;
+                        resultText.className = "result-alert result-won";
 
-            document.getElementById('user-balance').innerText = userBalance.toFixed(2);
-            document.getElementById('streak-count').innerText = `${currentStreak} ጊዜ`;
-            
-            saveLocalHistory(data.status === 'win' ? 'ጨዋታ (አሸነፉ)' : 'ጨዋታ (ተሸነፉ)', betAmount, data.status === 'win' ? 'አሸንፏል' : 'ተሸንፏል');
-            
-            resetGameUI();
-        }, 800);
+                        if (data.new_balance !== undefined && data.new_balance !== null) {
+                            userBalance = parseFloat(data.new_balance);
+                        } else {
+                            userBalance += winAmount;
+                        }
+                        
+                        currentStreak++;
+                        localStorage.setItem('coin_current_streak', currentStreak.toString());
+                        spawnConfetti(70);
 
-    }, 2400); 
-}
+                        if (currentStreak === 3) {
+                            playStreakFanfare();
+                            spawnConfetti(180); 
+
+                            const popup = document.getElementById('streak-popup');
+                            popup.classList.add('show');
+                            setTimeout(() => {
+                                popup.classList.remove('show');
+                            }, 3000);
+                        }
+                    } else {
+                        resultText.innerText = "Lose";
+                        resultText.className = "result-alert result-lose";
+                        
+                        currentStreak = 0;
+                        localStorage.setItem('coin_current_streak', '0');
+                        if (data.new_balance !== undefined && data.new_balance !== null) {
+                            userBalance = parseFloat(data.new_balance);
+                        }
+                    }
+
+                    document.getElementById('user-balance').innerText = userBalance.toFixed(2);
+                    document.getElementById('streak-count').innerText = `${currentStreak} ጊዜ`;
+                    
+                    saveLocalHistory(data.status === 'win' ? 'ጨዋታ (አሸነፉ)' : 'ጨዋታ (ተሸነፉ)', betAmount, data.status === 'win' ? 'አሸንፏል' : 'ተሸንፏል');
+                    
+                    resetGameUI();
+                }, 800);
+
+            }, 2400); 
+        }
 
         function resetGameUI() {
             isSpinning = false;
