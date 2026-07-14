@@ -21,13 +21,6 @@ bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=False)
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 server = Flask(__name__)
 
-# GAME_CONFIG መዋቅር ለወደፊት ማባዣዎችን ለመቆጣጠር
-GAME_CONFIG = {
-    "ayi_game": {"name": "🧀 የአይጧ ጨዋτα", "fee": 5, "multiplier": 0.50},
-    "anbessa_aden": {"name": "🦁 የአንበሳ አደን", "fee": 10, "multiplier": 1.50},
-    "coin_flip": {"name": "🪙 እጥፍ ወይስ ባዶ", "fee": 0, "multiplier": 2.0}
-}
-
 # ==========================================
 # Webhook Setup
 # ==========================================
@@ -154,26 +147,29 @@ def handle_withdraw():
 
 @server.route('/api/race_result', methods=['POST'])
 def race_result():
+    """
+    ይህ ኤፒአይ የሁሉንም ጨዋታዎች የፋይናንስ ውጤት በጋራ የሚያስተናግድ ዋና ማዕከል ነው (ዩኒቨርሳል ኤፒአይ)።
+    """
     data = request.json or {}
     user_id = data.get("user_id")
     bet_amount = float(data.get("bet_amount", 0))
     did_win = data.get("did_win", False)
     win_amount = float(data.get("win_amount", 0))
-    details = data.get("details", "የፈረስ ውድድር")
+    details = data.get("details", "የሰፈር ጨዋታ")
 
     current_balance = float(redis.hget("users:balance", user_id) or 0.0)
     if current_balance < bet_amount:
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"})
 
     if did_win:
-        # ያሸነፈውን ብር ሲቀነስ መጫወቻውን መደመር (Net profit + bet_amount)
+        # ካሸነፈ፡ የተጣራ ትርፉን (Net Profit) ባላንሱ ላይ መደመር
         net_change = win_amount - bet_amount
         redis.hincrbyfloat("users:balance", user_id, net_change)
     else:
-        # ከተሸነፈ መጫወቻውን መቀነስ
+        # ከተሸነፈ፡ ያስያዘውን መጫወቻ መቁረጥ
         redis.hincrbyfloat("users:balance", user_id, -bet_amount)
 
-    # ታሪክ ላይ መመዝገብ
+    # ታሪክ ላይ ዝርዝሩን መመዝገብ
     history_data = redis.get(f"history:{user_id}")
     history_list = json.loads(history_data) if history_data else []
     status_str = "አሸንፏል 🎉" if did_win else "ተሸንፏል 😞"
@@ -181,41 +177,6 @@ def race_result():
     redis.set(f"history:{user_id}", json.dumps(history_list))
 
     return jsonify({"status": "success"})
-
-@server.route('/api/coin_flip', methods=['POST'])
-def coin_flip():
-    data = request.json or {}
-    user_id = data.get("user_id")
-    bet_amount = float(data.get("bet_amount", 0))
-    choice = data.get("choice") # "ዘውድ" ወይም "ጎፈር"
-    
-    current_balance = float(redis.hget("users:balance", user_id) or 0.0)
-    if current_balance < bet_amount:
-        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"})
-        
-    sides = ["ዘውድ", "ጎፈር"]
-    result = random.choice(sides)
-    
-    if choice == result:
-        # ማባዣው 2.0 ስለሆነ ያሸነፈው ብር = bet_amount * 2 ሲሆን፣ ባላንሱ ላይ የሚጨመረው +bet_amount ነው
-        redis.hincrbyfloat("users:balance", user_id, bet_amount)
-        status = "win"
-        msg = f"🪙 ውጤቱ {result} ሆኗል! እንኳን ደስ አለዎት {bet_amount * 2} ብር አሸንፈዋል! 🎉"
-        status_history = "አሸንፏል 🎉"
-    else:
-        # ከተሸነፈ ሙሉ በሙሉ ያስያዘው ብር ይቀነሳል
-        redis.hincrbyfloat("users:balance", user_id, -bet_amount)
-        status = "lose"
-        msg = f"🪙 ውጤቱ {result} ሆኗል! ይቅርታ፣ {bet_amount} ብር ተሸንፈዋል።"
-        status_history = "ተሸንፏል 😞"
-        
-    # ታሪክ ላይ መመዝገብ
-    history_data = redis.get(f"history:{user_id}")
-    history_list = json.loads(history_data) if history_data else []
-    history_list.insert(0, {"type": f"ዘውድና ጎፈር ({choice})", "amount": bet_amount, "status": status_history})
-    redis.set(f"history:{user_id}", json.dumps(history_list))
-    
-    return jsonify({"status": status, "result": result, "message": msg})
 
 # ==========================================
 # Callback Handler (Admin Actions)
