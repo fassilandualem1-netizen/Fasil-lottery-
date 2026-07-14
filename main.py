@@ -36,17 +36,14 @@ except Exception as e:
 # ==========================================
 @server.route('/')
 def index():
-    # ዋናው ማውጫ (Main Menu)
     return render_template('index.html')
 
 @server.route('/horse_race')
 def horse_race_page():
-    # የፈረስ ውድድር ጨዋታ ገጽ
     return render_template('horse_race.html')
 
 @server.route('/coin_flip_game')
 def coin_flip_page():
-    # የእጥፍ ወይስ ባዶ (ዘውድና ጎፈር) ጨዋታ ገጽ
     return render_template('coin_flip.html')
 
 # ==========================================
@@ -85,7 +82,6 @@ def handle_deposit():
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
 
     tx_id = str(uuid.uuid4())[:8]
-    
     tx_data = {"user_id": user_id, "amount": amount, "type": "deposit", "status": "pending"}
     redis.set(f"tx:{tx_id}", json.dumps(tx_data))
     
@@ -145,11 +141,11 @@ def handle_withdraw():
     bot.send_message(ADMIN_ID, msg, reply_markup=markup)
     return jsonify({"status": "success"})
 
+# ==========================================
+# ዩኒቨርሳል የጨዋታ ውጤት ማዕከል
+# ==========================================
 @server.route('/api/race_result', methods=['POST'])
 def race_result():
-    """
-    ይህ ኤፒአይ የሁሉንም ጨዋታዎች የፋይናንስ ውጤት በጋራ የሚያስተናግድ ዋና ማዕከል ነው (ዩኒቨርሳል ኤፒአይ)።
-    """
     data = request.json or {}
     user_id = data.get("user_id")
     bet_amount = float(data.get("bet_amount", 0))
@@ -157,19 +153,23 @@ def race_result():
     win_amount = float(data.get("win_amount", 0))
     details = data.get("details", "የሰፈር ጨዋታ")
 
+    if not user_id or bet_amount <= 0:
+        return jsonify({"status": "error", "message": "ትክክለኛ ያልሆነ መረጃ"}), 400
+
     current_balance = float(redis.hget("users:balance", user_id) or 0.0)
-    if current_balance < bet_amount:
-        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"})
+    
+    # ተጫዋቹ ከተሸነፈ ባላንሱ ካስያዘው ያነሰ መሆን የለበትም (የሴኩሪቲ ቼክ)
+    if not did_win and current_balance < bet_amount:
+         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
 
     if did_win:
-        # ካሸነፈ፡ የተጣራ ትርፉን (Net Profit) ባላንሱ ላይ መደመር
+        # ያሸነፈው ጠቅላላ ብር (Win Amount) ሲቀነስ ያስያዘው (Bet) የተጣራ ትርፍ ይሰጠናል
         net_change = win_amount - bet_amount
         redis.hincrbyfloat("users:balance", user_id, net_change)
     else:
-        # ከተሸነፈ፡ ያስያዘውን መጫወቻ መቁረጥ
         redis.hincrbyfloat("users:balance", user_id, -bet_amount)
 
-    # ታሪክ ላይ ዝርዝሩን መመዝገብ
+    # ታሪክ መመዝገቢያ
     history_data = redis.get(f"history:{user_id}")
     history_list = json.loads(history_data) if history_data else []
     status_str = "አሸንፏል 🎉" if did_win else "ተሸንፏል 😞"
@@ -177,6 +177,66 @@ def race_result():
     redis.set(f"history:{user_id}", json.dumps(history_list))
 
     return jsonify({"status": "success"})
+
+# ==========================================
+# የጨዋታ ማስጀመሪያ ፈቃድ ኤፒአይ
+# ==========================================
+@server.route('/api/start_game', methods=['POST'])
+def start_game():
+    data = request.json or {}
+    user_id = data.get("user_id")
+    bet_amount = float(data.get("bet_amount", 0))
+    
+    if not user_id or bet_amount <= 0:
+        return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
+        
+    current_balance = float(redis.hget("users:balance", user_id) or 0.0)
+    if current_balance < bet_amount:
+        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
+
+    return jsonify({"status": "ready"})
+
+# ==========================================
+# የዘውድና ጎፈር ጨዋታ ሎጂክ (የተስተካከለ)
+# ==========================================
+@server.route('/api/coin_flip', methods=['POST'])
+def coin_flip_game():
+    data = request.json or {}
+    user_id = data.get("user_id")
+    choice = data.get("choice")  # 'ዘውድ' ወይም 'ጎፈር'
+    bet_amount = float(data.get("bet_amount", 0))
+
+    if not user_id or bet_amount <= 0 or not choice:
+        return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
+
+    current_balance = float(redis.hget("users:balance", user_id) or 0.0)
+    if current_balance < bet_amount:
+        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
+
+    sides = ["ዘውድ", "ጎፈር"]
+    winning_side = random.choice(sides)
+    did_win = (choice == winning_side)
+    
+    # ማስታወሻ፡ ፍሮንትአንዱ ውጤቱን በቀጥታ ወደ /api/race_result የማይልክ ከሆነ 
+    # ሂሳቡ እዚህ ላይ ብቻ እንዲቀነስ/እንዲደመር ማድረግ ይቻላል። 
+    # ነገር ግን ሁለቱንም ኤፒአይ የሚጠቀም ከሆነ እዚህ ጋር ባላንስ መቀየር የለብንም።
+    # ለደህንነት ሲባል እዚህ ጋር ብቻ ቀጥታ እናሰላውና ታሪክ ላይ እንመዝግበው፡
+    if did_win:
+        net_change = bet_amount
+        redis.hincrbyfloat("users:balance", user_id, net_change)
+        message = f"🎉 እንኳን ደስ አለዎት! ሳንቲሙ {winning_side} ወጥቷል። {bet_amount * 2} ብር አሸንፈዋል!"
+        status_str = "አሸንፏል 🎉"
+    else:
+        redis.hincrbyfloat("users:balance", user_id, -bet_amount)
+        message = f"😞 መጥፎ እድል! ሳንቲሙ {winning_side} ወጥቷል። {bet_amount} ብር ተበልተዋል!"
+        status_str = "ተሸንፏል 😞"
+
+    history_data = redis.get(f"history:{user_id}")
+    history_list = json.loads(history_data) if history_data else []
+    history_list.insert(0, {"type": f"ዘውድና ጎፈር ({choice})", "amount": bet_amount, "status": status_str})
+    redis.set(f"history:{user_id}", json.dumps(history_list))
+
+    return jsonify({"status": "success", "message": message, "did_win": did_win, "winning_side": winning_side})
 
 # ==========================================
 # Callback Handler (Admin Actions)
