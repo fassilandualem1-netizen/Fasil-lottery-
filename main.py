@@ -21,13 +21,6 @@ bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=False)
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 server = Flask(__name__)
 
-# GAME_CONFIG መዋቅር ለወደፊት ማባዣዎችን ለመቆጣጠር
-GAME_CONFIG = {
-    "ayi_game": {"name": "🧀 የአይጧ ጨዋτα", "fee": 5, "multiplier": 0.50},
-    "anbessa_aden": {"name": "🦁 የአንበሳ አደን", "fee": 10, "multiplier": 1.50},
-    "coin_flip": {"name": "🪙 እጥፍ ወይስ ባዶ", "fee": 0, "multiplier": 2.0}
-}
-
 # ==========================================
 # Webhook Setup
 # ==========================================
@@ -39,25 +32,18 @@ except Exception as e:
     print(f"Webhook Error: {e}")
 
 # ==========================================
-# Frontend Routes (Multi-page Template Routes)
+# Frontend Routes
 # ==========================================
 @server.route('/')
 def index():
-    # ዋናው ማውጫ (Main Menu)
     return render_template('index.html')
-
-@server.route('/horse_race')
-def horse_race_page():
-    # የፈረስ ውድድር ጨዋታ ገጽ
-    return render_template('horse_race.html')
 
 @server.route('/coin_flip_game')
 def coin_flip_page():
-    # የእጥፍ ወይስ ባዶ (ዘውድና ጎፈር) ጨዋታ ገጽ
     return render_template('coin_flip.html')
 
 # ==========================================
-# API Routes (Core Functionality)
+# API Routes (Core Wallet & Coin Flip)
 # ==========================================
 
 @server.route('/api/get_balance', methods=['POST'])
@@ -92,7 +78,6 @@ def handle_deposit():
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
 
     tx_id = str(uuid.uuid4())[:8]
-    
     tx_data = {"user_id": user_id, "amount": amount, "type": "deposit", "status": "pending"}
     redis.set(f"tx:{tx_id}", json.dumps(tx_data))
     
@@ -152,43 +137,19 @@ def handle_withdraw():
     bot.send_message(ADMIN_ID, msg, reply_markup=markup)
     return jsonify({"status": "success"})
 
-@server.route('/api/race_result', methods=['POST'])
-def race_result():
-    data = request.json or {}
-    user_id = data.get("user_id")
-    bet_amount = float(data.get("bet_amount", 0))
-    did_win = data.get("did_win", False)
-    win_amount = float(data.get("win_amount", 0))
-    details = data.get("details", "የፈረስ ውድድር")
-
-    current_balance = float(redis.hget("users:balance", user_id) or 0.0)
-    if current_balance < bet_amount:
-        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"})
-
-    if did_win:
-        # ያሸነፈውን ብር ሲቀነስ መጫወቻውን መደመር (Net profit + bet_amount)
-        net_change = win_amount - bet_amount
-        redis.hincrbyfloat("users:balance", user_id, net_change)
-    else:
-        # ከተሸነፈ መጫወቻውን መቀነስ
-        redis.hincrbyfloat("users:balance", user_id, -bet_amount)
-
-    # ታሪክ ላይ መመዝገብ
-    history_data = redis.get(f"history:{user_id}")
-    history_list = json.loads(history_data) if history_data else []
-    status_str = "አሸንፏል 🎉" if did_win else "ተሸንፏል 😞"
-    history_list.insert(0, {"type": f"{details}", "amount": bet_amount, "status": status_str})
-    redis.set(f"history:{user_id}", json.dumps(history_list))
-
-    return jsonify({"status": "success"})
-
+# ==========================================
+# Coin Flip Game Core Logic (Server-Side)
+# ==========================================
 @server.route('/api/coin_flip', methods=['POST'])
 def coin_flip():
     data = request.json or {}
     user_id = data.get("user_id")
     bet_amount = float(data.get("bet_amount", 0))
-    choice = data.get("choice") # "ዘውድ" ወይም "ጎፈር"
+    choice = data.get("choice")  # "ዘውድ" ወይም "ጎፈር"
     
+    if bet_amount <= 0:
+        return jsonify({"status": "error", "message": "ትክክለኛ የብር መጠን ያስገቡ!"})
+        
     current_balance = float(redis.hget("users:balance", user_id) or 0.0)
     if current_balance < bet_amount:
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"})
@@ -197,28 +158,36 @@ def coin_flip():
     result = random.choice(sides)
     
     if choice == result:
-        # ማባዣው 2.0 ስለሆነ ያሸነፈው ብር = bet_amount * 2 ሲሆን፣ ባላንሱ ላይ የሚጨመረው +bet_amount ነው
+        # አሸናፊ ሲሆን ውርርዱን በ 2 አባዝተን የተጣራውን (net win = bet_amount) በRedis እንጨምራለን
         redis.hincrbyfloat("users:balance", user_id, bet_amount)
         status = "win"
         msg = f"🪙 ውጤቱ {result} ሆኗል! እንኳን ደስ አለዎት {bet_amount * 2} ብር አሸንፈዋል! 🎉"
         status_history = "አሸንፏል 🎉"
     else:
-        # ከተሸነፈ ሙሉ በሙሉ ያስያዘው ብር ይቀነሳል
+        # ሲሸነፍ ያስያዘው ብር ይቀነሳል
         redis.hincrbyfloat("users:balance", user_id, -bet_amount)
         status = "lose"
         msg = f"🪙 ውጤቱ {result} ሆኗል! ይቅርታ፣ {bet_amount} ብር ተሸንፈዋል።"
         status_history = "ተሸንፏል 😞"
         
-    # ታሪክ ላይ መመዝገብ
+    # ባላንሱን ዳግም ማንበብ
+    new_balance = float(redis.hget("users:balance", user_id) or 0.0)
+    
+    # ታሪክ መዝገብ
     history_data = redis.get(f"history:{user_id}")
     history_list = json.loads(history_data) if history_data else []
     history_list.insert(0, {"type": f"ዘውድና ጎፈር ({choice})", "amount": bet_amount, "status": status_history})
     redis.set(f"history:{user_id}", json.dumps(history_list))
     
-    return jsonify({"status": status, "result": result, "message": msg})
+    return jsonify({
+        "status": status, 
+        "result": result, 
+        "message": msg,
+        "new_balance": new_balance
+    })
 
 # ==========================================
-# Callback Handler (Admin Actions)
+# Callback & Webhook Handlers
 # ==========================================
 @bot.callback_query_handler(func=lambda call: call.data.startswith("ok") or call.data.startswith("no"))
 def process_admin_action(call):
@@ -265,9 +234,6 @@ def webhook():
     bot.process_new_updates([update])
     return 'OK', 200
 
-# ==========================================
-# Telegram Commands
-# ==========================================
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     web_app_info = WebAppInfo(url=WEB_APP_URL)
