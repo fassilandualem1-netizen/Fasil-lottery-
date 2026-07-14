@@ -32,7 +32,6 @@
             overflow-x: hidden;
         }
 
-        /* Confetti Canvas Container */
         #confetti-canvas {
             position: fixed;
             top: 0;
@@ -43,7 +42,6 @@
             z-index: 999;
         }
 
-        /* Header Style */
         .header {
             width: 100%;
             background-color: var(--card-bg);
@@ -113,7 +111,6 @@
             color: #63e2b7;
         }
 
-        /* Container */
         .container {
             width: 100%;
             max-width: 500px;
@@ -141,7 +138,6 @@
             margin: 0;
         }
 
-        /* Stat Panel */
         .stat-panel {
             background-color: var(--card-bg);
             border-radius: 12px;
@@ -155,7 +151,31 @@
         .stat-box h4 { margin: 0; font-size: 0.8rem; color: #8a8a8a; }
         .stat-box p { margin: 3px 0 0 0; font-weight: bold; color: var(--gold-color); }
 
-        /* Game Cards List */
+        .actions-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .action-btn {
+            background-color: var(--card-bg);
+            border: 1px solid var(--accent-color);
+            padding: 12px;
+            border-radius: 12px;
+            color: var(--light-text);
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .action-btn:active {
+            background-color: var(--accent-color);
+        }
+
         .games-list {
             display: flex;
             flex-direction: column;
@@ -214,33 +234,6 @@
             font-size: 1.2rem;
         }
 
-        /* Quick Action Buttons */
-        .actions-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-
-        .action-btn {
-            background-color: var(--card-bg);
-            border: 1px solid var(--accent-color);
-            padding: 12px;
-            border-radius: 12px;
-            color: var(--light-text);
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            cursor: pointer;
-            font-size: 1rem;
-        }
-
-        .action-btn:active {
-            background-color: var(--accent-color);
-        }
-
-        /* Coin Toss View Styles */
         .coin-wrapper {
             perspective: 1500px;
             margin: 25px auto;
@@ -310,7 +303,6 @@
             animation: coin-toss-bounce 3.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
         }
 
-        /* Controls Card */
         .controls-card {
             background-color: var(--card-bg);
             width: 100%;
@@ -351,7 +343,6 @@
             background-color: rgba(255, 215, 0, 0.1);
         }
 
-        /* NEW Multiplier Buttons Layout */
         .multiplier-bar {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -414,6 +405,7 @@
         .play-btn:disabled {
             background-color: #555;
             cursor: not-allowed;
+            opacity: 0.6;
         }
 
         .result-alert {
@@ -434,7 +426,6 @@
             margin-bottom: 10px;
         }
 
-        /* Modals & History */
         .modal {
             display: none;
             position: fixed;
@@ -496,7 +487,6 @@
             border-left: 4px solid var(--accent-color);
         }
 
-        /* Leaderboard Modal Specifics */
         .leaderboard-list {
             display: flex;
             flex-direction: column;
@@ -541,7 +531,6 @@
         .rank-3 .rank-badge { background-color: #cd7f32; color: #000; }
         .rank-other .rank-badge { background-color: var(--accent-color); color: #fff; }
 
-        /* Bottom Nav */
         .nav-bar {
             position: fixed;
             bottom: 0;
@@ -569,7 +558,6 @@
         .nav-item.active { color: var(--text-color); }
         .nav-item i { font-size: 1.2rem; }
 
-        /* Daily Wheel Styles */
         .wheel-container {
             width: 240px;
             height: 240px;
@@ -634,7 +622,6 @@
             transform-origin: center;
         }
 
-        /* Streak PopUp Badge */
         .streak-badge-popup {
             position: absolute;
             top: 50%;
@@ -659,17 +646,14 @@
 </head>
 <body>
 
-    <!-- Native Canvas Confetti Effect (No external library required) -->
     <canvas id="confetti-canvas"></canvas>
 
-    <!-- Upper Header -->
     <div class="header">
         <div class="user-info">
             <div class="user-avatar" id="user-avatar">U</div>
             <span id="user-name">የሰፈር ልጅ</span>
         </div>
         <div class="header-actions">
-            <!-- Leaderboard Trophy Trigger Button -->
             <div class="leaderboard-trigger" onclick="openLeaderboard()" title="የመሪዎች ሰሌዳ">
                 <i class="fas fa-trophy"></i>
             </div>
@@ -680,14 +664,12 @@
         </div>
     </div>
 
-    <!-- 1. MAIN MENU VIEW -->
     <div class="container" id="main-view">
         <div class="welcome-msg">
             <h1>ሰላም፣ <span id="welcome-name">ተጫዋች</span>!</h1>
             <p>የሚወዱትን ጨዋታ ይምረጡና ዕድልዎን ይሞክሩ።</p>
         </div>
 
-        <!-- STREAK & MINI STATS -->
         <div class="stat-panel">
             <div class="stat-box">
                 <h4>ተከታታይ ድል 🔥</h4>
@@ -728,9 +710,7 @@
         </div>
     </div>
 
-    <!-- 2. COIN FLIP GAME VIEW -->
     <div class="container" id="game-view" style="display: none; position: relative;">
-        <!-- Streak Multiplier Popup alert inside the game area -->
         <div class="streak-badge-popup" id="streak-popup">
             <div style="font-size: 3rem;">🔥 1.5X</div>
             <div style="font-size: 1.2rem; margin-top: 5px;">ተከታታይ 3ኛ ድል!</div>
@@ -743,10 +723,9 @@
 
         <div style="text-align: center;">
             <h2 style="margin: 5px 0;">🪙 ዘውድና ጎፈር</h2>
-            <p style="color: #aaa; margin: 0; font-size: 0.9rem;">ፍጹም የማይገመት የሳይንስ አልጎሪዝም!</p>
+            <p style="color: #aaa; margin: 0; font-size: 0.9rem;">አስተማማኝና ፍትሃዊ አልጎሪዝም!</p>
         </div>
         
-        <!-- Interactive 3D Real Physics Coin -->
         <div class="coin-wrapper" id="coin-container">
             <div class="coin" id="game-coin">
                 <div class="coin-side coin-front">
@@ -762,7 +741,6 @@
 
         <div class="result-alert" id="result-text">ምርጫዎን ይምረጡና ይጫወቱ!</div>
 
-        <!-- Controls Card -->
         <div class="controls-card">
             <div class="choice-grid">
                 <button class="choice-btn" id="btn-heads" onclick="selectChoice('ዘውድ')">
@@ -777,7 +755,6 @@
 
             <div class="input-group">
                 <label>የውርርድ መጠን (ቢያንስ 2 ብር)</label>
-                <!-- Quick Bet Multiplier Buttons -->
                 <div class="multiplier-bar">
                     <button class="multi-btn" onclick="applyMultiplier('min')">Min (2)</button>
                     <button class="multi-btn" onclick="applyMultiplier('half')">1/2 (ግማሽ)</button>
@@ -787,11 +764,10 @@
                 <input type="number" id="bet-amount" placeholder="ምሳሌ፡ 50" min="2" pattern="[0-9]*" inputmode="numeric" style="margin-top: 8px;">
             </div>
 
-            <button class="play-btn" id="flip-btn" onclick="playGame()">ሳንቲሙን ግልበጥ</button>
+            <button class="play-btn" id="flip-btn" onclick="playGame()" disabled>ባላንስ በመጫን ላይ...</button>
         </div>
     </div>
 
-    <!-- 3. HISTORY VIEW -->
     <div class="container" id="history-view" style="display: none;">
         <h2>📜 የጨዋታና የሂሳብ ታሪክ</h2>
         <div class="history-list" id="history-container">
@@ -799,7 +775,6 @@
         </div>
     </div>
 
-    <!-- Modals -->
     <!-- Deposit Modal -->
     <div class="modal" id="depositModal">
         <div class="modal-content">
@@ -830,7 +805,7 @@
         </div>
     </div>
 
-    <!-- FORTUNE WHEEL MODAL -->
+    <!-- Daily Bonus Modal -->
     <div class="modal" id="dailyBonusModal">
         <div class="modal-content" style="max-width: 330px;">
             <h3>🎁 የዕለቱ ነጻ ዕድል ሩሌት</h3>
@@ -854,21 +829,16 @@
         </div>
     </div>
 
-    <!-- LEADERBOARD MODAL (NEW) -->
+    <!-- Leaderboard Modal -->
     <div class="modal" id="leaderboardModal">
         <div class="modal-content">
             <h3>🏆 የሳምንቱ ምርጥ 5 ተጫዋቾች</h3>
             <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">ከፍተኛ ተከታታይ ድል (Streak) ያስመዘገቡ ጀግኖች</p>
-            
-            <div class="leaderboard-list" id="leaderboard-container">
-                <!-- Top 5 lists populated by JS dynamically -->
-            </div>
-
+            <div class="leaderboard-list" id="leaderboard-container"></div>
             <button class="modal-btn btn-close" onclick="closeModal('leaderboardModal')" style="width: 100%; margin-top: 5px;">ዝጋ</button>
         </div>
     </div>
 
-    <!-- Bottom Navigation Bar -->
     <div class="nav-bar">
         <div class="nav-item active" id="nav-games" onclick="switchTab('games')">
             <i class="fas fa-gamepad"></i>
@@ -882,7 +852,7 @@
 
     <script>
         // ==========================================
-        // LOCAL NATIVE CONFETTI ENGINE (HTML5 Canvas)
+        // LOCAL NATIVE CONFETTI ENGINE
         // ==========================================
         const canvas = document.getElementById("confetti-canvas");
         const ctx = canvas.getContext("2d");
@@ -947,9 +917,11 @@
         }
 
         // ==========================================
-        // SMART HTML5 WEB AUDIO SYNTHESIZER
+        // SMART HTML5 WEB AUDIO SYNTHESIZER & HAPTICS
         // ==========================================
         let audioCtx = null;
+        const tg = window.Telegram.WebApp;
+        tg.expand();
 
         function getAudioContext() {
             if (!audioCtx) {
@@ -959,6 +931,15 @@
                 audioCtx.resume();
             }
             return audioCtx;
+        }
+
+        function triggerHaptic(type) {
+            if (tg.HapticFeedback) {
+                if (type === 'light') tg.HapticFeedback.impactOccurred('light');
+                else if (type === 'medium') tg.HapticFeedback.impactOccurred('medium');
+                else if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
+                else if (type === 'warning') tg.HapticFeedback.notificationOccurred('warning');
+            }
         }
 
         function playTumbleSound() {
@@ -1021,12 +1002,6 @@
             } catch(e) { console.log(e); }
         }
 
-        // Telegram Setup
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-
-        let userId = 123456789;
-        let userName = "የሰፈር ልጅ";
         let selectedChoice = null;
         let isSpinning = false;
         let isWheelSpinning = false;
@@ -1035,41 +1010,52 @@
         let currentStreak = 0;
         let userBalance = 0.00;
 
+        // Extract and display User Info securely
+        let userName = "የሰፈር ልጅ";
         if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-            userId = tg.initDataUnsafe.user.id;
             userName = tg.initDataUnsafe.user.first_name || "የሰፈር ልጅ";
-            
             document.getElementById('user-name').innerText = userName;
             document.getElementById('welcome-name').innerText = userName;
             const avatarChar = userName.trim() ? userName.trim().charAt(0).toUpperCase() : "U";
             document.getElementById('user-avatar').innerText = avatarChar;
         }
 
+        // Production-Ready: Every request sends telegram initData securely in headers
+        function getHeaders() {
+            return { 
+                'Content-Type': 'application/json',
+                'X-Telegram-Init-Data': tg.initData || ''
+            };
+        }
+
         function loadBalance() {
+            const flipBtn = document.getElementById('flip-btn');
             fetch('/api/get_balance', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId })
+                headers: getHeaders()
             })
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
                     userBalance = parseFloat(data.balance);
                     document.getElementById('user-balance').innerText = userBalance.toFixed(2);
+                    flipBtn.disabled = false;
+                    flipBtn.innerText = "ሳንቲሙን ግልበጥ";
+                } else {
+                    flipBtn.innerText = "ማረጋገጫ አልተሳካም";
                 }
             })
-            .catch(err => console.error("Error loading balance:", err));
+            .catch(err => {
+                console.error("Error loading balance:", err);
+                flipBtn.innerText = "የሰርቨር ግንኙነት ችግር";
+            });
         }
 
-        // ==========================================
-        // MULTIPLIER BUTTONS CONTROLLER (NEW)
-        // ==========================================
         function applyMultiplier(type) {
             const betInput = document.getElementById('bet-amount');
             if (isNaN(userBalance) || userBalance <= 0) return;
 
-            let calculatedBet = 2; // Default fallback to minimum
-
+            let calculatedBet = 2;
             if (type === 'min') {
                 calculatedBet = 2;
             } else if (type === 'half') {
@@ -1081,15 +1067,15 @@
                 calculatedBet = Math.floor(userBalance);
             }
 
-            // Fallback check
             if (calculatedBet < 2) calculatedBet = 2;
-
             betInput.value = calculatedBet;
             playTumbleSound();
+            triggerHaptic('light');
         }
 
         function switchTab(tab) {
             if (isSpinning || isWheelSpinning) return;
+            triggerHaptic('light');
             if (tab === 'games') {
                 document.getElementById('main-view').style.display = 'flex';
                 document.getElementById('game-view').style.display = 'none';
@@ -1108,31 +1094,29 @@
 
         function switchToGame() {
             getAudioContext();
+            triggerHaptic('light');
             document.getElementById('main-view').style.display = 'none';
             document.getElementById('game-view').style.display = 'flex';
             document.getElementById('history-view').style.display = 'none';
         }
 
-        function openDepositModal() { document.getElementById('depositModal').style.display = 'flex'; }
-        function openWithdrawModal() { document.getElementById('withdrawModal').style.display = 'flex'; }
+        function openDepositModal() { triggerHaptic('light'); document.getElementById('depositModal').style.display = 'flex'; }
+        function openWithdrawModal() { triggerHaptic('light'); document.getElementById('withdrawModal').style.display = 'flex'; }
         function openDailyBonusModal() { 
             getAudioContext();
+            triggerHaptic('light');
             document.getElementById('dailyBonusModal').style.display = 'flex'; 
         }
 
-        // ==========================================
-        // LEADERBOARD LOAD ENGINE (NEW)
-        // ==========================================
         function openLeaderboard() {
+            triggerHaptic('light');
             document.getElementById('leaderboardModal').style.display = 'flex';
             const container = document.getElementById('leaderboard-container');
             container.innerHTML = '<p style="text-align: center; color: #8a8a8a;">በመጫን ላይ...</p>';
 
-            // Simulating or loading top 5 leaderboard stats from backend
             fetch('/api/get_leaderboard', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId })
+                headers: getHeaders()
             })
             .then(res => res.json())
             .then(data => {
@@ -1155,7 +1139,6 @@
                         container.appendChild(div);
                     });
                 } else {
-                    // Fallback Dummy Data if backend api doesn't respond for local testing
                     generateLocalLeaderboard();
                 }
             })
@@ -1193,19 +1176,18 @@
 
         function closeModal(id) { 
             if (isWheelSpinning) return;
+            triggerHaptic('light');
             document.getElementById(id).style.display = 'none'; 
         }
 
         function selectChoice(choice) {
             if (isSpinning) return;
+            triggerHaptic('light');
             selectedChoice = choice;
             document.getElementById('btn-heads').classList.toggle('selected', choice === 'ዘውድ');
             document.getElementById('btn-tails').classList.toggle('selected', choice === 'ጎፈር');
         }
 
-        // ==========================================
-        // FLIP LOGIC (WITH CONFETTI TRIGGER)
-        // ==========================================
         function playGame() {
             const betInput = document.getElementById('bet-amount');
             const betAmount = parseFloat(betInput.value);
@@ -1245,15 +1227,15 @@
                 
                 if (soundTicks % 3 === 0) {
                     playTumbleSound();
+                    triggerHaptic('light');
                 }
                 soundTicks++;
             }, 50);
 
             fetch('/api/coin_flip', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getHeaders(),
                 body: JSON.stringify({
-                    user_id: userId,
                     bet_amount: betAmount,
                     choice: selectedChoice,
                     streak: currentStreak
@@ -1272,10 +1254,11 @@
                     clearInterval(spinInterval);
                     coin.style.transition = 'transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
                     
+                    const organicOffset = Math.random() * 10 - 5; // Adds a micro-rotation for realistic touch
                     if (data.result === 'ዘውድ') {
-                        coin.style.transform = 'rotateX(0deg) rotateY(1440deg)';
+                        coin.style.transform = `rotateX(0deg) rotateY(${1440 + organicOffset}deg)`;
                     } else {
-                        coin.style.transform = 'rotateX(0deg) rotateY(1620deg)';
+                        coin.style.transform = `rotateX(0deg) rotateY(${1620 + organicOffset}deg)`;
                     }
 
                     setTimeout(() => {
@@ -1290,14 +1273,12 @@
                         
                         if (data.message.includes('አሸንፈዋል') || data.status === 'win') {
                             currentStreak++;
-                            
-                            // Trigger Normal Win Confetti Animation
+                            triggerHaptic('success');
                             spawnConfetti(70);
 
-                            // Check for 3-streak multiplier bonus trigger
                             if (currentStreak === 3) {
                                 playStreakFanfare();
-                                spawnConfetti(180); // Bigger Confetti blast
+                                spawnConfetti(180);
 
                                 const popup = document.getElementById('streak-popup');
                                 popup.classList.add('show');
@@ -1307,6 +1288,7 @@
                             }
                         } else {
                             currentStreak = 0;
+                            triggerHaptic('warning');
                         }
                         
                         document.getElementById('streak-count').innerText = `${currentStreak} ጊዜ`;
@@ -1329,9 +1311,6 @@
             document.getElementById('game-coin').style.transition = 'none';
         }
 
-        // ==========================================
-        // FORTUNE WHEEL SPIN LOGIC (DAILY BONUS)
-        // ==========================================
         function spinDailyWheel() {
             if (isWheelSpinning) return;
 
@@ -1345,32 +1324,32 @@
 
             let wheelSoundInterval = setInterval(() => {
                 playTumbleSound();
+                triggerHaptic('light');
             }, 180);
 
             fetch('/api/claim_daily', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId })
+                headers: getHeaders()
             })
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
                     const amount = data.gift_amount;
-                    
-                    let degrees = 0;
-                    if (amount === 1) degrees = 1800 + 324;
-                    else if (amount === 2) degrees = 1800 + 252;
-                    else if (amount === 5) degrees = 1800 + 180;
-                    else if (amount === 3) degrees = 1800 + 108;
-                    else if (amount === 4) degrees = 1800 + 36;
+                    const randomAngleOffset = Math.random() * 20 - 10; // Micro-offset for organic spin look
+                    let degrees = 1800;
+
+                    if (amount === 1) degrees += 324 + randomAngleOffset;
+                    else if (amount === 2) degrees += 252 + randomAngleOffset;
+                    else if (amount === 5) degrees += 180 + randomAngleOffset;
+                    else if (amount === 3) degrees += 108 + randomAngleOffset;
+                    else if (amount === 4) degrees += 36 + randomAngleOffset;
 
                     wheel.style.transform = `rotate(${degrees}deg)`;
 
                     setTimeout(() => {
                         clearInterval(wheelSoundInterval);
                         playStreakFanfare();
-                        
-                        // Spawn Confetti Celebration for Daily Bonus Win
+                        triggerHaptic('success');
                         spawnConfetti(90);
 
                         status.innerText = `እንኳን ደስ አለዎት! 🎁 ${amount} ብር አሸንፈዋል!`;
@@ -1411,15 +1390,20 @@
             }
 
             const formData = new FormData();
-            formData.append('user_id', userId);
-            formData.append('user_name', userName);
             formData.append('amount', amount);
             formData.append('receipt', receiptInput.files[0]);
 
-            fetch('/api/deposit', { method: 'POST', body: formData })
+            fetch('/api/deposit', { 
+                method: 'POST', 
+                headers: {
+                    'X-Telegram-Init-Data': tg.initData || ''
+                },
+                body: formData 
+            })
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
+                    triggerHaptic('success');
                     tg.showAlert("የማስገቢያ ጥያቄዎ ለአድሚን ተልኳል! በቅርቡ ይጸድቃል።");
                     closeModal('depositModal');
                 } else {
@@ -1443,10 +1427,8 @@
 
             fetch('/api/withdraw', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getHeaders(),
                 body: JSON.stringify({
-                    user_id: userId,
-                    user_name: userName,
                     amount: amount,
                     account_number: phone,
                     phone_number: userPhone,
@@ -1457,6 +1439,7 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
+                    triggerHaptic('success');
                     tg.showAlert("የወጪ ጥያቄዎ ለአድሚን ቀርቧል!");
                     closeModal('withdrawModal');
                 } else {
@@ -1472,8 +1455,7 @@
 
             fetch('/api/get_history', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId })
+                headers: getHeaders()
             })
             .then(res => res.json())
             .then(data => {
