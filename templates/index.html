@@ -125,7 +125,7 @@
             margin-bottom: 80px;
         }
 
-        /* CHANGED: Welcome layout */
+        /* Welcome layout */
         .welcome-msg {
             text-align: center;
             margin-top: 10px;
@@ -476,7 +476,7 @@
 
         .modal-content h3 { margin: 0; color: var(--text-color); text-align: center;}
         
-        .modal-content input {
+        .modal-content input[type="number"], .modal-content input[type="text"], .modal-content input[type="tel"] {
             background-color: var(--bg-color);
             border: 1px solid rgba(255, 255, 255, 0.2);
             padding: 12px;
@@ -484,12 +484,77 @@
             color: var(--light-text);
             font-size: 1rem;
             outline: none;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* NEW: Telebirr Info Box Style */
+        .telebirr-box {
+            background: linear-gradient(135deg, rgba(0, 143, 213, 0.1) 0%, rgba(15, 52, 96, 0.2) 100%);
+            border: 1px dashed #008fd5;
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+
+        .telebirr-number {
+            font-size: 1.3rem;
+            color: #008fd5;
+            font-weight: bold;
+            letter-spacing: 1.5px;
+            margin: 5px 0;
+            cursor: pointer;
+            display: inline-block;
+        }
+
+        .telebirr-number:active {
+            transform: scale(0.95);
+        }
+
+        /* NEW: Modern & Lite Dropzone File Input */
+        .custom-file-upload {
+            border: 2px dashed rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            background-color: rgba(255, 255, 255, 0.02);
+            transition: border-color 0.3s, background-color 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .custom-file-upload:active, .custom-file-upload.dragover {
+            border-color: var(--text-color);
+            background-color: rgba(233, 69, 96, 0.05);
+        }
+
+        .custom-file-upload i {
+            font-size: 1.8rem;
+            color: var(--text-color);
+        }
+
+        .custom-file-upload span {
+            font-size: 0.85rem;
+            color: #ccc;
+        }
+
+        .custom-file-upload .file-name {
+            font-size: 0.85rem;
+            color: var(--success-color);
+            font-weight: bold;
+            word-break: break-all;
+            display: none;
         }
 
         .modal-buttons {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
+            margin-top: 5px;
         }
 
         .modal-btn { padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; }
@@ -691,7 +756,6 @@
 
     <!-- 1. MAIN MENU VIEW -->
     <div class="container" id="main-view">
-        <!-- CHANGED: "ሰላም" to "Welcome" -->
         <div class="welcome-msg">
             <h1>Welcome, <span id="welcome-name">ተጫዋች</span>!</h1>
             <p>የሚወዱትን ጨዋታ ይምረጡና ዕድልዎን ይሞክሩ።</p>
@@ -750,7 +814,6 @@
             <i class="fas fa-arrow-left"></i> ወደ ማውጫ ተመለስ
         </div>
 
-        <!-- CHANGED: Professional Clean Subtitle & Header -->
         <div style="text-align: center;">
             <h2 style="margin: 5px 0;">🪙 ዘውድና ጎፈር</h2>
             <p style="color: #aaa; margin: 0; font-size: 0.95rem;">ዕድልዎን ይሞክሩ!</p>
@@ -808,13 +871,28 @@
     </div>
 
     <!-- Modals -->
-    <!-- Deposit Modal -->
+    <!-- Deposit Modal (Telebirr Added & Lite Dropzone Screen implemented) -->
     <div class="modal" id="depositModal">
         <div class="modal-content">
             <h3>💳 ብር ማስገቢያ</h3>
-            <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">የባንክ ደረሰኝ (Screenshot) እዚህ ይስቀሉ</p>
-            <input type="number" id="dep-amount" placeholder="የብር መጠን (ምሳሌ፡ 100)" min="1" pattern="[0-9]*" inputmode="numeric">
-            <input type="file" id="dep-receipt" accept="image/*">
+            
+            <!-- NEW: Telebirr Info Box with Copy Action -->
+            <div class="telebirr-box">
+                <div style="font-size: 0.8rem; color: #008fd5; font-weight: bold; text-transform: uppercase;">Telebirr Number</div>
+                <div class="telebirr-number" id="telebirr-num" onclick="copyTelebirrNumber()">0951381356</div>
+                <div style="font-size: 0.75rem; color: #aaa;">ቁጥሩን ለመገልበጥ (Copy) ይጫኑት</div>
+            </div>
+
+            <input type="number" id="dep-amount" placeholder="የተላከውን የብር መጠን (ምሳሌ፡ 100)" min="1" pattern="[0-9]*" inputmode="numeric">
+            
+            <!-- NEW: Modern Custom Dropzone File Input (No default ugly browser buttons) -->
+            <div class="custom-file-upload" id="dropzone" onclick="document.getElementById('dep-receipt').click()">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <span id="upload-label">የደረሰኝ (Screenshot) እዚህ ይስቀሉ</span>
+                <div class="file-name" id="selected-file-name"></div>
+            </div>
+            <input type="file" id="dep-receipt" accept="image/*" style="display: none;" onchange="handleFileSelect(this)">
+
             <div class="modal-buttons">
                 <button class="modal-btn btn-submit" onclick="submitDeposit()">ላክ</button>
                 <button class="modal-btn btn-close" onclick="closeModal('depositModal')">ዝጋ</button>
@@ -865,11 +943,11 @@
     <!-- LEADERBOARD MODAL -->
     <div class="modal" id="leaderboardModal">
         <div class="modal-content">
-            <h3>🏆 የሳምንቱ ምርጥ 5 ተጫዋቾች</h3>
+            <h3>🏆 የሳምንቱ ምርጥ ተጫዋቾች</h3>
             <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">ከፍተኛ ተከታታይ ድል (Streak) ያስመዘገቡ ጀግኖች</p>
             
             <div class="leaderboard-list" id="leaderboard-container">
-                <!-- Top 5 lists populated by JS dynamically -->
+                <!-- Top players lists populated by JS dynamically -->
             </div>
 
             <button class="modal-btn btn-close" onclick="closeModal('leaderboardModal')" style="width: 100%; margin-top: 5px;">ዝጋ</button>
@@ -1053,6 +1131,51 @@
             document.getElementById('user-avatar').innerText = avatarChar;
         }
 
+        // Copy Telebirr Functionality
+        function copyTelebirrNumber() {
+            const number = document.getElementById("telebirr-num").innerText;
+            navigator.clipboard.writeText(number).then(() => {
+                tg.showAlert("የቴሌብር ቁጥሩ (0951381356) ተገልብጧል!");
+            }).catch(() => {
+                tg.showAlert("ቁጥሩን መገልበጥ አልተቻለም፣ እባክዎ በፅሁፍ ይውሰዱት።");
+            });
+        }
+
+        // Custom File Drag and Select handling
+        function handleFileSelect(input) {
+            const fileName = input.files[0] ? input.files[0].name : "";
+            const nameDiv = document.getElementById("selected-file-name");
+            const label = document.getElementById("upload-label");
+            
+            if (fileName) {
+                nameDiv.innerText = `ተመርጧል፦ ${fileName}`;
+                nameDiv.style.display = "block";
+                label.style.display = "none";
+            } else {
+                nameDiv.style.display = "none";
+                label.style.display = "block";
+            }
+        }
+
+        // Dragover visual feedback
+        const dropzone = document.getElementById('dropzone');
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('dragover');
+        });
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            const fileInput = document.getElementById('dep-receipt');
+            if (e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileSelect(fileInput);
+            }
+        });
+
         function loadBalance() {
             document.getElementById('user-balance').innerText = userBalance.toFixed(2);
             fetch('/api/get_balance', {
@@ -1123,7 +1246,7 @@
         }
 
         // ==========================================
-        // DYNAMIC & FIXED LEADERBOARD SYSTEM
+        // DYNAMIC & CLEAN LEADERBOARD SYSTEM (No fake data)
         // ==========================================
         function openLeaderboard() {
             document.getElementById('leaderboardModal').style.display = 'flex';
@@ -1152,19 +1275,21 @@
             const container = document.getElementById('leaderboard-container');
             container.innerHTML = '';
             
-            // Ensure current user is in the list with correct dynamic values
-            let foundCurrentUser = false;
+            // Clean dynamic sorting of real active players
             let list = leaders.map(l => {
                 if (l.user_id === userId) {
-                    foundCurrentUser = true;
                     return { ...l, user_name: userName + " (አንተ)", streak: Math.max(currentStreak, l.streak) };
                 }
                 return l;
             });
 
-            if (!foundCurrentUser) {
+            // If current user is not in server response, add them with current streak
+            if (!list.some(l => l.user_id === userId)) {
                 list.push({ user_id: userId, user_name: userName + " (አንተ)", streak: currentStreak });
             }
+
+            // Filter out any zero or unplayed users to prevent visual junk
+            list = list.filter(item => item.streak > 0 || item.user_id === userId);
 
             // Sort descending by streak and slice top 5
             list.sort((a, b) => b.streak - a.streak);
@@ -1188,19 +1313,16 @@
             });
         }
 
+        // Clean local fallback showing ONLY the user since no dummy data is needed
         function generateLocalLeaderboard() {
             const container = document.getElementById('leaderboard-container');
             container.innerHTML = '';
             
-            const dummies = [
-                { user_id: 991, user_name: "ዮናስ ስልጣን", streak: 8 },
-                { user_id: 992, user_name: "ሳሚ_77", streak: 6 },
-                { user_id: userId, user_name: userName + " (አንተ)", streak: currentStreak },
-                { user_id: 994, user_name: "እንዳልካቸው", streak: 2 },
-                { user_id: 995, user_name: "ማርታ_ፍቅር", streak: 1 }
+            const realOnly = [
+                { user_id: userId, user_name: userName + " (አንተ)", streak: currentStreak }
             ];
             
-            renderLeaderboard(dummies);
+            renderLeaderboard(realOnly);
         }
 
         function closeModal(id) { 
@@ -1216,7 +1338,7 @@
         }
 
         // ==========================================
-        // FLIP LOGIC (With Dynamic Wallet, Won/Lose Alerts)
+        // FLIP LOGIC
         // ==========================================
         function playGame() {
             const betInput = document.getElementById('bet-amount');
@@ -1239,10 +1361,8 @@
                 return;
             }
 
-            // Remove previous result styling
             resultText.className = "result-alert";
 
-            // 1. Deduct bet amount immediately
             userBalance -= betAmount;
             document.getElementById('user-balance').innerText = userBalance.toFixed(2);
 
@@ -1268,7 +1388,6 @@
                 soundTicks++;
             }, 50);
 
-            // Local fallback simulator logic
             const fallbackCoinFlip = () => {
                 const randomVal = Math.random() < 0.5 ? 'ዘውድ' : 'ጎፈር';
                 const isWin = selectedChoice === randomVal;
@@ -1326,7 +1445,6 @@
                 setTimeout(() => {
                     playClinkSound();
 
-                    // CHANGED: Professional "Won X ብር" / "Lose" alert display
                     if (data.status === 'win') {
                         const winAmount = (betAmount * 2);
                         resultText.innerText = `Won ${winAmount.toFixed(2)} ብር`;
