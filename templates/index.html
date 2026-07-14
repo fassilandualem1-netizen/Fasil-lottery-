@@ -103,6 +103,47 @@
             margin: 0;
         }
 
+        /* Bet Section Input */
+        .bet-container {
+            background-color: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .bet-container label {
+            font-size: 0.95rem;
+            color: #aaaaaa;
+            font-weight: bold;
+        }
+
+        .bet-input-wrapper {
+            display: flex;
+            align-items: center;
+            background-color: var(--bg-color);
+            border: 1px solid var(--accent-color);
+            border-radius: 10px;
+            padding: 5px 12px;
+        }
+
+        .bet-input-wrapper i {
+            color: var(--text-color);
+            margin-right: 8px;
+        }
+
+        .bet-input-wrapper input {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            font-weight: bold;
+            width: 100%;
+            outline: none;
+        }
+
         /* Game Cards List */
         .games-list {
             display: flex;
@@ -254,13 +295,22 @@
             </button>
         </div>
 
+        <!-- የውርርድ መጠን ማስገቢያ ሳጥን (አዲስ የተጨመረ) -->
+        <div class="bet-container">
+            <label for="bet-amount"><i class="fas fa-coins"></i> የመጫወቻ (የውርርድ) መጠን በብር፦</label>
+            <div class="bet-input-wrapper">
+                <i class="fas fa-money-bill-wave"></i>
+                <input type="number" id="bet-amount" value="50" min="10" placeholder="መጠን ያስገቡ...">
+            </div>
+        </div>
+
         <h2>🎮 ጨዋታዎች</h2>
         
-        <!-- Game List Links -->
+        <!-- Game List -->
         <div class="games-list">
             
             <!-- Game 1: Horse Racing -->
-            <a href="/horse_race" class="game-card">
+            <div class="game-card" onclick="launchGame('horse')">
                 <div class="game-details">
                     <div class="game-icon">🐎</div>
                     <div class="game-info">
@@ -269,10 +319,10 @@
                     </div>
                 </div>
                 <div class="play-arrow"><i class="fas fa-chevron-right"></i></div>
-            </a>
+            </div>
 
             <!-- Game 2: Coin Flip -->
-            <a href="/coin_flip_game" class="game-card">
+            <div class="game-card" onclick="launchGame('coin')">
                 <div class="game-details">
                     <div class="game-icon">🪙</div>
                     <div class="game-info">
@@ -281,7 +331,7 @@
                     </div>
                 </div>
                 <div class="play-arrow"><i class="fas fa-chevron-right"></i></div>
-            </a>
+            </div>
 
         </div>
 
@@ -300,14 +350,13 @@
     </div>
 
     <script>
-        // Telegram WebApp ማነሳሳት
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        let userId = 123456789; // ለሙከራ እንዲሆን 
+        let userId = 123456789; 
         let userName = "የሰፈር ልጅ";
+        let currentBalance = 0.00;
 
-        // እውነተኛ የ Telegram መረጃዎችን መውሰድ
         if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
             userId = tg.initDataUnsafe.user.id;
             userName = tg.initDataUnsafe.user.first_name;
@@ -317,7 +366,6 @@
             document.getElementById('user-avatar').innerText = userName.charAt(0).toUpperCase();
         }
 
-        // ባላንስ ከ API ላይ መጫን
         function loadBalance() {
             fetch('/api/get_balance', {
                 method: 'POST',
@@ -327,13 +375,50 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
-                    document.getElementById('user-balance').innerText = parseFloat(data.balance).toFixed(2);
+                    currentBalance = parseFloat(data.balance);
+                    document.getElementById('user-balance').innerText = currentBalance.toFixed(2);
                 }
             })
             .catch(err => console.error("Error loading balance:", err));
         }
 
-        // ብር ለማስገባት ጥያቄ መላኪያ
+        // ጨዋታዎችን በደህንነት ቼክ የማስነሻ ሎጂክ
+        function launchGame(gameType) {
+            const betInput = document.getElementById("bet-amount");
+            const betAmount = betInput ? parseFloat(betInput.value || 0) : 0;
+
+            if (betAmount <= 0) {
+                return tg.showAlert("⚠️ እባክዎ መጀመሪያ ትክክለኛ የብር መጠን ያስገቡ!");
+            }
+            if (betAmount > currentBalance) {
+                return tg.showAlert("❌ ይቅርታ፣ ውርርድ ለማስያዝ በቂ ባላንስ የለዎትም!");
+            }
+
+            // ባክአንድ ሰርቨሩ ላይ ባላንስ ቼክ አድርጎ ጨዋታውን እንዲያስጀምር ፍቃድ መጠየቅ
+            fetch('/api/start_game', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, bet_amount: betAmount })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === "ready") {
+                    // ፍቃድ ከተሰጠ የውርርድ መጠኑን በ URL Query አድርጎ ወደ ጨዋታው ገጽ መውሰድ
+                    if (gameType === 'horse') {
+                        window.location.href = `/horse_race?bet=${betAmount}`;
+                    } else if (gameType === 'coin') {
+                        window.location.href = `/coin_flip_game?bet=${betAmount}`;
+                    }
+                } else {
+                    tg.showAlert("❌ ስህተት፦ " + data.message);
+                }
+            })
+            .catch(err => {
+                console.error("Error starting game:", err);
+                tg.showAlert("ከሰርቨር ጋር መገናኘት አልተቻለም!");
+            });
+        }
+
         function handleDepositClick() {
             tg.showPopup({
                 title: '💰 ብር ማስገቢያ',
@@ -350,7 +435,6 @@
             });
         }
 
-        // ብር ለማውጣት ጥያቄ መላኪያ
         function handleWithdrawClick() {
             tg.showPopup({
                 title: '💸 ብር ማውጫ',
@@ -361,7 +445,6 @@
                 ]
             }, function(buttonId) {
                 if (buttonId === 'yes') {
-                    // እዚህ ላይ ቀጥታ ወደ ፎርም መውሰድ ወይም ፕሮምፕት ማሳየት ይቻላል
                     let amount = prompt("ማውጣት የሚፈልጉትን የብር መጠን ያስገቡ:");
                     let bank = prompt("የባንክ ስም (ለምሳሌ፦ ንግድ ባንክ ወይም Telebirr):");
                     let accName = prompt("የአካውንት ባለቤት ሙሉ ስም:");
@@ -396,7 +479,6 @@
             });
         }
 
-        // የታሪክ ገጽ ማሳያ
         function viewHistory() {
             fetch('/api/get_history', {
                 method: 'POST',
@@ -418,7 +500,6 @@
             .catch(err => console.error("Error loading history:", err));
         }
 
-        // ገጹ ሲጫን ባላንሱን አምጣ
         window.onload = loadBalance;
     </script>
 </body>
