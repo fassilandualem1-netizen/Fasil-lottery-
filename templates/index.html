@@ -246,10 +246,10 @@
 
         <!-- Quick Actions -->
         <div class="actions-grid">
-            <button class="action-btn" onclick="tg.showAlert('የገቢ ማስገቢያ ሲስተም በቅርቡ ይዘመናል!')">
+            <button class="action-btn" onclick="handleDepositClick()">
                 <i class="fas fa-arrow-down" style="color: #4e9f3d;"></i> ብር አስገባ
             </button>
-            <button class="action-btn" onclick="tg.showAlert('የወጪ መውጫ ሲስተም በቅርቡ ይዘመናል!')">
+            <button class="action-btn" onclick="handleWithdrawClick()">
                 <i class="fas fa-arrow-up" style="color: #e94560;"></i> ብር አውጣ
             </button>
         </div>
@@ -293,7 +293,7 @@
             <i class="fas fa-gamepad"></i>
             <span>ጨዋታዎች</span>
         </div>
-        <div class="nav-item" onclick="tg.showAlert('የታሪክ ማሳያ ገጽ በቅርቡ ይጨመራል!')">
+        <div class="nav-item" onclick="viewHistory()">
             <i class="fas fa-history"></i>
             <span>ታሪክ</span>
         </div>
@@ -331,6 +331,91 @@
                 }
             })
             .catch(err => console.error("Error loading balance:", err));
+        }
+
+        // ብር ለማስገባት ጥያቄ መላኪያ
+        function handleDepositClick() {
+            tg.showPopup({
+                title: '💰 ብር ማስገቢያ',
+                message: 'ማሳሰቢያ፦ የገቢ ማረጋገጫ ደረሰኝ (Screenshot) ለቦቱ መላክ አለብዎት። መቀጠል ይፈልጋሉ?',
+                buttons: [
+                    {id: 'yes', type: 'default', text: 'አዎ፣ ልቀጥል'},
+                    {id: 'no', type: 'cancel', text: 'ተውት'}
+                ]
+            }, function(buttonId) {
+                if (buttonId === 'yes') {
+                    tg.showAlert('እባክዎን ከዌብአፑ ወጥተው በቦቱ ሜኑ ላይ ያለውን "Deposit" ቁልፍ በመጠቀም ደረሰኝዎን ይላኩ።');
+                    tg.close();
+                }
+            });
+        }
+
+        // ብር ለማውጣት ጥያቄ መላኪያ
+        function handleWithdrawClick() {
+            tg.showPopup({
+                title: '💸 ብር ማውጫ',
+                message: 'የማውጫ ፎርሙን መሙላት ይፈልጋሉ?',
+                buttons: [
+                    {id: 'yes', type: 'default', text: 'አዎ መሙላት እፈልጋለሁ'},
+                    {id: 'no', type: 'cancel', text: 'ይቅርብኝ'}
+                ]
+            }, function(buttonId) {
+                if (buttonId === 'yes') {
+                    // እዚህ ላይ ቀጥታ ወደ ፎርም መውሰድ ወይም ፕሮምፕት ማሳየት ይቻላል
+                    let amount = prompt("ማውጣት የሚፈልጉትን የብር መጠን ያስገቡ:");
+                    let bank = prompt("የባንክ ስም (ለምሳሌ፦ ንግድ ባንክ ወይም Telebirr):");
+                    let accName = prompt("የአካውንት ባለቤት ሙሉ ስም:");
+                    let phone = prompt("የአካውንት ቁጥር ወይም ስልክ ቁጥር:");
+
+                    if(amount && bank && accName && phone) {
+                        fetch('/api/withdraw', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                user_id: userId,
+                                user_name: userName,
+                                amount: parseFloat(amount),
+                                bank_name: bank,
+                                account_name: accName,
+                                phone: phone
+                            })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if(data.status === 'success') {
+                                tg.showAlert('✅ የወጪ ጥያቄዎ ለአድሚን ተልኳል! በአጭር ጊዜ ውስጥ ይከፈልዎታል።');
+                                loadBalance();
+                            } else {
+                                tg.showAlert('❌ ስህተት፦ ' + data.message);
+                            }
+                        });
+                    } else {
+                        tg.showAlert('⚠️ እባክዎን ሁሉንም መረጃዎች በትክክል ይሙሉ!');
+                    }
+                }
+            });
+        }
+
+        // የታሪክ ገጽ ማሳያ
+        function viewHistory() {
+            fetch('/api/get_history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success' && data.history.length > 0) {
+                    let text = "🎮 የጨዋታ ታሪክዎ፦\n\n";
+                    data.history.slice(0, 7).forEach(item => {
+                        text += `▫️ ${item.type} - ${item.amount} ብር (${item.status})\n`;
+                    });
+                    tg.showAlert(text);
+                } else {
+                    tg.showAlert("የተመዘገበ የጨዋታ ታሪክ እስካሁን የለዎትም!");
+                }
+            })
+            .catch(err => console.error("Error loading history:", err));
         }
 
         // ገጹ ሲጫን ባላንሱን አምጣ
