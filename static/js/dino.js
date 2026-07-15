@@ -2,6 +2,22 @@
 const tg = window.Telegram ? window.Telegram.WebApp : null;
 const userId = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id.toString() : "8488592165"; // ለሙከራ ካልተገኘ የአድሚን ID
 
+// የStepper በተኖችን የማግኘት መቆጣጠሪያ
+const stepperBtns = document.querySelectorAll('.stepper-btn');
+
+function toggleStepperButtons(disabled) {
+    stepperBtns.forEach(btn => {
+        btn.disabled = disabled;
+        if (disabled) {
+            btn.style.opacity = "0.5";
+            btn.style.cursor = "not-allowed";
+        } else {
+            btn.style.opacity = "1";
+            btn.style.cursor = "pointer";
+        }
+    });
+}
+
 // 6. ጨዋታ ለመጀመር (ከWallet ጋር ተገናኝቶ)
 async function startGame() {
     const betAmount = parseFloat(betAmountInput.value);
@@ -11,6 +27,7 @@ async function startGame() {
     }
     
     btnStart.disabled = true; // ድርብ ክሊክን ለመከላከል
+    toggleStepperButtons(true); // የ + እና - በተኖችን መቆለፊያ
     
     try {
         const response = await fetch('/api/dino/bet', {
@@ -37,17 +54,21 @@ async function startGame() {
             btnCashout.style.display = "inline-block";
             btnCashout.disabled = false;
             
-            // ካለህ የዌብሳይት ግድግዳ ላይ ባላንስ ማሳያ ካለ ማደስ ትችላለህ (ለምሳሌ: document.getElementById('balance').innerText = result.new_balance)
+            // ካለህ የዌብሳይት ግድግዳ ላይ ባላንስ ማሳያ ካለ ማደስ ትችላለህ
+            const balanceEl = document.getElementById('balanceDisplay') || document.getElementById('balance');
+            if (balanceEl) balanceEl.innerText = result.new_balance.toFixed(2) + " ETB";
             
             gameLoop();
         } else {
             alert(result.message || "ይቅርታ፣ በቂ ሂሳብ የሎትም!");
             btnStart.disabled = false;
+            toggleStepperButtons(false); // በቂ ሂሳብ ከሌለው በተኖቹን መክፈቻ
         }
     } catch (error) {
         console.error("Error:", error);
         alert("የግንኙነት ችግር አጋጥሟል!");
         btnStart.disabled = false;
+        toggleStepperButtons(false);
     }
 }
 
@@ -59,6 +80,7 @@ async function endGame(isWon) {
     
     btnStart.disabled = false;
     betAmountInput.disabled = false;
+    toggleStepperButtons(false); // ጨዋታው ሲያልቅ የ + እና - በተኖችን መክፈቻ
     btnCashout.style.display = "none";
     
     if (isWon) {
@@ -79,7 +101,10 @@ async function endGame(isWon) {
             
             if (result.status === "success") {
                 alert(`እንኳን ደስ አሎት! በ ${multiplier.toFixed(2)}x አቁመው ETB ${result.win_amount} አሸንፈዋል! 🎉`);
-                // ባላንስ ማሳያውን እዚህም በአዲሱ result.new_balance ማደስ ትችላለህ
+                
+                // በዋናው UI ላይ ያለውን የባላንስ ማሳያ ማደስ
+                const balanceEl = document.getElementById('balanceDisplay') || document.getElementById('balance');
+                if (balanceEl) balanceEl.innerText = result.new_balance.toFixed(2) + " ETB";
             }
         } catch (error) {
             console.error("Error During Cashout:", error);
