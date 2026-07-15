@@ -142,62 +142,7 @@ def handle_withdraw():
     return jsonify({"status": "success"})
 
 # ==========================================
-# ዩኒቨርሳል የጨዋታ ውጤት ማዕከል
-# ==========================================
-@server.route('/api/race_result', methods=['POST'])
-def race_result():
-    data = request.json or {}
-    user_id = data.get("user_id")
-    bet_amount = float(data.get("bet_amount", 0))
-    did_win = data.get("did_win", False)
-    win_amount = float(data.get("win_amount", 0))
-    details = data.get("details", "የሰፈር ጨዋታ")
-
-    if not user_id or bet_amount <= 0:
-        return jsonify({"status": "error", "message": "ትክክለኛ ያልሆነ መረጃ"}), 400
-
-    current_balance = float(redis.hget("users:balance", user_id) or 0.0)
-    
-    # ተጫዋቹ ከተሸነፈ ባላንሱ ካስያዘው ያነሰ መሆን የለበትም (የሴኩሪቲ ቼክ)
-    if not did_win and current_balance < bet_amount:
-         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
-
-    if did_win:
-        # ያሸነፈው ጠቅላላ ብር (Win Amount) ሲቀነስ ያስያዘው (Bet) የተጣራ ትርፍ ይሰጠናል
-        net_change = win_amount - bet_amount
-        redis.hincrbyfloat("users:balance", user_id, net_change)
-    else:
-        redis.hincrbyfloat("users:balance", user_id, -bet_amount)
-
-    # ታሪክ መመዝገቢያ
-    history_data = redis.get(f"history:{user_id}")
-    history_list = json.loads(history_data) if history_data else []
-    status_str = "አሸንፏል 🎉" if did_win else "ተሸንፏል 😞"
-    history_list.insert(0, {"type": f"{details}", "amount": bet_amount, "status": status_str})
-    redis.set(f"history:{user_id}", json.dumps(history_list))
-
-    return jsonify({"status": "success"})
-
-# ==========================================
-# የጨዋታ ማስጀመሪያ ፈቃድ ኤፒአይ
-# ==========================================
-@server.route('/api/start_game', methods=['POST'])
-def start_game():
-    data = request.json or {}
-    user_id = data.get("user_id")
-    bet_amount = float(data.get("bet_amount", 0))
-    
-    if not user_id or bet_amount <= 0:
-        return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
-        
-    current_balance = float(redis.hget("users:balance", user_id) or 0.0)
-    if current_balance < bet_amount:
-        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
-
-    return jsonify({"status": "ready"})
-
-# ==========================================
-# የዘውድና ጎፈር ጨዋታ ሎጂክ (የተስተካከለ)
+# የዘውድና ጎፈር ጨዋታ ሎጂክ
 # ==========================================
 @server.route('/api/coin_flip', methods=['POST'])
 def coin_flip_game():
@@ -217,26 +162,99 @@ def coin_flip_game():
     winning_side = random.choice(sides)
     did_win = (choice == winning_side)
     
-    # ማስታወሻ፡ ፍሮንትአንዱ ውጤቱን በቀጥታ ወደ /api/race_result የማይልክ ከሆነ 
-    # ሂሳቡ እዚህ ላይ ብቻ እንዲቀነስ/እንዲደመር ማድረግ ይቻላል። 
-    # ነገር ግን ሁለቱንም ኤፒአይ የሚጠቀም ከሆነ እዚህ ጋር ባላንስ መቀየር የለብንም።
-    # ለደህንነት ሲባል እዚህ ጋር ብቻ ቀጥታ እናሰላውና ታሪክ ላይ እንመዝግበው፡
     if did_win:
         net_change = bet_amount
         redis.hincrbyfloat("users:balance", user_id, net_change)
-        message = f"🎉 እንኳን ደስ አለዎት! ሳንቲሙ {winning_side} ወጥቷል። {bet_amount * 2} ብር አሸንፈዋል!"
-        status_str = "አሸንፏል 🎉"
+        new_balance = current_balance + net_change
+        status_str = "completed"
+        game_status = "win"
     else:
         redis.hincrbyfloat("users:balance", user_id, -bet_amount)
-        message = f"😞 መጥፎ እድል! ሳንቲሙ {winning_side} ወጥቷል። {bet_amount} ብር ተበልተዋል!"
-        status_str = "ተሸንፏል 😞"
+        new_balance = current_balance - bet_amount
+        status_str = "failed"
+        game_status = "lose"
 
+    # የታሪክ ምዝገባ
     history_data = redis.get(f"history:{user_id}")
     history_list = json.loads(history_data) if history_data else []
-    history_list.insert(0, {"type": f"ዘውድና ጎፈር ({choice})", "amount": bet_amount, "status": status_str})
+    history_list.insert(0, {
+        "type": f"ዘውድና ጎፈር ({choice})", 
+        "amount": bet_amount, 
+        "status": status_str,
+        "date": time.strftime("%Y-%m-%d")
+    })
     redis.set(f"history:{user_id}", json.dumps(history_list))
 
-    return jsonify({"status": "success", "message": message, "did_win": did_win, "winning_side": winning_side})
+    return jsonify({
+        "status": game_status, 
+        "result": winning_side, 
+        "new_balance": new_balance
+    })
+
+# ==========================================
+# 🎁 የዕለቱ ነጻ ዕድል (Claim Daily Bonus) - አዲስ የተጨመረ
+# ==========================================
+@server.route('/api/claim_daily', methods=['POST'])
+def claim_daily():
+    data = request.json or {}
+    user_id = data.get("user_id")
+    if not user_id:
+        return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
+
+    # በየ24 ሰዓቱ አንድ ጊዜ ብቻ መሆኑን ለማረጋገጥ Redis Key እንጠቀማለን
+    cooldown_key = f"daily_bonus:cooldown:{user_id}"
+    if redis.get(cooldown_key):
+        return jsonify({"status": "error", "message": "የዛሬውን ነጻ ዕድል ወስደዋል! እባክዎ ከ24 ሰዓት በኋላ ይመለሱ።"})
+
+    gifts = [1, 2, 3, 4, 5]
+    gift_amount = random.choice(gifts)
+
+    # ባላንስ መጨመር
+    redis.hincrbyfloat("users:balance", user_id, gift_amount)
+    
+    # የ24 ሰዓት ገደብ ማስቀመጥ (86400 ሴኮንድ)
+    redis.setex(cooldown_key, 86400, "claimed")
+
+    # ታሪክ ላይ መመዝገብ
+    history_data = redis.get(f"history:{user_id}")
+    history_list = json.loads(history_data) if history_data else []
+    history_list.insert(0, {
+        "type": "ነጻ ዕድል ሩሌት", 
+        "amount": gift_amount, 
+        "status": "completed",
+        "date": time.strftime("%Y-%m-%d")
+    })
+    redis.set(f"history:{user_id}", json.dumps(history_list))
+
+    return jsonify({"status": "success", "gift_amount": float(gift_amount)})
+
+# ==========================================
+# 🏆 የሳምንቱ መሪዎች ሰሌዳ (Leaderboard) - አዲስ የተጨመረ
+# ==========================================
+@server.route('/api/get_leaderboard', methods=['POST'])
+def get_leaderboard():
+    try:
+        # ሁሉንም ተጠቃሚዎችና ባላንሳቸውን ከ Redis እናወጣለን
+        all_balances = redis.hgetall("users:balance")
+        if not all_balances:
+            return jsonify({"status": "success", "leaders": []})
+
+        leaders = []
+        for u_id, bal in all_balances.items():
+            # አድሚንን ወይም የቴስት አካውንቶችን ከሊደርቦርድ ለማውጣት
+            if u_id == str(ADMIN_ID) or u_id == "2165":
+                continue
+            leaders.append({
+                "user_id": u_id,
+                "user_name": f"ተጫዋች_{u_id[-4:]}", # የግል መረጃ ጥበቃ (አኖኒመስ ለማድረግ)
+                "balance": float(bal)
+            })
+
+        # በባላንስ ከፍተኛ የሆኑትን መደርደር
+        leaders.sort(key=lambda x: x["balance"], reverse=True)
+        return jsonify({"status": "success", "leaders": leaders[:5]})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # ==========================================
 # Callback Handler (Admin Actions)
