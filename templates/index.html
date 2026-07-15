@@ -558,6 +558,7 @@
 
         .modal-btn { padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; }
         .btn-submit { background-color: var(--success-color); color: white; }
+        .btn-submit:disabled { background-color: #555; cursor: not-allowed; }
         .btn-close { background-color: #555; color: white; }
 
         .history-list { display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; }
@@ -846,7 +847,7 @@
             <input type="file" id="dep-receipt" accept="image/*" style="display: none;" onchange="handleFileSelect(this)">
 
             <div class="modal-buttons">
-                <button class="modal-btn btn-submit" onclick="submitDeposit()">ላክ</button>
+                <button class="modal-btn btn-submit" id="dep-submit-btn" onclick="submitDeposit()">ላክ</button>
                 <button class="modal-btn btn-close" onclick="closeModal('depositModal')">ዝጋ</button>
             </div>
         </div>
@@ -855,13 +856,14 @@
     <div class="modal" id="withdrawModal">
         <div class="modal-content">
             <h3>💸 ብር ማውጫ</h3>
-            <input type="text" id="wit-bank" placeholder="የባንክ ስም (ምሳሌ፡ ንግድ ባንክ)">
-            <input type="text" id="wit-acc-name" placeholder="የአካውንት ባለቤት ሙሉ ስም">
-            <input type="tel" id="wit-phone" placeholder="የሂሳብ ቁጥር (አካውንት)" pattern="[0-9]*" inputmode="numeric">
-            <input type="tel" id="wit-user-phone" placeholder="ስልክ ቁጥር" pattern="[0-9]*" inputmode="numeric">
-            <input type="number" id="wit-amount" placeholder="የብር መጠን" pattern="[0-9]*" inputmode="numeric">
+            <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">ዕቃውን ለማውጣት መረጃውን ይሙሉ</p>
+            
+            <input type="text" id="wit-acc-name" placeholder="ሙሉ ስም">
+            <input type="tel" id="wit-phone" placeholder="የባንክ አካውንት ወይም ስልክ ቁጥር" pattern="[0-9]*" inputmode="numeric">
+            <input type="number" id="wit-amount" placeholder="የብር መጠን (ቢያንስ 10 ብር)" pattern="[0-9]*" inputmode="numeric">
+            
             <div class="modal-buttons">
-                <button class="modal-btn btn-submit" onclick="submitWithdraw()">ጠይቅ</button>
+                <button class="modal-btn btn-submit" id="wit-submit-btn" onclick="submitWithdraw()">ጠይቅ</button>
                 <button class="modal-btn btn-close" onclick="closeModal('withdrawModal')">ዝጋ</button>
             </div>
         </div>
@@ -1349,7 +1351,13 @@
 
         function playGame() {
             const betInput = document.getElementById('bet-amount');
-            const betAmount = parseFloat(betInput.value);
+            // Ensure bet amount is an integer
+            let betAmount = parseFloat(betInput.value);
+            if (!isNaN(betAmount)) {
+                betAmount = Math.floor(betAmount);
+                betInput.value = betAmount;
+            }
+            
             const resultText = document.getElementById('result-text');
             const coin = document.getElementById('game-coin');
             const container = document.getElementById('coin-container');
@@ -1377,7 +1385,7 @@
 
             isSpinning = true;
             flipBtn.disabled = true;
-            resultText.innerText = "ሳንቲሙ እየተሽከረከረ ነው 🔥... 🪙";
+            resultText.innerText = "ሳንቲሙ በአየር ላይ እየተገላበጠ ነው... 🪙";
 
             container.classList.remove('animate-toss');
             container.offsetHeight; 
@@ -1453,7 +1461,7 @@
                         triggerHaptic('notification', 'success');
                         const winAmount = (betAmount * 2);
                         
-                        resultText.innerText = `won! +${winAmount.toFixed(2)} ብር`;
+                        resultText.innerText = `አሸነፉ! +${winAmount.toFixed(2)} ብር`;
                         resultText.className = "result-alert result-won";
 
                         if (data.new_balance !== undefined && data.new_balance !== null) {
@@ -1465,7 +1473,7 @@
                         spawnConfetti(70);
                     } else {
                         triggerHaptic('notification', 'error');
-                        resultText.innerText = "lose! በድጋሚ ይሞክሩ።";
+                        resultText.innerText = "ተሸነፉ! በድጋሚ ይሞክሩ።";
                         resultText.className = "result-alert result-lose";
                         
                         if (data.new_balance !== undefined && data.new_balance !== null) {
@@ -1579,14 +1587,18 @@
         }
 
         function submitDeposit() {
-            const amount = parseFloat(document.getElementById('dep-amount').value);
+            const amountInput = document.getElementById('dep-amount');
+            const amount = parseFloat(amountInput.value);
             const receiptInput = document.getElementById('dep-receipt');
+            const submitBtn = document.getElementById('dep-submit-btn');
             
             if (isNaN(amount) || amount <= 0 || !receiptInput.files[0]) {
                 triggerHaptic('notification', 'error');
                 tg.showAlert("እባክዎ መጠን እና ደረሰኝ በትክክል ያስገቡ!");
                 return;
             }
+
+            submitBtn.disabled = true;
 
             const formData = new FormData();
             formData.append('user_id', userId);
@@ -1597,37 +1609,62 @@
             fetch('/api/deposit', { method: 'POST', body: formData })
             .then(res => res.json())
             .then(data => {
+                submitBtn.disabled = false;
                 if (data.status === 'success') {
                     triggerHaptic('notification', 'success');
                     tg.showAlert("የማስገቢያ ጥያቄዎ ለአድሚን ተልኳል! በቅርቡ ይጸድቃል።");
                     saveLocalHistory('ብር ማስገቢያ', amount, 'pending');
                     closeModal('depositModal');
+                    amountInput.value = '';
+                    receiptInput.value = '';
+                    document.getElementById("selected-file-name").style.display = "none";
+                    document.getElementById("upload-label").style.display = "block";
                 } else {
                     triggerHaptic('notification', 'error');
                     tg.showAlert("ስህተት ተፈጥሯል፣ እባክዎ እንደገና ይሞክሩ።");
                 }
             })
             .catch(() => {
+                submitBtn.disabled = false;
                 triggerHaptic('notification', 'success');
                 tg.showAlert("የማስገቢያ ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል!");
                 saveLocalHistory('ብር ማስገቢያ', amount, 'pending');
                 closeModal('depositModal');
+                amountInput.value = '';
+                receiptInput.value = '';
+                document.getElementById("selected-file-name").style.display = "none";
+                document.getElementById("upload-label").style.display = "block";
             });
         }
 
+        // SIMPLIFIED SUBMIT WITHDRAW
         function submitWithdraw() {
-            const bank = document.getElementById('wit-bank').value;
-            const accName = document.getElementById('wit-acc-name').value;
-            const phone = document.getElementById('wit-phone').value;
-            const userPhone = document.getElementById('wit-user-phone').value;
+            const accName = document.getElementById('wit-acc-name').value.trim();
+            const phone = document.getElementById('wit-phone').value.trim();
             const amount = parseFloat(document.getElementById('wit-amount').value);
+            const submitBtn = document.getElementById('wit-submit-btn');
 
-            if (!bank || !accName || !phone || !userPhone || isNaN(amount) || amount <= 0) {
+            if (!accName || !phone || isNaN(amount)) {
                 triggerHaptic('notification', 'error');
                 tg.showAlert("እባክዎ ሁሉንም መረጃዎች በትክክል ያስገቡ!");
                 return;
             }
 
+            if (amount < 10) {
+                triggerHaptic('notification', 'error');
+                tg.showAlert("ማውጣት የሚቻለው ዝቅተኛው የብር መጠን 10 ብር ነው!");
+                return;
+            }
+
+            if (amount > userBalance) {
+                triggerHaptic('notification', 'error');
+                tg.showAlert("በአካውንትዎ ውስጥ በቂ ብር የለም!");
+                return;
+            }
+
+            submitBtn.disabled = true;
+
+            // ለቀላልነት ሲባል ባንክ ስም እና የተጠቃሚ ስልክ ላይ 'Simple Transfer' እና 'N/A' ይሞላሉ
             fetch('/api/withdraw', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1636,50 +1673,66 @@
                     user_name: userName,
                     amount: amount,
                     account_number: phone,
-                    phone_number: userPhone,
-                    bank_name: bank,
+                    phone_number: 'N/A',
+                    bank_name: 'Simple Transfer',
                     account_name: accName
                 })
             })
             .then(res => res.json())
             .then(data => {
+                submitBtn.disabled = false;
                 if (data.status === 'success') {
                     triggerHaptic('notification', 'success');
-                    tg.showAlert("የወጪ ጥያቄዎ ለአድሚን ቀርቧል!");
+                    tg.showAlert("የወጪ ጥያቄዎ በተሳካ ሁኔታ ቀርቧል!");
                     userBalance -= amount;
                     loadBalance();
                     saveLocalHistory('ብር ማውጫ', amount, 'pending');
                     closeModal('withdrawModal');
+                    clearWithdrawForm();
                 } else {
                     triggerHaptic('notification', 'error');
                     tg.showAlert(data.message || "ስህተት ተፈጥሯል!");
                 }
             })
             .catch(() => {
+                submitBtn.disabled = false;
                 triggerHaptic('notification', 'success');
                 tg.showAlert("የወጪ ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል!");
                 userBalance -= amount;
                 loadBalance();
                 saveLocalHistory('ብር ማውጫ', amount, 'pending');
                 closeModal('withdrawModal');
+                clearWithdrawForm();
             });
         }
 
-        // ==========================================
-        // LOCAL HISTORY CONTROLLER (DEPOSIT & WITHDRAW ONLY)
-        // ==========================================
-        let localHistory = [];
+        function clearWithdrawForm() {
+            document.getElementById('wit-acc-name').value = '';
+            document.getElementById('wit-phone').value = '';
+            document.getElementById('wit-amount').value = '';
+        }
 
+        // ==========================================
+        // PERSISTENT HISTORY CONTROLLER USING LOCALSTORAGE
+        // ==========================================
         function saveLocalHistory(type, amount, status) {
-            // በታሪክ ገጽ ላይ ገቢ እና ወጪ ብቻ እንዲመዘገብ መገደብ
-            if (type === 'ብር ማስገቢያ' || type === 'ብር ማውጫ' || type === 'ነጻ ዕድል') {
+            if (type === 'ብር ማስገቢያ' || type === 'ብር ማውጫ' || type === 'ነጻ ዕድል ሩሌት') {
                 const newItem = {
                     type: type,
                     amount: amount,
-                    status: status
+                    status: status,
+                    date: new Date().toLocaleDateString('am-ET')
                 };
-                localHistory.unshift(newItem);
-                if (localHistory.length > 20) localHistory.pop();
+
+                // Get existing history or empty array
+                let storedHistory = JSON.parse(localStorage.getItem('user_history_data')) || [];
+                storedHistory.unshift(newItem);
+
+                // Keep only last 30 items
+                if (storedHistory.length > 30) storedHistory.pop();
+
+                // Save back to localStorage
+                localStorage.setItem('user_history_data', JSON.stringify(storedHistory));
             }
         }
 
@@ -1696,50 +1749,68 @@
             .then(data => {
                 if (data.status === 'success' && data.history.length > 0) {
                     container.innerHTML = '';
-                    // ሰርቨሩ የጨዋታ ታሪክ ቢልክ እንኳ እዚህ ጋር ገቢና ወጪዎችን ብቻ እናጣራለን
-                    const filteredHistory = data.history.filter(item => 
+                    const mappedHistory = data.history.map(item => {
+                        let type = item.type;
+                        if (type.includes('Deposit')) type = 'ብር ማስገቢያ';
+                        if (type.includes('Withdraw')) type = 'ብር ማውጫ';
+                        return {
+                            ...item,
+                            type: type
+                        };
+                    });
+
+                    const filteredHistory = mappedHistory.filter(item => 
                         item.type === 'ብር ማስገቢያ' || 
                         item.type === 'ብር ማውጫ' || 
-                        item.type === 'ነጻ ዕድል' || 
-                        item.type.includes('Deposit') || 
-                        item.type.includes('Withdraw')
+                        item.type === 'ነጻ ዕድል ሩሌት'
                     );
 
                     if (filteredHistory.length > 0) {
-                        filteredHistory.forEach(item => {
-                            const div = document.createElement('div');
-                            div.className = 'history-item';
-                            div.innerHTML = `
-                                <span><b>${item.type}</b></span>
-                                <span>${item.amount} ብር</span>
-                                <span style="color: ${item.status === 'completed' || item.status.includes('approved') ? '#63e2b7' : '#e94560'}">${item.status}</span>
-                            `;
-                            container.appendChild(div);
-                        });
+                        // Sync fetched history to local storage as well
+                        localStorage.setItem('user_history_data', JSON.stringify(filteredHistory));
+                        renderFromLocal();
                     } else {
-                        renderLocalHistory();
+                        renderFromLocal();
                     }
                 } else {
-                    renderLocalHistory();
+                    renderFromLocal();
                 }
             })
             .catch(() => {
-                renderLocalHistory();
+                renderFromLocal();
             });
         }
 
-        function renderLocalHistory() {
+        function renderFromLocal() {
             const container = document.getElementById('history-container');
-            if (localHistory.length > 0) {
+            const storedHistory = JSON.parse(localStorage.getItem('user_history_data')) || [];
+
+            if (storedHistory.length > 0) {
                 container.innerHTML = '';
-                localHistory.forEach(item => {
+                storedHistory.forEach(item => {
                     const div = document.createElement('div');
                     div.className = 'history-item';
-                    const isCompleted = item.status === 'completed' || item.status === 'approved';
+                    
+                    let statusColor = '#e94560'; // Red for pending/fail
+                    let statusText = 'በሂደት ላይ';
+
+                    if (item.status === 'completed' || item.status === 'approved' || item.status === 'ስኬታማ') {
+                        statusColor = '#63e2b7'; // Green
+                        statusText = 'ተጠናቋል';
+                    } else if (item.status === 'pending') {
+                        statusColor = '#ffd700'; // Yellow
+                        statusText = 'በመጠባበቅ ላይ';
+                    }
+
                     div.innerHTML = `
-                        <span><b>${item.type}</b></span>
-                        <span>${item.amount} ብር</span>
-                        <span style="color: ${isCompleted ? '#63e2b7' : '#e94560'}">${item.status}</span>
+                        <div>
+                            <b>${item.type}</b>
+                            <div style="font-size: 0.75rem; color: #aaa; margin-top: 3px;">${item.date || ''}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-weight: bold; color: var(--light-text);">${parseFloat(item.amount).toFixed(2)} ብር</div>
+                            <span style="color: ${statusColor}; font-size: 0.8rem;">● ${statusText}</span>
+                        </div>
                     `;
                     container.appendChild(div);
                 });
