@@ -33,6 +33,15 @@
             border-bottom: 1px solid #333;
         }
 
+        /* አዲስ የተጨመረ: Back Button */
+        .back-btn {
+            color: #fff;
+            font-size: 1.2rem;
+            margin-right: 15px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
         .logo { font-size: 1.5rem; font-weight: 900; color: #e50b2c; font-style: italic; }
         .wallet-display { font-weight: bold; color: #28a745; font-size: 1.1rem; }
 
@@ -198,6 +207,24 @@
             font-weight: bold;
         }
 
+        /* አዲስ የተጨመረ: Auto Cashout ፎርም ስታይል */
+        .auto-section {
+            display: none; 
+            background-color: #1a1a1a;
+            padding: 8px;
+            border-radius: 8px;
+            margin-top: 5px;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px dashed #444;
+        }
+        .auto-section label { font-size: 0.85rem; color: #aaa; font-weight: bold; }
+        .auto-section input {
+            background: #111; border: 1px solid #444; color: #fff;
+            padding: 5px; border-radius: 5px; width: 70px;
+            text-align: center; font-weight: bold; font-size: 1rem; outline: none;
+        }
+
         /* Right Side: Big Button */
         .action-section {
             flex: 1;
@@ -234,9 +261,13 @@
 <body>
 
     <div class="header-nav">
-        <div class="logo">Aviator</div>
+        <!-- አዲስ: Back Button እና Logo ተያይዘው -->
+        <div style="display: flex; align-items: center;">
+            <a href="/" class="back-btn"><i class="fas fa-arrow-left"></i></a>
+            <div class="logo">Aviator</div>
+        </div>
         <div class="wallet-display">
-            <span id="balanceDisplay">0.00</span> ETB
+            <span id="balanceDisplay">...</span> ETB
             <i class="fas fa-bars" style="color: #666; margin-left: 10px; cursor: pointer;"></i>
         </div>
     </div>
@@ -255,8 +286,9 @@
         <!-- Panel 1 -->
         <div class="bet-panel" id="panel1">
             <div class="panel-tabs">
-                <button class="tab active">Bet</button>
-                <button class="tab">Auto</button>
+                <!-- አዲስ: Tab ክሊክ ሲደረግ JavaScript እንዲጠራ ተደርጓል -->
+                <button class="tab active" id="tabBet1" onclick="switchTab(1, 'bet')">Bet</button>
+                <button class="tab" id="tabAuto1" onclick="switchTab(1, 'auto')">Auto</button>
             </div>
             <div class="panel-body">
                 <div class="input-section">
@@ -271,6 +303,11 @@
                         <button class="quick-btn" onclick="setBet(1, 80)">80</button>
                         <button class="quick-btn" onclick="setBet(1, 400)">400</button>
                     </div>
+                    <!-- አዲስ: Auto Cashout ሲመረጥ የሚወጣ ፎርም -->
+                    <div id="autoSection1" class="auto-section">
+                        <label>Auto Cashout:</label>
+                        <input type="number" id="autoCashoutInput1" value="2.0" step="0.1" min="1.1">
+                    </div>
                 </div>
                 <div class="action-section">
                     <button id="btnAction1" class="action-btn btn-bet" onclick="handleAction(1)">
@@ -283,8 +320,9 @@
         <!-- Panel 2 -->
         <div class="bet-panel" id="panel2">
             <div class="panel-tabs">
-                <button class="tab active">Bet</button>
-                <button class="tab">Auto</button>
+                <!-- አዲስ: Tab ክሊክ ሲደረግ JavaScript እንዲጠራ ተደርጓል -->
+                <button class="tab active" id="tabBet2" onclick="switchTab(2, 'bet')">Bet</button>
+                <button class="tab" id="tabAuto2" onclick="switchTab(2, 'auto')">Auto</button>
             </div>
             <div class="panel-body">
                 <div class="input-section">
@@ -298,6 +336,11 @@
                         <button class="quick-btn" onclick="setBet(2, 40)">40</button>
                         <button class="quick-btn" onclick="setBet(2, 80)">80</button>
                         <button class="quick-btn" onclick="setBet(2, 400)">400</button>
+                    </div>
+                    <!-- አዲስ: Auto Cashout ሲመረጥ የሚወጣ ፎርም -->
+                    <div id="autoSection2" class="auto-section">
+                        <label>Auto Cashout:</label>
+                        <input type="number" id="autoCashoutInput2" value="2.0" step="0.1" min="1.1">
                     </div>
                 </div>
                 <div class="action-section">
