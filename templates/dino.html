@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ዲኖ ራን (Dino Run) 🦖⚡</title>
+    <title>ሮኬት ክራሽ (Rocket Crash) 🚀⚡</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #121225;
+            background-color: #0b0b16;
             color: #ffffff;
             margin: 0;
             padding: 10px;
@@ -33,17 +33,17 @@
             z-index: 10;
         }
 
-        /* ሙሉ ስክሪን የሚይዝ የጨዋታ አካል */
+        /* ሮኬት የሚበርበት ስክሪን */
         #gameContainer {
             position: relative;
             width: 100%;
-            max-width: 600px;
-            background-color: #16162d;
+            max-width: 500px;
+            background-color: #0f0f25;
             border: 3px solid #e94560;
-            border-radius: 16px;
+            border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0px 0px 25px rgba(233, 69, 96, 0.4);
-            aspect-ratio: 16 / 9; /* የቪዲዮ ሬሾ እንዲኖረው */
+            box-shadow: 0px 0px 30px rgba(233, 69, 96, 0.4);
+            aspect-ratio: 16 / 10;
         }
 
         canvas {
@@ -54,120 +54,131 @@
 
         #multiplierDisplay {
             position: absolute;
-            top: 15px;
+            top: 25%;
             left: 50%;
-            transform: translateX(-50%);
-            font-size: 3rem;
+            transform: translate(-50%, -50%);
+            font-size: 3.5rem;
             font-weight: bold;
             color: #00ffcc;
-            text-shadow: 0 0 15px rgba(0, 255, 204, 0.7);
+            text-shadow: 0 0 20px rgba(0, 255, 204, 0.8);
             z-index: 5;
         }
 
-        /* የቁጥጥር ፓነል */
+        /* መቆጣጠሪያ ፎርም */
         .controls-panel {
             width: 100%;
-            max-width: 600px;
+            max-width: 500px;
             margin-top: 15px;
-            background-color: #0f0f1e;
+            background-color: #14142b;
             padding: 15px;
-            border-radius: 16px;
+            border-radius: 20px;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 12px;
             box-sizing: border-box;
+            border: 1px solid #2d2d44;
         }
 
-        .bet-group {
+        .flex-row {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .input-box {
+            flex: 1;
             display: flex;
             flex-direction: column;
             gap: 5px;
         }
 
-        .bet-group label {
-            font-size: 0.95rem;
+        .input-box label {
+            font-size: 0.85rem;
             color: #8b8baf;
             font-weight: bold;
         }
 
-        .bet-stepper {
+        /* ስቴፐር */
+        .stepper {
             display: flex;
             align-items: center;
-            background-color: #161625;
-            border: 2px solid #30304a;
+            background-color: #1a1a35;
+            border: 2px solid #2d2d44;
             border-radius: 10px;
             overflow: hidden;
             justify-content: space-between;
+            height: 45px;
         }
 
         .stepper-btn {
-            background-color: #25253b;
+            background-color: #25254a;
             color: white;
             border: none;
-            width: 50px;
-            height: 50px;
-            font-size: 1.6rem;
+            width: 40px;
+            height: 100%;
+            font-size: 1.4rem;
             cursor: pointer;
-            transition: background-color 0.2s;
         }
 
-        .stepper-btn:hover {
-            background-color: #3f3f5a;
-        }
-
-        .bet-stepper input {
+        .stepper input {
             background: none;
             border: none;
             color: #fff;
-            font-size: 1.4rem;
+            font-size: 1.15rem;
             font-weight: bold;
             text-align: center;
-            width: 80px;
+            width: 60px;
             outline: none;
         }
 
         .currency {
             color: #00ffcc;
             font-weight: bold;
-            padding-right: 15px;
-            font-size: 1.1rem;
+            font-size: 0.9rem;
+            padding-right: 10px;
         }
 
-        /* ዋና ቁልፎች */
-        .btn {
+        /* Auto Cashout Input */
+        .auto-input {
+            background-color: #1a1a35;
+            border: 2px solid #2d2d44;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 1.15rem;
+            font-weight: bold;
+            text-align: center;
+            height: 41px;
+            outline: none;
+        }
+
+        /* ትልቁ የድርጊት በተን */
+        .action-btn {
             width: 100%;
             padding: 16px;
-            font-size: 1.3rem;
+            font-size: 1.4rem;
             font-weight: bold;
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
             cursor: pointer;
             transition: all 0.2s ease;
-            box-shadow: 0px 4px 10px rgba(0,0,0,0.3);
+            box-shadow: 0px 4px 15px rgba(0,0,0,0.4);
+            text-transform: uppercase;
         }
 
-        #btnStart {
+        .bet-mode {
             background-color: #e94560;
             color: white;
         }
 
-        #btnStart:hover {
-            background-color: #ff5e7e;
-        }
-
-        #btnCashout {
+        .cashout-mode {
             background-color: #00ffcc;
-            color: #111122;
+            color: #0b0b16;
             display: none;
         }
 
-        #btnCashout:hover {
-            background-color: #33ffdd;
-        }
-
-        .btn:disabled {
-            background-color: #444455 !important;
-            color: #888899 !important;
+        .action-btn:disabled {
+            background-color: #333344 !important;
+            color: #777788 !important;
             cursor: not-allowed;
             box-shadow: none !important;
         }
@@ -181,23 +192,28 @@
 
     <div id="gameContainer">
         <div id="multiplierDisplay">1.00x</div>
-        <canvas id="gameCanvas" width="800" height="450"></canvas> </div>
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+    </div>
 
     <div class="controls-panel">
-        <div class="bet-group">
-            <label for="betAmount">የውርርድ መጠን (ብር)</label>
-            <div class="bet-stepper">
-                <button type="button" class="stepper-btn" onclick="adjustBet(-2)">-</button>
-                <input type="number" id="betAmount" value="10" min="2" step="2" readonly>
-                <span class="currency">ETB</span>
-                <button type="button" class="stepper-btn" onclick="adjustBet(2)">+</button>
+        <div class="flex-row">
+            <div class="input-box">
+                <label>የውርርድ መጠን</label>
+                <div class="stepper">
+                    <button type="button" class="stepper-btn" onclick="adjustBet(-2)">-</button>
+                    <input type="number" id="betAmount" value="10" min="2" step="2" readonly>
+                    <span class="currency">ETB</span>
+                    <button type="button" class="stepper-btn" onclick="adjustBet(2)">+</button>
+                </div>
+            </div>
+
+            <div class="input-box">
+                <label>Auto Cash Out (ከተፈለገ)</label>
+                <input type="number" id="autoCashout" class="auto-input" placeholder="አይደለም" min="1.1" step="0.1">
             </div>
         </div>
 
-        <div class="button-group">
-            <button id="btnStart" class="btn">ውርርድ ፍጠር (Start)</button>
-            <button id="btnCashout" class="btn">Cash Out 💰</button>
-        </div>
+        <button id="btnAction" class="action-btn bet-mode">ውርርድ ፍጠር (START)</button>
     </div>
 
     <script>
