@@ -2055,11 +2055,28 @@
             }
         }
 
-        Window.onload = function() {
+// 1. ገጹ ሲጫን የሚሰራው ክፍል
+window.onload = function() {
     loadBalance();
-    fetchLockedBalance();  // የሙከራ 50 ብሩ ጠፍቶ ከዳታቤዝ የሚያመጣው አዲስ ፈንክሽን እዚህ ይገባል
+    fetchLockedBalance();  // አዲሱ ፈንክሽን እዚህ ተጠርቷል
     updateCoinFace(false);  
 };
+
+// 2. ከዳታቤዝ መረጃ የሚያመጣው አዲሱ ፈንክሽን
+function fetchLockedBalance() {
+    fetch('/api/get-locked-balance') 
+        .then(response => response.json())
+        .then(data => {
+            setLockedBalance(data.balance); 
+        })
+        .catch(error => {
+            console.error('መረጃውን ከዳታቤዝ ላይ ማምጣት አልተቻለም:', error);
+            setLockedBalance(0.00); 
+        });
+}
+
+// 3. ሌሎች ቀድሞ የነበሩ ፈንክሽኖች (ለምሳሌ loadBalance, setLockedBalance...) ከዚህ በታች ይቀጥላሉ...
+
     </script>
 </body>
 </html>
