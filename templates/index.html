@@ -1645,7 +1645,7 @@
             });
         }
 
-                // ==========================================
+                        // ==========================================
         // 1. የገንዘብ ማውጫ (Withdraw) - የተስተካከለ እና የተናበበ
         // ==========================================
         function submitWithdraw() {
@@ -1653,7 +1653,8 @@
             const bankSelect = document.getElementById('wit-bank');
             const bankName = bankSelect.value;
             const phone = document.getElementById('wit-phone').value.trim();
-            const amount = parseFloat(document.getElementById('wit-amount').value);
+            const amountInput = document.getElementById('wit-amount');
+            let amount = parseFloat(amountInput.value);
             const submitBtn = document.getElementById('wit-submit-btn');
 
             if (!accName || !bankName || !phone || isNaN(amount)) {
@@ -1661,6 +1662,10 @@
                 tg.showAlert("እባክዎ ሁሉንም መረጃዎች በትክክል ይሙሉ እና ባንክ መምረጥዎን ያረጋግጡ!");
                 return;
             }
+
+            // የሳንቲም ቁጥሮች እንዳይገቡ ማጠጋጋት
+            amount = Math.floor(amount);
+            amountInput.value = amount;
 
             if (amount < 10) {
                 triggerHaptic('notification', 'error');
@@ -1676,7 +1681,6 @@
 
             submitBtn.disabled = true;
 
-            // ለሰርቨሩ የሚላከው ዳታ (ቁልፎቹ ከፓይተን ኮድህ ጋር ፍጹም እንዲጣጣሙ ተደርገዋል)
             fetch('/api/withdraw', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1684,9 +1688,9 @@
                     user_id: userId,
                     user_name: userName,
                     amount: amount,
-                    phone: phone,          // የፓይተን ሰርቨሩ 'phone' ብሎ ስለሚፈልግ ተስተካክሏል
-                    bank_name: bankName,   // የፓይተን ሰርቨሩ 'bank_name' ብሎ ይፈልጋል
-                    account_name: accName  // የፓይተን ሰርቨሩ 'account_name' ብሎ ይፈልጋል
+                    phone: phone,          
+                    bank_name: bankName,   
+                    account_name: accName  
                 })
             })
             .then(res => res.json())
@@ -1706,7 +1710,6 @@
                 }
             })
             .catch(() => {
-                // ሰርቨርህ ላይ ችግር ቢኖር እንኳ ለተጠቃሚው እንዳይቆም የተደረገ ፎልባክ (Fallback)
                 submitBtn.disabled = false;
                 triggerHaptic('notification', 'success');
                 tg.showAlert("የወጪ ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል!");
@@ -1716,6 +1719,14 @@
                 closeModal('withdrawModal');
                 clearWithdrawForm();
             });
+        }
+
+        // የወጪ ፎርም ማጽጃ ፈንክሽን - (የነበረውን ስህተት ይፈታል)
+        function clearWithdrawForm() {
+            document.getElementById('wit-acc-name').value = '';
+            document.getElementById('wit-bank').selectedIndex = 0;
+            document.getElementById('wit-phone').value = '';
+            document.getElementById('wit-amount').value = '';
         }
 
         // ==========================================
