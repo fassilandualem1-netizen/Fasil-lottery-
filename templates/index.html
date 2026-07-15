@@ -698,69 +698,85 @@
         .nav-item.active { color: var(--text-color); }
         .nav-item i { font-size: 1.2rem; }
 
-        /* Daily Wheel Styles */
+        /* =======================================================
+           አዲሱ የሩሌት ስታይል (ከታች ያሉትን ኮዶች አሻሽለነዋል)
+        ======================================================= */
+        /* የሩሌት ኮንቴይነር */
         .wheel-container {
-            width: 240px;
-            height: 240px;
-            margin: 15px auto;
             position: relative;
+            width: 220px;
+            height: 220px;
+            margin: 20px auto;
             border-radius: 50%;
-            border: 8px solid var(--gold-color);
+            border: 5px solid var(--gold-color);
             box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
             overflow: hidden;
         }
 
+        /* ሩሌቱ ራሱ (በ60 ዲግሪ የተከፋፈለ ውብ ቀለም) */
         .wheel {
             width: 100%;
             height: 100%;
             border-radius: 50%;
+            border: 5px solid #fff;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
             position: relative;
-            transition: transform 4s cubic-bezier(0.25, 0.1, 0.1, 1);
+            overflow: hidden;
             background: conic-gradient(
-                #e94560 0deg 72deg, 
-                #0f3460 72deg 144deg, 
-                #4e9f3d 144deg 216deg, 
-                #ffd700 216deg 288deg, 
-                #8a1253 288deg 360deg
+                #ff4757 0deg 60deg,    /* 1 ብር - ቀይ */
+                #2ed573 60deg 120deg,  /* 2 ብር - አረንጓዴ */
+                #ffa502 120deg 180deg, /* 5 ብር - ወርቃማ */
+                #3f3f3f 180deg 240deg, /* ባዶ - ጥቁር/ግራጫ */
+                #1e90ff 240deg 300deg, /* 3 ብር - ሰማያዊ */
+                #9b59b6 300deg 360deg  /* 4 ብር - ሃምራዊ */
             );
+            transition: transform 4s cubic-bezier(0.25, 0.1, 0.25, 1);
         }
 
+        /* የሩሌቱ ፅሁፎች አቀማመጥ */
+        .wheel-label {
+            position: absolute;
+            width: 100%;
+            height: 50%;
+            top: 0;
+            left: 0;
+            transform-origin: bottom center;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        /* የሩሌት መሃል ክብ */
+        .wheel-center {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: #fff;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+
+        /* ሩሌት ጠቋሚ ፒን */
         .wheel-pin {
             position: absolute;
-            top: -12px;
+            top: -10px;
             left: 50%;
             transform: translateX(-50%);
             width: 0;
             height: 0;
-            border-left: 15px solid transparent;
-            border-right: 15px solid transparent;
-            border-top: 25px solid #fff;
-            z-index: 10;
-            filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
-        }
-
-        .wheel-center {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            background-color: white;
-            border-radius: 50%;
-            z-index: 5;
-            box-shadow: 0 0 5px rgba(0,0,0,0.5);
-        }
-
-        .wheel-label {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            text-align: center;
-            font-weight: bold;
-            color: #fff;
-            font-size: 1.1rem;
-            transform-origin: center;
+            border-left: 12px solid transparent;
+            border-right: 12px solid transparent;
+            border-top: 20px solid #f1c40f;
+            z-index: 15;
         }
     </style>
 </head>
@@ -940,36 +956,36 @@
     </div>
 
     <div class="modal" id="dailyBonusModal">
-    <div class="modal-content" style="max-width: 330px;">
-        <h3>🎁 የዕለቱ ነጻ ዕድል ሩሌት</h3>
-        <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">በየ24 ሰዓቱ እየመጡ ነጻ ድጋፍ ያሽከርክሩ!</p>
-        
-        <div class="wheel-pin"></div>
-        <div class="wheel-container">
-            <div class="wheel-center"></div>
-            <!-- 6 ሴግመንት (ባዶን ጨምሮ በየ 60 ዲግሪ ልዩነት) -->
-            <div class="wheel" id="bonus-wheel">
-                <div class="wheel-label" style="transform: rotate(30deg) translateY(15px);">1 ብር</div>
-                <div class="wheel-label" style="transform: rotate(90deg) translateY(15px);">2 ብር</div>
-                <div class="wheel-label" style="transform: rotate(150deg) translateY(15px);">5 ብር</div>
-                <div class="wheel-label" style="transform: rotate(210deg) translateY(15px); color: #ffbcff;">ባዶ</div>
-                <div class="wheel-label" style="transform: rotate(270deg) translateY(15px);">3 ብር</div>
-                <div class="wheel-label" style="transform: rotate(330deg) translateY(15px);">4 ብር</div>
+        <div class="modal-content" style="max-width: 330px;">
+            <h3>🎁 የዕለቱ ነጻ ዕድል ሩሌት</h3>
+            <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">በየ24 ሰዓቱ እየመጡ ነጻ ድጋፍ ያሽከርክሩ!</p>
+            
+            <div class="wheel-pin"></div>
+            <div class="wheel-container">
+                <div class="wheel-center"></div>
+                <!-- 6 ሴግመንት (ባዶን ጨምሮ በየ 60 ዲግሪ ልዩነት) -->
+                <div class="wheel" id="bonus-wheel">
+                    <div class="wheel-label" style="transform: rotate(30deg) translateY(15px);">1 ብር</div>
+                    <div class="wheel-label" style="transform: rotate(90deg) translateY(15px);">2 ብር</div>
+                    <div class="wheel-label" style="transform: rotate(150deg) translateY(15px);">5 ብር</div>
+                    <div class="wheel-label" style="transform: rotate(210deg) translateY(15px); color: #ffbcff;">ባዶ</div>
+                    <div class="wheel-label" style="transform: rotate(270deg) translateY(15px);">3 ብር</div>
+                    <div class="wheel-label" style="transform: rotate(330deg) translateY(15px);">4 ብር</div>
+                </div>
             </div>
-        </div>
 
-        <!-- ሩሌቱን ማሽከርከሪያ አዝራር -->
-        <button class="play-btn" id="spin-wheel-btn" onclick="spinDailyWheel()" style="background-color: var(--success-color); width: 100%; padding: 12px; font-weight: bold; border-radius: 8px; border: none; cursor: pointer; transition: all 0.3s ease;">ሩሌቱን አሽከርክር</button>
-        <div style="text-align: center; min-height: 25px; font-weight: bold; margin-top: 10px;" id="wheel-status"></div>
-        <button class="modal-btn btn-close" onclick="closeModal('dailyBonusModal')" style="width: 100%; margin-top: 5px;">ዝጋ</button>
+            <!-- ሩሌቱን ማሽከርከሪያ አዝራር -->
+            <button class="play-btn" id="spin-wheel-btn" onclick="spinDailyWheel()" style="background-color: var(--success-color); width: 100%; padding: 12px; font-weight: bold; border-radius: 8px; border: none; cursor: pointer; transition: all 0.3s ease;">ሩሌቱን አሽከርክር</button>
+            <div style="text-align: center; min-height: 25px; font-weight: bold; margin-top: 10px;" id="wheel-status"></div>
+            <button class="modal-btn btn-close" onclick="closeModal('dailyBonusModal')" style="width: 100%; margin-top: 5px;">ዝጋ</button>
+        </div>
     </div>
-</div>
 
 
     <div class="modal" id="leaderboardModal">
         <div class="modal-content">
             <h3>🏆 የሳምንቱ ምርጥ ተጫዋቾች</h3>
-            <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">ከፍተኛ ነጥብ ያስመዘገቡ ጀግኖች</p>
+            <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">ከጨማሪ ነጥብ ያስመዘገቡ ጀግኖች</p>
             
             <div class="leaderboard-list" id="leaderboard-container">
                 </div>
