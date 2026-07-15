@@ -3,90 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ዲኖ ራን (Dino Run) - ቤቲንግ</title>
+    <title>ዲኖ ራን (Dino Run) 🦖⚡</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #1a1a2e;
+            background-color: #121225;
             color: #ffffff;
             margin: 0;
-            padding: 15px;
+            padding: 10px;
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
             box-sizing: border-box;
+            overflow-x: hidden;
         }
 
-        /* ጀርባ መመለሻ በተን */
         .back-nav {
             align-self: flex-start;
             font-size: 1.1rem;
             color: #aaa;
             cursor: pointer;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             display: flex;
             align-items: center;
             gap: 8px;
-            transition: color 0.2s;
+            z-index: 10;
         }
 
-        .back-nav:hover {
-            color: #e94560;
-        }
-
-        h1 {
-            color: #e94560;
-            margin: 5px 0;
-            font-size: 1.8rem;
-        }
-
-        p {
-            color: #aaa;
-            margin: 0 0 15px 0;
-            font-size: 0.95rem;
-            text-align: center;
-        }
-
-        /* የጨዋታው መስኮት */
+        /* ሙሉ ስክሪን የሚይዝ የጨዋታ አካል */
         #gameContainer {
             position: relative;
             width: 100%;
-            max-width: 500px; /* ለስልክ እንዲመች በትንሹ የተስተካከለ */
-            background-color: #161625;
+            max-width: 600px;
+            background-color: #16162d;
             border: 3px solid #e94560;
-            border-radius: 12px;
+            border-radius: 16px;
             overflow: hidden;
-            box-shadow: 0px 0px 20px rgba(233, 69, 96, 0.3);
+            box-shadow: 0px 0px 25px rgba(233, 69, 96, 0.4);
+            aspect-ratio: 16 / 9; /* የቪዲዮ ሬሾ እንዲኖረው */
         }
 
         canvas {
             display: block;
             width: 100%;
-            height: auto;
-            background: linear-gradient(to bottom, #111122, #1a1a3a);
+            height: 100%;
         }
 
         #multiplierDisplay {
             position: absolute;
-            top: 20px;
+            top: 15px;
             left: 50%;
             transform: translateX(-50%);
-            font-size: 2.8rem;
+            font-size: 3rem;
             font-weight: bold;
             color: #00ffcc;
-            text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+            text-shadow: 0 0 15px rgba(0, 255, 204, 0.7);
+            z-index: 5;
         }
 
         /* የቁጥጥር ፓነል */
         .controls-panel {
             width: 100%;
-            max-width: 500px;
+            max-width: 600px;
             margin-top: 15px;
             background-color: #0f0f1e;
             padding: 15px;
-            border-radius: 12px;
+            border-radius: 16px;
             display: flex;
             flex-direction: column;
             gap: 15px;
@@ -100,17 +85,17 @@
         }
 
         .bet-group label {
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             color: #8b8baf;
+            font-weight: bold;
         }
 
-        /* Stepper (+ እና -) አቀማመጥ */
         .bet-stepper {
             display: flex;
             align-items: center;
             background-color: #161625;
             border: 2px solid #30304a;
-            border-radius: 8px;
+            border-radius: 10px;
             overflow: hidden;
             justify-content: space-between;
         }
@@ -119,9 +104,9 @@
             background-color: #25253b;
             color: white;
             border: none;
-            width: 45px;
-            height: 45px;
-            font-size: 1.5rem;
+            width: 50px;
+            height: 50px;
+            font-size: 1.6rem;
             cursor: pointer;
             transition: background-color 0.2s;
         }
@@ -134,29 +119,31 @@
             background: none;
             border: none;
             color: #fff;
-            font-size: 1.3rem;
+            font-size: 1.4rem;
             font-weight: bold;
             text-align: center;
-            width: 100px;
+            width: 80px;
             outline: none;
         }
 
         .currency {
-            color: #8b8baf;
+            color: #00ffcc;
             font-weight: bold;
             padding-right: 15px;
+            font-size: 1.1rem;
         }
 
-        /* በተኖች */
+        /* ዋና ቁልፎች */
         .btn {
             width: 100%;
-            padding: 14px;
-            font-size: 1.2rem;
+            padding: 16px;
+            font-size: 1.3rem;
             font-weight: bold;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             cursor: pointer;
             transition: all 0.2s ease;
+            box-shadow: 0px 4px 10px rgba(0,0,0,0.3);
         }
 
         #btnStart {
@@ -166,7 +153,6 @@
 
         #btnStart:hover {
             background-color: #ff5e7e;
-            box-shadow: 0px 0px 15px rgba(233, 69, 96, 0.4);
         }
 
         #btnCashout {
@@ -177,7 +163,6 @@
 
         #btnCashout:hover {
             background-color: #33ffdd;
-            box-shadow: 0px 0px 15px rgba(0, 255, 204, 0.4);
         }
 
         .btn:disabled {
@@ -194,13 +179,9 @@
         <i class="fas fa-arrow-left"></i> ወደ ማውጫ ተመለስ
     </div>
 
-    <h1>ዲኖ ራን (Dino Run) 🦖⚡</h1>
-    <p>መሰናክሎችን እየዘለሉ Multiplier ሲጨምር Cash Out ያድርጉ!</p>
-
     <div id="gameContainer">
         <div id="multiplierDisplay">1.00x</div>
-        <canvas id="gameCanvas" width="800" height="300"></canvas>
-    </div>
+        <canvas id="gameCanvas" width="800" height="450"></canvas> </div>
 
     <div class="controls-panel">
         <div class="bet-group">
@@ -220,21 +201,16 @@
     </div>
 
     <script>
-        // የብር መጨመሪያና መቀነሻ ስክሪፕት (Stepper)
         function adjustBet(amount) {
-            // ጨዋታው ከተጀመረ በተኑ እንዳይሰራ መከልከል
-            if (document.getElementById("betAmount").disabled) return;
-            
             let betInput = document.getElementById("betAmount");
+            if (betInput.disabled) return;
             let currentVal = parseInt(betInput.value) || 10;
             let newVal = currentVal + amount;
-            
-            if (newVal >= 2) { // አነስተኛ ውርርድ 2 ብር እንዲሆን
+            if (newVal >= 2) {
                 betInput.value = newVal;
             }
         }
     </script>
-
     <script src="{{ url_for('static', filename='js/dino.js') }}"></script>
 </body>
 </html>
