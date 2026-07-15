@@ -816,7 +816,7 @@
                 <input type="number" id="bet-amount" placeholder="ምሳሌ፡ 50" min="2" pattern="[0-9]*" inputmode="numeric" style="margin-top: 8px;">
             </div>
 
-            <button class="play-btn" id="flip-btn" onclick="playGame()">ሳንቲሙን ግልበጥ</button>
+            <button class="play-btn" id="flip-btn" onclick="playGame()">play</button>
         </div>
     </div>
 
@@ -1742,8 +1742,8 @@
             }
         }
 
-        // ==========================================
-        // 2. የግብይት ታሪክ ማሳያ (History - ገቢ/ወጪ ብቻ)
+                // ==========================================
+        // 2. የግብይት ታሪክ ማሳያ (የተስተካከለ እና የተናበበ)
         // ==========================================
         function loadHistory() {
             const container = document.getElementById('history-container');
@@ -1758,17 +1758,22 @@
             .then(data => {
                 if (data.status === 'success' && data.history && data.history.length > 0) {
                     container.innerHTML = '';
+                    
+                    // ከሰርቨር የመጣውን ዳታ ማጣራት እና ቃላቶቹን ማስተካከል
                     const mappedHistory = data.history.map(item => {
                         let type = item.type;
-                        if (type.includes('Deposit') || type.includes('deposit')) type = 'ብር ማስገቢያ';
-                        if (type.includes('Withdraw') || type.includes('withdraw')) type = 'ብር ማውጫ';
+                        // በተለያዩ ስሞች ቢቀመጡም እዚህ ጋር ወደ አንድ ወጥ ፎርማት ይቀየራሉ
+                        if (type.includes('Deposit') || type.includes('deposit') || type === 'ወጪ አስገባ' || type === 'ገቢ') type = 'ብር ማስገቢያ';
+                        if (type.includes('Withdraw') || type.includes('withdraw') || type === 'ወጪ' || type === 'ወጪ አውጣ') type = 'ብር ማውጫ';
+                        if (type.includes('Daily') || type.includes('daily') || type === 'ነጻ ዕድል') type = 'ነጻ ዕድል ሩሌት';
+                        
                         return {
                             ...item,
                             type: type
                         };
                     });
 
-                    // ገቢ፣ ወጪ እና የነጻ ዕድል ሩሌት ታሪኮች ብቻ እንዲጣሩ እናደርጋለን
+                    // የኪስ ታሪክ ገቢና ወጪዎችን ብቻ አጣርቶ ማሳየት
                     const filteredHistory = mappedHistory.filter(item => 
                         item.type === 'ብር ማስገቢያ' || 
                         item.type === 'ብር ማውጫ' || 
@@ -1776,7 +1781,7 @@
                     );
 
                     if (filteredHistory.length > 0) {
-                        // Sync fetched history to local storage
+                        // ለሚቀጥለው ጊዜ በፍጥነት እንዲከፈት በስልኩ ሎካል ሚሞሪ ላይ እናስቀምጠዋለን
                         localStorage.setItem('user_history_data', JSON.stringify(filteredHistory));
                         renderFromLocal();
                     } else {
@@ -1786,7 +1791,8 @@
                     renderFromLocal();
                 }
             })
-            .catch(() => {
+            .catch((err) => {
+                console.warn("ታሪኩን ከሰርቨር ማምጣት አልተቻለም፣ ከሎካል ሚሞሪ እንሞክራለን፦", err);
                 renderFromLocal();
             });
         }
