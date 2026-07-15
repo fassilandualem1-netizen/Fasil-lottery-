@@ -297,6 +297,46 @@
             filter: drop-shadow(0px 3px 5px rgba(0,0,0,0.4));
         }
 
+        /* Custom Skin Classes */
+        .coin.skin-silver .coin-front {
+            background: radial-gradient(circle, #ffffff 0%, #cfd8dc 70%, #78909c 100%);
+            border-color: #b0bec5;
+            color: #37474f;
+        }
+        .coin.skin-silver .coin-back {
+            border-color: #cfd8dc;
+        }
+
+        .coin.skin-bronze .coin-front {
+            background: radial-gradient(circle, #ffd180 0%, #bcaaa4 70%, #8d6e63 100%);
+            border-color: #a1887f;
+            color: #4e342e;
+        }
+        .coin.skin-bronze .coin-back {
+            border-color: #bcaaa4;
+        }
+
+        /* UI Styling for the Skin Selector */
+        .skin-selector {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin: 10px auto;
+        }
+        .skin-dot {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .skin-dot.active {
+            transform: scale(1.25);
+            border-color: var(--light-text);
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+        }
+
         @keyframes coin-toss-bounce {
             0% { transform: translateY(0) scale(1); }
             20% { transform: translateY(-130px) scale(1.2); }
@@ -778,6 +818,13 @@
             <h2 style="margin: 5px 0;">🪙 ዘውድና ጎፈር</h2>
             <p style="color: #aaa; margin: 0; font-size: 0.95rem;">ዕድልዎን ይሞክሩ!</p>
         </div>
+
+        <!-- Skin Selector -->
+        <div class="skin-selector">
+            <div class="skin-dot active" style="background: linear-gradient(135deg, #ffe57f, #ff8f00);" onclick="changeSkin(this, 'gold')" title="ወርቅ"></div>
+            <div class="skin-dot" style="background: linear-gradient(135deg, #ffffff, #78909c);" onclick="changeSkin(this, 'silver')" title="ብር"></div>
+            <div class="skin-dot" style="background: linear-gradient(135deg, #ffd180, #8d6e63);" onclick="changeSkin(this, 'bronze')" title="ነሐስ"></div>
+        </div>
         
         <div class="coin-wrapper" id="coin-container">
             <div class="coin" id="game-coin">
@@ -1068,6 +1115,28 @@
             } catch(e) { console.log(e); }
         }
 
+        function playWhooshSound() {
+            try {
+                const ctxAudio = getAudioContext();
+                const osc = ctxAudio.createOscillator();
+                const gain = ctxAudio.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(120, ctxAudio.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(600, ctxAudio.currentTime + 0.4);
+                
+                gain.gain.setValueAtTime(0.01, ctxAudio.currentTime);
+                gain.gain.linearRampToValueAtTime(0.2, ctxAudio.currentTime + 0.15);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctxAudio.currentTime + 0.45);
+                
+                osc.connect(gain);
+                gain.connect(ctxAudio.destination);
+                
+                osc.start();
+                osc.stop(ctxAudio.currentTime + 0.45);
+            } catch (e) { console.log("Sound error: ", e); }
+        }
+
         // ==========================================
         // TELEGRAM WEBAPP CORE & HAPTICS
         // ==========================================
@@ -1328,12 +1397,38 @@
             document.getElementById(id).style.display = 'none'; 
         }
 
+        // ==========================================
+        // COIN SKIN CONTROLLER
+        // ==========================================
+        function changeSkin(element, skinName) {
+            triggerHaptic('impact', 'light');
+            document.querySelectorAll('.skin-dot').forEach(dot => dot.classList.remove('active'));
+            element.classList.add('active');
+            
+            const coin = document.getElementById('game-coin');
+            // Keep the baseline 'coin' class and append the selected skin subclass
+            coin.className = `coin skin-${skinName}`;
+        }
+
+        // ==========================================
+        // MAGNETIC TILT SELECTION EFFECT
+        // ==========================================
         function selectChoice(choice) {
             if (isSpinning) return;
             triggerHaptic('impact', 'light');
             selectedChoice = choice;
             document.getElementById('btn-heads').classList.toggle('selected', choice === 'ዘውድ');
             document.getElementById('btn-tails').classList.toggle('selected', choice === 'ጎፈር');
+            
+            // Apply 3D tilt dynamically depending on user's prediction choice
+            const coin = document.getElementById('game-coin');
+            coin.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            
+            if (choice === 'ዘውድ') {
+                coin.style.transform = 'rotateY(25deg) rotateX(10deg)';
+            } else {
+                coin.style.transform = 'rotateY(155deg) rotateX(10deg)';
+            }
         }
 
         // ==========================================
@@ -1359,7 +1454,6 @@
 
         function playGame() {
             const betInput = document.getElementById('bet-amount');
-            // Ensure bet amount is an integer
             let betAmount = parseFloat(betInput.value);
             if (!isNaN(betAmount)) {
                 betAmount = Math.floor(betAmount);
@@ -1386,6 +1480,9 @@
                 tg.showAlert('በቂ የብር መጠን የሎትም! እባክዎ መጀመሪያ ሂሳብዎን ይሙሉ!');
                 return;
             }
+
+            // Fire the atmospheric Whoosh synthesizer on launch
+            playWhooshSound();
 
             resultText.className = "result-alert";
             userBalance -= betAmount;
@@ -1449,51 +1546,76 @@
             });
         }
 
+        // ==========================================
+        // DYNAMIC PHYSICAL REVEAL AND SUSPENSE WOBBLE
+        // ==========================================
         function processResult(data, spinInterval, coin, resultText, betAmount) {
             const finalResult = (data && data.result) ? data.result : getSecureCoinFlip();
 
+            // Set mid-air duration with a slight random deviation (2.0s - 2.8s) for physical variance
             setTimeout(() => {
                 clearInterval(spinInterval);
-                coin.style.transition = 'transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
                 
-                if (finalResult === 'ዘውድ') {
-                    coin.style.transform = 'rotateX(0deg) rotateY(1440deg)';
-                } else {
-                    coin.style.transform = 'rotateX(0deg) rotateY(1620deg)';
-                }
-
-                setTimeout(() => {
-                    playClinkSound();
-
-                    if (data.status === 'win') {
-                        triggerHaptic('notification', 'success');
-                        const winAmount = (betAmount * 2);
-                        
-                        resultText.innerText = `አሸነፉ! +${winAmount.toFixed(2)} ብር`;
-                        resultText.className = "result-alert result-won";
-
-                        if (data.new_balance !== undefined && data.new_balance !== null) {
-                            userBalance = parseFloat(data.new_balance);
-                        } else {
-                            userBalance += winAmount;
-                        }
-                        
-                        spawnConfetti(70);
-                    } else {
-                        triggerHaptic('notification', 'error');
-                        resultText.innerText = "ተሸነፉ! በድጋሚ ይሞክሩ።";
-                        resultText.className = "result-alert result-lose";
-                        
-                        if (data.new_balance !== undefined && data.new_balance !== null) {
-                            userBalance = parseFloat(data.new_balance);
-                        }
+                // --- 1. SUSPENSE WOBBLE STAGE (Simulating physics-based table landing) ---
+                let suspenseTicks = 0;
+                const targetY = finalResult === 'ዘውድ' ? 1440 : 1620;
+                
+                const settleInterval = setInterval(() => {
+                    // Reduce the wobble magnitude incrementally over time
+                    const amplitude = 25 / (suspenseTicks + 1); 
+                    const wobbleX = Math.sin(suspenseTicks * 1.5) * amplitude;
+                    const wobbleY = targetY + Math.cos(suspenseTicks * 1.5) * amplitude;
+                    
+                    coin.style.transition = 'none';
+                    coin.style.transform = `rotateX(${wobbleX}deg) rotateY(${wobbleY}deg)`;
+                    
+                    if (suspenseTicks % 2 === 0) {
+                        triggerHaptic('impact', 'light');
+                        playTumbleSound(); 
                     }
+                    
+                    suspenseTicks++;
+                    if (suspenseTicks > 12) {
+                        clearInterval(settleInterval);
+                        
+                        // --- 2. FINAL REST & REVEAL STATE ---
+                        coin.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                        coin.style.transform = `rotateX(0deg) rotateY(${targetY}deg)`;
+                        
+                        setTimeout(() => {
+                            playClinkSound();
 
-                    document.getElementById('user-balance').innerText = userBalance.toFixed(2);
-                    resetGameUI();
-                }, 800);
+                            if (data.status === 'win') {
+                                triggerHaptic('notification', 'success');
+                                const winAmount = (betAmount * 2);
+                                
+                                resultText.innerText = `አሸነፉ! +${winAmount.toFixed(2)} ብር`;
+                                resultText.className = "result-alert result-won";
 
-            }, 2400); 
+                                if (data.new_balance !== undefined && data.new_balance !== null) {
+                                    userBalance = parseFloat(data.new_balance);
+                                } else {
+                                    userBalance += winAmount;
+                                }
+                                
+                                spawnConfetti(70);
+                            } else {
+                                triggerHaptic('notification', 'error');
+                                resultText.innerText = "ተሸነፉ! በድጋሚ ይሞክሩ።";
+                                resultText.className = "result-alert result-lose";
+                                
+                                if (data.new_balance !== undefined && data.new_balance !== null) {
+                                    userBalance = parseFloat(data.new_balance);
+                                }
+                            }
+
+                            document.getElementById('user-balance').innerText = userBalance.toFixed(2);
+                            resetGameUI();
+                        }, 150);
+                    }
+                }, 50);
+
+            }, 2000 + (Math.random() * 800)); 
         }
 
         function resetGameUI() {
@@ -1645,8 +1767,8 @@
             });
         }
 
-                        // ==========================================
-        // 1. የገንዘብ ማውጫ (Withdraw) - የተስተካከለ እና የተናበበ
+        // ==========================================
+        // WITHDRAWAL CONTROLLER
         // ==========================================
         function submitWithdraw() {
             const accName = document.getElementById('wit-acc-name').value.trim();
@@ -1663,7 +1785,6 @@
                 return;
             }
 
-            // የሳንቲም ቁጥሮች እንዳይገቡ ማጠጋጋት
             amount = Math.floor(amount);
             amountInput.value = amount;
 
@@ -1721,7 +1842,6 @@
             });
         }
 
-        // የወጪ ፎርም ማጽጃ ፈንክሽን - (የነበረውን ስህተት ይፈታል)
         function clearWithdrawForm() {
             document.getElementById('wit-acc-name').value = '';
             document.getElementById('wit-bank').selectedIndex = 0;
@@ -1741,21 +1861,15 @@
                     date: new Date().toLocaleDateString('am-ET')
                 };
 
-                // Get existing history or empty array
                 let storedHistory = JSON.parse(localStorage.getItem('user_history_data')) || [];
                 storedHistory.unshift(newItem);
 
-                // Keep only last 30 items
                 if (storedHistory.length > 30) storedHistory.pop();
 
-                // Save back to localStorage
                 localStorage.setItem('user_history_data', JSON.stringify(storedHistory));
             }
         }
 
-                // ==========================================
-        // 2. የግብይት ታሪክ ማሳያ (የተስተካከለ እና የተናበበ)
-        // ==========================================
         function loadHistory() {
             const container = document.getElementById('history-container');
             container.innerHTML = '<p style="text-align: center; color: #8a8a8a;">በመጫን ላይ...</p>';
@@ -1770,10 +1884,8 @@
                 if (data.status === 'success' && data.history && data.history.length > 0) {
                     container.innerHTML = '';
                     
-                    // ከሰርቨር የመጣውን ዳታ ማጣራት እና ቃላቶቹን ማስተካከል
                     const mappedHistory = data.history.map(item => {
                         let type = item.type;
-                        // በተለያዩ ስሞች ቢቀመጡም እዚህ ጋር ወደ አንድ ወጥ ፎርማት ይቀየራሉ
                         if (type.includes('Deposit') || type.includes('deposit') || type === 'ወጪ አስገባ' || type === 'ገቢ') type = 'ብር ማስገቢያ';
                         if (type.includes('Withdraw') || type.includes('withdraw') || type === 'ወጪ' || type === 'ወጪ አውጣ') type = 'ብር ማውጫ';
                         if (type.includes('Daily') || type.includes('daily') || type === 'ነጻ ዕድል') type = 'ነጻ ዕድል ሩሌት';
@@ -1784,7 +1896,6 @@
                         };
                     });
 
-                    // የኪስ ታሪክ ገቢና ወጪዎችን ብቻ አጣርቶ ማሳየት
                     const filteredHistory = mappedHistory.filter(item => 
                         item.type === 'ብር ማስገቢያ' || 
                         item.type === 'ብር ማውጫ' || 
@@ -1792,7 +1903,6 @@
                     );
 
                     if (filteredHistory.length > 0) {
-                        // ለሚቀጥለው ጊዜ በፍጥነት እንዲከፈት በስልኩ ሎካል ሚሞሪ ላይ እናስቀምጠዋለን
                         localStorage.setItem('user_history_data', JSON.stringify(filteredHistory));
                         renderFromLocal();
                     } else {
@@ -1818,26 +1928,24 @@
                     const div = document.createElement('div');
                     div.className = 'history-item';
                     
-                    let statusColor = '#ffd700'; // Default: Yellow
+                    let statusColor = '#ffd700'; 
                     let statusText = '⏳ በሂደት ላይ';
 
-                    // የሁኔታዎችን (status) ምልክት እዚህ እንለያለን
                     const normalizedStatus = String(item.status).toLowerCase();
                     if (normalizedStatus === 'completed' || normalizedStatus === 'approved' || normalizedStatus === 'ስኬታማ' || normalizedStatus === 'success') {
-                        statusColor = '#63e2b7'; // Green
+                        statusColor = '#63e2b7'; 
                         statusText = '✅ ተጠናቋል';
                     } else if (normalizedStatus === 'pending' || normalizedStatus === 'በመጠባበቅ ላይ') {
-                        statusColor = '#ffd700'; // Yellow
+                        statusColor = '#ffd700'; 
                         statusText = '⏳ በመጠባበቅ ላይ';
                     } else if (normalizedStatus === 'refund' || normalizedStatus === 'refunded' || normalizedStatus === 'rejected' || normalizedStatus === 'ተመላሽ') {
-                        statusColor = '#2196F3'; // Blue
+                        statusColor = '#2196F3'; 
                         statusText = '↩ ተመላሽ የተደረገ';
                     } else {
-                        statusColor = '#e94560'; // Red for failed
+                        statusColor = '#e94560'; 
                         statusText = '❌ አልተሳካም';
                     }
 
-                    // ገቢ እና ወጪ ላይ አዶዎችን (📥 / 📤) ለመጨመር
                     let typeIcon = item.type === 'ብር ማስገቢያ' ? '📥 ' : (item.type === 'ብር ማውጫ' ? '📤 ' : '🎁 ');
 
                     div.innerHTML = `
