@@ -2055,11 +2055,11 @@
             }
         }
 
-        window.onload = function() {
-            loadBalance();
-            setLockedBalance(50.00); // Initializes the app with a demo pending/locked balance of 50 Birr
-            updateCoinFace(false);  // Ensures the coin starts in its dark-blue/violet neutral state
-        };
+        Window.onload = function() {
+    loadBalance();
+    fetchLockedBalance();  // የሙከራ 50 ብሩ ጠፍቶ ከዳታቤዝ የሚያመጣው አዲስ ፈንክሽን እዚህ ይገባል
+    updateCoinFace(false);  
+};
     </script>
 </body>
 </html>
