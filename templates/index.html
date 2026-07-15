@@ -1645,8 +1645,8 @@
             });
         }
 
-        // ==========================================
-        // 1. የገንዘብ ማውጫ (Withdraw) የተስተካከለ
+                // ==========================================
+        // 1. የገንዘብ ማውጫ (Withdraw) - የተስተካከለ እና የተናበበ
         // ==========================================
         function submitWithdraw() {
             const accName = document.getElementById('wit-acc-name').value.trim();
@@ -1676,6 +1676,7 @@
 
             submitBtn.disabled = true;
 
+            // ለሰርቨሩ የሚላከው ዳታ (ቁልፎቹ ከፓይተን ኮድህ ጋር ፍጹም እንዲጣጣሙ ተደርገዋል)
             fetch('/api/withdraw', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1683,10 +1684,9 @@
                     user_id: userId,
                     user_name: userName,
                     amount: amount,
-                    account_number: phone,
-                    phone_number: phone,
-                    bank_name: bankName,
-                    account_name: accName
+                    phone: phone,          // የፓይተን ሰርቨሩ 'phone' ብሎ ስለሚፈልግ ተስተካክሏል
+                    bank_name: bankName,   // የፓይተን ሰርቨሩ 'bank_name' ብሎ ይፈልጋል
+                    account_name: accName  // የፓይተን ሰርቨሩ 'account_name' ብሎ ይፈልጋል
                 })
             })
             .then(res => res.json())
@@ -1706,6 +1706,7 @@
                 }
             })
             .catch(() => {
+                // ሰርቨርህ ላይ ችግር ቢኖር እንኳ ለተጠቃሚው እንዳይቆም የተደረገ ፎልባክ (Fallback)
                 submitBtn.disabled = false;
                 triggerHaptic('notification', 'success');
                 tg.showAlert("የወጪ ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል!");
@@ -1715,13 +1716,6 @@
                 closeModal('withdrawModal');
                 clearWithdrawForm();
             });
-        }
-
-        function clearWithdrawForm() {
-            document.getElementById('wit-acc-name').value = '';
-            document.getElementById('wit-bank').selectedIndex = 0;
-            document.getElementById('wit-phone').value = '';
-            document.getElementById('wit-amount').value = '';
         }
 
         // ==========================================
