@@ -71,6 +71,52 @@ def dino_game():
 def coin_flip_page():
     return render_template('coin_flip.html')
 
+
+
+# ==========================================
+# 🦖 የዲኖ ራን (Dino Run) ጨዋታ ሎጂክ ከWallet ጋር
+# ==========================================
+@server.route('/api/dino/bet', methods=['POST'])
+def dino_bet_api():
+    data = request.json or {}
+    user_id = data.get("user_id")
+    bet_amount = float(data.get("bet_amount", 0))
+
+    if not user_id or bet_amount <= 0:
+        return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
+
+    # [STABILITY FIX]: ጨዋታው ከመጀመሩ በፊት ባላንሱን በአቶሚክ መንገድ እንቀንሳለን
+    deduct_status = deduct_balance_safely(user_id, bet_amount)
+    if deduct_status == "INSUFFICIENT":
+        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
+    elif deduct_status == "ERROR":
+        return jsonify({"status": "error", "message": "የሲስተም ስህተት ተከስቷል"}), 500
+
+    new_balance = float(redis.hget("users:balance", user_id) or 0.0)
+    return jsonify({"status": "success", "new_balance": new_balance})
+
+@server.route('/api/dino/cashout', methods=['POST'])
+def dino_cashout_api():
+    data = request.json or {}
+    user_id = data.get("user_id")
+    bet_amount = float(data.get("bet_amount", 0))
+    multiplier = float(data.get("multiplier", 1.0))
+
+    if not user_id or bet_amount <= 0 or multiplier < 1.0:
+        return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
+
+    win_amount = bet_amount * multiplier
+
+    # ያሸነፈውን ብር ቀጥታ ወደ Redis ባላንስ ብቻ እንጨምራለን (ታሪክ ላይ ሳይመዘገብ)
+    redis.hincrbyfloat("users:balance", user_id, win_amount)
+    new_balance = float(redis.hget("users:balance", user_id) or 0.0)
+
+    return jsonify({
+        "status": "success", 
+        "win_amount": round(win_amount, 2), 
+        "new_balance": new_balance
+    })
+
 # ==========================================
 # API Routes (Core Functionality)
 # ==========================================
