@@ -3,6 +3,7 @@ import time
 import json
 import uuid
 import random
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, jsonify
 import telebot
 from telebot.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
@@ -32,6 +33,14 @@ except Exception as e:
     print(f"Webhook Error: {e}")
 
 # ==========================================
+# Helper Function for Date (East Africa Time)
+# ==========================================
+def get_eat_time():
+    # UTC + 3 ሰዓት (የኢትዮጵያ ሰዓት)
+    eat_time = datetime.utcnow() + timedelta(hours=3)
+    return eat_time.strftime("%Y-%m-%d %H:%M")
+
+# ==========================================
 # Frontend Routes
 # ==========================================
 @server.route('/')
@@ -56,6 +65,9 @@ def get_balance():
     current_balance = float(redis.hget("users:balance", user_id) or 0.0)
     return jsonify({"status": "success", "balance": current_balance})
 
+# ----------------------------------------------------
+# የታሪክ መዝገብ - ከፊት ገጽ ጋር ሙሉ በሙሉ የተናበበ
+# ----------------------------------------------------
 @server.route('/api/get_history', methods=['POST'])
 def get_history():
     data = request.json or {}
@@ -67,6 +79,9 @@ def get_history():
     history_list = json.loads(history_data) if history_data else []
     return jsonify({"status": "success", "history": history_list})
 
+# ----------------------------------------------------
+# የብር ማስገቢያ (Deposit) - ቀንና ሰዓት እንዲሁም ስያሜው የተስተካከለ
+# ----------------------------------------------------
 @server.route('/api/deposit', methods=['POST'])
 def handle_deposit():
     user_id = request.form.get("user_id")
@@ -81,9 +96,15 @@ def handle_deposit():
     tx_data = {"user_id": user_id, "amount": amount, "type": "deposit", "status": "pending"}
     redis.set(f"tx:{tx_id}", json.dumps(tx_data))
     
+    # የኪስ ታሪክ አቀራረብ ማስተካከያ (ስያሜውን "ብር ማስገቢያ" አድርገነዋል)
     history_data = redis.get(f"history:{user_id}")
     history_list = json.loads(history_data) if history_data else []
-    history_list.insert(0, {"type": "ገቢ", "amount": amount, "status": "pending"})
+    history_list.insert(0, {
+        "type": "ብር ማስገቢያ", 
+        "amount": amount, 
+        "status": "pending",
+        "date": get_eat_time()  # ትክክለኛ ቀንና ሰዓት
+    })
     redis.set(f"history:{user_id}", json.dumps(history_list))
     
     markup = InlineKeyboardMarkup()
@@ -101,12 +122,20 @@ def handle_deposit():
         
     return jsonify({"status": "success"})
 
+# ----------------------------------------------------
+# የብር ማውጫ (Withdraw) - ስም ማመሳሰል፣ ቀን ማከል እና ሴኪውሪቲ
+# ----------------------------------------------------
 @server.route('/api/withdraw', methods=['POST'])
 def handle_withdraw():
-    data = request.json or {}
+    data = request.json or request.form or {}
     user_id = data.get("user_id")
     user_name = data.get("user_name", "የሰፈር ልጅ")
-    amount = float(data.get("amount", 0))
+    
+    try:
+        amount = float(data.get("amount", 0))
+    except (ValueError, TypeError):
+        amount = 0.0
+        
     phone = data.get("phone")
     bank_name = data.get("bank_name")
     account_name = data.get("account_name")
@@ -118,13 +147,22 @@ def handle_withdraw():
     if current_balance < amount:
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም"})
     
+    # ሴኪውሪቲ፡ የዊዝድሮው ጥያቄ እንደተላከ ተጠቃሚው ደግሞ ደጋግሞ እንዳይጠይቅ ወዲያውኑ ባላንሱን እንቀንሳለን
+    redis.hincrbyfloat("users:balance", user_id, -amount)
+    
     tx_id = str(uuid.uuid4())[:8]
     tx_data = {"user_id": user_id, "amount": amount, "type": "withdraw", "status": "pending"}
     redis.set(f"tx:{tx_id}", json.dumps(tx_data))
     
+    # የኪስ ታሪክ አቀራረብ ማስተካከያ (ስያሜውን "ብር ማውጫ" አድርገነዋል)
     history_data = redis.get(f"history:{user_id}")
     history_list = json.loads(history_data) if history_data else []
-    history_list.insert(0, {"type": "ወጪ", "amount": amount, "status": "pending"})
+    history_list.insert(0, {
+        "type": "ብር ማውጫ", 
+        "amount": amount, 
+        "status": "pending",
+        "date": get_eat_time()  # ትክክለኛ ቀንና ሰዓት
+    })
     redis.set(f"history:{user_id}", json.dumps(history_list))
     
     markup = InlineKeyboardMarkup()
@@ -136,6 +174,8 @@ def handle_withdraw():
     msg = f"💸 <b>አዲስ Withdraw ጥያቄ</b>\n\n👤 ስም: {user_name}\n🆔 ID: {user_id}\n🏦 ባንክ: {bank_name}\n👤 የአካውንት ስም: {account_name}\n💳 አካውንት/ስልክ: {phone}\n💰 መጠን: {amount} ብር\n🔑 TxID: {tx_id}"
     bot.send_message(ADMIN_ID, msg, reply_markup=markup)
     return jsonify({"status": "success"})
+
+
 
 # ==========================================
 # G1. Coin Flip Core Logic (Chaos & Anti-Pattern Logic)
