@@ -3,12 +3,15 @@ import time
 import json
 import uuid
 import random
-import threading
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO
 import telebot
 from telebot.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
 from upstash_redis import Redis
+import eventlet
+
+# የ eventlet monkey_patch የጀርባ ስራዎች እንዳይቆራረጡ ይረዳል
+eventlet.monkey_patch()
 
 # ==========================================
 # Configuration
@@ -22,12 +25,10 @@ ADMIN_ID = 8488592165  # የአድሚን ID
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=False)
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 
-# 1. Flask እና SocketIO እዚህ ጋር ይነሳሉ
+# Flask እና SocketIO ማስነሻ (async_mode ወደ eventlet ተቀይሯል)
 server = Flask(__name__)
-# async_mode='threading' ወይም 'eventlet' መጠቀም ይቻላል (eventlet ከጫንክ 'eventlet' አድርገው)
-socketio = SocketIO(server, cors_allowed_origins="*", async_mode='threading')
+socketio = SocketIO(server, cors_allowed_origins="*", async_mode='eventlet')
 
-# የጨዋታው ዓለም አቀፍ ሁኔታ (Global State - Server Side)
 game_state = {"multiplier": 1.0, "status": "WAITING"}
 
 # ==========================================
@@ -76,7 +77,7 @@ def coin_flip_page():
     return render_template('coin_flip.html')
 
 # ==========================================
-# 🦖 የዲኖ ራን (Aviator/Crash) ጨዋታ ውርርድ ሎጂክ
+# API Routes & Bet Logic
 # ==========================================
 @server.route('/api/dino/bet', methods=['POST'])
 def dino_bet_api():
@@ -101,13 +102,11 @@ def dino_cashout_api():
     data = request.json or {}
     user_id = data.get("user_id")
     bet_amount = float(data.get("bet_amount", 0))
-    # ማሳሰቢያ፡ Multiplier-ውን ክሊየንት ከሚልከው ይልቅ፣ ሰርቨሩ ላይ ካለው አሁን ከደረሰበት `game_state["multiplier"]` ጋር ማመሳከሩ ለደህንነት ይመረጣል
     multiplier = float(data.get("multiplier", 1.0)) 
 
     if not user_id or bet_amount <= 0 or multiplier < 1.0:
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
 
-    # ተጫዋቹ Cashout ሲያደርግ ሰርቨሩ ላይ ክራሽ ካደረገ እንዳይከፍል መቆጣጠሪያ
     if game_state["status"] == "CRASHED":
         return jsonify({"status": "error", "message": "አውሮፕላኑ ቀድሞ ፈንድቷል!"}), 400
 
@@ -123,7 +122,7 @@ def dino_cashout_api():
     })
 
 # ==========================================
-# API Routes (Core Functionality)
+# ሌሎች የ API ሩቶች (Deposit, Withdraw, Coin Flip, ወዘተ)
 # ==========================================
 @server.route('/api/get_balance', methods=['POST'])
 def get_balance():
@@ -315,9 +314,6 @@ def get_leaderboard():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# ==========================================
-# Callback Handler (Admin Actions)
-# ==========================================
 @bot.callback_query_handler(func=lambda call: call.data.startswith("ok") or call.data.startswith("no"))
 def process_admin_action(call):
     action, tx_type, tx_id, user_id, amount = call.data.split('|')
@@ -385,47 +381,36 @@ def send_welcome(message):
     markup.add(InlineKeyboardButton("🎮 Play", web_app=web_app_info))
     bot.reply_to(message, "እንኳን ደህና መጡ! ጨዋታዎችን ለመጀመር Play ን ይጫኑ።", reply_markup=markup)
 
-
 # ==========================================
-# 🎮 ማዕከላዊው የጨዋታ ሞተር (Server-Side Game Loop)
+# 🎮 ማዕከላዊው የጨዋታ ሞተር
 # ==========================================
 def game_loop():
-    """ይህ ክፍል 24/7 ሰርቨር ላይ ይሽከረከራል"""
     global game_state
-    
-    # ሰርቨሩ ሙሉ በሙሉ እስኪነሳ ትንሽ እንጠብቅ
-    time.sleep(2)
+    socketio.sleep(2)
     
     while True:
-        # 1. መቆያ ሰዓት (ተጫዋቾች ውርርድ የሚያስገቡበት)
         game_state = {"multiplier": 1.0, "status": "WAITING"}
         socketio.emit('game_update', game_state)
-        time.sleep(10)  # ለ 10 ሰከንድ ይቆያል
+        socketio.sleep(10)  
         
-        # 2. አውሮፕላኑ ተነሳ (Flying)
         game_state["status"] = "FLYING"
-        # አውሮፕላኑ የሚፈነዳበትን ነጥብ ሰርቨሩ ብቻ ያመነጫል (ለምሳሌ ከ 1.01 እስከ 15.0)
         crash_point = random.uniform(1.01, 15.0)
         
         while game_state["multiplier"] < crash_point:
             game_state["multiplier"] += 0.05
             socketio.emit('game_update', game_state)
-            time.sleep(0.1)  # በየ 0.1 ሰከንዱ ቁጥሩ ይጨምራል
+            socketio.sleep(0.1)  
             
-        # 3. አውሮፕላኑ ፈነዳ (Crashed)
         game_state["status"] = "CRASHED"
         socketio.emit('game_update', game_state)
-        time.sleep(3)  # የፈነዳውን ለ 3 ሰከንድ ያሳያል
-
+        socketio.sleep(3)  
 
 # ==========================================
-# 🚀 Startup Logic (እዚህ ጋር ነው ዋናው ማስተካከያ የተደረገው)
+# 🚀 Startup Logic
 # ==========================================
+# Gunicorn ሲነሳ በቀጥታ እንዲያየው ከ __main__ ውጪ እናደርገዋለን
+socketio.start_background_task(game_loop)
+
 if __name__ == "__main__":
-    # 1. ማዕከላዊውን የጨዋታ ሞተር በ Background Thread ማስነሳት
-    game_thread = threading.Thread(target=game_loop, daemon=True)
-    game_thread.start()
-    
-    # 2. ሰርቨሩን በ SocketIO በኩል ማስነሳት
     port = int(os.environ.get('PORT', 5000))
     socketio.run(server, host="0.0.0.0", port=port)
