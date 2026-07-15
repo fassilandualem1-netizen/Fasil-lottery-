@@ -63,9 +63,9 @@ def deduct_balance_safely(user_id: str, amount: float) -> str:
 def index():
     return render_template('index.html')
 
-@server.route('/horse_race')
-def horse_race_page():
-    return render_template('horse_race.html')
+@app.route('/dino')
+def dino_game():
+    return render_template('dino.html')
 
 @server.route('/coin_flip_game')
 def coin_flip_page():
