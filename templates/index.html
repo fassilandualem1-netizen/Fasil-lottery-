@@ -940,27 +940,31 @@
     </div>
 
     <div class="modal" id="dailyBonusModal">
-        <div class="modal-content" style="max-width: 330px;">
-            <h3>🎁 የዕለቱ ነጻ ዕድል ሩሌት</h3>
-            <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">በየ24 ሰዓቱ እየመጡ ነጻ ድጋፍ ያሽከርክሩ!</p>
-            
-            <div class="wheel-pin"></div>
-            <div class="wheel-container">
-                <div class="wheel-center"></div>
-                <div class="wheel" id="bonus-wheel">
-                    <div class="wheel-label" style="transform: rotate(36deg) translateY(15px);">1 ብር</div>
-                    <div class="wheel-label" style="transform: rotate(108deg) translateY(15px);">2 ብር</div>
-                    <div class="wheel-label" style="transform: rotate(180deg) translateY(15px);">5 ብር</div>
-                    <div class="wheel-label" style="transform: rotate(252deg) translateY(15px);">3 ብር</div>
-                    <div class="wheel-label" style="transform: rotate(324deg) translateY(15px);">4 ብር</div>
-                </div>
+    <div class="modal-content" style="max-width: 330px;">
+        <h3>🎁 የዕለቱ ነጻ ዕድል ሩሌት</h3>
+        <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">በየ24 ሰዓቱ እየመጡ ነጻ ድጋፍ ያሽከርክሩ!</p>
+        
+        <div class="wheel-pin"></div>
+        <div class="wheel-container">
+            <div class="wheel-center"></div>
+            <!-- 6 ሴግመንት (ባዶን ጨምሮ በየ 60 ዲግሪ ልዩነት) -->
+            <div class="wheel" id="bonus-wheel">
+                <div class="wheel-label" style="transform: rotate(30deg) translateY(15px);">1 ብር</div>
+                <div class="wheel-label" style="transform: rotate(90deg) translateY(15px);">2 ብር</div>
+                <div class="wheel-label" style="transform: rotate(150deg) translateY(15px);">5 ብር</div>
+                <div class="wheel-label" style="transform: rotate(210deg) translateY(15px); color: #ffbcff;">ባዶ</div>
+                <div class="wheel-label" style="transform: rotate(270deg) translateY(15px);">3 ብር</div>
+                <div class="wheel-label" style="transform: rotate(330deg) translateY(15px);">4 ብር</div>
             </div>
-
-            <button class="play-btn" id="spin-wheel-btn" onclick="spinDailyWheel()" style="background-color: var(--success-color);">ሩሌቱን አሽከርክር</button>
-            <div style="text-align: center; min-height: 20px; font-weight: bold;" id="wheel-status"></div>
-            <button class="modal-btn btn-close" onclick="closeModal('dailyBonusModal')" style="width: 100%;">ዝጋ</button>
         </div>
+
+        <!-- ሩሌቱን ማሽከርከሪያ አዝራር -->
+        <button class="play-btn" id="spin-wheel-btn" onclick="spinDailyWheel()" style="background-color: var(--success-color); width: 100%; padding: 12px; font-weight: bold; border-radius: 8px; border: none; cursor: pointer; transition: all 0.3s ease;">ሩሌቱን አሽከርክር</button>
+        <div style="text-align: center; min-height: 25px; font-weight: bold; margin-top: 10px;" id="wheel-status"></div>
+        <button class="modal-btn btn-close" onclick="closeModal('dailyBonusModal')" style="width: 100%; margin-top: 5px;">ዝጋ</button>
     </div>
+</div>
+
 
     <div class="modal" id="leaderboardModal">
         <div class="modal-content">
