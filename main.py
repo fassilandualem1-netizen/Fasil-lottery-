@@ -10,10 +10,7 @@ from flask_socketio import SocketIO
 import telebot
 from telebot.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
 from upstash_redis import Redis
-import eventlet
 
-# የ eventlet monkey_patch የጀርባ ስራዎች እንዳይቆራረጡ ይረዳል
-eventlet.monkey_patch()
 
 # ==========================================
 # Configuration
