@@ -829,8 +829,8 @@
             </button>
         </div>
 
-        <h2>🎮 ጨዋታዎች</h2>
-        
+                <h2>🎮 ጨዋታዎች</h2>
+
         <div class="games-list">
             <div class="game-card" onclick="switchToGame()">
                 <div class="game-details">
@@ -842,8 +842,19 @@
                 </div>
                 <div class="play-arrow"><i class="fas fa-chevron-right"></i></div>
             </div>
+
+            <div class="game-card" onclick="window.location.href='/dino'" style="border-left: 4px solid #e94560; margin-top: 15px;">
+                <div class="game-details">
+                    <div class="game-icon">🦖</div>
+                    <div class="game-info">
+                        <h3>ዲኖ ራን (Dino Run)</h3>
+                        <p>መሰናክሎችን እየዘለሉ Multiplier ሲጨምር Cash Out ያድርጉ!</p>
+                    </div>
+                </div>
+                <div class="play-arrow" style="color: #e94560;"><i class="fas fa-chevron-right"></i></div>
+            </div>
         </div>
-    </div>
+
 
     <div class="container" id="game-view" style="display: none; position: relative;">
         <div class="back-nav" onclick="switchTab('games')">
