@@ -2,23 +2,23 @@
 <html lang="am">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ሮኬት ክራሽ (Rocket Crash) 🚀⚡</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>አቪዬተር (Aviator) 🚀</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #0b0b16;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #000000;
             color: #ffffff;
             margin: 0;
-            padding: 10px;
+            padding: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            box-sizing: border-box;
             overflow-x: hidden;
+            user-select: none;
         }
 
         .header-nav {
@@ -27,264 +27,288 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
-            z-index: 10;
+            padding: 10px 15px;
+            background-color: #1a1a1a;
+            box-sizing: border-box;
+            border-bottom: 1px solid #333;
         }
 
-        .back-nav {
-            font-size: 1.1rem;
-            color: #aaa;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .wallet-display {
-            font-weight: bold;
-            color: #00ffcc;
-            background: #14142b;
-            padding: 5px 12px;
-            border-radius: 8px;
-            border: 1px solid #2d2d44;
-        }
-
-        /* ሮኬት የሚበርበት ስክሪን */
-        #gameContainer {
-            position: relative;
-            width: 100%;
-            max-width: 500px;
-            background-color: #0f0f25;
-            border: 3px solid #00d2d3; /* ወደ አውሮፕላኑ ቀለም ተቀይሯል */
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0px 0px 30px rgba(0, 210, 211, 0.3);
-            aspect-ratio: 16 / 10;
-        }
-
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        #multiplierDisplay {
-            position: absolute;
-            top: 25%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 3.5rem;
-            font-weight: bold;
-            color: #00ffcc;
-            text-shadow: 0 0 20px rgba(0, 255, 204, 0.8);
-            z-index: 5;
-        }
+        .logo { font-size: 1.5rem; font-weight: 900; color: #e50b2c; font-style: italic; }
+        .wallet-display { font-weight: bold; color: #28a745; font-size: 1.1rem; }
 
         /* History Bar */
         #historyBar {
             width: 100%;
             max-width: 500px;
             display: flex;
-            gap: 8px;
-            padding: 10px 0;
+            gap: 6px;
+            padding: 8px 10px;
+            background-color: #0d0d0d;
             overflow-x: auto;
             white-space: nowrap;
-            -ms-overflow-style: none;  /* IE and Edge */
-            scrollbar-width: none;  /* Firefox */
+            box-sizing: border-box;
+            scrollbar-width: none;
         }
-        #historyBar::-webkit-scrollbar {
-            display: none; /* Chrome, Safari and Opera */
-        }
-
+        #historyBar::-webkit-scrollbar { display: none; }
         .history-chip {
-            padding: 5px 12px;
-            border-radius: 6px;
-            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
             font-weight: bold;
-            font-size: 0.9rem;
-            background-color: #333344;
+            font-size: 0.85rem;
+            background-color: #1e1e1e;
+            border: 1px solid #333;
         }
+        .color-blue { color: #3498db; }
+        .color-purple { color: #9b59b6; }
+        .color-pink { color: #e84393; }
 
-        /* መቆጣጠሪያ ፎርም */
-        .controls-panel {
+        /* Game Area */
+        #gameContainer {
+            position: relative;
             width: 100%;
             max-width: 500px;
-            background-color: #14142b;
-            padding: 15px;
-            border-radius: 20px;
+            background-color: #111;
+            aspect-ratio: 16 / 10;
+            overflow: hidden;
+            border-bottom: 3px solid #e50b2c;
+            border-bottom-left-radius: 15px;
+            border-bottom-right-radius: 15px;
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        #multiplierDisplay {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4.5rem;
+            font-weight: 900;
+            color: #ffffff;
+            z-index: 5;
+            text-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+            transition: color 0.2s;
+        }
+
+        #statusText {
+            position: absolute;
+            top: 65%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1rem;
+            color: #e50b2c;
+            font-weight: bold;
+            z-index: 5;
+            display: none;
+        }
+
+        /* Controls Container (Dual Bets) */
+        .controls-container {
+            width: 100%;
+            max-width: 500px;
+            padding: 10px;
+            box-sizing: border-box;
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            box-sizing: border-box;
-            border: 1px solid #2d2d44;
+            gap: 10px;
         }
 
-        .flex-row {
+        .bet-panel {
+            background-color: #242424;
+            border-radius: 12px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border: 1px solid #333;
+        }
+
+        .panel-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+        .tab {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+        .tab.active { background-color: #333; color: #fff; }
+
+        .panel-body {
             display: flex;
             gap: 10px;
-            width: 100%;
+            align-items: stretch;
         }
 
-        .input-box {
+        /* Left Side: Inputs */
+        .input-section {
             flex: 1;
             display: flex;
             flex-direction: column;
             gap: 5px;
         }
 
-        .input-box label {
-            font-size: 0.85rem;
-            color: #8b8baf;
-            font-weight: bold;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        /* ስቴፐር */
         .stepper {
             display: flex;
             align-items: center;
-            background-color: #1a1a35;
-            border: 2px solid #2d2d44;
-            border-radius: 10px;
-            overflow: hidden;
-            justify-content: space-between;
-            height: 45px;
+            background-color: #111;
+            border: 1px solid #444;
+            border-radius: 8px;
+            height: 40px;
         }
-
         .stepper-btn {
-            background-color: #25254a;
-            color: white;
+            background: none;
             border: none;
+            color: #aaa;
+            font-size: 1.2rem;
             width: 40px;
-            height: 100%;
-            font-size: 1.4rem;
             cursor: pointer;
         }
-
         .stepper input {
+            flex: 1;
             background: none;
             border: none;
             color: #fff;
-            font-size: 1.15rem;
+            font-size: 1.1rem;
             font-weight: bold;
             text-align: center;
-            width: 60px;
+            width: 100%;
             outline: none;
         }
 
-        .currency {
-            color: #00ffcc;
-            font-weight: bold;
+        .quick-bets {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+        }
+        .quick-btn {
+            background-color: #111;
+            border: 1px solid #444;
+            color: #ccc;
+            border-radius: 6px;
+            padding: 5px;
             font-size: 0.9rem;
-            padding-right: 10px;
-        }
-
-        /* Auto Cashout Input */
-        .auto-input {
-            background-color: #1a1a35;
-            border: 2px solid #2d2d44;
-            border-radius: 10px;
-            color: #fff;
-            font-size: 1.15rem;
+            cursor: pointer;
             font-weight: bold;
-            text-align: center;
-            height: 41px;
-            outline: none;
-        }
-        .auto-input:disabled {
-            color: #555;
-            border-color: #1a1a35;
         }
 
-        /* ትልቁ የድርጊት በተን */
+        /* Right Side: Big Button */
+        .action-section {
+            flex: 1;
+            display: flex;
+        }
         .action-btn {
             width: 100%;
-            padding: 16px;
-            font-size: 1.4rem;
-            font-weight: bold;
             border: none;
             border-radius: 12px;
+            font-size: 1.2rem;
+            font-weight: 900;
+            color: white;
             cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0px 4px 15px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
             text-transform: uppercase;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: 0.1s;
         }
+        .action-btn:active { transform: scale(0.98); }
 
-        /* የButton ሁኔታዎች (States) */
-        .bet-mode { background-color: #e94560; color: white; }
-        .cashout-mode { background-color: #00ffcc; color: #0b0b16; }
-        .waiting-mode { background-color: #ff9f43; color: white; }
-        .win-mode { background-color: #10ac84; color: white; }
+        /* Button Colors */
+        .btn-bet { background-color: #28a745; box-shadow: inset 0 2px 0 rgba(255,255,255,0.2), 0 2px 5px rgba(0,0,0,0.5); }
+        .btn-cancel { background-color: #cb2027; }
+        .btn-cashout { background-color: #d35400; }
+        .btn-disabled { background-color: #333 !important; color: #666 !important; cursor: not-allowed; }
 
-        .action-btn:disabled {
-            background-color: #333344 !important;
-            color: #777788 !important;
-            cursor: not-allowed;
-            box-shadow: none !important;
-        }
+        .btn-subtext { font-size: 0.8rem; font-weight: normal; margin-top: 2px; }
+
     </style>
 </head>
 <body>
 
     <div class="header-nav">
-        <div class="back-nav" onclick="window.location.href='/'">
-            <i class="fas fa-arrow-left"></i> ተመለስ
-        </div>
+        <div class="logo">Aviator</div>
         <div class="wallet-display">
             <span id="balanceDisplay">0.00</span> ETB
+            <i class="fas fa-bars" style="color: #666; margin-left: 10px; cursor: pointer;"></i>
         </div>
+    </div>
+
+    <div id="historyBar">
+        <!-- History chips will appear here -->
     </div>
 
     <div id="gameContainer">
         <div id="multiplierDisplay">1.00x</div>
+        <div id="statusText">WAITING FOR NEXT ROUND</div>
         <canvas id="gameCanvas" width="800" height="500"></canvas>
     </div>
 
-    <div id="historyBar">
-        <!-- የቅርብ ጊዜ ክራሽ ሂስቶሪዎች እዚህ ይገባሉ -->
-    </div>
-
-    <div class="controls-panel">
-        <div class="flex-row">
-            <div class="input-box">
-                <label>የውርርድ መጠን</label>
-                <div class="stepper">
-                    <button type="button" class="stepper-btn" onclick="adjustBet(-2)">-</button>
-                    <input type="number" id="betAmount" value="10" min="2" step="2" readonly>
-                    <span class="currency">ETB</span>
-                    <button type="button" class="stepper-btn" onclick="adjustBet(2)">+</button>
-                </div>
+    <div class="controls-container">
+        <!-- Panel 1 -->
+        <div class="bet-panel" id="panel1">
+            <div class="panel-tabs">
+                <button class="tab active">Bet</button>
+                <button class="tab">Auto</button>
             </div>
-
-            <div class="input-box">
-                <label>
-                    Auto Cash Out 
-                    <span style="display:flex; align-items:center; gap:5px; color:#fff;">
-                        <input type="checkbox" id="autoCashoutToggle"> ON
-                    </span>
-                </label>
-                <input type="number" id="autoCashout" class="auto-input" value="2.0" min="1.1" step="0.1" disabled>
+            <div class="panel-body">
+                <div class="input-section">
+                    <div class="stepper">
+                        <button class="stepper-btn" onclick="adjustBet(1, -5)">-</button>
+                        <input type="number" id="betInput1" value="20" min="2" step="1">
+                        <button class="stepper-btn" onclick="adjustBet(1, 5)">+</button>
+                    </div>
+                    <div class="quick-bets">
+                        <button class="quick-btn" onclick="setBet(1, 20)">20</button>
+                        <button class="quick-btn" onclick="setBet(1, 40)">40</button>
+                        <button class="quick-btn" onclick="setBet(1, 80)">80</button>
+                        <button class="quick-btn" onclick="setBet(1, 400)">400</button>
+                    </div>
+                </div>
+                <div class="action-section">
+                    <button id="btnAction1" class="action-btn btn-bet" onclick="handleAction(1)">
+                        BET <div class="btn-subtext" id="btnSub1">20.00 ETB</div>
+                    </button>
+                </div>
             </div>
         </div>
 
-        <button id="btnAction" class="action-btn bet-mode">ውርርድ ፍጠር (START)</button>
+        <!-- Panel 2 -->
+        <div class="bet-panel" id="panel2">
+            <div class="panel-tabs">
+                <button class="tab active">Bet</button>
+                <button class="tab">Auto</button>
+            </div>
+            <div class="panel-body">
+                <div class="input-section">
+                    <div class="stepper">
+                        <button class="stepper-btn" onclick="adjustBet(2, -5)">-</button>
+                        <input type="number" id="betInput2" value="20" min="2" step="1">
+                        <button class="stepper-btn" onclick="adjustBet(2, 5)">+</button>
+                    </div>
+                    <div class="quick-bets">
+                        <button class="quick-btn" onclick="setBet(2, 20)">20</button>
+                        <button class="quick-btn" onclick="setBet(2, 40)">40</button>
+                        <button class="quick-btn" onclick="setBet(2, 80)">80</button>
+                        <button class="quick-btn" onclick="setBet(2, 400)">400</button>
+                    </div>
+                </div>
+                <div class="action-section">
+                    <button id="btnAction2" class="action-btn btn-bet" onclick="handleAction(2)">
+                        BET <div class="btn-subtext" id="btnSub2">20.00 ETB</div>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <script>
-        // የውርርድ መጠን ማስተካከያ (ስቴፐር)
-        function adjustBet(amount) {
-            let betInput = document.getElementById("betAmount");
-            if (document.getElementById("btnAction").disabled || document.querySelector('.stepper-btn').disabled) return;
-            let currentVal = parseInt(betInput.value) || 10;
-            let newVal = currentVal + amount;
-            if (newVal >= 2) {
-                betInput.value = newVal;
-            }
-        }
-    </script>
-    
     <!-- ይህ የJavascript ፋይል ከታች ባለው ኮድ መተካት አለበት -->
     <script src="{{ url_for('static', filename='js/dino.js') }}"></script>
 </body>
