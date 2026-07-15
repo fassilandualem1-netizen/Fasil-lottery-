@@ -63,7 +63,7 @@ def deduct_balance_safely(user_id: str, amount: float) -> str:
 def index():
     return render_template('index.html')
 
-@app.route('/dino')
+@server.route('/dino')
 def dino_game():
     return render_template('dino.html')
 
