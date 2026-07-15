@@ -21,16 +21,32 @@
             overflow-x: hidden;
         }
 
+        .header-nav {
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            z-index: 10;
+        }
+
         .back-nav {
-            align-self: flex-start;
             font-size: 1.1rem;
             color: #aaa;
             cursor: pointer;
-            margin-bottom: 10px;
             display: flex;
             align-items: center;
             gap: 8px;
-            z-index: 10;
+        }
+
+        .wallet-display {
+            font-weight: bold;
+            color: #00ffcc;
+            background: #14142b;
+            padding: 5px 12px;
+            border-radius: 8px;
+            border: 1px solid #2d2d44;
         }
 
         /* ሮኬት የሚበርበት ስክሪን */
@@ -39,10 +55,10 @@
             width: 100%;
             max-width: 500px;
             background-color: #0f0f25;
-            border: 3px solid #e94560;
+            border: 3px solid #00d2d3; /* ወደ አውሮፕላኑ ቀለም ተቀይሯል */
             border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0px 0px 30px rgba(233, 69, 96, 0.4);
+            box-shadow: 0px 0px 30px rgba(0, 210, 211, 0.3);
             aspect-ratio: 16 / 10;
         }
 
@@ -64,11 +80,35 @@
             z-index: 5;
         }
 
+        /* History Bar */
+        #historyBar {
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            gap: 8px;
+            padding: 10px 0;
+            overflow-x: auto;
+            white-space: nowrap;
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        #historyBar::-webkit-scrollbar {
+            display: none; /* Chrome, Safari and Opera */
+        }
+
+        .history-chip {
+            padding: 5px 12px;
+            border-radius: 6px;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9rem;
+            background-color: #333344;
+        }
+
         /* መቆጣጠሪያ ፎርም */
         .controls-panel {
             width: 100%;
             max-width: 500px;
-            margin-top: 15px;
             background-color: #14142b;
             padding: 15px;
             border-radius: 20px;
@@ -96,6 +136,9 @@
             font-size: 0.85rem;
             color: #8b8baf;
             font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         /* ስቴፐር */
@@ -150,6 +193,10 @@
             height: 41px;
             outline: none;
         }
+        .auto-input:disabled {
+            color: #555;
+            border-color: #1a1a35;
+        }
 
         /* ትልቁ የድርጊት በተን */
         .action-btn {
@@ -165,16 +212,11 @@
             text-transform: uppercase;
         }
 
-        .bet-mode {
-            background-color: #e94560;
-            color: white;
-        }
-
-        .cashout-mode {
-            background-color: #00ffcc;
-            color: #0b0b16;
-            display: none;
-        }
+        /* የButton ሁኔታዎች (States) */
+        .bet-mode { background-color: #e94560; color: white; }
+        .cashout-mode { background-color: #00ffcc; color: #0b0b16; }
+        .waiting-mode { background-color: #ff9f43; color: white; }
+        .win-mode { background-color: #10ac84; color: white; }
 
         .action-btn:disabled {
             background-color: #333344 !important;
@@ -186,13 +228,22 @@
 </head>
 <body>
 
-    <div class="back-nav" onclick="window.location.href='/'">
-        <i class="fas fa-arrow-left"></i> ወደ ማውጫ ተመለስ
+    <div class="header-nav">
+        <div class="back-nav" onclick="window.location.href='/'">
+            <i class="fas fa-arrow-left"></i> ተመለስ
+        </div>
+        <div class="wallet-display">
+            <span id="balanceDisplay">0.00</span> ETB
+        </div>
     </div>
 
     <div id="gameContainer">
         <div id="multiplierDisplay">1.00x</div>
         <canvas id="gameCanvas" width="800" height="500"></canvas>
+    </div>
+
+    <div id="historyBar">
+        <!-- የቅርብ ጊዜ ክራሽ ሂስቶሪዎች እዚህ ይገባሉ -->
     </div>
 
     <div class="controls-panel">
@@ -208,8 +259,13 @@
             </div>
 
             <div class="input-box">
-                <label>Auto Cash Out (ከተፈለገ)</label>
-                <input type="number" id="autoCashout" class="auto-input" placeholder="አይደለም" min="1.1" step="0.1">
+                <label>
+                    Auto Cash Out 
+                    <span style="display:flex; align-items:center; gap:5px; color:#fff;">
+                        <input type="checkbox" id="autoCashoutToggle"> ON
+                    </span>
+                </label>
+                <input type="number" id="autoCashout" class="auto-input" value="2.0" min="1.1" step="0.1" disabled>
             </div>
         </div>
 
@@ -217,9 +273,10 @@
     </div>
 
     <script>
+        // የውርርድ መጠን ማስተካከያ (ስቴፐር)
         function adjustBet(amount) {
             let betInput = document.getElementById("betAmount");
-            if (betInput.disabled) return;
+            if (document.getElementById("btnAction").disabled || document.querySelector('.stepper-btn').disabled) return;
             let currentVal = parseInt(betInput.value) || 10;
             let newVal = currentVal + amount;
             if (newVal >= 2) {
@@ -227,6 +284,8 @@
             }
         }
     </script>
+    
+    <!-- ይህ የJavascript ፋይል ከታች ባለው ኮድ መተካት አለበት -->
     <script src="{{ url_for('static', filename='js/dino.js') }}"></script>
 </body>
 </html>
