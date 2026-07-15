@@ -1,11 +1,7 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const multiplierDisplay = document.getElementById("multiplierDisplay");
-const betAmountInput = document.getElementById("betAmount");
-const autoCashoutInput = document.getElementById("autoCashout");
-const autoCashoutToggle = document.getElementById("autoCashoutToggle");
-const btnAction = document.getElementById("btnAction");
-const stepperBtns = document.querySelectorAll('.stepper-btn');
+const statusText = document.getElementById("statusText");
 const historyBar = document.getElementById("historyBar");
 const balanceDisplay = document.getElementById('balanceDisplay');
 
@@ -14,21 +10,20 @@ const userId = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUn
 
 // 🎮 የጨዋታ State Management
 let gameState = 'WAITING'; // WAITING, FLYING, CRASHED
-let userState = 'IDLE';    // IDLE, BET_PLACED, IN_GAME, CASHED_OUT
 let multiplier = 1.00;
 let crashPoint = 1.00;
-let gameFrame = 0;
 let countdownTimer = 10;
-let crashHistory = [];
+let crashHistory = [1.28, 2.68, 1.44, 4.36, 2.02, 1.91, 31.23]; // መነሻ ሂስቶሪ
 
-// Auto Cashout Toggle Logic
-autoCashoutToggle.addEventListener('change', (e) => {
-    autoCashoutInput.disabled = !e.target.checked;
-});
+// 💸 የውርርድ (Dual Bet) State
+let bets = {
+    1: { state: 'IDLE', amount: 20 }, // IDLE, WAITING (Next Round), IN_GAME, CASHED_OUT
+    2: { state: 'IDLE', amount: 20 }
+};
 
 function generateCrashPoint() {
     let rand = Math.random();
-    if (rand < 0.10) return 1.00 + Math.random() * 0.05;
+    if (rand < 0.05) return 1.00; // Instant crash
     return 1.05 + (0.95 / (Math.random() + 0.01));
 }
 
@@ -43,271 +38,268 @@ function playSound(type) {
         gain.connect(audioCtx.destination);
 
         if (type === "fly") {
-            osc.type = "sawtooth";
-            osc.frequency.setValueAtTime(100 + (multiplier * 20), audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(80 + (multiplier * 5), audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.01, audioCtx.currentTime);
             osc.start();
             osc.stop(audioCtx.currentTime + 0.1);
         } else if (type === "win") {
             osc.type = "sine";
-            osc.frequency.setValueAtTime(500, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.3);
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1500, audioCtx.currentTime + 0.3);
             gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
             osc.start();
             osc.stop(audioCtx.currentTime + 0.4);
         } else if (type === "crash") {
-            osc.type = "triangle";
-            osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+            osc.type = "sawtooth";
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
             osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.5);
-            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
             osc.start();
             osc.stop(audioCtx.currentTime + 0.5);
         }
     } catch (e) {}
 }
 
-// ✈️ አውሮፕላን (Triangle Shape)
-const plane = {
-    x: 50,
-    y: 450,
-    size: 25,
-    draw() {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(-Math.PI / 8);
+// ================= UI INPUT LOGIC =================
+function updateInputUI() {
+    document.getElementById("betInput1").value = bets[1].amount;
+    document.getElementById("betInput2").value = bets[2].amount;
+    
+    if(bets[1].state === 'IDLE') document.getElementById("btnSub1").innerText = `${bets[1].amount.toFixed(2)} ETB`;
+    if(bets[2].state === 'IDLE') document.getElementById("btnSub2").innerText = `${bets[2].amount.toFixed(2)} ETB`;
+}
 
-        // የአውሮፕላን አካል
-        ctx.fillStyle = "#00d2d3";
-        ctx.beginPath();
-        ctx.moveTo(this.size, 0); // አፍንጫ
-        ctx.lineTo(-this.size, this.size / 1.5); // የታችኛው ክንፍ
-        ctx.lineTo(-this.size / 2, 0); // ጀርባ
-        ctx.lineTo(-this.size, -this.size / 1.5); // የላይኛው ክንፍ
-        ctx.closePath();
-        ctx.fill();
+function adjustBet(panelId, amount) {
+    if (bets[panelId].state !== 'IDLE') return;
+    let newVal = bets[panelId].amount + amount;
+    if (newVal >= 2) {
+        bets[panelId].amount = newVal;
+        updateInputUI();
+    }
+}
 
-        // የሞተር እሳት
-        if (gameState === 'FLYING' && gameFrame % 4 < 2) {
-            ctx.fillStyle = "#ff9f43";
-            ctx.beginPath();
-            ctx.moveTo(-this.size / 2 - 2, 0);
-            ctx.lineTo(-this.size - 15, 10);
-            ctx.lineTo(-this.size - 8, 0);
-            ctx.lineTo(-this.size - 15, -10);
-            ctx.closePath();
-            ctx.fill();
+function setBet(panelId, amount) {
+    if (bets[panelId].state !== 'IDLE') return;
+    bets[panelId].amount = amount;
+    updateInputUI();
+}
+
+// ================= HISTORY LOGIC =================
+function renderHistory() {
+    historyBar.innerHTML = crashHistory.map(m => {
+        let colorClass = m < 2.0 ? 'color-blue' : (m < 10.0 ? 'color-purple' : 'color-pink');
+        return `<div class="history-chip ${colorClass}">${m.toFixed(2)}x</div>`;
+    }).join('');
+    historyBar.scrollLeft = 0; // መጀመሪያ ላይ እንዲታይ
+}
+renderHistory(); // መጀመሪያ ሲከፈት እንዲሰራ
+
+// ================= BUTTON ACTION LOGIC =================
+async function handleAction(panelId) {
+    let bet = bets[panelId];
+    const btn = document.getElementById(`btnAction${panelId}`);
+    const subText = document.getElementById(`btnSub${panelId}`);
+
+    if (bet.state === 'IDLE') {
+        // Place Bet for next round OR current round if waiting
+        if(gameState === 'FLYING') {
+            bet.state = 'WAITING'; // በሚቀጥለው ዙር ይገባል
+            btn.className = "action-btn btn-cancel";
+            btn.innerHTML = `CANCEL <div class="btn-subtext">Waiting for next round</div>`;
+        } else if (gameState === 'WAITING') {
+            // ውርርድ ወደ ሰርቨር ላክ
+            try {
+                const response = await fetch('/api/dino/bet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId, bet_amount: bet.amount })
+                });
+                const result = await response.json();
+                if (result.status === "success") {
+                    bet.state = 'WAITING';
+                    if (balanceDisplay) balanceDisplay.innerText = result.new_balance.toFixed(2);
+                    btn.className = "action-btn btn-cancel";
+                    btn.innerHTML = `CANCEL <div class="btn-subtext">Waiting for next round</div>`;
+                } else {
+                    alert(result.message || "በቂ ሂሳብ የሎትም!");
+                }
+            } catch (e) { console.error(e); }
         }
-        ctx.restore();
-    }
-};
-
-// ☁️ ደመናዎች (Clouds)
-let clouds = [];
-function drawClouds() {
-    if (gameState === 'FLYING' && Math.random() < 0.05) {
-        clouds.push({ x: canvas.width, y: Math.random() * 300, size: 20 + Math.random() * 30 });
-    }
-    ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-    for (let i = clouds.length - 1; i >= 0; i--) {
-        clouds[i].x -= 2 + (multiplier * 0.5); // በፍጥነት ይጓዛል
-        
-        let c = clouds[i];
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, c.size, 0, Math.PI * 2);
-        ctx.arc(c.x + c.size * 0.8, c.y - c.size * 0.2, c.size * 0.8, 0, Math.PI * 2);
-        ctx.arc(c.x + c.size * 1.5, c.y, c.size * 0.9, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (clouds[i].x + c.size * 2 < 0) clouds.splice(i, 1);
-    }
-}
-
-// የበረራ መስመር
-let flightPath = [];
-function drawPath() {
-    if (flightPath.length > 1) {
-        ctx.strokeStyle = "rgba(0, 210, 211, 0.6)";
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(flightPath[0].x, flightPath[0].y);
-        for (let i = 1; i < flightPath.length; i++) {
-            ctx.lineTo(flightPath[i].x, flightPath[i].y);
+    } 
+    else if (bet.state === 'WAITING') {
+        // ካንስል ማድረግ ከተፈለገ
+        if(gameState === 'WAITING') {
+            bet.state = 'IDLE';
+            btn.className = "action-btn btn-bet";
+            btn.innerHTML = `BET <div class="btn-subtext">${bet.amount.toFixed(2)} ETB</div>`;
+            // ማሳሰቢያ: ሰርቨር ላይ ካንስል ማድረግ ከሌለ ባላንሱ አይመለስም፣ ስለዚህ ይሄን API ማስተካከል ሊኖርብህ ይችላል
         }
-        ctx.stroke();
+    }
+    else if (bet.state === 'IN_GAME') {
+        // Cash Out
+        bet.state = 'CASHED_OUT';
+        btn.className = "action-btn btn-disabled";
+        let winAmount = (bet.amount * multiplier).toFixed(2);
+        btn.innerHTML = `CASHED OUT <div class="btn-subtext">${winAmount} ETB</div>`;
+        playSound("win");
+
+        try {
+            const response = await fetch('/api/dino/cashout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, bet_amount: bet.amount, multiplier: multiplier })
+            });
+            const result = await response.json();
+            if (result.status === "success") {
+                if (balanceDisplay) balanceDisplay.innerText = result.new_balance.toFixed(2);
+            }
+        } catch (e) { console.error(e); }
     }
 }
 
-function toggleStepper(disabled) {
-    stepperBtns.forEach(btn => btn.disabled = disabled);
-    betAmountInput.disabled = disabled;
-    autoCashoutInput.disabled = disabled;
-    autoCashoutToggle.disabled = disabled;
+// የButton ቀለማትን በየState ማደስ
+function syncButtons() {
+    [1, 2].forEach(id => {
+        let bet = bets[id];
+        let btn = document.getElementById(`btnAction${id}`);
+        if (gameState === 'FLYING' && bet.state === 'WAITING') {
+            bet.state = 'IN_GAME';
+        }
+
+        if (bet.state === 'IDLE') {
+            btn.className = "action-btn btn-bet";
+            btn.innerHTML = `BET <div class="btn-subtext">${bet.amount.toFixed(2)} ETB</div>`;
+            document.getElementById(`betInput${id}`).disabled = false;
+        } else if (bet.state === 'IN_GAME') {
+            btn.className = "action-btn btn-cashout";
+            let winAmount = (bet.amount * multiplier).toFixed(2);
+            btn.innerHTML = `CASH OUT <div class="btn-subtext">${winAmount} ETB</div>`;
+            document.getElementById(`betInput${id}`).disabled = true;
+        }
+    });
 }
 
-// ⏳ History ማደሻ
-function updateHistory(crashedAt) {
-    crashHistory.unshift(crashedAt);
-    if (crashHistory.length > 6) crashHistory.pop();
-    if (historyBar) {
-        historyBar.innerHTML = crashHistory.map(m => 
-            `<span style="padding: 5px 10px; border-radius: 5px; color: white; background: ${m >= 2.0 ? '#10ac84' : '#ee5253'}">${m.toFixed(2)}x</span>`
-        ).join('');
+// ================= CANVAS ANIMATION LOGIC =================
+let sunburstAngle = 0;
+let planePos = { x: 0, y: 500 };
+
+function drawSunburst() {
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(sunburstAngle);
+    const rays = 24;
+    for (let i = 0; i < rays; i++) {
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, canvas.width, (i * 2 * Math.PI) / rays, ((i + 0.5) * 2 * Math.PI) / rays);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.02)";
+        ctx.fill();
     }
+    ctx.restore();
+    sunburstAngle += 0.002;
 }
 
-// 🎮 ዋናው Game Loop (ያለማቋረጥ የሚሰራ)
+function drawPlane() {
+    ctx.save();
+    ctx.translate(planePos.x, planePos.y);
+    // አነስተኛ የአውሮፕላን ቅርፅ
+    ctx.fillStyle = "#e50b2c";
+    ctx.beginPath();
+    ctx.moveTo(30, 0);
+    ctx.lineTo(-10, -15);
+    ctx.lineTo(-20, 0);
+    ctx.lineTo(-10, 15);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+}
+
+function drawCurve() {
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height);
+    ctx.quadraticCurveTo(planePos.x * 0.5, canvas.height, planePos.x, planePos.y);
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = "#e50b2c";
+    ctx.stroke();
+
+    // ከስር የሚሞላው የቀይ ጥላ
+    ctx.lineTo(planePos.x, canvas.height);
+    ctx.lineTo(0, canvas.height);
+    let gradient = ctx.createLinearGradient(0, planePos.y, 0, canvas.height);
+    gradient.addColorStop(0, "rgba(229, 11, 44, 0.4)");
+    gradient.addColorStop(1, "rgba(229, 11, 44, 0.0)");
+    ctx.fillStyle = gradient;
+    ctx.fill();
+}
+
+// ================= GAME LOOP =================
+let animationId;
 function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    gameFrame++;
-
-    drawClouds();
-    drawPath();
+    drawSunburst();
 
     if (gameState === 'WAITING') {
-        ctx.fillStyle = "white";
-        ctx.font = "bold 24px 'Segoe UI'";
-        ctx.textAlign = "center";
-        ctx.fillText(`Next round in ${countdownTimer}s...`, canvas.width / 2, canvas.height / 2);
-        plane.draw();
+        multiplierDisplay.style.color = "#ffffff";
+        multiplierDisplay.style.fontSize = "3rem";
+        multiplierDisplay.innerText = "WAITING...";
+        
+        statusText.style.display = "block";
+        statusText.innerText = `NEXT ROUND IN ${countdownTimer}s`;
+        
+        planePos = { x: 0, y: canvas.height }; // ሪሴት አውሮፕላን
     } 
     else if (gameState === 'FLYING') {
+        statusText.style.display = "none";
+        multiplierDisplay.style.fontSize = "4.5rem";
+        multiplierDisplay.style.color = "#ffffff";
+        
         multiplier += 0.002 * (1 + (multiplier * 0.1));
         multiplierDisplay.innerText = multiplier.toFixed(2) + "x";
 
-        if (gameFrame % 10 === 0) playSound("fly");
+        if (Math.random() < 0.1) playSound("fly");
 
-        plane.x = 50 + (multiplier - 1) * 100;
-        plane.y = 450 - (multiplier - 1) * 70;
-        if (plane.x > canvas.width - 50) plane.x = canvas.width - 50;
-        if (plane.y < 50) plane.y = 50;
+        // አውሮፕላኑ ወደ መሃል ይገባል
+        if (planePos.x < canvas.width * 0.7) planePos.x += 2.5;
+        if (planePos.y > canvas.height * 0.3) planePos.y -= 1.5;
 
-        flightPath.push({ x: plane.x, y: plane.y });
+        // ትንሽ ወደ ላይ እና ታች የሚል አኒሜሽን
+        let wobble = Math.sin(Date.now() / 200) * 3;
+        planePos.y += wobble * 0.1;
 
-        // Auto Cashout Check
-        if (userState === 'IN_GAME' && autoCashoutToggle.checked) {
-            const autoLimit = parseFloat(autoCashoutInput.value);
-            if (!isNaN(autoLimit) && autoLimit > 1.0 && multiplier >= autoLimit) {
-                cashOutUser();
-            }
-        }
+        drawCurve();
+        drawPlane();
+        syncButtons();
 
-        // Crash Check
         if (multiplier >= crashPoint) {
             triggerCrash();
-        } else {
-            plane.draw();
-            if (userState === 'IN_GAME') {
-                btnAction.innerText = `CASH OUT (ETB ${(betAmountInput.value * multiplier).toFixed(2)})`;
-            }
         }
     } 
     else if (gameState === 'CRASHED') {
-        multiplierDisplay.innerText = "CRASHED!💥";
-        ctx.fillStyle = "#ee5253";
-        ctx.font = "bold 30px 'Segoe UI'";
-        ctx.textAlign = "center";
-        ctx.fillText(`FLEW AWAY @ ${multiplier.toFixed(2)}x`, canvas.width / 2, canvas.height / 2);
+        statusText.style.display = "block";
+        statusText.style.color = "#e50b2c";
+        statusText.innerText = "FLEW AWAY!";
+        multiplierDisplay.style.color = "#e50b2c";
     }
 
-    requestAnimationFrame(gameLoop);
+    animationId = requestAnimationFrame(gameLoop);
 }
 
-// ውርርድ ማስገባት (በመጠበቂያ ሰዓት)
-async function placeBet() {
-    const betAmount = parseFloat(betAmountInput.value);
-    if (isNaN(betAmount) || betAmount <= 0) return;
-
-    btnAction.disabled = true;
-    toggleStepper(true);
-
-    try {
-        const response = await fetch('/api/dino/bet', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, bet_amount: betAmount })
-        });
-        const result = await response.json();
-
-        if (result.status === "success") {
-            userState = 'BET_PLACED';
-            if (balanceDisplay) balanceDisplay.innerText = result.new_balance.toFixed(2);
-            btnAction.innerText = "ውርርድ ገብቷል (WAITING...)";
-            btnAction.className = "action-btn waiting-mode";
-        } else {
-            alert(result.message || "በቂ ሂሳብ የሎትም!");
-            btnAction.disabled = false;
-            toggleStepper(false);
-        }
-    } catch (e) {
-        btnAction.disabled = false;
-        toggleStepper(false);
-    }
-}
-
-// ተጫዋቹ ራሱ Cashout ሲያደርግ (ጨዋታው አይቋረጥም)
-async function cashOutUser() {
-    if (userState !== 'IN_GAME') return;
-    userState = 'CASHED_OUT';
-    btnAction.disabled = true;
-    playSound("win");
-
-    const betAmount = parseFloat(betAmountInput.value);
-    try {
-        const response = await fetch('/api/dino/cashout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, bet_amount: betAmount, multiplier: multiplier })
-        });
-        const result = await response.json();
-
-        if (result.status === "success") {
-            if (balanceDisplay) balanceDisplay.innerText = result.new_balance.toFixed(2);
-            btnAction.innerText = `አሸንፈዋል! (+${result.win_amount})`;
-            btnAction.className = "action-btn win-mode";
-        }
-    } catch (e) { console.error(e); }
-}
-
-// ክራሽ ሲያደርግ
-function triggerCrash() {
-    gameState = 'CRASHED';
-    playSound("crash");
-    updateHistory(multiplier);
-
-    if (userState === 'IN_GAME') {
-        userState = 'IDLE'; // ተጫዋቹ ተሸንፏል
-        btnAction.innerText = "ተሸንፈዋል!";
-        btnAction.disabled = true;
-    }
-
-    // ከ 2 ሰከንድ በኋላ አዲሱን ዙር ቆጠራ ይጀምራል
-    setTimeout(() => {
-        startCountdown();
-    }, 2000);
-}
-
-// 10 ሰከንድ ቆጠራ
-let intervalId;
+// ================= ROUND MANAGERS =================
 function startCountdown() {
     gameState = 'WAITING';
     countdownTimer = 10;
     multiplier = 1.00;
-    multiplierDisplay.innerText = "1.00x";
-    flightPath = [];
-    clouds = [];
-    plane.x = 50;
-    plane.y = 450;
     
-    if (userState !== 'BET_PLACED') {
-        userState = 'IDLE';
-        btnAction.disabled = false;
-        btnAction.innerText = "ውርርድ ፍጠር (BET)";
-        btnAction.className = "action-btn bet-mode";
-        toggleStepper(false);
-    }
+    // ፓነሎችን ሪሴት ማድረግ
+    [1, 2].forEach(id => {
+        if(bets[id].state === 'CASHED_OUT' || bets[id].state === 'IN_GAME') {
+            bets[id].state = 'IDLE';
+        }
+    });
+    syncButtons();
 
-    clearInterval(intervalId);
-    intervalId = setInterval(() => {
+    let intervalId = setInterval(() => {
         countdownTimer--;
         if (countdownTimer <= 0) {
             clearInterval(intervalId);
@@ -316,34 +308,36 @@ function startCountdown() {
     }, 1000);
 }
 
-// አዲስ ዙር ሲጀምር
 function startRound() {
     gameState = 'FLYING';
     crashPoint = generateCrashPoint();
-    gameFrame = 0;
-
-    if (userState === 'BET_PLACED') {
-        userState = 'IN_GAME';
-        btnAction.disabled = false;
-        btnAction.className = "action-btn cashout-mode";
-    } else {
-        // ተጫዋቹ ካልተወራረደ መመልከት (Spectate) ብቻ ይሆናል
-        userState = 'IDLE';
-        btnAction.disabled = true;
-        btnAction.innerText = "ጨዋታ ላይ ነው...";
-        toggleStepper(true);
-    }
+    syncButtons(); // ውርርድ ያደረጉትን ወደ IN_GAME ለመቀየር
 }
 
-// Button Click Logic
-btnAction.addEventListener("click", function() {
-    if (gameState === 'WAITING' && userState === 'IDLE') {
-        placeBet(); // ቆጠራ ላይ እያለ ውርርድ ያስገባል
-    } else if (gameState === 'FLYING' && userState === 'IN_GAME') {
-        cashOutUser(); // አውሮፕላኑ እየበረረ Cashout ያደርጋል
-    }
-});
+function triggerCrash() {
+    gameState = 'CRASHED';
+    playSound("crash");
+    
+    crashHistory.unshift(multiplier);
+    if(crashHistory.length > 20) crashHistory.pop();
+    renderHistory();
 
-// ጨዋታውን ለመጀመሪያ ጊዜ ሲከፈት ጀምረው
+    // ተጫዋቹ ሳያወጣ ክራሽ ካደረገ
+    [1, 2].forEach(id => {
+        if (bets[id].state === 'IN_GAME') {
+            bets[id].state = 'IDLE';
+            let btn = document.getElementById(`btnAction${id}`);
+            btn.className = "action-btn btn-disabled";
+            btn.innerHTML = `CRASHED <div class="btn-subtext">0.00 ETB</div>`;
+        }
+    });
+
+    setTimeout(() => {
+        startCountdown();
+    }, 3000);
+}
+
+// ጅማሬ
+updateInputUI();
 startCountdown();
 requestAnimationFrame(gameLoop);
