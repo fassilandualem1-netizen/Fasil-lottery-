@@ -47,7 +47,7 @@
         .header {
             width: 100%;
             background-color: var(--card-bg);
-            padding: 15px 20px;
+            padding: 10px 15px;
             box-sizing: border-box;
             display: flex;
             justify-content: space-between;
@@ -79,7 +79,9 @@
         .header-actions {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
         }
 
         .leaderboard-trigger {
@@ -104,13 +106,28 @@
         .balance-box {
             background-color: rgba(78, 159, 61, 0.2);
             border: 1px solid var(--success-color);
-            padding: 8px 15px;
-            border-radius: 20px;
+            padding: 6px 12px;
+            border-radius: 15px;
             display: flex;
             align-items: center;
             gap: 8px;
             font-weight: bold;
             color: #63e2b7;
+            font-size: 0.85rem;
+        }
+
+        /* New Locked/Pending Balance Box */
+        .locked-balance-box {
+            background-color: rgba(255, 71, 87, 0.15);
+            border: 1px solid #ff4757;
+            padding: 6px 12px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+            color: #ff6b81;
+            font-size: 0.85rem;
         }
 
         /* Container */
@@ -158,59 +175,37 @@
         .games-list {
             display: flex;
             flex-direction: column;
+            align-items: center;
             gap: 15px;
         }
 
+        /* Changed Game Card to Circle Shape */
         .game-card {
             background-color: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 15px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            width: 170px;
+            height: 170px;
+            margin: 15px auto;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
+            text-align: center;
             cursor: pointer;
-            transition: transform 0.2s, border-color 0.2s;
+            transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
             text-decoration: none;
             color: inherit;
+            box-sizing: border-box;
+            padding: 20px;
+            gap: 8px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
         }
 
         .game-card:active {
-            transform: scale(0.98);
+            transform: scale(0.95);
             border-color: var(--text-color);
-        }
-
-        .game-details {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .game-icon {
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, var(--accent-color), var(--text-color));
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-        }
-
-        .game-info h3 {
-            margin: 0 0 5px 0;
-            font-size: 1.1rem;
-        }
-
-        .game-info p {
-            margin: 0;
-            font-size: 0.85rem;
-            color: #aaaaaa;
-        }
-
-        .play-arrow {
-            color: var(--text-color);
-            font-size: 1.2rem;
+            box-shadow: 0 4px 10px rgba(233, 69, 96, 0.3);
         }
 
         /* Quick Action Buttons */
@@ -283,6 +278,14 @@
             z-index: 2;
         }
 
+        /* New Neutral State for Coin (Non-Gold, Non-Silver) */
+        .coin-front.coin-neutral {
+            background: radial-gradient(circle, #3a3a52 0%, #24243e 70%, #0f0c1b 100%) !important;
+            color: #ffffff !important;
+            border-color: #555577 !important;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(255,255,255,0.1) !important;
+        }
+
         .coin-back {
             background: radial-gradient(circle, #ffffff 0%, #b0bec5 70%, #78909c 100%);
             color: #263238;
@@ -326,53 +329,36 @@
         .choice-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            gap: 20px;
+            justify-items: center;
         }
 
+        /* Changed Choice Cards to Circular Shape */
         .choice-btn {
             background-color: var(--accent-color);
             border: 2px solid transparent;
-            padding: 12px;
-            border-radius: 10px;
+            padding: 10px;
+            border-radius: 50%;
+            width: 105px;
+            height: 105px;
             color: var(--light-text);
-            font-size: 1rem;
+            font-size: 0.95rem;
             font-weight: bold;
             cursor: pointer;
             transition: 0.2s;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             gap: 3px;
+            box-sizing: border-box;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.35);
         }
 
         .choice-btn.selected {
             border-color: var(--gold-color);
-            box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
             background-color: rgba(255, 215, 0, 0.1);
-        }
-
-        .multiplier-bar {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-top: 5px;
-        }
-
-        .multi-btn {
-            background-color: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 6px;
-            color: var(--light-text);
-            padding: 6px;
-            font-size: 0.85rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.15s;
-        }
-
-        .multi-btn:active {
-            background-color: var(--text-color);
-            border-color: var(--text-color);
         }
 
         /* Stepper UI Controls */
@@ -755,9 +741,14 @@
             <div class="leaderboard-trigger" onclick="openLeaderboard()" title="የመሪዎች ሰሌዳ">
                 <i class="fas fa-trophy"></i>
             </div>
-            <div class="balance-box">
+            <div class="balance-box" title="ንቁ ሂሳብ">
                 <i class="fas fa-wallet"></i>
                 <span id="user-balance">435.00</span> ብር
+            </div>
+            <!-- Added Locked/Pending Balance Element -->
+            <div class="locked-balance-box" title="በሂደት ላይ ያለ ሂሳብ">
+                <i class="fas fa-lock"></i>
+                <span id="locked-balance">0.00</span> ብር
             </div>
         </div>
     </div>
@@ -784,18 +775,16 @@
             </button>
         </div>
 
-        <h2>🎮 ጨዋታዎች</h2>
+        <h2 style="text-align: center; margin-bottom: 5px;">🎮 ጨዋታዎች</h2>
         
         <div class="games-list">
+            <!-- Game card designed inside a beautiful circle shape -->
             <div class="game-card" onclick="switchToGame()">
-                <div class="game-details">
-                    <div class="game-icon">🪙</div>
-                    <div class="game-info">
-                        <h3>ዘውድና ጎፈር</h3>
-                        <p>ምርጫዎን ይምረጡና ዕድልዎን ይሞክሩ!</p>
-                    </div>
+                <div class="game-icon" style="font-size: 2.2rem; background: none; width: auto; height: auto;">🪙</div>
+                <div class="game-info">
+                    <h3 style="margin: 0; font-size: 1.1rem;">ዘውድና ጎፈር</h3>
+                    <p style="margin: 3px 0 0 0; font-size: 0.75rem; color: #aaaaaa; line-height: 1.2;">ዕድልዎን ይሞክሩ!</p>
                 </div>
-                <div class="play-arrow"><i class="fas fa-chevron-right"></i></div>
             </div>
         </div>
     </div>
@@ -812,11 +801,12 @@
         
         <div class="coin-wrapper" id="coin-container">
             <div class="coin" id="game-coin">
-                <div class="coin-side coin-front">
-                    <span class="coin-emoji">👑</span>
-                    <span>ዘውድ</span>
+                <!-- Neutral State Side - Applied coin-neutral class initially -->
+                <div class="coin-side coin-front coin-neutral" id="coin-front-side">
+                    <span class="coin-emoji">⭐</span>
+                    <span>?</span>
                 </div>
-                <div class="coin-side coin-back">
+                <div class="coin-side coin-back" id="coin-back-side">
                     <span class="coin-emoji">🦁</span>
                     <span>ጎፈር</span>
                 </div>
@@ -839,11 +829,7 @@
 
             <div class="input-group">
                 <label>የውርርድ መጠን (ቢያንስ 2 ብር)</label>
-                <div class="multiplier-bar">
-                    <button class="multi-btn" onclick="applyMultiplier('min')">Min (2)</button>
-                    <button class="multi-btn" onclick="applyMultiplier('half')">1/2 (ግማሽ)</button>
-                    <button class="multi-btn" onclick="applyMultiplier('max')">Max (ሙሉ)</button>
-                </div>
+                <!-- Multiplier bar was completely removed from here to keep only the stepper -->
                 
                 <!-- Stepper UI Buttons & Input Field -->
                 <div class="stepper-container">
@@ -1219,8 +1205,23 @@
             }
         });
 
+        // Calculate and Update Locked Balance dynamically from local data
+        function updateLockedBalanceDisplay() {
+            let locked = 0;
+            const storedHistory = JSON.parse(localStorage.getItem('user_history_data')) || [];
+            storedHistory.forEach(item => {
+                const normalizedStatus = String(item.status).toLowerCase();
+                if (normalizedStatus === 'pending' || normalizedStatus === 'በመጠባበቅ ላይ') {
+                    locked += parseFloat(item.amount || 0);
+                }
+            });
+            document.getElementById('locked-balance').innerText = locked.toFixed(2);
+        }
+
         function loadBalance() {
             document.getElementById('user-balance').innerText = userBalance.toFixed(2);
+            updateLockedBalanceDisplay();
+            
             fetch('/api/get_balance', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1231,31 +1232,17 @@
                 if (data.status === 'success') {
                     userBalance = parseFloat(data.balance);
                     document.getElementById('user-balance').innerText = userBalance.toFixed(2);
+                    if (data.locked_balance !== undefined) {
+                        document.getElementById('locked-balance').innerText = parseFloat(data.locked_balance).toFixed(2);
+                    } else {
+                        updateLockedBalanceDisplay();
+                    }
                 }
             })
-            .catch(err => console.error("Error loading balance:", err));
-        }
-
-        function applyMultiplier(type) {
-            triggerHaptic('impact', 'light');
-            const betInput = document.getElementById('bet-amount');
-            if (isNaN(userBalance) || userBalance < 2) {
-                betInput.value = 2;
-                return;
-            }
-
-            let calculatedBet = 2; 
-
-            if (type === 'min') {
-                calculatedBet = 2;
-            } else if (type === 'half') {
-                calculatedBet = Math.max(2, Math.floor(userBalance / 2));
-            } else if (type === 'max') {
-                calculatedBet = Math.max(2, Math.floor(userBalance));
-            }
-
-            betInput.value = calculatedBet;
-            playTumbleSound();
+            .catch(err => {
+                console.error("Error loading balance:", err);
+                updateLockedBalanceDisplay();
+            });
         }
 
         // ==========================================
@@ -1303,6 +1290,25 @@
             document.getElementById('main-view').style.display = 'none';
             document.getElementById('game-view').style.display = 'flex';
             document.getElementById('history-view').style.display = 'none';
+            
+            // Reset to Neutral State when switching to game view
+            selectedChoice = null;
+            document.getElementById('btn-heads').classList.remove('selected');
+            document.getElementById('btn-tails').classList.remove('selected');
+            
+            const frontSide = document.getElementById('coin-front-side');
+            frontSide.classList.add('coin-neutral');
+            frontSide.innerHTML = `
+                <span class="coin-emoji">⭐</span>
+                <span>?</span>
+            `;
+            
+            const coin = document.getElementById('game-coin');
+            coin.style.transition = 'none';
+            coin.style.transform = 'rotateX(0deg) rotateY(0deg)';
+            
+            document.getElementById('result-text').innerText = "ምርጫዎን ይምረጡና ይጫወቱ!";
+            document.getElementById('result-text').className = "result-alert";
             
             tg.BackButton.show();
             tg.BackButton.onClick(() => {
@@ -1418,6 +1424,14 @@
             document.getElementById('btn-heads').classList.toggle('selected', choice === 'ዘውድ');
             document.getElementById('btn-tails').classList.toggle('selected', choice === 'ጎፈር');
             
+            // Remove neutral state on active selection and set active layout
+            const frontSide = document.getElementById('coin-front-side');
+            frontSide.classList.remove('coin-neutral');
+            frontSide.innerHTML = `
+                <span class="coin-emoji">👑</span>
+                <span>ዘውድ</span>
+            `;
+
             const coin = document.getElementById('game-coin');
             coin.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
             
@@ -1850,7 +1864,7 @@
                     type: type,
                     amount: amount,
                     status: status,
-                    date: new Date().toLocaleDateString('am-ET')
+                    date: new Date().toLocaleDateString('am-ET', { year: 'numeric', month: 'short', day: 'numeric' })
                 };
 
                 let storedHistory = JSON.parse(localStorage.getItem('user_history_data')) || [];
@@ -1859,6 +1873,7 @@
                 if (storedHistory.length > 30) storedHistory.pop();
 
                 localStorage.setItem('user_history_data', JSON.stringify(storedHistory));
+                updateLockedBalanceDisplay();
             }
         }
 
@@ -1940,14 +1955,15 @@
 
                     let typeIcon = item.type === 'ብር ማስገቢያ' ? '📥 ' : (item.type === 'ብር ማውጫ' ? '📤 ' : '🎁 ');
 
+                    // Redesigned with date prominently displayed on the outside
                     div.innerHTML = `
-                        <div>
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
                             <b>${typeIcon}${item.type}</b>
-                            <div style="font-size: 0.75rem; color: #aaa; margin-top: 3px;">${item.date || 'ቀን አልተገለጸም'}</div>
+                            <span style="background-color: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; color: #ccc; width: fit-content; font-weight: bold;">📅 ${item.date || 'ቀን አልተገለጸም'}</span>
                         </div>
-                        <div style="text-align: right;">
-                            <div style="font-weight: bold; color: var(--light-text);">${parseFloat(item.amount).toFixed(2)} ብር</div>
-                            <span style="color: ${statusColor}; font-size: 0.8rem;">${statusText}</span>
+                        <div style="text-align: right; display: flex; flex-direction: column; justify-content: space-between;">
+                            <div style="font-weight: bold; color: var(--gold-color); font-size: 1.05rem;">${parseFloat(item.amount).toFixed(2)} ብር</div>
+                            <span style="color: ${statusColor}; font-size: 0.8rem; font-weight: bold;">${statusText}</span>
                         </div>
                     `;
                     container.appendChild(div);
@@ -1957,7 +1973,9 @@
             }
         }
 
-        window.onload = loadBalance;
+        window.onload = function() {
+            loadBalance();
+        };
     </script>
 </body>
 </html>
