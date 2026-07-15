@@ -297,46 +297,6 @@
             filter: drop-shadow(0px 3px 5px rgba(0,0,0,0.4));
         }
 
-        /* Custom Skin Classes */
-        .coin.skin-silver .coin-front {
-            background: radial-gradient(circle, #ffffff 0%, #cfd8dc 70%, #78909c 100%);
-            border-color: #b0bec5;
-            color: #37474f;
-        }
-        .coin.skin-silver .coin-back {
-            border-color: #cfd8dc;
-        }
-
-        .coin.skin-bronze .coin-front {
-            background: radial-gradient(circle, #ffd180 0%, #bcaaa4 70%, #8d6e63 100%);
-            border-color: #a1887f;
-            color: #4e342e;
-        }
-        .coin.skin-bronze .coin-back {
-            border-color: #bcaaa4;
-        }
-
-        /* UI Styling for the Skin Selector */
-        .skin-selector {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            margin: 10px auto;
-        }
-        .skin-dot {
-            width: 26px;
-            height: 26px;
-            border-radius: 50%;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            cursor: pointer;
-            transition: transform 0.2s, border-color 0.2s;
-        }
-        .skin-dot.active {
-            transform: scale(1.25);
-            border-color: var(--light-text);
-            box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-        }
-
         @keyframes coin-toss-bounce {
             0% { transform: translateY(0) scale(1); }
             20% { transform: translateY(-130px) scale(1.2); }
@@ -415,6 +375,36 @@
             border-color: var(--text-color);
         }
 
+        /* Stepper UI Controls */
+        .stepper-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 8px;
+            gap: 10px;
+        }
+
+        .stepper-btn {
+            background-color: var(--accent-color);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--light-text);
+            width: 45px;
+            height: 45px;
+            border-radius: 8px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.15s, transform 0.1s;
+        }
+
+        .stepper-btn:active {
+            background-color: var(--text-color);
+            transform: scale(0.92);
+        }
+
         .input-group {
             display: flex;
             flex-direction: column;
@@ -432,9 +422,10 @@
             padding: 10px;
             border-radius: 8px;
             color: var(--light-text);
-            font-size: 1rem;
+            font-size: 1.1rem;
             text-align: center;
             outline: none;
+            font-weight: bold;
         }
 
         .play-btn {
@@ -818,13 +809,6 @@
             <h2 style="margin: 5px 0;">🪙 ዘውድና ጎፈር</h2>
             <p style="color: #aaa; margin: 0; font-size: 0.95rem;">ዕድልዎን ይሞክሩ!</p>
         </div>
-
-        <!-- Skin Selector -->
-        <div class="skin-selector">
-            <div class="skin-dot active" style="background: linear-gradient(135deg, #ffe57f, #ff8f00);" onclick="changeSkin(this, 'gold')" title="ወርቅ"></div>
-            <div class="skin-dot" style="background: linear-gradient(135deg, #ffffff, #78909c);" onclick="changeSkin(this, 'silver')" title="ብር"></div>
-            <div class="skin-dot" style="background: linear-gradient(135deg, #ffd180, #8d6e63);" onclick="changeSkin(this, 'bronze')" title="ነሐስ"></div>
-        </div>
         
         <div class="coin-wrapper" id="coin-container">
             <div class="coin" id="game-coin">
@@ -860,7 +844,13 @@
                     <button class="multi-btn" onclick="applyMultiplier('half')">1/2 (ግማሽ)</button>
                     <button class="multi-btn" onclick="applyMultiplier('max')">Max (ሙሉ)</button>
                 </div>
-                <input type="number" id="bet-amount" placeholder="ምሳሌ፡ 50" min="2" pattern="[0-9]*" inputmode="numeric" style="margin-top: 8px;">
+                
+                <!-- Stepper UI Buttons & Input Field -->
+                <div class="stepper-container">
+                    <button class="stepper-btn" onclick="adjustBet(-5)">-</button>
+                    <input type="number" id="bet-amount" placeholder="ምሳሌ፡ 50" min="2" value="2" pattern="[0-9]*" inputmode="numeric" style="flex: 1; margin: 0; height: 45px;">
+                    <button class="stepper-btn" onclick="adjustBet(5)">+</button>
+                </div>
             </div>
 
             <button class="play-btn" id="flip-btn" onclick="playGame()">play</button>
@@ -1115,6 +1105,9 @@
             } catch(e) { console.log(e); }
         }
 
+        // ==========================================
+        // WHOOSH SOUND SYNTHESIZER
+        // ==========================================
         function playWhooshSound() {
             try {
                 const ctxAudio = getAudioContext();
@@ -1265,6 +1258,24 @@
             playTumbleSound();
         }
 
+        // ==========================================
+        // STEPPER ADJUSTMENT CONTROLLER (+ and -)
+        // ==========================================
+        function adjustBet(amount) {
+            if (isSpinning) return;
+            triggerHaptic('impact', 'light');
+            const betInput = document.getElementById('bet-amount');
+            let currentBet = parseFloat(betInput.value);
+            if (isNaN(currentBet)) currentBet = 2;
+            
+            let newBet = Math.floor(currentBet + amount);
+            if (newBet < 2) newBet = 2;
+            if (newBet > userBalance) newBet = Math.max(2, Math.floor(userBalance));
+            
+            betInput.value = newBet;
+            playTumbleSound();
+        }
+
         function switchTab(tab) {
             if (isSpinning || isWheelSpinning) return;
             triggerHaptic('impact', 'light');
@@ -1398,19 +1409,6 @@
         }
 
         // ==========================================
-        // COIN SKIN CONTROLLER
-        // ==========================================
-        function changeSkin(element, skinName) {
-            triggerHaptic('impact', 'light');
-            document.querySelectorAll('.skin-dot').forEach(dot => dot.classList.remove('active'));
-            element.classList.add('active');
-            
-            const coin = document.getElementById('game-coin');
-            // Keep the baseline 'coin' class and append the selected skin subclass
-            coin.className = `coin skin-${skinName}`;
-        }
-
-        // ==========================================
         // MAGNETIC TILT SELECTION EFFECT
         // ==========================================
         function selectChoice(choice) {
@@ -1420,7 +1418,6 @@
             document.getElementById('btn-heads').classList.toggle('selected', choice === 'ዘውድ');
             document.getElementById('btn-tails').classList.toggle('selected', choice === 'ጎፈር');
             
-            // Apply 3D tilt dynamically depending on user's prediction choice
             const coin = document.getElementById('game-coin');
             coin.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
             
@@ -1481,7 +1478,6 @@
                 return;
             }
 
-            // Fire the atmospheric Whoosh synthesizer on launch
             playWhooshSound();
 
             resultText.className = "result-alert";
@@ -1552,16 +1548,13 @@
         function processResult(data, spinInterval, coin, resultText, betAmount) {
             const finalResult = (data && data.result) ? data.result : getSecureCoinFlip();
 
-            // Set mid-air duration with a slight random deviation (2.0s - 2.8s) for physical variance
             setTimeout(() => {
                 clearInterval(spinInterval);
                 
-                // --- 1. SUSPENSE WOBBLE STAGE (Simulating physics-based table landing) ---
                 let suspenseTicks = 0;
                 const targetY = finalResult === 'ዘውድ' ? 1440 : 1620;
                 
                 const settleInterval = setInterval(() => {
-                    // Reduce the wobble magnitude incrementally over time
                     const amplitude = 25 / (suspenseTicks + 1); 
                     const wobbleX = Math.sin(suspenseTicks * 1.5) * amplitude;
                     const wobbleY = targetY + Math.cos(suspenseTicks * 1.5) * amplitude;
@@ -1578,7 +1571,6 @@
                     if (suspenseTicks > 12) {
                         clearInterval(settleInterval);
                         
-                        // --- 2. FINAL REST & REVEAL STATE ---
                         coin.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
                         coin.style.transform = `rotateX(0deg) rotateY(${targetY}deg)`;
                         
