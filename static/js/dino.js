@@ -1,349 +1,287 @@
-// የጨዋታው መሠረታዊ ነገሮች ማግኛ
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const multiplierDisplay = document.getElementById("multiplierDisplay");
 const betAmountInput = document.getElementById("betAmount");
-const btnStart = document.getElementById("btnStart");
-const btnCashout = document.getElementById("btnCashout");
+const autoCashoutInput = document.getElementById("autoCashout");
+const btnAction = document.getElementById("btnAction");
 const stepperBtns = document.querySelectorAll('.stepper-btn');
 
-// የቴሌግራም ወብ አፕ ዳታ ማግኛ
 const tg = window.Telegram ? window.Telegram.WebApp : null;
 const userId = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id.toString() : "8488592165";
 
-// የጨዋታው ሁኔታዎች (Game States)
 let isPlaying = false;
 let isGameOver = false;
-let gameSpeed = 6;
 let multiplier = 1.00;
 let animationFrameId;
-let gameFrame = 0; // ለአኒሜሽን ፍሬም መቁጠሪያ
+let gameFrame = 0;
 
-// 1. የዘንዶው (Dino) ባህሪያት
-const dino = {
-    x: 80,
-    y: 320,
-    width: 45,
-    height: 55,
-    gravity: 0.7,
-    velocity: 0,
-    jumpStrength: -14,
-    isJumping: false,
-    legPhase: 0, // ለእግር አኒሜሽን
-    
+// 🛡️ የHouse Edge እና የክራሽ አልጎሪዝም
+let crashPoint = 1.00; 
+
+function generateCrashPoint() {
+    let rand = Math.random();
+    // 10% የመሸነፍ ዕድል (Instant crash ከ 1.00 - 1.05) -> አንተን ከትልቅ ኪሳራ ለመጠበቅ
+    if (rand < 0.10) {
+        return 1.00 + Math.random() * 0.05;
+    }
+    // ቀሪው 90% ፍትሃዊ በሆነ መልኩ በኤክስፖኔንሻል ከርቭ ይጨምራል
+    return 1.05 + (0.95 / (Math.random() + 0.01));
+}
+
+// 🔊 የድምፅ ማጫወቻ (Web Audio API - ያለምንም ኤክስትራ ፋይል በኮድ ብቻ ድምፅ የሚፈጥር)
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playSound(type) {
+    try {
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === "fly") { // የሮኬት ድምፅ
+            osc.type = "sawtooth";
+            osc.frequency.setValueAtTime(100 + (multiplier * 20), audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        } else if (type === "win") { // የድል ድምፅ
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(500, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+        } else if (type === "crash") { // የፍንዳታ ድምፅ
+            osc.type = "triangle";
+            osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.5);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+    } catch (e) {
+        console.log("Audio play blocked by browser settings.");
+    }
+}
+
+// 🚀 የሮኬቱ መገኛና አቅጣጫዎች
+const rocket = {
+    x: 50,
+    y: 450,
+    size: 35,
     draw() {
-        // የዲኖ አካል መሳል
-        ctx.fillStyle = "#00ffcc";
-        ctx.fillRect(this.x, this.y, this.width, this.height - 10);
-        
-        // ራስ (Head)
-        ctx.fillRect(this.x + 10, this.y - 15, this.width - 10, 20);
-        
-        // አይን (Eye)
-        ctx.fillStyle = "#111122";
-        ctx.fillRect(this.x + 30, this.y - 10, 6, 6);
-        
-        // አፍ/ጥርሶች (Teeth)
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(this.x + 40, this.y + 2, 5, 4);
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(-Math.PI / 6); // ወደ ላይ እንዲያይ ማድረግ
 
-        // የእግር አኒሜሽን (ሲሮጥ እግሮቹ እንዲፈራረቁ ማድረግ)
-        ctx.fillStyle = "#00ddaa";
-        this.legPhase = Math.floor(gameFrame / 8) % 2;
-        
-        if (this.isJumping) {
-            // ሲዘል እግሮቹ እጥፍ ይላሉ
-            ctx.fillRect(this.x + 8, this.y + this.height - 10, 8, 8);
-            ctx.fillRect(this.x + 28, this.y + this.height - 10, 8, 8);
-        } else {
-            // በሩጫ ሰዓት አንዱ እግር ወደ ታች ሌላኛው ወደ ላይ ይሆናል
-            if (this.legPhase === 0) {
-                ctx.fillRect(this.x + 8, this.y + this.height - 10, 8, 12); // እግር 1 ታች
-                ctx.fillRect(this.x + 28, this.y + this.height - 10, 8, 6);  // እግር 2 ላይ
-            } else {
-                ctx.fillRect(this.x + 8, this.y + this.height - 10, 8, 6);   // እግር 1 ላይ
-                ctx.fillRect(this.x + 28, this.y + this.height - 10, 8, 12);  // እግር 2 ታች
-            }
+        // የሮኬት አካል
+        ctx.fillStyle = "#e94560";
+        ctx.beginPath();
+        ctx.moveTo(0, -this.size);
+        ctx.lineTo(this.size / 2, this.size);
+        ctx.lineTo(-this.size / 2, this.size);
+        ctx.closePath();
+        ctx.fill();
+
+        // ሮኬት ጭራ እሳት
+        if (isPlaying && gameFrame % 4 < 2) {
+            ctx.fillStyle = "#ff9f43";
+            ctx.beginPath();
+            ctx.moveTo(-10, this.size);
+            ctx.lineTo(0, this.size + 15);
+            ctx.lineTo(10, this.size);
+            ctx.closePath();
+            ctx.fill();
         }
-    },
-    
-    update() {
-        this.velocity += this.gravity;
-        this.y += this.velocity;
-        
-        // የመሬት መስመር ከፍታ 370px ነው
-        if (this.y > 370 - this.height) {
-            this.y = 370 - this.height;
-            this.velocity = 0;
-            this.isJumping = false;
-        }
-    },
-    
-    jump() {
-        if (!this.isJumping) {
-            this.velocity = this.jumpStrength;
-            this.isJumping = true;
-        }
+        ctx.restore();
     }
 };
 
-// 2. የመሰናክሎች (Obstacles) ባህሪያት
-let obstacles = [];
-
-class Obstacle {
-    constructor() {
-        this.x = canvas.width;
-        this.width = 25 + Math.random() * 15;
-        this.height = 40 + Math.random() * 25;
-        this.y = 370 - this.height; // በትክክል መሬት ላይ እንዲቆም
+// ኮከቦች (Stars)
+let stars = [];
+function drawStars() {
+    if (Math.random() < 0.1) {
+        stars.push({ x: canvas.width, y: Math.random() * 400, size: 1 + Math.random() * 2 });
     }
-    
-    draw() {
-        // የቁልቋል (Cactus) ቅርጽ በካንቫስ መሳል
-        ctx.fillStyle = "#ff0055"; // ቀይ/ኒዮን መሰናክል
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        
-        // የግራ እጅጌ
-        ctx.fillRect(this.x - 8, this.y + 10, 8, this.height / 2);
-        ctx.fillRect(this.x - 8, this.y + 10, this.width / 2, 8);
-        
-        // የቀኝ እጅጌ
-        ctx.fillRect(this.x + this.width, this.y + 15, 8, this.height / 2);
-        ctx.fillRect(this.x + this.width - 5, this.y + 15, this.width / 2, 8);
-    }
-    
-    update() {
-        this.x -= gameSpeed;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    for (let i = stars.length - 1; i >= 0; i--) {
+        stars[i].x -= 4;
+        ctx.fillRect(stars[i].x, stars[i].y, stars[i].size, stars[i].size);
+        if (stars[i].x < 0) stars.splice(i, 1);
     }
 }
 
-// 3. የበስተጀርባ ኮከቦች/የፍጥነት አቧራዎች (Stars/Speed Dust)
-let dustParticles = [];
-function updateDust() {
-    if (Math.random() < 0.15) {
-        dustParticles.push({
-            x: canvas.width,
-            y: Math.random() * 280,
-            speed: gameSpeed * (0.5 + Math.random() * 0.5),
-            size: 1 + Math.random() * 3
-        });
-    }
-    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-    for (let i = dustParticles.length - 1; i >= 0; i--) {
-        dustParticles[i].x -= dustParticles[i].speed;
-        ctx.fillRect(dustParticles[i].x, dustParticles[i].y, dustParticles[i].size, dustParticles[i].size);
-        if (dustParticles[i].x < 0) {
-            dustParticles.splice(i, 1);
+// የበረራ መስመር (Neon Curve)
+let flightPath = [];
+
+function drawPath() {
+    if (flightPath.length > 1) {
+        ctx.strokeStyle = "rgba(0, 255, 204, 0.6)";
+        ctx.lineWidth = 4;
+        ctx.shadowColor = "#00ffcc";
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.moveTo(flightPath[0].x, flightPath[0].y);
+        for (let i = 1; i < flightPath.length; i++) {
+            ctx.lineTo(flightPath[i].x, flightPath[i].y);
         }
+        ctx.stroke();
+        ctx.shadowBlur = 0; // shadowን ማጥፋት ለሌሎች
     }
 }
 
-// 4. መሬቱን መሳያ
-function drawGround() {
-    // ዋናው የመሬት መስመር
-    ctx.strokeStyle = "#30304a";
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(0, 370);
-    ctx.lineTo(canvas.width, 370);
-    ctx.stroke();
-
-    // መሬት ላይ ያሉ ትንንሽ ቋጥኞች/ሳሮች (የሩጫ ፍጥነት እንዲሰማ)
-    ctx.fillStyle = "#30304a";
-    for (let i = 0; i < canvas.width; i += 100) {
-        let xOffset = (i - (gameFrame * gameSpeed) % 100);
-        ctx.fillRect(xOffset, 374, 15, 4);
-    }
+function toggleStepper(disabled) {
+    stepperBtns.forEach(btn => btn.disabled = disabled);
+    betAmountInput.disabled = disabled;
+    autoCashoutInput.disabled = disabled;
 }
 
-// 5. የግጭት መቆጣጠሪያ
-function checkCollision(rect1, rect2) {
-    return (
-        rect1.x < rect2.x + rect2.width &&
-        rect1.x + rect1.width > rect2.x &&
-        rect1.y < rect2.y + rect2.height &&
-        rect1.y + rect1.height > rect2.y
-    );
-}
-
-// 6. የ $+$ እና $-$ በተኖችን መቆለፊያ
-function toggleStepperButtons(disabled) {
-    stepperBtns.forEach(btn => {
-        btn.disabled = disabled;
-        btn.style.opacity = disabled ? "0.5" : "1";
-        btn.style.cursor = disabled ? "not-allowed" : "pointer";
-    });
-}
-
-// 7. የጨዋታው ዑደት (Game Loop)
+// 🎮 የጨዋታው Loop
 function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
     gameFrame++;
-    
-    // ከበስተጀርባ ያሉ አቧራዎችን ማሳየት
-    updateDust();
-    
-    drawGround();
-    
-    // ዘንዶውን ማዘመን
-    dino.update();
-    dino.draw();
-    
-    // Multiplier በየሴኮንዱ ማሳደጊያ
+
+    drawStars();
+    drawPath();
+
     if (isPlaying) {
-        multiplier += 0.005; 
+        // Multiplier ማሳደጊያ (በኤክስፖኔንሻል ፍጥነት ይጨምራል)
+        multiplier += 0.002 * (1 + (multiplier * 0.1));
         multiplierDisplay.innerText = multiplier.toFixed(2) + "x";
-        btnCashout.innerText = `Cash Out (ETB ${(betAmountInput.value * multiplier).toFixed(2)}) 💰`;
-    }
-    
-    // መሰናክል መፍጠር
-    if (obstacles.length === 0 || (canvas.width - obstacles[obstacles.length - 1].x > 260 + Math.random() * 150)) {
-        obstacles.push(new Obstacle());
-    }
-    
-    // መሰናክሎችን ማንቀሳቀስ
-    for (let i = obstacles.length - 1; i >= 0; i--) {
-        obstacles[i].update();
-        obstacles[i].draw();
-        
-        if (checkCollision(dino, obstacles[i])) {
-            endGame(false); // ተሸነፈ
+
+        // ድምፅ ማጫወት በየጊዜው
+        if (gameFrame % 10 === 0) playSound("fly");
+
+        // ሮኬቱ ወደ ላይ የሚበርበት አኒሜሽን
+        rocket.x = 50 + (multiplier - 1) * 120;
+        rocket.y = 450 - (multiplier - 1) * 80;
+
+        if (rocket.x > canvas.width - 50) rocket.x = canvas.width - 50;
+        if (rocket.y < 50) rocket.y = 50;
+
+        flightPath.push({ x: rocket.x, y: rocket.y });
+
+        // Auto Cashout ቼክ ማድረጊያ
+        const autoLimit = parseFloat(autoCashoutInput.value);
+        if (!isNaN(autoLimit) && autoLimit > 1.0 && multiplier >= autoLimit) {
+            endGame(true);
             return;
         }
-        
-        if (obstacles[i].x + obstacles[i].width < 0) {
-            obstacles.splice(i, 1);
+
+        // CRASH መሆኑን ቼክ ማድረጊያ
+        if (multiplier >= crashPoint) {
+            endGame(false);
+            return;
         }
+
+        rocket.draw();
+        btnAction.innerText = `CASH OUT (ETB ${(betAmountInput.value * multiplier).toFixed(2)})`;
     }
-    
-    gameSpeed += 0.001; // ፍጥነቱ ቀስ በቀስ ይጨምራል
+
     animationFrameId = requestAnimationFrame(gameLoop);
 }
 
-// 8. ጨዋታ ለመጀመር
+// ጨዋታ ለመጀመር
 async function startGame() {
     const betAmount = parseFloat(betAmountInput.value);
-    if (isNaN(betAmount) || betAmount <= 0) {
-        alert("እባክዎ ትክክለኛ የውርርድ መጠን ያስገቡ!");
-        return;
-    }
-    
-    btnStart.disabled = true; 
-    toggleStepperButtons(true);
-    
+    if (isNaN(betAmount) || betAmount <= 0) return;
+
+    btnAction.disabled = true;
+    toggleStepper(true);
+
     try {
         const response = await fetch('/api/dino/bet', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                user_id: userId,
-                bet_amount: betAmount 
-            })
+            body: JSON.stringify({ user_id: userId, bet_amount: betAmount })
         });
         const result = await response.json();
-        
+
         if (result.status === "success") {
             isPlaying = true;
             isGameOver = false;
             multiplier = 1.00;
-            gameSpeed = 6;
-            obstacles = [];
-            dustParticles = [];
-            dino.y = 370 - dino.height;
-            dino.velocity = 0;
-            
-            betAmountInput.disabled = true;
-            btnCashout.style.display = "inline-block";
-            btnCashout.disabled = false;
-            
-            // በሳይቱ ላይ ባላንስ ማሳያ ካለ ማደሻ
+            crashPoint = generateCrashPoint(); // አዲስ ክራሽ ፖይንት መፍጠር
+            flightPath = [];
+            stars = [];
+            rocket.x = 50;
+            rocket.y = 450;
+            gameFrame = 0;
+
+            // ቁልፉን ወደ Cashout ማዘጋጀት
+            btnAction.disabled = false;
+            btnAction.className = "action-btn cashout-mode";
+            btnAction.style.display = "block";
+
+            // ባላንስ ማደስ
             const balanceEl = document.getElementById('balanceDisplay') || document.getElementById('balance');
             if (balanceEl) balanceEl.innerText = result.new_balance.toFixed(2) + " ETB";
-            
+
             gameLoop();
         } else {
-            alert(result.message || "ይቅርታ፣ በቂ ሂሳብ የሎትም!");
-            btnStart.disabled = false;
-            toggleStepperButtons(false);
+            alert(result.message || "በቂ ሂሳብ የሎትም!");
+            btnAction.disabled = false;
+            toggleStepper(false);
         }
-    } catch (error) {
-        console.error("Error:", error);
-        alert("የግንኙነት ችግር አጋጥሟል!");
-        btnStart.disabled = false;
-        toggleStepperButtons(false);
+    } catch (e) {
+        console.error(e);
+        btnAction.disabled = false;
+        toggleStepper(false);
     }
 }
 
-// 9. ጨዋታን ለማቆም
+// ጨዋታን ለማቆም
 async function endGame(isWon) {
     isPlaying = false;
     isGameOver = true;
     cancelAnimationFrame(animationFrameId);
-    
-    btnStart.disabled = false;
-    betAmountInput.disabled = false;
-    toggleStepperButtons(false);
-    btnCashout.style.display = "none";
-    
+
+    btnAction.disabled = true;
+
     if (isWon) {
+        playSound("win");
         const betAmount = parseFloat(betAmountInput.value);
-        btnCashout.disabled = true;
-        
         try {
             const response = await fetch('/api/dino/cashout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    user_id: userId,
-                    bet_amount: betAmount, 
-                    multiplier: multiplier 
-                })
+                body: JSON.stringify({ user_id: userId, bet_amount: betAmount, multiplier: multiplier })
             });
             const result = await response.json();
-            
+
             if (result.status === "success") {
                 alert(`እንኳን ደስ አሎት! በ ${multiplier.toFixed(2)}x አቁመው ETB ${result.win_amount} አሸንፈዋል! 🎉`);
                 const balanceEl = document.getElementById('balanceDisplay') || document.getElementById('balance');
                 if (balanceEl) balanceEl.innerText = result.new_balance.toFixed(2) + " ETB";
             }
-        } catch (error) {
-            console.error("Error During Cashout:", error);
-            alert("የCash Out ስህተት ተፈጥሯል!");
+        } catch (e) {
+            console.error(e);
         }
     } else {
-        multiplierDisplay.innerText = "BUSTED!💥";
-        ctx.fillStyle = "rgba(233, 69, 96, 0.85)";
-        ctx.font = "bold 26px 'Segoe UI'";
+        // ክራሽ ሲሆን ሮኬት ይፈነዳል
+        playSound("crash");
+        multiplierDisplay.innerText = "CRASHED!💥";
+        ctx.fillStyle = "#ff0055";
+        ctx.font = "bold 30px 'Segoe UI'";
         ctx.textAlign = "center";
-        ctx.fillText("ተጋጭተዋል! (Game Over)", canvas.width / 2, canvas.height / 2);
+        ctx.fillText(`FLEW AWAY @ ${multiplier.toFixed(2)}x`, canvas.width / 2, canvas.height / 2);
     }
+
+    // ቁልፉን ወደ መጀመሪያው መመለስ
+    setTimeout(() => {
+        btnAction.disabled = false;
+        btnAction.className = "action-btn bet-mode";
+        btnAction.innerText = "ውርርድ ፍጠር (START)";
+        btnAction.style.display = "block";
+        toggleStepper(false);
+    }, 1200);
 }
 
-// 10. መቆጣጠሪያ ክስተቶች (Event Listeners)
-window.addEventListener("keydown", function(e) {
-    if (e.code === "Space") {
-        e.preventDefault();
-        if (isPlaying) {
-            dino.jump();
-        }
-    }
-});
-
-canvas.addEventListener("touchstart", function(e) {
-    e.preventDefault();
-    if (isPlaying) {
-        dino.jump();
-    }
-});
-
-btnStart.addEventListener("click", startGame);
-
-btnCashout.addEventListener("click", function() {
-    if (isPlaying) {
+// በተን ክሊክ
+btnAction.addEventListener("click", function() {
+    if (!isPlaying) {
+        startGame();
+    } else {
         endGame(true);
     }
 });
-
-// የመጀመሪያውን ገጽታ መሳያ
-drawGround();
