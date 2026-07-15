@@ -138,7 +138,7 @@ def handle_withdraw():
     return jsonify({"status": "success"})
 
 # ==========================================
-# G1. Coin Flip Core Logic (Secure Weighted Probability)
+# G1. Coin Flip Core Logic (Chaos & Anti-Pattern Logic)
 # ==========================================
 @server.route('/api/coin_flip', methods=['POST'])
 def coin_flip():
@@ -155,33 +155,40 @@ def coin_flip():
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"})
         
     # ----------------------------------------------------
-    # የላቀ የዕድል መቆጣጠሪያ (Weighted Probability Logic)
+    # የላቀ የውዥንብር መፍጠሪያ ሎጂክ (Anti-Pattern / Chaos Logic)
     # ----------------------------------------------------
     history_key = f"coin_flip_history:{user_id}"
     raw_streak_history = redis.get(history_key)
     streak_history = json.loads(raw_streak_history) if raw_streak_history else []
     
-    # ነባሪ የውሳኔ ዕድሎች (50/50)
     sides = ["ዘውድ", "ጎፈር"]
-    weights = [0.5, 0.5] # እኩል 50% ዕድል
     
-    if len(streak_history) >= 3:
-        last_three = streak_history[-3:]
+    # 1. በየጨዋታው በዘፈቀደ የሚቀያየር የዕድል መጠን (Dynamic Noise)
+    # ይህ ተጫዋቹ የትኛው ላይ ትልቅ ዕድል እንዳለ እንዳያውቅ ያደርጋል
+    noise_factor = random.uniform(0.15, 0.45) 
+    opposite_factor = 1.0 - noise_factor
+    
+    weights = [0.5, 0.5] # ነባሪ እኩል 50%
+    
+    if len(streak_history) >= 2:
+        last_two = streak_history[-2:]
         
-        # በተከታታይ 3 ጊዜ "ዘውድ" ከወጣ፡
-        if all(val == "ዘውድ" for val in last_three):
-            # ለ "ዘውድ" 10% (0.1) ዕድል ብቻ እንሰጣለን፣ ለ "ጎፈር" 90% (0.9) ዕድል ይሰጣል
-            weights = [0.1, 0.9]
-            
-        # በተከታታይ 3 ጊዜ "ጎፈር" ከወጣ፡
-        elif all(val == "ጎፈር" for val in last_three):
-            # ለ "ዘውድ" 90% (0.9)፣ ለ "ጎፈር" 10% (0.1) ዕድል ይሰጣል
-            weights = [0.9, 0.1]
-            
-    # በክብደት (Weights) መሰረት በዘፈቀደ መምረጥ (የማይገመት ያደርገዋል)
+        # አልፎ አልፎ (20% ዕድል) ሆን ብሎ ተከታታይ እንዲወጣ መፍቀድ (The Bait/ወጥመድ)
+        let_it_streak = random.random() < 0.20
+        
+        if not let_it_streak:
+            # በተከታታይ 2 ወይም ከዚያ በላይ "ዘውድ" ከወጣ፣ ቀጣዩን "ዘውድ" የመሆን ዕድሉን እጅግ እንቀንሳለን
+            if all(val == "ዘውድ" for val in last_two):
+                weights = [noise_factor, opposite_factor] # ዘውድ በጣም ዝቅተኛ ዕድል አለው
+                
+            # በተከታታይ 2 ወይም ከዚያ በላይ "ጎፈር" ከወጣ፣ ቀጣዩን "ጎፈር" የመሆን ዕድሉን እጅግ እንቀንሳለን
+            elif all(val == "ጎፈር" for val in last_two):
+                weights = [opposite_factor, noise_factor] # ጎፈር በጣም ዝቅተኛ ዕድል አለው
+                
+    # ውጤቱን በውዥንብር ክብደት መምረጥ
     result = random.choices(sides, weights=weights, k=1)[0]
     
-    # አዲሱን ውጤት በታሪክ መዝገብ ማስቀመጥ
+    # ታሪክ ማስቀመጥ (የመጨረሻዎቹን 5 ብቻ)
     streak_history.append(result)
     if len(streak_history) > 5:
         streak_history.pop(0)
@@ -218,7 +225,7 @@ def coin_flip():
         
     new_balance = float(redis.hget("users:balance", user_id) or 0.0)
     
-    # የኪስ ታሪክ መዝገብ
+    # ታሪክ መዝገብ
     history_data = redis.get(f"history:{user_id}")
     history_list = json.loads(history_data) if history_data else []
     history_list.insert(0, {"type": f"ዘውድና ጎፈር ({choice})", "amount": bet_amount, "status": status_history})
