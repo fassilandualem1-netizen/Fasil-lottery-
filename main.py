@@ -3,7 +3,6 @@ import time
 import json
 import uuid
 import random
-from datetime import datetime, timedelta
 from flask import Flask, render_template, request, jsonify
 import telebot
 from telebot.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
@@ -33,26 +32,22 @@ except Exception as e:
     print(f"Webhook Error: {e}")
 
 # ==========================================
-# Helper Function for Date (East Africa Time)
-# ==========================================
-def get_eat_time():
-    # UTC + 3 ሰዓት (የኢትዮጵያ ሰዓት)
-    eat_time = datetime.utcnow() + timedelta(hours=3)
-    return eat_time.strftime("%Y-%m-%d %H:%M")
-
-# ==========================================
-# Frontend Routes
+# Frontend Routes (Multi-page Template Routes)
 # ==========================================
 @server.route('/')
 def index():
     return render_template('index.html')
+
+@server.route('/horse_race')
+def horse_race_page():
+    return render_template('horse_race.html')
 
 @server.route('/coin_flip_game')
 def coin_flip_page():
     return render_template('coin_flip.html')
 
 # ==========================================
-# API Routes (Core Wallet & History)
+# API Routes (Core Functionality)
 # ==========================================
 
 @server.route('/api/get_balance', methods=['POST'])
@@ -65,9 +60,6 @@ def get_balance():
     current_balance = float(redis.hget("users:balance", user_id) or 0.0)
     return jsonify({"status": "success", "balance": current_balance})
 
-# ----------------------------------------------------
-# የታሪክ መዝገብ - ከፊት ገጽ ጋር ሙሉ በሙሉ የተናበበ
-# ----------------------------------------------------
 @server.route('/api/get_history', methods=['POST'])
 def get_history():
     data = request.json or {}
@@ -79,9 +71,6 @@ def get_history():
     history_list = json.loads(history_data) if history_data else []
     return jsonify({"status": "success", "history": history_list})
 
-# ----------------------------------------------------
-# የብር ማስገቢያ (Deposit) - ቀንና ሰዓት እንዲሁም ስያሜው የተስተካከለ
-# ----------------------------------------------------
 @server.route('/api/deposit', methods=['POST'])
 def handle_deposit():
     user_id = request.form.get("user_id")
@@ -96,15 +85,9 @@ def handle_deposit():
     tx_data = {"user_id": user_id, "amount": amount, "type": "deposit", "status": "pending"}
     redis.set(f"tx:{tx_id}", json.dumps(tx_data))
     
-    # የኪስ ታሪክ አቀራረብ ማስተካከያ (ስያሜውን "ብር ማስገቢያ" አድርገነዋል)
     history_data = redis.get(f"history:{user_id}")
     history_list = json.loads(history_data) if history_data else []
-    history_list.insert(0, {
-        "type": "ብር ማስገቢያ", 
-        "amount": amount, 
-        "status": "pending",
-        "date": get_eat_time()  # ትክክለኛ ቀንና ሰዓት
-    })
+    history_list.insert(0, {"type": "ገቢ", "amount": amount, "status": "pending"})
     redis.set(f"history:{user_id}", json.dumps(history_list))
     
     markup = InlineKeyboardMarkup()
@@ -122,20 +105,12 @@ def handle_deposit():
         
     return jsonify({"status": "success"})
 
-# ----------------------------------------------------
-# የብር ማውጫ (Withdraw) - ስም ማመሳሰል፣ ቀን ማከል እና ሴኪውሪቲ
-# ----------------------------------------------------
 @server.route('/api/withdraw', methods=['POST'])
 def handle_withdraw():
-    data = request.json or request.form or {}
+    data = request.json or {}
     user_id = data.get("user_id")
     user_name = data.get("user_name", "የሰፈር ልጅ")
-    
-    try:
-        amount = float(data.get("amount", 0))
-    except (ValueError, TypeError):
-        amount = 0.0
-        
+    amount = float(data.get("amount", 0))
     phone = data.get("phone")
     bank_name = data.get("bank_name")
     account_name = data.get("account_name")
@@ -147,22 +122,13 @@ def handle_withdraw():
     if current_balance < amount:
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም"})
     
-    # ሴኪውሪቲ፡ የዊዝድሮው ጥያቄ እንደተላከ ተጠቃሚው ደግሞ ደጋግሞ እንዳይጠይቅ ወዲያውኑ ባላንሱን እንቀንሳለን
-    redis.hincrbyfloat("users:balance", user_id, -amount)
-    
     tx_id = str(uuid.uuid4())[:8]
     tx_data = {"user_id": user_id, "amount": amount, "type": "withdraw", "status": "pending"}
     redis.set(f"tx:{tx_id}", json.dumps(tx_data))
     
-    # የኪስ ታሪክ አቀራረብ ማስተካከያ (ስያሜውን "ብር ማውጫ" አድርገነዋል)
     history_data = redis.get(f"history:{user_id}")
     history_list = json.loads(history_data) if history_data else []
-    history_list.insert(0, {
-        "type": "ብር ማውጫ", 
-        "amount": amount, 
-        "status": "pending",
-        "date": get_eat_time()  # ትክክለኛ ቀንና ሰዓት
-    })
+    history_list.insert(0, {"type": "ወጪ", "amount": amount, "status": "pending"})
     redis.set(f"history:{user_id}", json.dumps(history_list))
     
     markup = InlineKeyboardMarkup()
@@ -175,179 +141,105 @@ def handle_withdraw():
     bot.send_message(ADMIN_ID, msg, reply_markup=markup)
     return jsonify({"status": "success"})
 
-
-
 # ==========================================
-# G1. Coin Flip Core Logic (Chaos & Anti-Pattern Logic)
+# ዩኒቨርሳል የጨዋታ ውጤት ማዕከል
 # ==========================================
-@server.route('/api/coin_flip', methods=['POST'])
-def coin_flip():
+@server.route('/api/race_result', methods=['POST'])
+def race_result():
     data = request.json or {}
     user_id = data.get("user_id")
     bet_amount = float(data.get("bet_amount", 0))
-    choice = data.get("choice")
+    did_win = data.get("did_win", False)
+    win_amount = float(data.get("win_amount", 0))
+    details = data.get("details", "የሰፈር ጨዋታ")
+
+    if not user_id or bet_amount <= 0:
+        return jsonify({"status": "error", "message": "ትክክለኛ ያልሆነ መረጃ"}), 400
+
+    current_balance = float(redis.hget("users:balance", user_id) or 0.0)
     
-    if not user_id or bet_amount <= 0 or not choice:
-        return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ!"})
+    # ተጫዋቹ ከተሸነፈ ባላንሱ ካስያዘው ያነሰ መሆን የለበትም (የሴኩሪቲ ቼክ)
+    if not did_win and current_balance < bet_amount:
+         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
+
+    if did_win:
+        # ያሸነፈው ጠቅላላ ብር (Win Amount) ሲቀነስ ያስያዘው (Bet) የተጣራ ትርፍ ይሰጠናል
+        net_change = win_amount - bet_amount
+        redis.hincrbyfloat("users:balance", user_id, net_change)
+    else:
+        redis.hincrbyfloat("users:balance", user_id, -bet_amount)
+
+    # ታሪክ መመዝገቢያ
+    history_data = redis.get(f"history:{user_id}")
+    history_list = json.loads(history_data) if history_data else []
+    status_str = "አሸንፏል 🎉" if did_win else "ተሸንፏል 😞"
+    history_list.insert(0, {"type": f"{details}", "amount": bet_amount, "status": status_str})
+    redis.set(f"history:{user_id}", json.dumps(history_list))
+
+    return jsonify({"status": "success"})
+
+# ==========================================
+# የጨዋታ ማስጀመሪያ ፈቃድ ኤፒአይ
+# ==========================================
+@server.route('/api/start_game', methods=['POST'])
+def start_game():
+    data = request.json or {}
+    user_id = data.get("user_id")
+    bet_amount = float(data.get("bet_amount", 0))
+    
+    if not user_id or bet_amount <= 0:
+        return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
         
     current_balance = float(redis.hget("users:balance", user_id) or 0.0)
     if current_balance < bet_amount:
-        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"})
-        
-    # ----------------------------------------------------
-    # የላቀ የውዥንብር መፍጠሪያ ሎጂክ (Anti-Pattern / Chaos Logic)
-    # ----------------------------------------------------
-    history_key = f"coin_flip_history:{user_id}"
-    raw_streak_history = redis.get(history_key)
-    streak_history = json.loads(raw_streak_history) if raw_streak_history else []
-    
-    sides = ["ዘውድ", "ጎፈር"]
-    
-    # 1. በየጨዋታው በዘፈቀደ የሚቀያየር የዕድል መጠን (Dynamic Noise)
-    # ይህ ተጫዋቹ የትኛው ላይ ትልቅ ዕድል እንዳለ እንዳያውቅ ያደርጋል
-    noise_factor = random.uniform(0.15, 0.45) 
-    opposite_factor = 1.0 - noise_factor
-    
-    weights = [0.5, 0.5] # ነባሪ እኩል 50%
-    
-    if len(streak_history) >= 2:
-        last_two = streak_history[-2:]
-        
-        # አልፎ አልፎ (20% ዕድል) ሆን ብሎ ተከታታይ እንዲወጣ መፍቀድ (The Bait/ወጥመድ)
-        let_it_streak = random.random() < 0.20
-        
-        if not let_it_streak:
-            # በተከታታይ 2 ወይም ከዚያ በላይ "ዘውድ" ከወጣ፣ ቀጣዩን "ዘውድ" የመሆን ዕድሉን እጅግ እንቀንሳለን
-            if all(val == "ዘውድ" for val in last_two):
-                weights = [noise_factor, opposite_factor] # ዘውድ በጣም ዝቅተኛ ዕድል አለው
-                
-            # በተከታታይ 2 ወይም ከዚያ በላይ "ጎፈር" ከወጣ፣ ቀጣዩን "ጎፈር" የመሆን ዕድሉን እጅግ እንቀንሳለን
-            elif all(val == "ጎፈር" for val in last_two):
-                weights = [opposite_factor, noise_factor] # ጎፈር በጣም ዝቅተኛ ዕድል አለው
-                
-    # ውጤቱን በውዥንብር ክብደት መምረጥ
-    result = random.choices(sides, weights=weights, k=1)[0]
-    
-    # ታሪክ ማስቀመጥ (የመጨረሻዎቹን 5 ብቻ)
-    streak_history.append(result)
-    if len(streak_history) > 5:
-        streak_history.pop(0)
-    redis.set(history_key, json.dumps(streak_history))
-    # ----------------------------------------------------
-    
-    user_name = redis.hget("users:username", user_id) or f"ተጫዋች_{str(user_id)[-4:]}"
-    
-    if choice == result:
-        current_streak = int(redis.hincrby("users:current_streak", user_id, 1))
-        
-        if current_streak == 3:
-            bonus_amount = bet_amount * 1.5
-            redis.hincrbyfloat("users:balance", user_id, bonus_amount)
-            msg = f"🪙 ውጤቱ {result} ሆኗል! 🔥 የ 3x STREAK ቦነስ ጨምሮ {bet_amount + bonus_amount} ብር አሸንፈዋል! 🎉"
-        else:
-            redis.hincrbyfloat("users:balance", user_id, bet_amount)
-            msg = f"🪙 ውጤቱ {result} ሆኗል! እንኳን ደስ አለዎት {bet_amount * 2} ብር አሸንፈዋል! 🎉"
-            
-        status = "win"
-        status_history = "አሸንፏል 🎉"
-        
-        best_streak = int(redis.hget("users:best_streak", user_id) or 0)
-        if current_streak > best_streak:
-            redis.hset("users:best_streak", user_id, current_streak)
-            redis.zadd("leaderboard:streaks", {f"{user_name}": current_streak})
-            
-    else:
-        redis.hset("users:current_streak", user_id, 0)
-        redis.hincrbyfloat("users:balance", user_id, -bet_amount)
-        status = "lose"
-        msg = f"🪙 ውጤቱ {result} ሆኗል! ይቅርታ፣ {bet_amount} ብር ተሸንፈዋል።"
-        status_history = "ተሸንፏል 😞"
-        
-    new_balance = float(redis.hget("users:balance", user_id) or 0.0)
-    
-    # ታሪክ መዝገብ
-    history_data = redis.get(f"history:{user_id}")
-    history_list = json.loads(history_data) if history_data else []
-    history_list.insert(0, {"type": f"ዘውድና ጎፈር ({choice})", "amount": bet_amount, "status": status_history})
-    redis.set(f"history:{user_id}", json.dumps(history_list))
-    
-    return jsonify({
-        "status": status, 
-        "result": result, 
-        "message": msg,
-        "new_balance": new_balance
-    })
+        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
+
+    return jsonify({"status": "ready"})
 
 # ==========================================
-# G2. Fortune Wheel API (Daily Cooldown System)
+# የዘውድና ጎፈር ጨዋታ ሎጂክ (የተስተካከለ)
 # ==========================================
-@server.route('/api/claim_daily', methods=['POST'])
-def claim_daily():
+@server.route('/api/coin_flip', methods=['POST'])
+def coin_flip_game():
     data = request.json or {}
     user_id = data.get("user_id")
+    choice = data.get("choice")  # 'ዘውድ' ወይም 'ጎፈር'
+    bet_amount = float(data.get("bet_amount", 0))
+
+    if not user_id or bet_amount <= 0 or not choice:
+        return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
+
+    current_balance = float(redis.hget("users:balance", user_id) or 0.0)
+    if current_balance < bet_amount:
+        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
+
+    sides = ["ዘውድ", "ጎፈር"]
+    winning_side = random.choice(sides)
+    did_win = (choice == winning_side)
     
-    if not user_id:
-        return jsonify({"status": "error", "message": "Missing user_id"}), 400
-        
-    # በየ 24 ሰዓቱ (86400 ሰከንድ) አንድ ጊዜ ብቻ እንዲሽከረከር መቆጣጠሪያ ኪይ (Key)
-    cooldown_key = f"daily_cooldown:{user_id}"
-    is_claimed = redis.get(cooldown_key)
-    
-    if is_claimed:
-        return jsonify({"status": "error", "message": "የዕለቱን ነጻ ዕድል አስቀድመው ወስደዋል! ከ24 ሰዓት በኋላ ይሞክሩ።"})
-        
-    # በነባሪነት የሩሌቱ ዕድሎች (1, 2, 3, 4, 5 ብር)
-    wheel_options = [1, 2, 3, 4, 5]
-    gift_amount = random.choice(wheel_options)
-    
-    # ባላንስ ላይ መጨመር
-    redis.hincrbyfloat("users:balance", user_id, float(gift_amount))
-    
-    # የ 24 ሰዓት ገደብ ማስቀመጥ (TTL = 86400)
-    redis.setex(cooldown_key, 86400, "claimed")
-    
-    # ወደ ታሪክ መዝገብ ማስገባት
+    # ማስታወሻ፡ ፍሮንትአንዱ ውጤቱን በቀጥታ ወደ /api/race_result የማይልክ ከሆነ 
+    # ሂሳቡ እዚህ ላይ ብቻ እንዲቀነስ/እንዲደመር ማድረግ ይቻላል። 
+    # ነገር ግን ሁለቱንም ኤፒአይ የሚጠቀም ከሆነ እዚህ ጋር ባላንስ መቀየር የለብንም።
+    # ለደህንነት ሲባል እዚህ ጋር ብቻ ቀጥታ እናሰላውና ታሪክ ላይ እንመዝግበው፡
+    if did_win:
+        net_change = bet_amount
+        redis.hincrbyfloat("users:balance", user_id, net_change)
+        message = f"🎉 እንኳን ደስ አለዎት! ሳንቲሙ {winning_side} ወጥቷል። {bet_amount * 2} ብር አሸንፈዋል!"
+        status_str = "አሸንፏል 🎉"
+    else:
+        redis.hincrbyfloat("users:balance", user_id, -bet_amount)
+        message = f"😞 መጥፎ እድል! ሳንቲሙ {winning_side} ወጥቷል። {bet_amount} ብር ተበልተዋል!"
+        status_str = "ተሸንፏል 😞"
+
     history_data = redis.get(f"history:{user_id}")
     history_list = json.loads(history_data) if history_data else []
-    history_list.insert(0, {"type": "ነጻ ሩሌት ስጦታ 🎁", "amount": float(gift_amount), "status": "ተጠናቋል"})
+    history_list.insert(0, {"type": f"ዘውድና ጎፈር ({choice})", "amount": bet_amount, "status": status_str})
     redis.set(f"history:{user_id}", json.dumps(history_list))
-    
-    return jsonify({
-        "status": "success",
-        "gift_amount": gift_amount,
-        "message": f"እንኳን ደስ አለዎት! {gift_amount} ብር ወደ አካውንትዎ ተጨምሯል።"
-    })
+
+    return jsonify({"status": "success", "message": message, "did_win": did_win, "winning_side": winning_side})
 
 # ==========================================
-# G3. Leaderboard API (Top 5 Active Streak Heroes)
-# ==========================================
-@server.route('/api/get_leaderboard', methods=['POST'])
-def get_leaderboard():
-    try:
-        # ከRedis Sorted Set ላይ ከፍተኛ የ-Streak ውጤት ያላቸውን ምርጥ 5 ተጫዋቾች በቅደም ተከተል መውሰድ
-        # ZREVRANGEBYSCORE ወይም zrevrange በ upstash-redis አጠቃቀም መሠረት
-        top_leaders = redis.zrevrange("leaderboard:streaks", 0, 4, withscores=True)
-        
-        leaders_list = []
-        # top_leaders ፎርማት [['ዮናስ', 8], ['ሳሚ', 6]...] ሊሆን ይችላል
-        for leader in top_leaders:
-            name = leader[0]
-            streak_score = int(leader[1])
-            leaders_list.append({
-                "user_name": name,
-                "streak": streak_score
-            })
-            
-        return jsonify({
-            "status": "success",
-            "leaders": leaders_list
-        })
-    except Exception as e:
-        print(f"Leaderboard Error: {e}")
-        return jsonify({"status": "error", "message": "ሊደርቦርዱን ማምጣት አልተቻለም"}), 500
-
-# ==========================================
-# Callback & Webhook Handlers
+# Callback Handler (Admin Actions)
 # ==========================================
 @bot.callback_query_handler(func=lambda call: call.data.startswith("ok") or call.data.startswith("no"))
 def process_admin_action(call):
@@ -394,18 +286,15 @@ def webhook():
     bot.process_new_updates([update])
     return 'OK', 200
 
+# ==========================================
+# Telegram Commands
+# ==========================================
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    user_id = message.from_user.id
-    first_name = message.from_user.first_name or "የሰፈር ልጅ"
-    
-    # የተጠቃሚውን ስም ለሊደርቦርድ እንዲያገለግል በRedis ማስቀመጥ
-    redis.hset("users:username", user_id, first_name)
-    
     web_app_info = WebAppInfo(url=WEB_APP_URL)
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("🎮 Play", web_app=web_app_info))
-    bot.reply_to(message, f"እንኳን ደህና መጡ {first_name}! ጨዋታዎችን ለመጀመር Play ን ይጫኑ።", reply_markup=markup)
+    bot.reply_to(message, "እንኳን ደህና መጡ! ጨዋታዎችን ለመጀመር Play ን ይጫኑ።", reply_markup=markup)
 
 if __name__ == "__main__":
     server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
