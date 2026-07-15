@@ -8,10 +8,23 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        /* Base Styles & Typography */
+        :root {
+            --bg-main: #121418;
+            --bg-panel: #1f2126;
+            --bg-input: #000000;
+            --text-main: #ffffff;
+            --text-muted: #888888;
+            --color-red: #e50b2c;
+            --color-green: #28a745;
+            --color-purple: #c458d6;
+            --color-blue: #3498db;
+        }
+
         body {
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #000000;
-            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
             margin: 0;
             padding: 0;
             display: flex;
@@ -22,129 +35,135 @@
             user-select: none;
         }
 
-        .header-nav {
+        .app-container {
             width: 100%;
             max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-main);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header-nav {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 15px;
-            background-color: #1a1a1a;
-            box-sizing: border-box;
-            border-bottom: 1px solid #333;
+            padding: 12px 15px;
+            background-color: #1a1b1f;
+            border-bottom: 1px solid #2a2b2e;
         }
 
-        .logo { font-size: 1.5rem; font-weight: 900; color: #e50b2c; font-style: italic; }
-        .wallet-display { font-weight: bold; color: #28a745; font-size: 1.1rem; }
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .close-btn { color: #fff; font-size: 1.2rem; cursor: pointer; }
+        .logo { font-size: 1.4rem; font-weight: 900; color: var(--color-red); font-style: italic; font-family: impact, sans-serif; letter-spacing: 1px;}
+        
+        .header-right { display: flex; align-items: center; gap: 10px; }
+        .wallet-display { font-weight: 700; color: var(--color-green); font-size: 1rem; }
+        .menu-btn { color: var(--text-muted); cursor: pointer; font-size: 1.1rem; }
 
         /* History Bar */
         #historyBar {
-            width: 100%;
-            max-width: 500px;
             display: flex;
-            gap: 6px;
-            padding: 8px 10px;
-            background-color: #0d0d0d;
+            gap: 12px;
+            padding: 10px 15px;
+            background-color: var(--bg-main);
             overflow-x: auto;
             white-space: nowrap;
-            box-sizing: border-box;
             scrollbar-width: none;
+            border-bottom: 1px solid #2a2b2e;
         }
         #historyBar::-webkit-scrollbar { display: none; }
-        .history-chip {
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-weight: bold;
-            font-size: 0.85rem;
-            background-color: #1e1e1e;
-            border: 1px solid #333;
-        }
-        .color-blue { color: #3498db; }
-        .color-purple { color: #9b59b6; }
+        .history-item { font-size: 0.9rem; font-weight: 700; }
+        .color-purple { color: var(--color-purple); }
+        .color-blue { color: var(--color-blue); }
         .color-pink { color: #e84393; }
 
         /* Game Area */
         #gameContainer {
             position: relative;
             width: 100%;
-            max-width: 500px;
-            background-color: #111;
+            background-color: #050505;
             aspect-ratio: 16 / 10;
             overflow: hidden;
-            border-bottom: 3px solid #e50b2c;
-            border-bottom-left-radius: 15px;
-            border-bottom-right-radius: 15px;
+            margin-bottom: 5px;
+            border-bottom: 2px solid #222;
         }
         canvas { display: block; width: 100%; height: 100%; }
 
         #multiplierDisplay {
             position: absolute;
-            top: 40%;
+            top: 45%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 4.5rem;
+            font-size: 5rem;
             font-weight: 900;
             color: #ffffff;
             z-index: 5;
-            text-shadow: 2px 2px 10px rgba(0,0,0,0.5);
-            transition: color 0.2s;
+            font-family: Arial, sans-serif;
+            text-shadow: 0px 4px 15px rgba(0,0,0,0.8);
         }
 
         #statusText {
             position: absolute;
-            top: 65%;
+            top: 75%;
             left: 50%;
             transform: translateX(-50%);
-            font-size: 1rem;
-            color: #e50b2c;
-            font-weight: bold;
+            font-size: 0.9rem;
+            color: var(--color-red);
+            font-weight: 800;
             z-index: 5;
+            letter-spacing: 1px;
             display: none;
         }
 
-        /* Controls Container (Dual Bets) */
+        /* Controls Container */
         .controls-container {
-            width: 100%;
-            max-width: 500px;
-            padding: 10px;
-            box-sizing: border-box;
+            padding: 8px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
+            flex: 1;
         }
 
         .bet-panel {
-            background-color: #242424;
+            background-color: var(--bg-panel);
             border-radius: 12px;
-            padding: 10px;
+            padding: 12px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            border: 1px solid #333;
+            gap: 12px;
         }
 
+        /* Tabs */
         .panel-tabs {
             display: flex;
             justify-content: center;
-            gap: 10px;
-            margin-bottom: 5px;
+            background-color: var(--bg-input);
+            border-radius: 20px;
+            width: fit-content;
+            margin: 0 auto;
+            padding: 2px;
         }
         .tab {
             background: none;
             border: none;
-            color: #888;
-            font-size: 0.9rem;
-            font-weight: bold;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 700;
             cursor: pointer;
-            padding: 5px 15px;
+            padding: 6px 30px;
             border-radius: 20px;
+            transition: 0.2s;
         }
-        .tab.active { background-color: #333; color: #fff; }
+        .tab.active { background-color: #31343b; color: #fff; }
 
+        /* Panel Body */
         .panel-body {
             display: flex;
             gap: 10px;
             align-items: stretch;
+            height: 90px;
         }
 
         /* Left Side: Inputs */
@@ -152,24 +171,30 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 6px;
         }
 
         .stepper {
             display: flex;
             align-items: center;
-            background-color: #111;
-            border: 1px solid #444;
-            border-radius: 8px;
-            height: 40px;
+            justify-content: space-between;
+            background-color: var(--bg-input);
+            border-radius: 25px;
+            height: 42px;
+            padding: 0 4px;
         }
         .stepper-btn {
-            background: none;
+            background-color: #2b2d33;
             border: none;
-            color: #aaa;
+            color: #fff;
             font-size: 1.2rem;
-            width: 40px;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .stepper input {
             flex: 1;
@@ -177,7 +202,7 @@
             border: none;
             color: #fff;
             font-size: 1.1rem;
-            font-weight: bold;
+            font-weight: 900;
             text-align: center;
             width: 100%;
             outline: none;
@@ -186,127 +211,172 @@
         .quick-bets {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 5px;
+            gap: 6px;
+            height: 100%;
         }
         .quick-btn {
-            background-color: #111;
-            border: 1px solid #444;
+            background-color: var(--bg-input);
+            border: none;
             color: #ccc;
-            border-radius: 6px;
-            padding: 5px;
-            font-size: 0.9rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
             cursor: pointer;
-            font-weight: bold;
+            font-weight: 700;
+            transition: 0.1s;
         }
+        .quick-btn:active { background-color: #222; }
 
         /* Right Side: Big Button */
         .action-section {
-            flex: 1;
+            flex: 1.1;
             display: flex;
         }
         .action-btn {
             width: 100%;
             border: none;
-            border-radius: 12px;
-            font-size: 1.2rem;
-            font-weight: 900;
-            color: white;
+            border-radius: 14px;
             cursor: pointer;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             text-transform: uppercase;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            transition: 0.1s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
         }
-        .action-btn:active { transform: scale(0.98); }
+        .action-btn:active { transform: scale(0.97); }
 
-        /* Button Colors */
-        .btn-bet { background-color: #28a745; box-shadow: inset 0 2px 0 rgba(255,255,255,0.2), 0 2px 5px rgba(0,0,0,0.5); }
+        .btn-title { font-size: 1.4rem; font-weight: 900; color: white; letter-spacing: 1px;}
+        .btn-subtext { font-size: 0.9rem; font-weight: 700; color: rgba(255,255,255,0.9); margin-top: 2px; }
+
+        /* Button Status Colors */
+        .btn-bet { background-color: #28a745; }
         .btn-cancel { background-color: #cb2027; }
         .btn-cashout { background-color: #d35400; }
         .btn-disabled { background-color: #333 !important; color: #666 !important; cursor: not-allowed; }
 
-        .btn-subtext { font-size: 0.8rem; font-weight: normal; margin-top: 2px; }
+        /* Bottom Nav (Aesthetic matching) */
+        .bottom-nav {
+            display: flex;
+            justify-content: space-around;
+            background-color: #1a1b1f;
+            border-radius: 20px;
+            margin: 10px;
+            padding: 5px;
+        }
+        .nav-item {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 8px 20px;
+            border-radius: 15px;
+        }
+        .nav-item.active { background-color: #2b2d33; color: #fff; }
 
     </style>
 </head>
 <body>
 
-    <div class="header-nav">
-        <div style="display: flex; align-items: center;">
-            <i class="fas fa-times" onclick="closeApp()" style="color: #fff; font-size: 1.4rem; margin-right: 15px; cursor: pointer;"></i>
-            <div class="logo">Aviator</div>
-        </div>
-        <div class="wallet-display">
-            <span id="balanceDisplay">0.00</span> ETB
-            <i class="fas fa-bars" style="color: #666; margin-left: 10px; cursor: pointer;"></i>
-        </div>
-    </div>
-
-    <div id="historyBar">
-        </div>
-
-    <div id="gameContainer">
-        <div id="multiplierDisplay">1.00x</div>
-        <div id="statusText">WAITING FOR NEXT ROUND</div>
-        <canvas id="gameCanvas" width="800" height="500"></canvas>
-    </div>
-
-    <div class="controls-container">
-        <div class="bet-panel" id="panel1">
-            <div class="panel-tabs">
-                <button class="tab active">Bet</button>
-                <button class="tab">Auto</button>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="header-nav">
+            <div class="header-left">
+                <i class="fas fa-times close-btn" onclick="closeApp()"></i>
+                <div class="logo">Aviator</div>
             </div>
-            <div class="panel-body">
-                <div class="input-section">
-                    <div class="stepper">
-                        <button class="stepper-btn" onclick="adjustBetUI(1, -5)">-</button>
-                        <input type="number" id="betInput1" value="20" min="2" step="1" readonly>
-                        <button class="stepper-btn" onclick="adjustBetUI(1, 5)">+</button>
-                    </div>
-                    <div class="quick-bets">
-                        <button class="quick-btn" onclick="setBetUI(1, 20)">20</button>
-                        <button class="quick-btn" onclick="setBetUI(1, 40)">40</button>
-                        <button class="quick-btn" onclick="setBetUI(1, 80)">80</button>
-                        <button class="quick-btn" onclick="setBetUI(1, 400)">400</button>
-                    </div>
-                </div>
-                <div class="action-section">
-                    <button id="btnAction1" class="action-btn btn-bet" onclick="handleAction(1)">
-                        BET <div class="btn-subtext" id="btnSub1">20.00 ETB</div>
-                    </button>
-                </div>
+            <div class="header-right">
+                <div class="wallet-display"><span id="balanceDisplay">3.00</span> ETB</div>
+                <i class="fas fa-bars menu-btn"></i>
+                <i class="far fa-comment menu-btn"></i>
             </div>
         </div>
 
-        <div class="bet-panel" id="panel2">
-            <div class="panel-tabs">
-                <button class="tab active">Bet</button>
-                <button class="tab">Auto</button>
-            </div>
-            <div class="panel-body">
-                <div class="input-section">
-                    <div class="stepper">
-                        <button class="stepper-btn" onclick="adjustBetUI(2, -5)">-</button>
-                        <input type="number" id="betInput2" value="20" min="2" step="1" readonly>
-                        <button class="stepper-btn" onclick="adjustBetUI(2, 5)">+</button>
+        <!-- Multiplier History -->
+        <div id="historyBar">
+            <span class="history-item color-purple">5.48x</span>
+            <span class="history-item color-purple">14.57x</span>
+            <span class="history-item color-blue">1.28x</span>
+            <span class="history-item color-purple">2.68x</span>
+            <span class="history-item color-blue">1.44x</span>
+            <span class="history-item color-purple">4.36x</span>
+            <span class="history-item color-blue">2.02x</span>
+        </div>
+
+        <!-- Game Area -->
+        <div id="gameContainer">
+            <div id="multiplierDisplay">1.00x</div>
+            <div id="statusText">WAITING FOR NEXT ROUND</div>
+            <canvas id="gameCanvas" width="800" height="500"></canvas>
+        </div>
+
+        <!-- Controls Area -->
+        <div class="controls-container">
+            
+            <!-- Panel 1 -->
+            <div class="bet-panel" id="panel1">
+                <div class="panel-tabs">
+                    <button class="tab active">Bet</button>
+                    <button class="tab">Auto</button>
+                </div>
+                <div class="panel-body">
+                    <div class="input-section">
+                        <div class="stepper">
+                            <button class="stepper-btn" onclick="adjustBetUI(1, -5)">-</button>
+                            <input type="number" id="betInput1" value="20.00" min="2" step="1" readonly>
+                            <button class="stepper-btn" onclick="adjustBetUI(1, 5)">+</button>
+                        </div>
+                        <div class="quick-bets">
+                            <button class="quick-btn" onclick="setBetUI(1, 20)">20</button>
+                            <button class="quick-btn" onclick="setBetUI(1, 40)">40</button>
+                            <button class="quick-btn" onclick="setBetUI(1, 80)">80</button>
+                            <button class="quick-btn" onclick="setBetUI(1, 400)">400</button>
+                        </div>
                     </div>
-                    <div class="quick-bets">
-                        <button class="quick-btn" onclick="setBetUI(2, 25)">25</button>
-                        <button class="quick-btn" onclick="setBetUI(2, 30)">30</button>
-                        <button class="quick-btn" onclick="setBetUI(2, 20)">20</button>
-                        <button class="quick-btn" onclick="setBetUI(2, 15)">15</button>
+                    <div class="action-section">
+                        <button id="btnAction1" class="action-btn btn-bet" onclick="handleAction(1)">
+                            <div class="btn-title">BET</div>
+                            <div class="btn-subtext" id="btnSub1">20.00 ETB</div>
+                        </button>
                     </div>
                 </div>
-                <div class="action-section">
-                    <button id="btnAction2" class="action-btn btn-bet" onclick="handleAction(2)">
-                        BET <div class="btn-subtext" id="btnSub2">10.00 ETB</div>
-                    </button>
+            </div>
+
+            <!-- Panel 2 -->
+            <div class="bet-panel" id="panel2">
+                <div class="panel-tabs">
+                    <button class="tab active">Bet</button>
+                    <button class="tab">Auto</button>
+                </div>
+                <div class="panel-body">
+                    <div class="input-section">
+                        <div class="stepper">
+                            <button class="stepper-btn" onclick="adjustBetUI(2, -5)">-</button>
+                            <input type="number" id="betInput2" value="20.00" min="2" step="1" readonly>
+                            <button class="stepper-btn" onclick="adjustBetUI(2, 5)">+</button>
+                        </div>
+                        <div class="quick-bets">
+                            <button class="quick-btn" onclick="setBetUI(2, 20)">20</button>
+                            <button class="quick-btn" onclick="setBetUI(2, 40)">40</button>
+                            <button class="quick-btn" onclick="setBetUI(2, 80)">80</button>
+                            <button class="quick-btn" onclick="setBetUI(2, 400)">400</button>
+                        </div>
+                    </div>
+                    <div class="action-section">
+                        <button id="btnAction2" class="action-btn btn-bet" onclick="handleAction(2)">
+                            <div class="btn-title">BET</div>
+                            <div class="btn-subtext" id="btnSub2">20.00 ETB</div>
+                        </button>
+                    </div>
                 </div>
             </div>
+            
+            <!-- Aesthetic Bottom Nav (Like in screenshot) -->
+            <div class="bottom-nav">
+                <div class="nav-item active">All Bets</div>
+                <div class="nav-item">Previous</div>
+                <div class="nav-item">Top</div>
+            </div>
+
         </div>
     </div>
 
@@ -319,12 +389,26 @@
             }
         }
 
+        // Ensures input values maintain the .00 decimal format for aesthetics
+        function formatBetValue(inputEl) {
+            let val = parseFloat(inputEl.value);
+            if (!isNaN(val)) {
+                inputEl.value = val.toFixed(2);
+            }
+        }
+
         function setBetUI(panel, amount) {
-            if (typeof setBet === "function") setBet(panel, amount);
+            if (typeof setBet === "function") {
+                setBet(panel, amount);
+                setTimeout(() => formatBetValue(document.getElementById('betInput' + panel)), 10);
+            }
         }
 
         function adjustBetUI(panel, delta) {
-            if (typeof adjustBet === "function") adjustBet(panel, delta);
+            if (typeof adjustBet === "function") {
+                adjustBet(panel, delta);
+                setTimeout(() => formatBetValue(document.getElementById('betInput' + panel)), 10);
+            }
         }
     </script>
     
