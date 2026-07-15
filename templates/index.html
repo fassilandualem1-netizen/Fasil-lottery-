@@ -475,7 +475,7 @@
 
         .modal-content h3 { margin: 0; color: var(--text-color); text-align: center;}
         
-        .modal-content input[type="number"], .modal-content input[type="text"], .modal-content input[type="tel"] {
+        .modal-content input[type="number"], .modal-content input[type="text"], .modal-content input[type="tel"], .modal-content select {
             background-color: var(--bg-color);
             border: 1px solid rgba(255, 255, 255, 0.2);
             padding: 12px;
@@ -856,10 +856,18 @@
     <div class="modal" id="withdrawModal">
         <div class="modal-content">
             <h3>💸 ብር ማውጫ</h3>
-            <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">ዕቃውን ለማውጣት መረጃውን ይሙሉ</p>
+            <p style="font-size: 0.85rem; color: #ccc; margin: 0; text-align: center;">ማውጣት የሚፈልጉትን መረጃ ይሙሉ</p>
             
-            <input type="text" id="wit-acc-name" placeholder="ሙሉ ስም">
-            <input type="tel" id="wit-phone" placeholder="የባንክ አካውንት ወይም ስልክ ቁጥር" pattern="[0-9]*" inputmode="numeric">
+            <input type="text" id="wit-acc-name" placeholder="የባንክ አካውንት ሙሉ ስም">
+            <select id="wit-bank" style="background-color: var(--bg-color); color: var(--light-text); border: 1px solid rgba(255, 255, 255, 0.2); padding: 12px; border-radius: 8px;">
+                <option value="" disabled selected>ባንክ ይምረጡ</option>
+                <option value="CBE">የኢትዮጵያ ንግድ ባንክ (CBE)</option>
+                <option value="Telebirr">ቴሌብር (Telebirr)</option>
+                <option value="Abyssinia">አቢሲኒያ ባንክ</option>
+                <option value="Awash">አዋሽ ባንክ</option>
+                <option value="Coop">ኅብረት ሥራ ከፍታ ባንክ (Coop)</option>
+            </select>
+            <input type="tel" id="wit-phone" placeholder="የአካውንት ቁጥር ወይም ስልክ ቁጥር" pattern="[0-9]*" inputmode="numeric">
             <input type="number" id="wit-amount" placeholder="የብር መጠን (ቢያንስ 10 ብር)" pattern="[0-9]*" inputmode="numeric">
             
             <div class="modal-buttons">
@@ -1637,16 +1645,20 @@
             });
         }
 
-        // SIMPLIFIED SUBMIT WITHDRAW
+        // ==========================================
+        // 1. የገንዘብ ማውጫ (Withdraw) የተስተካከለ
+        // ==========================================
         function submitWithdraw() {
             const accName = document.getElementById('wit-acc-name').value.trim();
+            const bankSelect = document.getElementById('wit-bank');
+            const bankName = bankSelect.value;
             const phone = document.getElementById('wit-phone').value.trim();
             const amount = parseFloat(document.getElementById('wit-amount').value);
             const submitBtn = document.getElementById('wit-submit-btn');
 
-            if (!accName || !phone || isNaN(amount)) {
+            if (!accName || !bankName || !phone || isNaN(amount)) {
                 triggerHaptic('notification', 'error');
-                tg.showAlert("እባክዎ ሁሉንም መረጃዎች በትክክል ያስገቡ!");
+                tg.showAlert("እባክዎ ሁሉንም መረጃዎች በትክክል ይሙሉ እና ባንክ መምረጥዎን ያረጋግጡ!");
                 return;
             }
 
@@ -1664,7 +1676,6 @@
 
             submitBtn.disabled = true;
 
-            // ለቀላልነት ሲባል ባንክ ስም እና የተጠቃሚ ስልክ ላይ 'Simple Transfer' እና 'N/A' ይሞላሉ
             fetch('/api/withdraw', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1673,8 +1684,8 @@
                     user_name: userName,
                     amount: amount,
                     account_number: phone,
-                    phone_number: 'N/A',
-                    bank_name: 'Simple Transfer',
+                    phone_number: phone,
+                    bank_name: bankName,
                     account_name: accName
                 })
             })
@@ -1708,6 +1719,7 @@
 
         function clearWithdrawForm() {
             document.getElementById('wit-acc-name').value = '';
+            document.getElementById('wit-bank').selectedIndex = 0;
             document.getElementById('wit-phone').value = '';
             document.getElementById('wit-amount').value = '';
         }
@@ -1736,6 +1748,9 @@
             }
         }
 
+        // ==========================================
+        // 2. የግብይት ታሪክ ማሳያ (History - ገቢ/ወጪ ብቻ)
+        // ==========================================
         function loadHistory() {
             const container = document.getElementById('history-container');
             container.innerHTML = '<p style="text-align: center; color: #8a8a8a;">በመጫን ላይ...</p>';
@@ -1747,18 +1762,19 @@
             })
             .then(res => res.json())
             .then(data => {
-                if (data.status === 'success' && data.history.length > 0) {
+                if (data.status === 'success' && data.history && data.history.length > 0) {
                     container.innerHTML = '';
                     const mappedHistory = data.history.map(item => {
                         let type = item.type;
-                        if (type.includes('Deposit')) type = 'ብር ማስገቢያ';
-                        if (type.includes('Withdraw')) type = 'ብር ማውጫ';
+                        if (type.includes('Deposit') || type.includes('deposit')) type = 'ብር ማስገቢያ';
+                        if (type.includes('Withdraw') || type.includes('withdraw')) type = 'ብር ማውጫ';
                         return {
                             ...item,
                             type: type
                         };
                     });
 
+                    // ገቢ፣ ወጪ እና የነጻ ዕድል ሩሌት ታሪኮች ብቻ እንዲጣሩ እናደርጋለን
                     const filteredHistory = mappedHistory.filter(item => 
                         item.type === 'ብር ማስገቢያ' || 
                         item.type === 'ብር ማውጫ' || 
@@ -1766,7 +1782,7 @@
                     );
 
                     if (filteredHistory.length > 0) {
-                        // Sync fetched history to local storage as well
+                        // Sync fetched history to local storage
                         localStorage.setItem('user_history_data', JSON.stringify(filteredHistory));
                         renderFromLocal();
                     } else {
@@ -1791,25 +1807,36 @@
                     const div = document.createElement('div');
                     div.className = 'history-item';
                     
-                    let statusColor = '#e94560'; // Red for pending/fail
-                    let statusText = 'በሂደት ላይ';
+                    let statusColor = '#ffd700'; // Default: Yellow
+                    let statusText = '⏳ በሂደት ላይ';
 
-                    if (item.status === 'completed' || item.status === 'approved' || item.status === 'ስኬታማ') {
+                    // የሁኔታዎችን (status) ምልክት እዚህ እንለያለን
+                    const normalizedStatus = String(item.status).toLowerCase();
+                    if (normalizedStatus === 'completed' || normalizedStatus === 'approved' || normalizedStatus === 'ስኬታማ' || normalizedStatus === 'success') {
                         statusColor = '#63e2b7'; // Green
-                        statusText = 'ተጠናቋል';
-                    } else if (item.status === 'pending') {
+                        statusText = '✅ ተጠናቋል';
+                    } else if (normalizedStatus === 'pending' || normalizedStatus === 'በመጠባበቅ ላይ') {
                         statusColor = '#ffd700'; // Yellow
-                        statusText = 'በመጠባበቅ ላይ';
+                        statusText = '⏳ በመጠባበቅ ላይ';
+                    } else if (normalizedStatus === 'refund' || normalizedStatus === 'refunded' || normalizedStatus === 'rejected' || normalizedStatus === 'ተመላሽ') {
+                        statusColor = '#2196F3'; // Blue
+                        statusText = '↩ ተመላሽ የተደረገ';
+                    } else {
+                        statusColor = '#e94560'; // Red for failed
+                        statusText = '❌ አልተሳካም';
                     }
+
+                    // ገቢ እና ወጪ ላይ አዶዎችን (📥 / 📤) ለመጨመር
+                    let typeIcon = item.type === 'ብር ማስገቢያ' ? '📥 ' : (item.type === 'ብር ማውጫ' ? '📤 ' : '🎁 ');
 
                     div.innerHTML = `
                         <div>
-                            <b>${item.type}</b>
-                            <div style="font-size: 0.75rem; color: #aaa; margin-top: 3px;">${item.date || ''}</div>
+                            <b>${typeIcon}${item.type}</b>
+                            <div style="font-size: 0.75rem; color: #aaa; margin-top: 3px;">${item.date || 'ቀን አልተገለጸም'}</div>
                         </div>
                         <div style="text-align: right;">
                             <div style="font-weight: bold; color: var(--light-text);">${parseFloat(item.amount).toFixed(2)} ብር</div>
-                            <span style="color: ${statusColor}; font-size: 0.8rem;">● ${statusText}</span>
+                            <span style="color: ${statusColor}; font-size: 0.8rem;">${statusText}</span>
                         </div>
                     `;
                     container.appendChild(div);
