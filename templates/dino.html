@@ -235,7 +235,10 @@
 <body>
 
     <div class="header-nav">
-        <div class="logo">Aviator</div>
+        <div style="display: flex; align-items: center;">
+            <i class="fas fa-times" onclick="closeApp()" style="color: #fff; font-size: 1.4rem; margin-right: 15px; cursor: pointer;"></i>
+            <div class="logo">Aviator</div>
+        </div>
         <div class="wallet-display">
             <span id="balanceDisplay">0.00</span> ETB
             <i class="fas fa-bars" style="color: #666; margin-left: 10px; cursor: pointer;"></i>
@@ -243,8 +246,7 @@
     </div>
 
     <div id="historyBar">
-        <!-- History chips will appear here -->
-    </div>
+        </div>
 
     <div id="gameContainer">
         <div id="multiplierDisplay">1.00x</div>
@@ -253,7 +255,6 @@
     </div>
 
     <div class="controls-container">
-        <!-- Panel 1 -->
         <div class="bet-panel" id="panel1">
             <div class="panel-tabs">
                 <button class="tab active">Bet</button>
@@ -262,15 +263,15 @@
             <div class="panel-body">
                 <div class="input-section">
                     <div class="stepper">
-                        <button class="stepper-btn" onclick="adjustBet(1, -5)">-</button>
-                        <input type="number" id="betInput1" value="20" min="2" step="1">
-                        <button class="stepper-btn" onclick="adjustBet(1, 5)">+</button>
+                        <button class="stepper-btn" onclick="adjustBetUI(1, -5)">-</button>
+                        <input type="number" id="betInput1" value="20" min="2" step="1" readonly>
+                        <button class="stepper-btn" onclick="adjustBetUI(1, 5)">+</button>
                     </div>
                     <div class="quick-bets">
-                        <button class="quick-btn" onclick="setBet(1, 20)">20</button>
-                        <button class="quick-btn" onclick="setBet(1, 40)">40</button>
-                        <button class="quick-btn" onclick="setBet(1, 80)">80</button>
-                        <button class="quick-btn" onclick="setBet(1, 400)">400</button>
+                        <button class="quick-btn" onclick="setBetUI(1, 20)">20</button>
+                        <button class="quick-btn" onclick="setBetUI(1, 40)">40</button>
+                        <button class="quick-btn" onclick="setBetUI(1, 80)">80</button>
+                        <button class="quick-btn" onclick="setBetUI(1, 400)">400</button>
                     </div>
                 </div>
                 <div class="action-section">
@@ -281,7 +282,6 @@
             </div>
         </div>
 
-        <!-- Panel 2 -->
         <div class="bet-panel" id="panel2">
             <div class="panel-tabs">
                 <button class="tab active">Bet</button>
@@ -290,27 +290,44 @@
             <div class="panel-body">
                 <div class="input-section">
                     <div class="stepper">
-                        <button class="stepper-btn" onclick="adjustBet(2, -5)">-</button>
-                        <input type="number" id="betInput2" value="20" min="2" step="1">
-                        <button class="stepper-btn" onclick="adjustBet(2, 5)">+</button>
+                        <button class="stepper-btn" onclick="adjustBetUI(2, -5)">-</button>
+                        <input type="number" id="betInput2" value="20" min="2" step="1" readonly>
+                        <button class="stepper-btn" onclick="adjustBetUI(2, 5)">+</button>
                     </div>
                     <div class="quick-bets">
-                        <button class="quick-btn" onclick="setBet(2, 20)">20</button>
-                        <button class="quick-btn" onclick="setBet(2, 40)">40</button>
-                        <button class="quick-btn" onclick="setBet(2, 80)">80</button>
-                        <button class="quick-btn" onclick="setBet(2, 400)">400</button>
+                        <button class="quick-btn" onclick="setBetUI(2, 25)">25</button>
+                        <button class="quick-btn" onclick="setBetUI(2, 30)">30</button>
+                        <button class="quick-btn" onclick="setBetUI(2, 20)">20</button>
+                        <button class="quick-btn" onclick="setBetUI(2, 15)">15</button>
                     </div>
                 </div>
                 <div class="action-section">
                     <button id="btnAction2" class="action-btn btn-bet" onclick="handleAction(2)">
-                        BET <div class="btn-subtext" id="btnSub2">20.00 ETB</div>
+                        BET <div class="btn-subtext" id="btnSub2">10.00 ETB</div>
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ይህ የJavascript ፋይል ከታች ባለው ኮድ መተካት አለበት -->
+    <script>
+        function closeApp() {
+            if (window.Telegram && window.Telegram.WebApp) {
+                Telegram.WebApp.close();
+            } else {
+                window.history.back();
+            }
+        }
+
+        function setBetUI(panel, amount) {
+            if (typeof setBet === "function") setBet(panel, amount);
+        }
+
+        function adjustBetUI(panel, delta) {
+            if (typeof adjustBet === "function") adjustBet(panel, delta);
+        }
+    </script>
+    
     <script src="{{ url_for('static', filename='js/dino.js') }}"></script>
 </body>
 </html>
