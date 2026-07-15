@@ -32,7 +32,32 @@ except Exception as e:
     print(f"Webhook Error: {e}")
 
 # ==========================================
-# Frontend Routes (Multi-page Template Routes)
+# 🛡️ Atomic Helper Functions (ለStability የተጨመሩ)
+# ==========================================
+
+def deduct_balance_safely(user_id: str, amount: float) -> str:
+    """
+    ይህ Lua Script በባላንስ ላይ Race condition እንዳይፈጠር በአቶሚክ ደረጃ 
+    ቼክ አድርጎ ሂሳቡን ይቀንሳል። (ስኬታማ ከሆነ 'SUCCESS' ካልሆነ 'INSUFFICIENT' ይመልሳል)
+    """
+    lua_script = """
+    local balance = tonumber(redis.call('HGET', 'users:balance', KEYS[1]) or "0")
+    local amount = tonumber(ARGV[1])
+    if balance < amount then
+        return "INSUFFICIENT"
+    end
+    redis.call('HINCRBYFLOAT', 'users:balance', KEYS[1], -amount)
+    return "SUCCESS"
+    """
+    try:
+        result = redis.eval(lua_script, [user_id], [amount])
+        return result
+    except Exception as e:
+        print(f"LUA Execution Error: {e}")
+        return "ERROR"
+
+# ==========================================
+# Frontend Routes
 # ==========================================
 @server.route('/')
 def index():
@@ -82,6 +107,7 @@ def handle_deposit():
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
 
     tx_id = str(uuid.uuid4())[:8]
+    # ለደህንነት ሲባል status እዚህ ላይ 'pending' ይደረጋል
     tx_data = {"user_id": user_id, "amount": amount, "type": "deposit", "status": "pending"}
     redis.set(f"tx:{tx_id}", json.dumps(tx_data))
     
@@ -118,11 +144,15 @@ def handle_withdraw():
     if not user_id or amount <= 0 or not phone or not bank_name or not account_name:
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
         
-    current_balance = float(redis.hget("users:balance", user_id) or 0.0)
-    if current_balance < amount:
-        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም"})
+    # [STABILITY FIX]: ገንዘቡን ወዲያውኑ ከዋናው ባላንስ ላይ እንቀንሳለን (Double spend ለመከላከል)
+    deduct_status = deduct_balance_safely(user_id, amount)
+    if deduct_status == "INSUFFICIENT":
+        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም"}), 400
+    elif deduct_status == "ERROR":
+        return jsonify({"status": "error", "message": "የሲስተም ስህተት ተፈጥሯል፣ እባክዎ እንደገና ይሞክሩ"}), 500
     
     tx_id = str(uuid.uuid4())[:8]
+    # ገንዘቡ አስቀድሞ ስለተቀነሰ tx_data ላይ እናስቀምጠዋለን
     tx_data = {"user_id": user_id, "amount": amount, "type": "withdraw", "status": "pending"}
     redis.set(f"tx:{tx_id}", json.dumps(tx_data))
     
@@ -134,7 +164,7 @@ def handle_withdraw():
     markup = InlineKeyboardMarkup()
     markup.add(
         InlineKeyboardButton("✅ ተከፍሏል", callback_data=f"ok|withdraw|{tx_id}|{user_id}|{amount}"),
-        InlineKeyboardButton("❌ ሰርዝ", callback_data=f"no|withdraw|{tx_id}|{user_id}|{amount}")
+        InlineKeyboardButton("❌ ሰርዝ (ተመላሽ አድርግ)", callback_data=f"no|withdraw|{tx_id}|{user_id}|{amount}")
     )
     
     msg = f"💸 <b>አዲስ Withdraw ጥያቄ</b>\n\n👤 ስም: {user_name}\n🆔 ID: {user_id}\n🏦 ባንክ: {bank_name}\n👤 የአካውንት ስም: {account_name}\n💳 አካውንት/ስልክ: {phone}\n💰 መጠን: {amount} ብር\n🔑 TxID: {tx_id}"
@@ -154,25 +184,28 @@ def coin_flip_game():
     if not user_id or bet_amount <= 0 or not choice:
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
 
-    current_balance = float(redis.hget("users:balance", user_id) or 0.0)
-    if current_balance < bet_amount:
+    # [STABILITY FIX]: ጨዋታው ከመጀመሩ በፊት ባላንሱን በአቶሚክ መንገድ እንቀንሳለን
+    deduct_status = deduct_balance_safely(user_id, bet_amount)
+    if deduct_status == "INSUFFICIENT":
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
+    elif deduct_status == "ERROR":
+        return jsonify({"status": "error", "message": "የሲስተም ስህተት ተከስቷል"}), 500
 
     sides = ["ዘውድ", "ጎፈር"]
     winning_side = random.choice(sides)
     did_win = (choice == winning_side)
     
     if did_win:
-        net_change = bet_amount
-        redis.hincrbyfloat("users:balance", user_id, net_change)
-        new_balance = current_balance + net_change
+        # ካሸነፈ የተወራረደበትን ጨምሮ እጥፍ እንመልስለታለን (Deduct ስለተደረገ አሁን የምንጨምረው bet_amount * 2 ነው)
+        redis.hincrbyfloat("users:balance", user_id, bet_amount * 2)
         status_str = "completed"
         game_status = "win"
     else:
-        redis.hincrbyfloat("users:balance", user_id, -bet_amount)
-        new_balance = current_balance - bet_amount
+        # ከተሸነፈ አስቀድሞ ስለተቀነሰ ምንም አንጨምርም
         status_str = "failed"
         game_status = "lose"
+
+    new_balance = float(redis.hget("users:balance", user_id) or 0.0)
 
     # የታሪክ ምዝገባ
     history_data = redis.get(f"history:{user_id}")
@@ -192,7 +225,7 @@ def coin_flip_game():
     })
 
 # ==========================================
-# 🎁 የዕለቱ ነጻ ዕድል (Claim Daily Bonus) - አዲስ የተጨመረ
+# 🎁 የዕለቱ ነጻ ዕድል (Claim Daily Bonus)
 # ==========================================
 @server.route('/api/claim_daily', methods=['POST'])
 def claim_daily():
@@ -201,9 +234,11 @@ def claim_daily():
     if not user_id:
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
 
-    # በየ24 ሰዓቱ አንድ ጊዜ ብቻ መሆኑን ለማረጋገጥ Redis Key እንጠቀማለን
     cooldown_key = f"daily_bonus:cooldown:{user_id}"
-    if redis.get(cooldown_key):
+    
+    # [STABILITY FIX]: Redis SET with NX=True በመጠቀም በሴኮንድ ውስጥ የሚላኩ ድርብ ጥያቄዎችን በአቶሚክ ደረጃ እንቆልፋለን
+    is_claimed_today = redis.set(cooldown_key, "claimed", ex=86400, nx=True)
+    if not is_claimed_today:
         return jsonify({"status": "error", "message": "የዛሬውን ነጻ ዕድል ወስደዋል! እባክዎ ከ24 ሰዓት በኋላ ይመለሱ።"})
 
     gifts = [1, 2, 3, 4, 5]
@@ -211,9 +246,6 @@ def claim_daily():
 
     # ባላንስ መጨመር
     redis.hincrbyfloat("users:balance", user_id, gift_amount)
-    
-    # የ24 ሰዓት ገደብ ማስቀመጥ (86400 ሴኮንድ)
-    redis.setex(cooldown_key, 86400, "claimed")
 
     # ታሪክ ላይ መመዝገብ
     history_data = redis.get(f"history:{user_id}")
@@ -229,28 +261,25 @@ def claim_daily():
     return jsonify({"status": "success", "gift_amount": float(gift_amount)})
 
 # ==========================================
-# 🏆 የሳምንቱ መሪዎች ሰሌዳ (Leaderboard) - አዲስ የተጨመረ
+# 🏆 የሳምንቱ መሪዎች ሰሌዳ (Leaderboard)
 # ==========================================
 @server.route('/api/get_leaderboard', methods=['POST'])
 def get_leaderboard():
     try:
-        # ሁሉንም ተጠቃሚዎችና ባላንሳቸውን ከ Redis እናወጣለን
         all_balances = redis.hgetall("users:balance")
         if not all_balances:
             return jsonify({"status": "success", "leaders": []})
 
         leaders = []
         for u_id, bal in all_balances.items():
-            # አድሚንን ወይም የቴስት አካውንቶችን ከሊደርቦርድ ለማውጣት
             if u_id == str(ADMIN_ID) or u_id == "2165":
                 continue
             leaders.append({
                 "user_id": u_id,
-                "user_name": f"ተጫዋች_{u_id[-4:]}", # የግል መረጃ ጥበቃ (አኖኒመስ ለማድረግ)
+                "user_name": f"ተጫዋች_{u_id[-4:]}",
                 "balance": float(bal)
             })
 
-        # በባላንስ ከፍተኛ የሆኑትን መደርደር
         leaders.sort(key=lambda x: x["balance"], reverse=True)
         return jsonify({"status": "success", "leaders": leaders[:5]})
     except Exception as e:
@@ -264,7 +293,23 @@ def process_admin_action(call):
     action, tx_type, tx_id, user_id, amount = call.data.split('|')
     amount = float(amount)
     
+    tx_key = f"tx:{tx_id}"
+    tx_data_raw = redis.get(tx_key)
+    
+    # [STABILITY FIX]: ትራንዛክሽኑ መኖሩን እና Pending መሆኑን እናረጋግጣለን (ድርብ ክሊክን ለመከላከል)
+    if not tx_data_raw:
+        bot.answer_callback_query(call.id, "❌ ይህ ትራንዛክሽን በሲስተሙ ውስጥ አልተገኘም!")
+        return
+        
+    tx_data = json.loads(tx_data_raw)
+    if tx_data.get("status") != "pending":
+        bot.answer_callback_query(call.id, "⚠️ ይህ ጥያቄ ቀደም ብሎ ምላሽ አግኝቷል!")
+        return
+
+    # ትራንዛክሽኑን ወዲያውኑ lock ለማድረግ status-ውን እንቀይራለን
     tx_status = "completed" if action == "ok" else "refund"
+    tx_data["status"] = tx_status
+    redis.set(tx_key, json.dumps(tx_data))
     
     history_data = redis.get(f"history:{user_id}")
     if history_data:
@@ -285,12 +330,15 @@ def process_admin_action(call):
             
     elif tx_type == "withdraw":
         if action == "ok":
-            redis.hincrbyfloat("users:balance", user_id, -amount)
+            # የፈሰሰው ባላንስ አስቀድሞ በ /api/withdraw ላይ ስለተቀነሰ እዚህ ጋር ድጋሚ አንቀንስም!
             bot.send_message(user_id, f"💰 የእርስዎ {amount} ብር ወጪ ተከፍሏል!")
         else:
-            bot.send_message(user_id, f"❌ የእርስዎ {amount} ብር የወጪ ጥያቄ ውድቅ ተደርጓል።")
+            # ጥያቄው ውድቅ ከተደረገ ግን የተቀነሰውን ገንዘብ ለተጠቃሚው እንመልስለታለን (Refund)
+            redis.hincrbyfloat("users:balance", user_id, amount)
+            bot.send_message(user_id, f"❌ የእርስዎ {amount} ብር የወጪ ጥያቄ ውድቅ ስለተደረገ ወደ አካውንትዎ ተመልሷል።")
             
     status_text = "✅ ተጠናቋል" if action == "ok" else "❌ ውድቅ ተደርጓል"
+    bot.answer_callback_query(call.id, f"ጥያቄው {status_text} ሆኗል")
     
     if call.message.caption:
         bot.edit_message_caption(f"{call.message.caption}\n\n{status_text}", chat_id=call.message.chat.id, message_id=call.message.message_id)
