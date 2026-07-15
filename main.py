@@ -138,7 +138,7 @@ def handle_withdraw():
     return jsonify({"status": "success"})
 
 # ==========================================
-# G1. Coin Flip Core Logic (With Streak Tracking)
+# G1. Coin Flip Core Logic (Secure Weighted Probability)
 # ==========================================
 @server.route('/api/coin_flip', methods=['POST'])
 def coin_flip():
@@ -154,17 +154,45 @@ def coin_flip():
     if current_balance < bet_amount:
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"})
         
-    sides = ["ዘውድ", "ጎፈር"]
-    result = random.choice(sides)
+    # ----------------------------------------------------
+    # የላቀ የዕድል መቆጣጠሪያ (Weighted Probability Logic)
+    # ----------------------------------------------------
+    history_key = f"coin_flip_history:{user_id}"
+    raw_streak_history = redis.get(history_key)
+    streak_history = json.loads(raw_streak_history) if raw_streak_history else []
     
-    # የተጠቃሚውን ስም ለLeaderboard ለማዘጋጀት ከቴሌግራም ዳታቤዝ ወይም በነባሪ መውሰድ
+    # ነባሪ የውሳኔ ዕድሎች (50/50)
+    sides = ["ዘውድ", "ጎፈር"]
+    weights = [0.5, 0.5] # እኩል 50% ዕድል
+    
+    if len(streak_history) >= 3:
+        last_three = streak_history[-3:]
+        
+        # በተከታታይ 3 ጊዜ "ዘውድ" ከወጣ፡
+        if all(val == "ዘውድ" for val in last_three):
+            # ለ "ዘውድ" 10% (0.1) ዕድል ብቻ እንሰጣለን፣ ለ "ጎፈር" 90% (0.9) ዕድል ይሰጣል
+            weights = [0.1, 0.9]
+            
+        # በተከታታይ 3 ጊዜ "ጎፈር" ከወጣ፡
+        elif all(val == "ጎፈር" for val in last_three):
+            # ለ "ዘውድ" 90% (0.9)፣ ለ "ጎፈር" 10% (0.1) ዕድል ይሰጣል
+            weights = [0.9, 0.1]
+            
+    # በክብደት (Weights) መሰረት በዘፈቀደ መምረጥ (የማይገመት ያደርገዋል)
+    result = random.choices(sides, weights=weights, k=1)[0]
+    
+    # አዲሱን ውጤት በታሪክ መዝገብ ማስቀመጥ
+    streak_history.append(result)
+    if len(streak_history) > 5:
+        streak_history.pop(0)
+    redis.set(history_key, json.dumps(streak_history))
+    # ----------------------------------------------------
+    
     user_name = redis.hget("users:username", user_id) or f"ተጫዋች_{str(user_id)[-4:]}"
     
     if choice == result:
-        # አሸናፊ ሲሆን የStreak ቁጥር በ 1 ይጨምራል
         current_streak = int(redis.hincrby("users:current_streak", user_id, 1))
         
-        # 3ኛ ተከታታይ ድል ላይ ሲደርስ 1.5x የStreak ቦነስ ማበረታቻ መስጠት
         if current_streak == 3:
             bonus_amount = bet_amount * 1.5
             redis.hincrbyfloat("users:balance", user_id, bonus_amount)
@@ -176,15 +204,12 @@ def coin_flip():
         status = "win"
         status_history = "አሸንፏል 🎉"
         
-        # ከፍተኛውን Streak (Best Streak) ካሸነፈ በሊደርቦርዱ Sorted Set ላይ ማዘመን
         best_streak = int(redis.hget("users:best_streak", user_id) or 0)
         if current_streak > best_streak:
             redis.hset("users:best_streak", user_id, current_streak)
-            # Redis Sorted Set (ZADD) በመጠቀም ለሊደርቦርድ ማስቀመጥ
             redis.zadd("leaderboard:streaks", {f"{user_name}": current_streak})
             
     else:
-        # ከተሸነፈ የStreak ዜሮ (0) ይሆናል
         redis.hset("users:current_streak", user_id, 0)
         redis.hincrbyfloat("users:balance", user_id, -bet_amount)
         status = "lose"
@@ -193,7 +218,7 @@ def coin_flip():
         
     new_balance = float(redis.hget("users:balance", user_id) or 0.0)
     
-    # ታሪክ መዝገብ
+    # የኪስ ታሪክ መዝገብ
     history_data = redis.get(f"history:{user_id}")
     history_list = json.loads(history_data) if history_data else []
     history_list.insert(0, {"type": f"ዘውድና ጎፈር ({choice})", "amount": bet_amount, "status": status_history})
