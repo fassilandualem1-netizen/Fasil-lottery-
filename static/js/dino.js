@@ -12,6 +12,9 @@ let crashPoint = 1.00;
 let countdownTimer = 10;
 let crashHistory = [1.28, 2.68, 1.44, 4.36, 2.02, 1.91, 31.23]; // መነሻ ሂስቶሪ
 
+// 🔄 የጨዋታ ሁነታ (Default: demo) -> 'demo' ወይም 'real' መሆን ይችላል
+let currentGameMode = 'demo'; 
+
 // ✈️ የአውሮፕላን ምስል (SVG Icon) - 100% ቋሚና አስተማማኝ ፎርማት
 const planeImg = new Image();
 planeImg.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><path fill='%23e50b2c' d='M448 336c-16.7 0-32-13.3-30-32V224H288L151.6 383.1c-6.8 8-16.7 12.9-27.4 12.9H64c-15.5 0-25.5-5-14.5-19.9l28.7-52.2H32c-17.7 0-32-14.3-32-32s14.3-32 32-32h64l-51.9-143.3C38.9 2.5 53.4-7.5 68.6-7.5h60.2c10.7 0 20.6 4.9 27.4 12.9L288 160h128v-80c0-18.7 15.3-32 32-32s32 13.3 32 32v224c0 18.7-15.3 32-32 32z'/></svg>";
@@ -65,7 +68,8 @@ async function fetchInitialBalance() {
         const response = await fetch('/api/get_balance', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId })
+            // [ማሻሻያ]: የጨዋታውን ሁነታ (game_mode) ወደ ሰርቨር እንልካለን
+            body: JSON.stringify({ user_id: userId, game_mode: currentGameMode })
         });
         const result = await response.json();
         if (balanceDisplay) {
@@ -197,6 +201,40 @@ function renderHistory() {
     historyBar.scrollLeft = 0;
 }
 
+// ================= [አዲስ] 🔄 የጨዋታ ሞድ መቀያየሪያ ሎጂክ =================
+function switchGameMode(mode) {
+    // 1. ጨዋታው እየተካሄደ ከሆነ ሞድ መቀየር አይቻልም (Security Guard)
+    if (gameState === 'FLYING') {
+        alert("⚠️ አውሮፕላኑ እየበረረ እያለ የጨዋታ ሁነታ መቀየር አይቻልም!");
+        return;
+    }
+
+    // 2. ተጫዋቹ Queue ያደረገው ውርርድ ካለ መጀመሪያ እንዲያጠፋው ማስገደድ
+    if (bets[1].state === 'QUEUED' || bets[2].state === 'QUEUED' || bets[1].state === 'WAITING' || bets[2].state === 'WAITING') {
+        alert("⚠️ እባክዎ መጀመሪያ ያስገቡትን ውርርድ ይሰርዙ!");
+        return;
+    }
+
+    currentGameMode = mode; // 'demo' ወይም 'real'
+
+    // የሁነታ መቀያየሪያ ቁልፎችን UI ማሳመር (active class በመጨመር)
+    const demoBtn = document.getElementById("btnDemoMode");
+    const realBtn = document.getElementById("btnRealMode");
+    
+    if (demoBtn && realBtn) {
+        if (mode === 'demo') {
+            demoBtn.classList.add('active-mode');
+            realBtn.classList.remove('active-mode');
+        } else {
+            realBtn.classList.add('active-mode');
+            demoBtn.classList.remove('active-mode');
+        }
+    }
+
+    // አዲሱን የሞድ ባላንስ ከሰርቨር ማምጣት
+    fetchInitialBalance();
+}
+
 // ================= 6. API እና BUTTON ACTION LOGIC =================
 async function placeBetAPI(panelId) {
     let bet = bets[panelId];
@@ -204,7 +242,8 @@ async function placeBetAPI(panelId) {
         const response = await fetch('/api/dino/bet', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, bet_amount: bet.amount })
+            // [ማሻሻያ]: የአሁኑን game_mode አብረን እንልካለን
+            body: JSON.stringify({ user_id: userId, bet_amount: bet.amount, game_mode: currentGameMode })
         });
         const result = await response.json();
         if (result.status === "success") {
@@ -241,7 +280,8 @@ async function executeCashout(panelId) {
         const response = await fetch('/api/dino/cashout', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, bet_amount: bet.amount, multiplier: currentMult })
+            // [ማሻሻያ]: የአሁኑን game_mode አብረን እንልካለን
+            body: JSON.stringify({ user_id: userId, bet_amount: bet.amount, multiplier: currentMult, game_mode: currentGameMode })
         });
         const result = await response.json();
         if (result.status === "success") {
