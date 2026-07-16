@@ -211,14 +211,15 @@
     </div>
   </div>
 
-  <script>
+    <script>
     // 1. Telegram WebApp ን ማስጀመር
     const tg = window.Telegram.WebApp;
     tg.expand(); // ሚኒ-አፑ ሙሉ ስክሪን እንዲሆን ማድረግ
 
-    // የተጠቃሚ መረጃ
+    // የተጠቃሚ መረጃ እና የደህንነት ቶከን
     const userId = tg.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : "9999999";
     const userName = tg.initDataUnsafe?.user?.username || tg.initDataUnsafe?.user?.first_name || "የሰፈር ልጅ";
+    const initData = tg.initData; // 👈 ለ Backend ደህንነት ማረጋገጫ የሚላክ
 
     // ገጹ እንደተከፈተ ባላንሱን ማዘመን
     document.addEventListener("DOMContentLoaded", function() {
@@ -229,7 +230,10 @@
     function updateUserBalance() {
       fetch("/api/get_balance", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+            "Content-Type": "application/json",
+            "X-Telegram-Init-Data": initData // 👈 ተስተካክሏል
+        },
         body: JSON.stringify({ user_id: userId, game_mode: "real" })
       })
       .then(res => res.json())
@@ -278,7 +282,10 @@
 
       fetch("/api/get_user_history", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+            "Content-Type": "application/json",
+            "X-Telegram-Init-Data": initData // 👈 ተስተካክሏል
+        },
         body: JSON.stringify({ user_id: userId })
       })
       .then(res => res.json())
@@ -307,6 +314,8 @@
                 </div>
             </div>`;
           });
+        } else {
+          list.innerHTML = `<p class="text-sm text-red-500 text-center py-4 bg-gray-900 rounded-lg">${data.message}</p>`;
         }
       })
       .catch(err => {
@@ -334,6 +343,9 @@
 
       fetch("/api/deposit", {
         method: "POST",
+        headers: {
+            "X-Telegram-Init-Data": initData // 👈 ተስተካክሏል (ለ FormData Content-Type አንጨምርም)
+        },
         body: formData
       })
       .then(res => res.json())
@@ -362,7 +374,10 @@
 
       fetch("/api/withdraw", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+            "Content-Type": "application/json",
+            "X-Telegram-Init-Data": initData // 👈 ተስተካክሏል
+        },
         body: JSON.stringify({
           user_id: userId,
           user_name: userName,
@@ -427,7 +442,10 @@
       
       fetch("/api/aviator/bet", { 
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+            "Content-Type": "application/json",
+            "X-Telegram-Init-Data": initData // 👈 ተስተካክሏል
+        },
         body: JSON.stringify({
           user_id: userId,
           bet_amount: amount,
