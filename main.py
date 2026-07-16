@@ -80,10 +80,13 @@ def get_balance():
 def get_user_history():
     data = request.json or {}
     user_id = data.get("user_id")
-    if not user_id:
-        return jsonify({"status": "error", "message": "Missing user_id"}), 400
-
+    
+    # 🔍 ይሄንን Print ኮድ ጨምርበት
+    print(f"DEBUG: Getting history for user: {user_id}")
+    
     raw_history = redis.lrange(f"history:{user_id}", 0, -1) or []
+    print(f"DEBUG: Found {len(raw_history)} items in Redis.") 
+    
     history_list = [json.loads(item) for item in raw_history]
     return jsonify({"status": "success", "history": history_list})
 
