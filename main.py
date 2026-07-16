@@ -132,48 +132,6 @@ def aviator_cashout_api():
     })
 
 
-
-
-// የታሪክ ታብን ለመቀያየር
-function switchWalletTab(tabName) {
-    // ነባር ታቦችን ደብቅ
-    document.getElementById("deposit-tab").classList.add("hidden");
-    document.getElementById("withdraw-tab").classList.add("hidden");
-    document.getElementById("history-tab").classList.add("hidden");
-
-    // የተመረጠውን አሳይ
-    document.getElementById(tabName).classList.remove("hidden");
-    
-    // ታሪክ ከሆነ ዳታውን Fetch አድርግ
-    if(tabName === 'history-tab') {
-        fetchHistory();
-    }
-}
-
-// ታሪክን ከሰርቨር ማምጣት
-function fetchHistory() {
-    fetch(`/api/get_history?user_id=${userId}`)
-    .then(res => res.json())
-    .then(data => {
-        const list = document.getElementById("history-list");
-        list.innerHTML = ""; // ያረጀውን አጽዳ
-        data.transactions.forEach(tx => {
-            list.innerHTML += `
-            <div class="flex justify-between items-center bg-gray-900 p-2 rounded text-[11px]">
-                <div>
-                    <div class="font-bold">${tx.type}</div>
-                    <div class="text-gray-500">${tx.date}</div>
-                </div>
-                <div class="font-black ${tx.status === 'pending' ? 'text-yellow-500' : tx.status === 'completed' ? 'text-green-500' : 'text-red-500'}">
-                    ${tx.amount} ETB (${tx.status})
-                </div>
-            </div>`;
-        });
-    });
-}
-
-
-
 # ==========================================
 # 💰 Core Wallet APIs (የዋሌት ዋና ተግባራት)
 # ==========================================
