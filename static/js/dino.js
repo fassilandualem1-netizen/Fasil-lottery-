@@ -1,13 +1,9 @@
 // ================= 1. መነሻ መዋቅር እና Variables =================
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-const multiplierDisplay = document.getElementById("multiplierDisplay");
-const statusText = document.getElementById("statusText");
-const historyBar = document.getElementById("historyBar");
-const balanceDisplay = document.getElementById('balanceDisplay');
+let canvas, ctx, multiplierDisplay, statusText, historyBar, balanceDisplay;
 
+// Telegram ID (በሁሉም ስልክ ላይ ደህንነቱ በተጠበቀ መልኩ የሚሰራ)
 const tg = window.Telegram ? window.Telegram.WebApp : null;
-const userId = tg?.initDataUnsafe?.user?.id.toString() || "8488592165";
+const userId = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user.id.toString() : "8488592165";
 
 // 🎮 የጨዋታ State Management
 let gameState = 'WAITING'; // WAITING, FLYING, CRASHED
@@ -26,9 +22,32 @@ let bets = {
     2: { state: 'IDLE', amount: 20, isAuto: false }
 };
 
-// ================= 2. API እና መረጃ ማምጣት =================
 
-// ልክ ሲከፈት ትክክለኛውን ባላንስ ከሰርቨር ማምጣት
+// ================= 2. HTML ሎድ ሲያደርግ ብቻ ጌሙን ማስጀመር (CRITICAL FIX) =================
+document.addEventListener("DOMContentLoaded", function() {
+    canvas = document.getElementById("gameCanvas");
+    if (canvas) {
+        ctx = canvas.getContext("2d");
+    }
+    
+    multiplierDisplay = document.getElementById("multiplierDisplay");
+    statusText = document.getElementById("statusText");
+    historyBar = document.getElementById("historyBar");
+    balanceDisplay = document.getElementById('balanceDisplay');
+
+    // ጌሙን ማስጀመር (Initialization)
+    fetchInitialBalance();
+    loadRealHistory();
+    updateInputUI();
+    startCountdown();
+
+    if (canvas) {
+        requestAnimationFrame(gameLoop);
+    }
+});
+
+
+// ================= 3. API እና መረጃ ማምጣት =================
 async function fetchInitialBalance() {
     try {
         const response = await fetch('/api/get_balance', {
@@ -46,7 +65,6 @@ async function fetchInitialBalance() {
     }
 }
 
-// ልክ ሲከፈት ቋሚውን የዲኖ ታሪክ ከRedis ማምጣት
 async function loadRealHistory() {
     try {
         const response = await fetch('/api/get_history');
@@ -66,7 +84,8 @@ function generateCrashPoint() {
     return 1.05 + (0.95 / (Math.random() + 0.01));
 }
 
-// ================= 3. የድምፅ ማጫወቻ (Audio) =================
+
+// ================= 4. የድምፅ ማጫወቻ (Audio) =================
 let audioCtx = null;
 function playSound(type) {
     try {
@@ -106,7 +125,8 @@ function playSound(type) {
     }
 }
 
-// ================= 4. UI INPUT እና HISTORY LOGIC =================
+
+// ================= 5. UI INPUT እና HISTORY LOGIC =================
 function switchTab(panelId, mode) {
     let bet = bets[panelId];
     if (bet.state !== 'IDLE' && bet.state !== 'QUEUED') return;
@@ -167,7 +187,8 @@ function renderHistory() {
     historyBar.scrollLeft = 0;
 }
 
-// ================= 5. API እና BUTTON ACTION LOGIC =================
+
+// ================= 6. API እና BUTTON ACTION LOGIC =================
 async function placeBetAPI(panelId) {
     let bet = bets[panelId];
     try {
@@ -241,7 +262,6 @@ function handleAction(panelId) {
     }
 }
 
-// 🔄 የተሻሻለው የ Button Synchronization
 function syncButtons() {
     [1, 2].forEach(id => {
         let bet = bets[id];
@@ -284,7 +304,8 @@ function syncButtons() {
     });
 }
 
-// ================= 6. CANVAS ANIMATION LOGIC =================
+
+// ================= 7. CANVAS ANIMATION LOGIC =================
 let sunburstAngle = 0;
 let planePos = { x: 0, y: 500 };
 
@@ -342,7 +363,8 @@ function drawCurve() {
     ctx.fill();
 }
 
-// ================= 7. GAME LOOP =================
+
+// ================= 8. GAME LOOP =================
 let animationId;
 function gameLoop() {
     if (!canvas) return;
@@ -420,7 +442,8 @@ function gameLoop() {
     animationId = requestAnimationFrame(gameLoop);
 }
 
-// ================= 8. ROUND MANAGERS =================
+
+// ================= 9. ROUND MANAGERS =================
 function startCountdown() {
     gameState = 'WAITING';
     countdownTimer = 10;
@@ -469,12 +492,10 @@ function triggerCrash() {
     
     let finalCrashPoint = parseFloat(multiplier.toFixed(2));
 
-    // UI ታሪክ ማዘመን
     crashHistory.unshift(finalCrashPoint);
     if(crashHistory.length > 20) crashHistory.pop();
     renderHistory();
 
-    // ውጤቱን ወደ Python/Redis መላክ
     fetch('/api/save_history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -491,14 +512,4 @@ function triggerCrash() {
     setTimeout(() => {
         startCountdown();
     }, 3000);
-}
-
-// ================= 9. ጅማሬ (Initialization) =================
-fetchInitialBalance();
-loadRealHistory();
-updateInputUI();
-startCountdown();
-
-if (canvas) {
-    requestAnimationFrame(gameLoop);
 }
