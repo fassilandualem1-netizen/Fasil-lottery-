@@ -49,7 +49,7 @@ def handle_disconnect():
     print("❌ ተጫዋች ከዌብሶኬት ተለያይቷል!")
 
 @server.route('/api/get_balance', methods=['POST'])
-@telegram_auth_required
+#@telegram_auth_required
 def get_balance():
     data = request.json or {}
     user_id = data.get("user_id")
