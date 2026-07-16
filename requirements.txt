@@ -2,6 +2,6 @@ Flask
 Flask-SocketIO
 eventlet
 requests
-telebot
+pyTelegramBotAPI
 upstash-redis
 gunicorn
