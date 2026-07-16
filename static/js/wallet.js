@@ -1,8 +1,13 @@
-// Initialize Telegram WebApp
+// ==========================================
+// 🛡️ Telegram WebApp Initialization
+// ==========================================
 const tg = window.Telegram ? window.Telegram.WebApp : null;
+let initData = ""; // ለሰርቨር የደህንነት ማረጋገጫ የሚላክ
+
 if (tg) {
     tg.expand(); // WebApp ሙሉ ስክሪን እንዲሆን ያደርጋል
     tg.ready();
+    initData = tg.initData || ""; // የቴሌግራምን ትክክለኛ initData መውሰድ
 }
 
 // ለሙከራ (ብሮውዘር ላይ) የምንጠቀምባቸው ነባሪ መረጃዎች
@@ -66,12 +71,34 @@ function updateModeUI() {
     }
 }
 
+// ==========================================
+// 🛡️ Secure Fetch Helper (የደህንነት ረዳት)
+// ==========================================
+async function secureFetch(url, options = {}) {
+    if (!options.headers) {
+        options.headers = {};
+    }
+    
+    // የቴሌግራም የደህንነት መረጃን በራስ-ሰር ራስጌ (Header) ላይ መጫን
+    options.headers["X-Telegram-Init-Data"] = initData;
+    
+    // የሚላከው ዳታ ፎርም (FormData - ደረሰኝ ፎቶ) ካልሆነ ብቻ Content-Typeን JSON ማድረግ
+    if (options.body && !(options.body instanceof FormData)) {
+        options.headers["Content-Type"] = "application/json";
+    }
+    
+    return fetch(url, options);
+}
+
+// ==========================================
+// 💰 Core APIs Interaction (የዋሌትና ጨዋታ ተግባራት)
+// ==========================================
+
 // 1. የባላንስ መረጃ ከ Backend ማምጣት
 async function fetchBalance() {
     try {
-        const response = await fetch('/api/get_balance', {
+        const response = await secureFetch('/api/get_balance', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: userId, game_mode: gameMode })
         });
         const data = await response.json();
@@ -86,9 +113,8 @@ async function fetchBalance() {
 // 2. የገቢ/ወጪ ታሪክን ማሳየት
 async function fetchHistory() {
     try {
-        const response = await fetch('/api/get_user_history', {
+        const response = await secureFetch('/api/get_user_history', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: userId })
         });
         const data = await response.json();
@@ -110,15 +136,16 @@ function renderHistory(history) {
     historyList.innerHTML = history.map(item => {
         let statusClass = "pending";
         let statusText = "በሂደት ላይ";
+        
         if (item.status === "completed") {
             statusClass = "completed";
             statusText = "ተጠናቋል";
-        } else if (item.status === "refund") {
+        } else if (item.status === "refund" || item.status === "refunded") {
             statusClass = "failed";
             statusText = "የተመለሰ";
         } else if (item.status === "failed") {
             statusClass = "failed";
-            statusText = "የተሰረዘ";
+            statusText = "ውድቅ የተደረገ";
         }
 
         const sign = (item.type === "ገቢ" || item.type.includes("Win")) ? "+" : "-";
@@ -141,9 +168,9 @@ function renderHistory(history) {
 // 3. የሳምንቱ ጀግኖች (Leaderboard) ማምጣት
 async function fetchLeaderboard() {
     try {
-        const response = await fetch('/api/get_leaderboard', {
+        const response = await secureFetch('/api/get_leaderboard', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            body: JSON.stringify({}) // ባዶ ቦዲ መላክ አለበት
         });
         const data = await response.json();
         if (data.status === "success") {
@@ -182,9 +209,8 @@ function renderLeaderboard(leaders) {
 if (dailyBonusBtn) {
     dailyBonusBtn.addEventListener("click", async () => {
         try {
-            const response = await fetch('/api/claim_daily', {
+            const response = await secureFetch('/api/claim_daily', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: userId })
             });
             const data = await response.json();
@@ -235,7 +261,8 @@ if (depositForm) {
         formData.append("receipt", receiptFile);
 
         try {
-            const response = await fetch('/api/deposit', {
+            // የፎቶ ፋይል መላክ ስለሚገባው በ secureFetch በኩል FormData ይላካል
+            const response = await secureFetch('/api/deposit', {
                 method: 'POST',
                 body: formData
             });
@@ -266,9 +293,8 @@ if (withdrawForm) {
         const amount = document.getElementById("withdraw_amount").value;
 
         try {
-            const response = await fetch('/api/withdraw', {
+            const response = await secureFetch('/api/withdraw', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     user_id: userId,
                     user_name: userName,
