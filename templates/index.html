@@ -8,8 +8,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- የራሳችንን CSS ለማገናኘት (በFlask መንገድ) -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans pb-24">
 
@@ -21,16 +21,16 @@
     <div class="flex items-center space-x-3">
       <!-- Real Balance -->
       <div class="bg-gray-800 px-3 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1">
-        <span id="user-balance">100.00</span> <span class="text-yellow-400">ETB</span>
+        <span id="user-balance">0.00</span> <span class="text-yellow-400">ETB</span>
       </div>
-      <!-- Deposit -->
-      <button class="bg-yellow-500 hover:bg-yellow-600 text-slate-950 font-black px-3 py-1.5 rounded text-xs transition duration-200">
-        DEPOSIT
+      <!-- Deposit / Wallet Modal Trigger -->
+      <button onclick="openWalletModal()" class="bg-yellow-500 hover:bg-yellow-600 text-slate-950 font-black px-3 py-1.5 rounded text-xs transition duration-200">
+        WALLET
       </button>
     </div>
   </header>
 
-  <!-- 2. GAME NAVIGATION MENU (የጨዋታዎች መለዋወጫ ምናሌ - አሁን Chicken Road ተካቷል) -->
+  <!-- 2. GAME NAVIGATION MENU -->
   <nav class="bg-slate-900 border-b border-gray-800 flex justify-around py-3 sticky top-[61px] z-40 text-center">
     <!-- Football (Active) -->
     <a href="/" class="flex flex-col items-center space-y-1 text-yellow-400 border-b-2 border-yellow-400 pb-1">
@@ -38,7 +38,7 @@
       <span class="text-[9px] sm:text-[11px] font-bold">Sports</span>
     </a>
     <!-- Zewd & Gofer -->
-    <a href="/zewd" class="flex flex-col items-center space-y-1 text-gray-400 hover:text-white transition">
+    <a href="/coin_flip_game" class="flex flex-col items-center space-y-1 text-gray-400 hover:text-white transition">
       <i class="fa-solid fa-coins text-lg"></i>
       <span class="text-[9px] sm:text-[11px] font-bold">ዘውድ/ጎፈር</span>
     </a>
@@ -47,7 +47,7 @@
       <i class="fa-solid fa-plane-departure text-lg"></i>
       <span class="text-[9px] sm:text-[11px] font-bold">Aviator</span>
     </a>
-    <!-- 🐔 Chicken Road (አዲስ የተጨመረ) -->
+    <!-- Chicken Road -->
     <a href="/chicken" class="flex flex-col items-center space-y-1 text-gray-400 hover:text-white transition">
       <span class="text-lg leading-none">🐔</span>
       <span class="text-[9px] sm:text-[11px] font-bold">Chicken</span>
@@ -69,24 +69,20 @@
       <p class="text-[11px] text-gray-400">ግምቶቹን በትክክል ይመልሱ፣ በእውነተኛ ብር ያሸንፉ!</p>
     </div>
 
-    <!-- 🎮 MINI GAMES SHORTCUTS (ፈጣን የጨዋታ አቋራጮች - አዲስ) -->
+    <!-- MINI GAMES SHORTCUTS -->
     <div class="grid grid-cols-4 gap-2 mb-4">
-      <!-- Zewd -->
-      <a href="/zewd" class="bg-slate-950 p-2 rounded-xl border border-gray-800 flex flex-col items-center hover:border-yellow-500 transition">
+      <a href="/coin_flip_game" class="bg-slate-950 p-2 rounded-xl border border-gray-800 flex flex-col items-center hover:border-yellow-500 transition">
         <i class="fa-solid fa-coins text-yellow-500 text-base"></i>
         <span class="text-[9px] font-bold mt-1 text-gray-300">ዘውድና ጎፈር</span>
       </a>
-      <!-- Aviator -->
       <a href="/aviator" class="bg-slate-950 p-2 rounded-xl border border-gray-800 flex flex-col items-center hover:border-yellow-500 transition">
         <i class="fa-solid fa-plane-departure text-red-500 text-base"></i>
         <span class="text-[9px] font-bold mt-1 text-gray-300">Aviator</span>
       </a>
-      <!-- Chicken Road -->
       <a href="/chicken" class="bg-slate-950 p-2 rounded-xl border border-gray-800 flex flex-col items-center hover:border-yellow-500 transition">
         <span class="text-base">🐔</span>
         <span class="text-[9px] font-bold mt-1 text-gray-300">Chicken Road</span>
       </a>
-      <!-- Keno -->
       <a href="/keno" class="bg-slate-950 p-2 rounded-xl border border-gray-800 flex flex-col items-center hover:border-yellow-500 transition">
         <i class="fa-solid fa-table-cells text-blue-500 text-base"></i>
         <span class="text-[9px] font-bold mt-1 text-gray-300">Fast Keno</span>
@@ -101,8 +97,7 @@
 
     <!-- Football Matches List Container -->
     <div class="space-y-3" id="matches-list">
-      
-      <!-- Match 1 (Mock Data - ይህ በኋላ ላይ በ API ይቀየራል) -->
+      <!-- Match 1 -->
       <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg">
         <div class="flex justify-between text-[10px] text-gray-500 mb-2">
           <span class="font-bold text-gray-400">⚽ ENG - Premier League</span>
@@ -111,28 +106,82 @@
         <div class="text-xs font-black text-white mb-3 tracking-wide">ARSENAL V CHELSEA</div>
         
         <div class="grid grid-cols-3 gap-2 text-xs">
-          <!-- Home Win (1) -->
           <button onclick="selectMatchBet('Arsenal V Chelsea', 'Arsenal', 1.85, '1')" id="btn-m1-1" class="bg-gray-900 hover:bg-yellow-500 hover:text-slate-950 py-2.5 rounded-lg flex flex-col items-center font-bold border border-gray-800 transition duration-150">
             <span class="text-gray-500 text-[10px]">Arsenal (1)</span>
             <span class="text-yellow-400 font-extrabold mt-0.5">1.85</span>
           </button>
-          <!-- Draw (X) -->
           <button onclick="selectMatchBet('Arsenal V Chelsea', 'Draw', 3.40, 'X')" id="btn-m1-x" class="bg-gray-900 hover:bg-yellow-500 hover:text-slate-950 py-2.5 rounded-lg flex flex-col items-center font-bold border border-gray-800 transition duration-150">
             <span class="text-gray-500 text-[10px]">Draw (X)</span>
             <span class="text-yellow-400 font-extrabold mt-0.5">3.40</span>
           </button>
-          <!-- Away Win (2) -->
           <button onclick="selectMatchBet('Arsenal V Chelsea', 'Chelsea', 4.10, '2')" id="btn-m1-2" class="bg-gray-900 hover:bg-yellow-500 hover:text-slate-950 py-2.5 rounded-lg flex flex-col items-center font-bold border border-gray-800 transition duration-150">
             <span class="text-gray-500 text-[10px]">Chelsea (2)</span>
             <span class="text-yellow-400 font-extrabold mt-0.5">4.10</span>
           </button>
         </div>
       </div>
-
     </div>
   </main>
 
-  <!-- 4. BOTTOM FLOATING BETSLIP (የውርርድ ሰነድ) -->
+  <!-- 4. WALLET MODAL (ገቢ/ወጪ ማስገቢያ ሳጥን) -->
+  <div id="wallet-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-950 border border-gray-800 rounded-2xl w-full max-w-sm overflow-hidden">
+      <!-- Tabs Header -->
+      <div class="flex border-b border-gray-800 text-sm font-bold">
+        <button onclick="switchWalletTab('deposit-tab')" id="btn-deposit-tab" class="w-1/2 py-3 text-center text-yellow-400 border-b-2 border-yellow-400">ገቢ (Deposit)</button>
+        <button onclick="switchWalletTab('withdraw-tab')" id="btn-withdraw-tab" class="w-1/2 py-3 text-center text-gray-400">ወጪ (Withdraw)</button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="p-5 max-h-[80vh] overflow-y-auto">
+        <!-- Deposit Tab -->
+        <div id="deposit-tab">
+          <p class="text-xs text-gray-400 mb-3">እባክዎ በ CBE ወይም በ Telebirr ወደ <b>0911223344</b> ብር ካስገቡ በኋላ ደረሰኙን እዚህ ይስቀሉ።</p>
+          <form id="deposit-form" onsubmit="submitDeposit(event)" class="space-y-4">
+            <div>
+              <label class="block text-[10px] text-gray-400 mb-1">የገንዘብ መጠን (ETB)</label>
+              <input type="number" id="dep-amount" min="10" required class="w-full bg-gray-900 border border-gray-800 rounded p-2.5 text-white font-bold text-sm">
+            </div>
+            <div>
+              <label class="block text-[10px] text-gray-400 mb-1">የክፍያ ደረሰኝ (Screenshot)</label>
+              <input type="file" id="dep-receipt" accept="image/*" required class="w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-yellow-500 file:text-slate-950">
+            </div>
+            <button type="submit" class="w-full bg-yellow-500 hover:bg-yellow-600 text-slate-950 font-black py-2.5 rounded-lg text-sm transition">የማረጋገጫ ጥያቄ ላክ</button>
+          </form>
+        </div>
+
+        <!-- Withdraw Tab -->
+        <div id="withdraw-tab" class="hidden">
+          <form id="withdraw-form" onsubmit="submitWithdraw(event)" class="space-y-4">
+            <div>
+              <label class="block text-[10px] text-gray-400 mb-1">የባንክ ስም</label>
+              <input type="text" id="wd-bank" placeholder="ምሳሌ: CBE, Telebirr" required class="w-full bg-gray-900 border border-gray-800 rounded p-2.5 text-white text-sm">
+            </div>
+            <div>
+              <label class="block text-[10px] text-gray-400 mb-1">የአካውንት ባለቤት ሙሉ ስም</label>
+              <input type="text" id="wd-name" required class="w-full bg-gray-900 border border-gray-800 rounded p-2.5 text-white text-sm">
+            </div>
+            <div>
+              <label class="block text-[10px] text-gray-400 mb-1">የአካውንት ቁጥር / የቴሌብር ስልክ</label>
+              <input type="text" id="wd-phone" required class="w-full bg-gray-900 border border-gray-800 rounded p-2.5 text-white text-sm">
+            </div>
+            <div>
+              <label class="block text-[10px] text-gray-400 mb-1">የማውጫ መጠን (ETB)</label>
+              <input type="number" id="wd-amount" min="50" required class="w-full bg-gray-900 border border-gray-800 rounded p-2.5 text-white font-bold text-sm">
+            </div>
+            <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-slate-950 font-black py-2.5 rounded-lg text-sm transition">የመውጫ ጥያቄ አቅርብ</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Close Button -->
+      <div class="bg-gray-900 p-3 border-t border-gray-800 text-center">
+        <button onclick="closeWalletModal()" class="text-xs text-gray-400 hover:text-white font-bold">ዝጋ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. BOTTOM FLOATING BETSLIP -->
   <div id="betslip-panel" class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-gray-800 p-4 transform translate-y-full transition-transform duration-300 z-50">
     <div class="max-w-md mx-auto">
       <div class="flex justify-between items-center mb-3">
@@ -140,7 +189,6 @@
         <button onclick="closeBetslip()" class="text-gray-500 hover:text-white text-xs">ይዝጉ <i class="fa-solid fa-chevron-down"></i></button>
       </div>
 
-      <!-- Selected Match Details -->
       <div class="bg-gray-900 p-3 rounded-lg mb-3 text-xs">
         <div class="flex justify-between font-bold">
           <span id="slip-match-name">-</span>
@@ -149,7 +197,6 @@
         <div class="text-[10px] text-gray-500 mt-1">ይህንን ቡድን መርጠዋል</div>
       </div>
 
-      <!-- Input and calculations -->
       <div class="grid grid-cols-2 gap-3 mb-4">
         <div>
           <label class="block text-[10px] text-gray-400 mb-1">የውርርድ መጠን (ETB)</label>
@@ -163,15 +210,141 @@
         </div>
       </div>
 
-      <!-- Submit Bet Button -->
       <button onclick="submitBet()" class="w-full bg-green-500 hover:bg-green-600 text-slate-950 font-black py-3 rounded-xl transition duration-150">
         ውርርድ አስምር (Place Bet)
       </button>
     </div>
   </div>
 
-  <!-- JavaScript for Frontend Actions -->
+  <!-- JavaScript for API Integration -->
   <script>
+    // 1. Telegram WebApp ን ማስጀመር
+    const tg = window.Telegram.WebApp;
+    tg.expand(); // ሚኒ-አፑ ሙሉ ስክሪን እንዲሆን ማድረግ
+
+    // የተጠቃሚ መረጃ (በሙከራ ጊዜ በእጅ መቀየር እንዲቻል Default ID ይሰጠዋል)
+    const userId = tg.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : "9999999";
+    const userName = tg.initDataUnsafe?.user?.username || tg.initDataUnsafe?.user?.first_name || "የሰፈር ልጅ";
+
+    // ገጹ እንደተከፈተ ባላንሱን ማዘመን
+    document.addEventListener("DOMContentLoaded", function() {
+      updateUserBalance();
+    });
+
+    // ባላንስ ከ Redis ዳታቤዝ ለማንበብ
+    function updateUserBalance() {
+      fetch("/api/get_balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, game_mode: "real" })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          document.getElementById("user-balance").innerText = parseFloat(data.balance).toFixed(2);
+        }
+      })
+      .catch(err => console.error("Balance fetch error:", err));
+    }
+
+    // የዋሌት ሞዳል መክፈቻና መዝጊያ
+    function openWalletModal() {
+      document.getElementById("wallet-modal").classList.remove("hidden");
+    }
+    function closeWalletModal() {
+      document.getElementById("wallet-modal").classList.add("hidden");
+    }
+
+    // በገቢ እና ወጪ ታቦች መካከል መቀያየር
+    function switchWalletTab(tabName) {
+      if (tabName === "deposit-tab") {
+        document.getElementById("deposit-tab").classList.remove("hidden");
+        document.getElementById("withdraw-tab").classList.add("hidden");
+        document.getElementById("btn-deposit-tab").className = "w-1/2 py-3 text-center text-yellow-400 border-b-2 border-yellow-400";
+        document.getElementById("btn-withdraw-tab").className = "w-1/2 py-3 text-center text-gray-400";
+      } else {
+        document.getElementById("deposit-tab").classList.add("hidden");
+        document.getElementById("withdraw-tab").classList.remove("hidden");
+        document.getElementById("btn-deposit-tab").className = "w-1/2 py-3 text-center text-gray-400";
+        document.getElementById("btn-withdraw-tab").className = "w-1/2 py-3 text-center text-green-400 border-b-2 border-green-400";
+      }
+    }
+
+    // የገቢ (Deposit) ፎርም መላኪያ
+    function submitDeposit(e) {
+      e.preventDefault();
+      const amount = document.getElementById("dep-amount").value;
+      const fileInput = document.getElementById("dep-receipt");
+      
+      if (!fileInput.files[0]) {
+        alert("እባክዎ መጀመሪያ ደረሰኝ ይጫኑ!");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("user_id", userId);
+      formData.append("user_name", userName);
+      formData.append("amount", amount);
+      formData.append("receipt", fileInput.files[0]);
+
+      fetch("/api/deposit", {
+        method: "POST",
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          alert("✅ የገቢ ጥያቄዎ በተሳካ ሁኔታ ለአድሚን ተልኳል! በቴሌግራም መልዕክት ይደርስዎታል።");
+          closeWalletModal();
+          document.getElementById("deposit-form").reset();
+        } else {
+          alert("⚠️ ስህተት: " + data.message);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert("የኔትወርክ ስህተት ገጥሟል!");
+      });
+    }
+
+    // የወጪ (Withdraw) ፎርም መላኪያ
+    function submitWithdraw(e) {
+      e.preventDefault();
+      const bank = document.getElementById("wd-bank").value;
+      const name = document.getElementById("wd-name").value;
+      const phone = document.getElementById("wd-phone").value;
+      const amount = parseFloat(document.getElementById("wd-amount").value);
+
+      fetch("/api/withdraw", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: userId,
+          user_name: userName,
+          bank_name: bank,
+          account_name: name,
+          phone: phone,
+          amount: amount
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          alert("✅ የወጪ (Withdraw) ጥያቄዎ ለአድሚን ደርሷል። ሲረጋገጥ ይላክልዎታል።");
+          updateUserBalance();
+          closeWalletModal();
+          document.getElementById("withdraw-form").reset();
+        } else {
+          alert("⚠️ ስህተት: " + data.message);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert("የኔትወርክ ስህተት ገጥሟል!");
+      });
+    }
+
+    // ውርርድ ማጠናቀቂያ (Place Bet)
     let selectedMatch = null;
     let selectedOdd = 1.00;
     let selectedChoice = "";
@@ -181,14 +354,11 @@
       selectedOdd = odd;
       selectedChoice = chosenTeam + " (" + choice + ")";
       
-      // Update slip UI
       document.getElementById('slip-match-name').innerText = matchName;
       document.getElementById('slip-choice').innerText = selectedChoice;
       document.getElementById('slip-odd').innerText = odd;
       
       calculateWin();
-      
-      // Slide up the betslip panel
       document.getElementById('betslip-panel').classList.remove('translate-y-full');
     }
 
@@ -202,6 +372,7 @@
       document.getElementById('betslip-panel').classList.add('translate-y-full');
     }
 
+    // የክፍያ ውርርዱን በፊዚካል ከባላንስ ላይ መቀነስ
     function submitBet() {
       let amount = parseFloat(document.getElementById('bet-amount').value);
       if (amount < 2) {
@@ -209,9 +380,30 @@
         return;
       }
       
-      // እዚህ ጋር ወደ ሰርቨር (Backend Python) የውርርድ ጥያቄ ይላካል
-      alert("✅ ግምትዎ በተሳካ ሁኔታ ተመዝግቧል!\nየተመረጠ ጨዋታ: " + selectedMatch + "\nየተወራረደበት ብር: " + amount + " ETB");
-      closeBetslip();
+      // ውርርዱን ለመቀበል የኤፒአይ ጥያቄ መላክ
+      fetch("/api/aviator/bet", { // የነበረውን የቁረጥ ኤፒአይ ለስፖርቱም እንደገና እንጠቀመዋለን
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: userId,
+          bet_amount: amount,
+          game_mode: "real"
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          alert("✅ ግምትዎ በተሳካ ሁኔታ ተመዝግቧል!\nየተመረጠ ጨዋታ: " + selectedMatch + "\nየተወራረደበት ብር: " + amount + " ETB");
+          updateUserBalance(); // አዲሱን ባላንስ አዘምን
+          closeBetslip();
+        } else {
+          alert("⚠️ ውድቅ የተደረገበት ምክንያት: " + data.message);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert("የሲስተም ስህተት ገጥሟል!");
+      });
     }
   </script>
 </body>
