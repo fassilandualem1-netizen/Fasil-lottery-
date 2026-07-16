@@ -4,73 +4,70 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>yegnabet - Football Prediction</title>
-  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans pb-24">
 
-  <!-- 1. HEADER (የበላይ ራስጌ) -->
   <header class="bg-slate-950 text-white p-4 sticky top-0 z-50 flex justify-between items-center border-b border-gray-800">
     <div class="flex items-center space-x-2">
       <span class="text-xl font-black tracking-wider text-yellow-400">YEGNA<span class="text-white">BET</span></span>
     </div>
     <div class="flex items-center space-x-3">
-      <!-- Real Balance -->
       <div class="bg-gray-800 px-3 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1">
         <span id="user-balance">0.00</span> <span class="text-yellow-400">ETB</span>
       </div>
-      <!-- Deposit / Wallet Modal Trigger -->
       <button onclick="openWalletModal()" class="bg-yellow-500 hover:bg-yellow-600 text-slate-950 font-black px-3 py-1.5 rounded text-xs transition duration-200">
         WALLET
       </button>
     </div>
   </header>
 
-  <!-- 2. GAME NAVIGATION MENU -->
-  <nav class="bg-slate-900 border-b border-gray-800 flex justify-around py-3 sticky top-[61px] z-40 text-center">
-    <!-- Football (Active) -->
+  <nav class="bg-slate-900 border-b border-gray-800 grid grid-cols-6 py-3 sticky top-[61px] z-40 text-center">
     <a href="/" class="flex flex-col items-center space-y-1 text-yellow-400 border-b-2 border-yellow-400 pb-1">
       <i class="fa-solid fa-soccer-ball text-lg"></i>
       <span class="text-[9px] sm:text-[11px] font-bold">Sports</span>
     </a>
-    <!-- Zewd & Gofer -->
+    <a href="/virtual_sports" class="flex flex-col items-center space-y-1 text-gray-400 hover:text-white transition">
+      <i class="fa-solid fa-gamepad text-lg"></i>
+      <span class="text-[9px] sm:text-[11px] font-bold">Virtual</span>
+    </a>
     <a href="/coin_flip_game" class="flex flex-col items-center space-y-1 text-gray-400 hover:text-white transition">
       <i class="fa-solid fa-coins text-lg"></i>
       <span class="text-[9px] sm:text-[11px] font-bold">ዘውድ/ጎፈር</span>
     </a>
-    <!-- Aviator -->
     <a href="/aviator" class="flex flex-col items-center space-y-1 text-gray-400 hover:text-white transition">
       <i class="fa-solid fa-plane-departure text-lg"></i>
       <span class="text-[9px] sm:text-[11px] font-bold">Aviator</span>
     </a>
-    <!-- Chicken Road -->
     <a href="/chicken" class="flex flex-col items-center space-y-1 text-gray-400 hover:text-white transition">
       <span class="text-lg leading-none">🐔</span>
       <span class="text-[9px] sm:text-[11px] font-bold">Chicken</span>
     </a>
-    <!-- Fast Keno -->
     <a href="/keno" class="flex flex-col items-center space-y-1 text-gray-400 hover:text-white transition">
       <i class="fa-solid fa-table-cells text-lg"></i>
       <span class="text-[9px] sm:text-[11px] font-bold">Keno</span>
     </a>
   </nav>
 
-  <!-- 3. MAIN PREDICTION SECTION -->
   <main class="max-w-md mx-auto p-3">
     
-    <!-- Promotion Banner -->
     <div class="bg-gradient-to-r from-blue-900 to-slate-950 border border-blue-800 rounded-xl p-4 mb-4 relative overflow-hidden">
       <span class="bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">Hot Promo</span>
       <h3 class="text-base font-black mt-1">REAL MONEY PREDICTION</h3>
       <p class="text-[11px] text-gray-400">ግምቶቹን በትክክል ይመልሱ፣ በእውነተኛ ብር ያሸንፉ!</p>
     </div>
 
-    <!-- MINI GAMES SHORTCUTS -->
-    <div class="grid grid-cols-4 gap-2 mb-4">
+    <div class="grid grid-cols-3 gap-2 mb-4">
+      <a href="/" class="bg-slate-950 p-2 rounded-xl border border-gray-800 flex flex-col items-center hover:border-yellow-500 transition">
+        <i class="fa-solid fa-soccer-ball text-yellow-500 text-base"></i>
+        <span class="text-[9px] font-bold mt-1 text-gray-300">Real Sports</span>
+      </a>
+      <a href="/virtual_sports" class="bg-slate-950 p-2 rounded-xl border border-gray-800 flex flex-col items-center hover:border-yellow-500 transition">
+        <i class="fa-solid fa-gamepad text-emerald-400 text-base"></i>
+        <span class="text-[9px] font-bold mt-1 text-gray-300">Virtual Sports</span>
+      </a>
       <a href="/coin_flip_game" class="bg-slate-950 p-2 rounded-xl border border-gray-800 flex flex-col items-center hover:border-yellow-500 transition">
         <i class="fa-solid fa-coins text-yellow-500 text-base"></i>
         <span class="text-[9px] font-bold mt-1 text-gray-300">ዘውድና ጎፈር</span>
@@ -89,15 +86,12 @@
       </a>
     </div>
 
-    <!-- Match category header -->
     <div class="flex justify-between items-center mb-3">
       <h2 class="text-sm font-black text-gray-300 tracking-wide uppercase"><i class="fa-solid fa-fire text-red-500 mr-1"></i> TOP MATCHES</h2>
       <span class="text-[11px] text-gray-400 bg-gray-800 px-2 py-0.5 rounded">1X2 Odds</span>
     </div>
 
-    <!-- Football Matches List Container -->
     <div class="space-y-3" id="matches-list">
-      <!-- Match 1 -->
       <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg">
         <div class="flex justify-between text-[10px] text-gray-500 mb-2">
           <span class="font-bold text-gray-400">⚽ ENG - Premier League</span>
@@ -123,20 +117,16 @@
     </div>
   </main>
 
-  <!-- 4. WALLET MODAL (ገቢ/ወጪ ማስገቢያ ሳጥን) -->
   <div id="wallet-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-slate-950 border border-gray-800 rounded-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
       
-      <!-- Tabs Header -->
       <div class="flex border-b border-gray-800 text-sm font-bold flex-shrink-0">
         <button onclick="switchWalletTab('deposit-tab')" id="btn-deposit-tab" class="w-1/3 py-3 text-center text-yellow-400 border-b-2 border-yellow-400 transition">ገቢ (Deposit)</button>
         <button onclick="switchWalletTab('withdraw-tab')" id="btn-withdraw-tab" class="w-1/3 py-3 text-center text-gray-400 transition">ወጪ (Withdraw)</button>
         <button onclick="switchWalletTab('history-tab')" id="btn-history-tab" class="w-1/3 py-3 text-center text-gray-400 transition">ታሪክ (History)</button>
       </div>
 
-      <!-- Tab Content Area -->
       <div class="p-5 overflow-y-auto flex-grow">
-        <!-- Deposit Tab -->
         <div id="deposit-tab">
           <p class="text-xs text-gray-400 mb-3">እባክዎ በ Telebirr ወደ <b>0951381356</b> ብር ካስገቡ በኋላ ደረሰኙን እዚህ ያስገቡ።</p>
           <form id="deposit-form" onsubmit="submitDeposit(event)" class="space-y-4">
@@ -152,7 +142,6 @@
           </form>
         </div>
 
-        <!-- Withdraw Tab -->
         <div id="withdraw-tab" class="hidden">
           <form id="withdraw-form" onsubmit="submitWithdraw(event)" class="space-y-4">
             <div>
@@ -175,23 +164,19 @@
           </form>
         </div>
 
-        <!-- History Tab -->
         <div id="history-tab" class="hidden">
           <h3 class="text-xs text-gray-400 mb-3 border-b border-gray-800 pb-2">የግብይት ታሪክዎ (Your Transaction History)</h3>
           <div id="history-list" class="space-y-2">
-             <!-- JS will inject history here -->
-          </div>
+             </div>
         </div>
       </div>
 
-      <!-- Close Button -->
       <div class="bg-gray-900 p-3 border-t border-gray-800 text-center flex-shrink-0">
         <button onclick="closeWalletModal()" class="text-xs text-gray-400 hover:text-white font-bold transition">ዝጋ</button>
       </div>
     </div>
   </div>
 
-  <!-- 5. BOTTOM FLOATING BETSLIP -->
   <div id="betslip-panel" class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-gray-800 p-4 transform translate-y-full transition-transform duration-300 z-50">
     <div class="max-w-md mx-auto">
       <div class="flex justify-between items-center mb-3">
@@ -226,7 +211,6 @@
     </div>
   </div>
 
-  <!-- JavaScript for API Integration -->
   <script>
     // 1. Telegram WebApp ን ማስጀመር
     const tg = window.Telegram.WebApp;
@@ -287,7 +271,7 @@
       }
     }
 
-    // የታሪክ መረጃ ከሰርቨር ማምጣት (አዲስ የተጨመረው)
+    // የታሪክ መረጃ ከሰርቨር ማምጣት
     function fetchHistory() {
       const list = document.getElementById("history-list");
       list.innerHTML = `<p class="text-sm text-gray-500 text-center py-4 bg-gray-900 rounded-lg">እየጫነ ነው (Loading...)</p>`;
@@ -307,7 +291,6 @@
           
           list.innerHTML = ""; // የድሮውን አጽዳ
           data.history.forEach(tx => {
-            // እንደየሁኔታው ቀለም መቀያየር
             let statusColor = "text-yellow-500";
             if (tx.status === "completed") statusColor = "text-green-500";
             if (tx.status === "failed" || tx.status === "refunded") statusColor = "text-red-500";
