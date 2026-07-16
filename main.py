@@ -35,22 +35,27 @@ except Exception as e:
 # 🛡️ Atomic Helper Functions (ለStability የተጨመሩ)
 # ==========================================
 
-def deduct_balance_safely(user_id: str, amount: float) -> str:
+def deduct_balance_safely(user_id: str, amount: float, game_mode: str = "real") -> str:
     """
     ይህ Lua Script በባላንስ ላይ Race condition እንዳይፈጠር በአቶሚክ ደረጃ 
-    ቼክ አድርጎ ሂሳቡን ይቀንሳል። (ስኬታማ ከሆነ 'SUCCESS' ካልሆነ 'INSUFFICIENT' ይመልሳል)
+    ቼክ አድርጎ ሂሳቡን ይቀንሳል። 
+    - Real Mode ከሆነ ከ 'users:balance' ይቀንሳል
+    - Demo Mode ከሆነ ከ 'users:demo_balance' ይቀንሳል
     """
+    balance_key = "users:demo_balance" if game_mode == "demo" else "users:balance"
+    
     lua_script = """
-    local balance = tonumber(redis.call('HGET', 'users:balance', KEYS[1]) or "0")
+    local balance = tonumber(redis.call('HGET', KEYS[1], KEYS[2]) or "0")
     local amount = tonumber(ARGV[1])
     if balance < amount then
         return "INSUFFICIENT"
     end
-    redis.call('HINCRBYFLOAT', 'users:balance', KEYS[1], -amount)
+    redis.call('HINCRBYFLOAT', KEYS[1], KEYS[2], -amount)
     return "SUCCESS"
     """
     try:
-        result = redis.eval(lua_script, [user_id], [amount])
+        # KEYS[1] = balance_key, KEYS[2] = user_id
+        result = redis.eval(lua_script, [balance_key, user_id], [amount])
         return result
     except Exception as e:
         print(f"LUA Execution Error: {e}")
@@ -80,18 +85,20 @@ def dino_bet_api():
     data = request.json or {}
     user_id = data.get("user_id")
     bet_amount = float(data.get("bet_amount", 0))
+    game_mode = data.get("game_mode", "real") # "real" ወይም "demo"
 
     if not user_id or bet_amount <= 0:
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
 
-    # [STABILITY FIX]: ጨዋታው ከመጀመሩ በፊት ባላንሱን በአቶሚክ መንገድ እንቀንሳለን
-    deduct_status = deduct_balance_safely(user_id, bet_amount)
+    # በአቶሚክ መንገድ ካሰበው Mode ላይ ባላንሱን እንቀንሳለን
+    deduct_status = deduct_balance_safely(user_id, bet_amount, game_mode)
     if deduct_status == "INSUFFICIENT":
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
     elif deduct_status == "ERROR":
         return jsonify({"status": "error", "message": "የሲስተም ስህተት ተከስቷል"}), 500
 
-    new_balance = float(redis.hget("users:balance", user_id) or 0.0)
+    balance_key = "users:demo_balance" if game_mode == "demo" else "users:balance"
+    new_balance = float(redis.hget(balance_key, user_id) or 0.0)
     return jsonify({"status": "success", "new_balance": new_balance})
 
 @server.route('/api/dino/cashout', methods=['POST'])
@@ -100,15 +107,16 @@ def dino_cashout_api():
     user_id = data.get("user_id")
     bet_amount = float(data.get("bet_amount", 0))
     multiplier = float(data.get("multiplier", 1.0))
+    game_mode = data.get("game_mode", "real") # "real" ወይም "demo"
 
     if not user_id or bet_amount <= 0 or multiplier < 1.0:
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
 
     win_amount = bet_amount * multiplier
 
-    # ያሸነፈውን ብር ቀጥታ ወደ Redis ባላንስ ብቻ እንጨምራለን (ታሪክ ላይ ሳይመዘገብ)
-    redis.hincrbyfloat("users:balance", user_id, win_amount)
-    new_balance = float(redis.hget("users:balance", user_id) or 0.0)
+    balance_key = "users:demo_balance" if game_mode == "demo" else "users:balance"
+    redis.hincrbyfloat(balance_key, user_id, win_amount)
+    new_balance = float(redis.hget(balance_key, user_id) or 0.0)
 
     return jsonify({
         "status": "success", 
@@ -121,14 +129,10 @@ def dino_cashout_api():
 # ==========================================
 @server.route('/api/get_history', methods=['GET'])
 def get_dino_history_api():
-    """
-    ለሁሉም ተጫዋቾች የጋራ የሆነውን የመጨረሻ የዲኖ ዙሮች ውጤት ታሪክ ያመጣል
-    """
     try:
         history_data = redis.get("dino:crash_history")
         history_list = json.loads(history_data) if history_data else []
         
-        # ታሪኩ ባዶ ከሆነ መነሻ ዲፎልት ቁጥሮችን እንሰጠዋለን
         if not history_list:
             history_list = [1.28, 2.68, 1.44, 4.36, 2.02, 1.91, 31.23]
             redis.set("dino:crash_history", json.dumps(history_list))
@@ -140,9 +144,6 @@ def get_dino_history_api():
 
 @server.route('/api/save_history', methods=['POST'])
 def save_dino_history_api():
-    """
-    አውሮፕላኑ Crash ሲያደርግ የመጨረሻውን ውጤት (multiplier) በRedis ውስጥ ቋሚ አድርጎ ሴቭ ያደርጋል
-    """
     data = request.json or {}
     multiplier = data.get("multiplier")
 
@@ -150,18 +151,13 @@ def save_dino_history_api():
         return jsonify({"status": "error", "message": "Multiplier is missing"}), 400
 
     try:
-        # የነበረውን ታሪክ ማምጣት
         history_data = redis.get("dino:crash_history")
         history_list = json.loads(history_data) if history_data else []
-
-        # አዲሱን ውጤት መጀመሪያ ላይ መጨመር
         history_list.insert(0, float(multiplier))
 
-        # ታሪኩ ከ 20 እንዳይበልጥ መገደብ
         if len(history_list) > 20:
             history_list.pop()
 
-        # መልሶ Redis ላይ ማስቀመጥ
         redis.set("dino:crash_history", json.dumps(history_list))
         return jsonify({"status": "success"})
     except Exception as e:
@@ -177,13 +173,31 @@ def save_dino_history_api():
 def get_balance():
     data = request.json or {}
     user_id = data.get("user_id")
+    game_mode = data.get("game_mode", "real") # "real" ወይም "demo" (ዲፎልት 'real' ነው)
+    
     if not user_id:
         return jsonify({"status": "error", "message": "Missing user_id"}), 400
     
-    current_balance = float(redis.hget("users:balance", user_id) or 0.0)
-    return jsonify({"status": "success", "balance": current_balance})
+    if game_mode == "demo":
+        # አዲስ ተጫዋች በሙከራ ሞድ ሲገባ 1000 ETB በነጻ ይሰጠዋል
+        balance_raw = redis.hget("users:demo_balance", user_id)
+        if balance_raw is None:
+            redis.hset("users:demo_balance", user_id, 1000.0)
+            current_balance = 1000.0
+        else:
+            current_balance = float(balance_raw)
+    else:
+        # እውነተኛው ባላንስ (በተሌብር/በባንክ የሚሞላው)
+        balance_raw = redis.hget("users:balance", user_id)
+        if balance_raw is None:
+            redis.hset("users:balance", user_id, 0.0)
+            current_balance = 0.0
+        else:
+            current_balance = float(balance_raw)
+        
+    return jsonify({"status": "success", "balance": current_balance, "mode": game_mode})
 
-@server.route('/api/get_user_history', methods=['POST'])  # ስሙ ከዲኖ ታሪክ ጋር እንዳይጋጭ ወደ get_user_history ተቀይሯል
+@server.route('/api/get_user_history', methods=['POST'])
 def get_user_history():
     data = request.json or {}
     user_id = data.get("user_id")
@@ -241,9 +255,10 @@ def handle_withdraw():
     if not user_id or amount <= 0 or not phone or not bank_name or not account_name:
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
         
-    deduct_status = deduct_balance_safely(user_id, amount)
+    # ወጪ ጥያቄ የሚሰራው ከእውነተኛው ባላንስ ('real') ላይ ብቻ ነው
+    deduct_status = deduct_balance_safely(user_id, amount, "real")
     if deduct_status == "INSUFFICIENT":
-        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም"}), 400
+        return jsonify({"status": "error", "message": "በቂ እውነተኛ ባላንስ የለዎትም"}), 400
     elif deduct_status == "ERROR":
         return jsonify({"status": "error", "message": "የሲስተም ስህተት ተፈጥሯል፣ እባክዎ እንደገና ይሞክሩ"}), 500
     
@@ -267,7 +282,7 @@ def handle_withdraw():
     return jsonify({"status": "success"})
 
 # ==========================================
-# የዘውድና ጎፈር ጨዋታ ሎጂክ
+# የዘውድና ጎፈር ጨዋታ ሎጂክ (በሁለቱም Mode ይሰራል)
 # ==========================================
 @server.route('/api/coin_flip', methods=['POST'])
 def coin_flip_game():
@@ -275,11 +290,12 @@ def coin_flip_game():
     user_id = data.get("user_id")
     choice = data.get("choice")  # 'ዘውድ' ወይም 'ጎፈር'
     bet_amount = float(data.get("bet_amount", 0))
+    game_mode = data.get("game_mode", "real") # "real" ወይም "demo"
 
     if not user_id or bet_amount <= 0 or not choice:
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
 
-    deduct_status = deduct_balance_safely(user_id, bet_amount)
+    deduct_status = deduct_balance_safely(user_id, bet_amount, game_mode)
     if deduct_status == "INSUFFICIENT":
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
     elif deduct_status == "ERROR":
@@ -289,21 +305,23 @@ def coin_flip_game():
     winning_side = random.choice(sides)
     did_win = (choice == winning_side)
     
+    balance_key = "users:demo_balance" if game_mode == "demo" else "users:balance"
+    
     if did_win:
-        redis.hincrbyfloat("users:balance", user_id, bet_amount * 2)
+        redis.hincrbyfloat(balance_key, user_id, bet_amount * 2)
         status_str = "completed"
         game_status = "win"
     else:
         status_str = "failed"
         game_status = "lose"
 
-    new_balance = float(redis.hget("users:balance", user_id) or 0.0)
+    new_balance = float(redis.hget(balance_key, user_id) or 0.0)
 
-    # የታሪክ ምዝገባ
+    # የታሪክ ምዝገባ (የተጫወተበትን Mode ይጨምራል)
     history_data = redis.get(f"history:{user_id}")
     history_list = json.loads(history_data) if history_data else []
     history_list.insert(0, {
-        "type": f"ዘውድና ጎፈር ({choice})", 
+        "type": f"ዘውድና ጎፈር ({choice}) [{game_mode.upper()}]", 
         "amount": bet_amount, 
         "status": status_str,
         "date": time.strftime("%Y-%m-%d")
@@ -317,7 +335,7 @@ def coin_flip_game():
     })
 
 # ==========================================
-# 🎁 የዕለቱ ነጻ ዕድል (Claim Daily Bonus)
+# 🎁 የዕለቱ ነጻ ዕድል (Claim Daily Bonus) - ወደ Real Balance ብቻ ይገባል
 # ==========================================
 @server.route('/api/claim_daily', methods=['POST'])
 def claim_daily():
@@ -335,6 +353,7 @@ def claim_daily():
     gifts = [1, 2, 3, 4, 5]
     gift_amount = random.choice(gifts)
 
+    # ነጻ ዕድል ሁልጊዜ ወደ እውነተኛው ዋሌት (Real Balance) ይገባል
     redis.hincrbyfloat("users:balance", user_id, gift_amount)
 
     history_data = redis.get(f"history:{user_id}")
@@ -350,7 +369,7 @@ def claim_daily():
     return jsonify({"status": "success", "gift_amount": float(gift_amount)})
 
 # ==========================================
-# 🏆 የሳምንቱ መሪዎች ሰሌዳ (Leaderboard)
+# 🏆 የሳምንቱ መሪዎች ሰሌዳ (Leaderboard) - በእውነተኛ ባላንስ ብቻ
 # ==========================================
 @server.route('/api/get_leaderboard', methods=['POST'])
 def get_leaderboard():
@@ -410,6 +429,7 @@ def process_admin_action(call):
 
     if tx_type == "deposit":
         if action == "ok":
+            # እውነተኛው ዋሌት ላይ ይደመራል
             redis.hincrbyfloat("users:balance", user_id, amount)
             bot.send_message(user_id, f"✅ የእርስዎ {amount} ብር ገቢ ጸድቋል!")
         else:
@@ -419,6 +439,7 @@ def process_admin_action(call):
         if action == "ok":
             bot.send_message(user_id, f"💰 የእርስዎ {amount} ብር ወጪ ተከፍሏል!")
         else:
+            # ውድቅ ከተደረገ እውነተኛው ዋሌት ላይ ይመለሳል
             redis.hincrbyfloat("users:balance", user_id, amount)
             bot.send_message(user_id, f"❌ የእርስዎ {amount} ብር የወጪ ጥያቄ ውድቅ ስለተደረገ ወደ አካውንትዎ ተመልሷል።")
             
