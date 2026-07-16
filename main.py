@@ -63,26 +63,22 @@ def deduct_balance_safely(user_id: str, amount: float, game_mode: str = "real") 
 # ==========================================
 @server.route('/')
 def index():
-    # ዋናው ማውጫ ገጽ (ከዋሌት ባላንስ እና ጨዋታዎች ምርጫ ጋር)
     return render_template('index.html')
 
 @server.route('/aviator')
 def aviator_game():
-    # አዲሱ የኤቪዬተር ጨዋታ ገጽ
     return render_template('aviator.html')
 
 @server.route('/coin_flip_game')
 def coin_flip_page():
-    # የዘውድና ጎፈር ጨዋታ ገጽ
     return render_template('coin_flip.html')
 
 
 # ==========================================
-# ✈️ Aviator Game APIs (የኤቪዬተር ሎጂክ ማቀናበሪያ - Placeholder)
+# ✈️ Aviator Game APIs
 # ==========================================
 @server.route('/api/aviator/bet', methods=['POST'])
 def aviator_bet_api():
-    """ ተጫዋቹ ውርርድ ሲያስይዝ ባላንስ የሚቀንስበት ኤፒአይ """
     data = request.json or {}
     user_id = data.get("user_id")
     bet_amount = float(data.get("bet_amount", 0))
@@ -103,7 +99,6 @@ def aviator_bet_api():
 
 @server.route('/api/aviator/cashout', methods=['POST'])
 def aviator_cashout_api():
-    """ ተጫዋቹ ሲያሸንፍ (ካሽአውት ሲያደርግ) ገንዘብ የሚጨመርበት ኤፒአይ """
     data = request.json or {}
     user_id = data.get("user_id")
     bet_amount = float(data.get("bet_amount", 0))
@@ -143,7 +138,6 @@ def aviator_cashout_api():
 
 @server.route('/api/get_balance', methods=['POST'])
 def get_balance():
-    """ የተጫዋቹን ወቅታዊ ባላንስ (Real ወይም Demo) የሚያሳይ """
     data = request.json or {}
     user_id = data.get("user_id")
     game_mode = data.get("game_mode", "real")
@@ -154,8 +148,8 @@ def get_balance():
     if game_mode == "demo":
         balance_raw = redis.hget("users:demo_balance", user_id)
         if balance_raw is None:
-            redis.hset("users:demo_balance", user_id, 1000.0)  # አዲስ ከሆነ 1000 የሙከራ ብር ስጠው
-            current_balance = 1000.0
+            redis.hset("users:demo_balance", user_id, 10000.0)  # የሙከራ ብር ወደ 10,000 ከፍ ተደርጓል
+            current_balance = 10000.0
         else:
             current_balance = float(balance_raw)
     else:
@@ -170,7 +164,6 @@ def get_balance():
 
 @server.route('/api/get_user_history', methods=['POST'])
 def get_user_history():
-    """ የተጫዋቹን የገቢ/ወጪ እና የጨዋታ ታሪክ የሚያመጣ """
     data = request.json or {}
     user_id = data.get("user_id")
     if not user_id:
@@ -182,7 +175,6 @@ def get_user_history():
 
 @server.route('/api/deposit', methods=['POST'])
 def handle_deposit():
-    """ የገንዘብ ማስገቢያ ጥያቄ መቀበያ (ከደረሰኝ ፎቶ ጋር) """
     user_id = request.form.get("user_id")
     user_name = request.form.get("user_name", "የሰፈር ልጅ")
     amount = float(request.form.get("amount", 0))
@@ -195,19 +187,26 @@ def handle_deposit():
     tx_data = {"user_id": user_id, "amount": amount, "type": "deposit", "status": "pending"}
     redis.set(f"tx:{tx_id}", json.dumps(tx_data))
     
+    # የታሪክ ምዝገባ በልዩ tx_id
     history_data = redis.get(f"history:{user_id}")
     history_list = json.loads(history_data) if history_data else []
-    history_list.insert(0, {"type": "ገቢ", "amount": amount, "status": "pending", "date": time.strftime("%Y-%m-%d")})
+    history_list.insert(0, {
+        "tx_id": tx_id,
+        "type": "ገቢ", 
+        "amount": amount, 
+        "status": "pending", 
+        "date": time.strftime("%Y-%m-%d %H:%M")
+    })
     redis.set(f"history:{user_id}", json.dumps(history_list))
     
-    # ለአድሚን የሚላክ Button
+    # ለአድሚን የሚላክ Inline Button
     markup = InlineKeyboardMarkup()
     markup.add(
         InlineKeyboardButton("✅ አጽድቅ", callback_data=f"ok|deposit|{tx_id}|{user_id}|{amount}"),
         InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"no|deposit|{tx_id}|{user_id}|{amount}")
     )
     
-    caption = f"🔔 <b>አዲስ Deposit ጥያቄ</b>\n\n👤 ስም: {user_name}\n🆔 ID: {user_id}\n💰 መጠን: {amount} ብር\n🔑 TxID: {tx_id}"
+    caption = f"🔔 <b>አዲስ Deposit ጥያቄ</b>\n\n👤 ስም: {user_name}\n🆔 ID: <code>{user_id}</code>\n💰 መጠን: <b>{amount} ብር</b>\n🔑 TxID: <code>{tx_id}</code>"
     try:
         bot.send_photo(ADMIN_ID, receipt_file.read(), caption=caption, reply_markup=markup)
     except Exception as e:
@@ -218,7 +217,6 @@ def handle_deposit():
 
 @server.route('/api/withdraw', methods=['POST'])
 def handle_withdraw():
-    """ የገንዘብ ወጪ (ማውጫ) ጥያቄ ማቅረቢያ """
     data = request.json or {}
     user_id = data.get("user_id")
     user_name = data.get("user_name", "የሰፈር ልጅ")
@@ -230,7 +228,7 @@ def handle_withdraw():
     if not user_id or amount <= 0 or not phone or not bank_name or not account_name:
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
         
-    # ወጪ የሚደረገው ከእውነተኛ ባላንስ ላይ ብቻ ነው
+    # ወጪ የሚደረገው ከእውነተኛ ባላንስ ላይ ብቻ ነው (በጊዜያዊነት Hold ይደረጋል)
     deduct_status = deduct_balance_safely(user_id, amount, "real")
     if deduct_status == "INSUFFICIENT":
         return jsonify({"status": "error", "message": "በቂ እውነተኛ ባላንስ የለዎትም"}), 400
@@ -241,9 +239,16 @@ def handle_withdraw():
     tx_data = {"user_id": user_id, "amount": amount, "type": "withdraw", "status": "pending"}
     redis.set(f"tx:{tx_id}", json.dumps(tx_data))
     
+    # የታሪክ ምዝገባ በልዩ tx_id
     history_data = redis.get(f"history:{user_id}")
     history_list = json.loads(history_data) if history_data else []
-    history_list.insert(0, {"type": "ወጪ", "amount": amount, "status": "pending", "date": time.strftime("%Y-%m-%d")})
+    history_list.insert(0, {
+        "tx_id": tx_id,
+        "type": "ወጪ", 
+        "amount": amount, 
+        "status": "pending", 
+        "date": time.strftime("%Y-%m-%d %H:%M")
+    })
     redis.set(f"history:{user_id}", json.dumps(history_list))
     
     markup = InlineKeyboardMarkup()
@@ -252,7 +257,7 @@ def handle_withdraw():
         InlineKeyboardButton("❌ ሰርዝ (ተመላሽ አድርግ)", callback_data=f"no|withdraw|{tx_id}|{user_id}|{amount}")
     )
     
-    msg = f"💸 <b>አዲስ Withdraw ጥያቄ</b>\n\n👤 ስም: {user_name}\n🆔 ID: {user_id}\n🏦 ባንክ: {bank_name}\n👤 የአካውንት ስም: {account_name}\n💳 አካውንት/ስልክ: {phone}\n💰 መጠን: {amount} ብር\n🔑 TxID: {tx_id}"
+    msg = f"💸 <b>አዲስ Withdraw ጥያቄ</b>\n\n👤 ስም: {user_name}\n🆔 ID: <code>{user_id}</code>\n🏦 ባንክ: {bank_name}\n👤 የአካውንት ስም: {account_name}\n💳 አካውንት/ስልክ: <code>{phone}</code>\n💰 መጠን: <b>{amount} ብር</b>\n🔑 TxID: <code>{tx_id}</code>"
     bot.send_message(ADMIN_ID, msg, reply_markup=markup)
     return jsonify({"status": "success"})
 
@@ -358,12 +363,17 @@ def get_leaderboard():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # ==========================================
-# 🤖 Telegram Admin Callback Handler
+# 🤖 Telegram Admin Callback Handler (የእጅ ማጽደቂያ)
 # ==========================================
 @bot.callback_query_handler(func=lambda call: call.data.startswith("ok") or call.data.startswith("no"))
 def process_admin_action(call):
-    action, tx_type, tx_id, user_id, amount = call.data.split('|')
-    amount = float(amount)
+    try:
+        action, tx_type, tx_id, user_id, amount = call.data.split('|')
+        amount = float(amount)
+    except Exception as e:
+        bot.answer_callback_query(call.id, "⚠️ የዳታ ስህተት ተከስቷል!")
+        return
+
     tx_key = f"tx:{tx_id}"
     tx_data_raw = redis.get(tx_key)
     
@@ -376,42 +386,66 @@ def process_admin_action(call):
         bot.answer_callback_query(call.id, "⚠️ ይህ ጥያቄ ቀደም ብሎ ምላሽ አግኝቷል!")
         return
 
-    tx_status = "completed" if action == "ok" else "refund"
+    # በትክክለኛው ሁኔታ መሰረት ስሞችን መምረጥ
+    if tx_type == "deposit":
+        tx_status = "completed" if action == "ok" else "failed"
+        status_text = "🟢 ጸድቋል (Completed)" if action == "ok" else "🔴 ውድቅ ተደርጓል (Failed)"
+    else:
+        tx_status = "completed" if action == "ok" else "refunded"
+        status_text = "🟢 ተከፍሏል (Completed)" if action == "ok" else "🔴 ተሰርዟል/ተመልሷል (Refunded)"
+
+    # የትራንዛክሽን ሁኔታን ማዘመን
     tx_data["status"] = tx_status
     redis.set(tx_key, json.dumps(tx_data))
     
-    # የተጫዋቹን ታሪክ ማስተካከያ
+    # 1. የተጠቃሚውን የትራንዛክሽን ታሪክ በ tx_id አረጋግጦ ማዘመን
     history_data = redis.get(f"history:{user_id}")
     if history_data:
         history_list = json.loads(history_data)
-        type_str = "ገቢ" if tx_type == "deposit" else "ወጪ"
         for item in history_list:
-            if item["type"] == type_str and item["status"] == "pending" and float(item["amount"]) == amount:
+            if item.get("tx_id") == tx_id:
                 item["status"] = tx_status
                 break
         redis.set(f"history:{user_id}", json.dumps(history_list))
 
+    # 2. የገንዘብ መጠንን ማስተካከልና ለተጠቃሚው በቴሌግራም መልዕክት መላክ
     if tx_type == "deposit":
         if action == "ok":
             redis.hincrbyfloat("users:balance", user_id, amount)
-            bot.send_message(user_id, f"✅ የእርስዎ {amount} ብር ገቢ ጸድቋል!")
+            try:
+                bot.send_message(user_id, f"🎉 <b>የገቢ (Deposit) ጥያቄዎ ጸድቋል!</b>\n\n💰 የገንዘብ መጠን: <b>{amount} ETB</b> ዋሌትዎ ላይ ተጨምሯል።")
+            except Exception as e:
+                print(f"Failed to notify user {user_id}: {e}")
         else:
-            bot.send_message(user_id, f"❌ የእርስዎ {amount} ብር የገቢ ጥያቄ ውድቅ ተደርጓል።")
+            try:
+                bot.send_message(user_id, f"❌ <b>የገቢ (Deposit) ጥያቄዎ ውድቅ ተደርጓል!</b>\n\n💰 የገንዘብ መጠን: <b>{amount} ETB</b>\n🔍 እባክዎ የላኩት የክፍያ ደረሰኝ ትክክለኛ መሆኑን ያረጋግጡ።")
+            except Exception as e:
+                print(f"Failed to notify user {user_id}: {e}")
             
     elif tx_type == "withdraw":
         if action == "ok":
-            bot.send_message(user_id, f"💰 የእርስዎ {amount} ብር ወጪ ተከፍሏል!")
+            try:
+                bot.send_message(user_id, f"🎉 <b>የወጪ (Withdraw) ጥያቄዎ ተከፍሏል!</b>\n\n💰 የገንዘብ መጠን: <b>{amount} ETB</b> ወደ ባንክ አካውንትዎ በተሳካ ሁኔታ ተልኳል።")
+            except Exception as e:
+                print(f"Failed to notify user {user_id}: {e}")
         else:
-            redis.hincrbyfloat("users:balance", user_id, amount)  # ከተሰረዘ ብሩን መልስለት
-            bot.send_message(user_id, f"❌ የእርስዎ {amount} ብር የወጪ ጥያቄ ውድቅ ስለተደረገ ወደ አካውንትዎ ተመልሷል።")
+            # ጥያቄው ውድቅ ከተደረገ በ Hold ላይ የነበረውን ብር መመለስ (Refund)
+            redis.hincrbyfloat("users:balance", user_id, amount)
+            try:
+                bot.send_message(user_id, f"❌ <b>የወጪ (Withdraw) ጥያቄዎ ተሰርዟል!</b>\n\n💰 የገንዘብ መጠን: <b>{amount} ETB</b> ወደ ዋሌትዎ ተመልሷል።")
+            except Exception as e:
+                print(f"Failed to notify user {user_id}: {e}")
             
-    status_text = "✅ ተጠናቋል" if action == "ok" else "❌ ውድቅ ተደርጓል"
-    bot.answer_callback_query(call.id, f"ጥያቄው {status_text} ሆኗል")
+    # ለአድሚን በቴሌግራም ላይ ምላሽ መስጠት
+    bot.answer_callback_query(call.id, f"ጥያቄው: {status_text}")
     
+    # ቁልፎቹን በማጥፋት (reply_markup=None) መልዕክቱን ማደስ
     if call.message.caption:
-        bot.edit_message_caption(f"{call.message.caption}\n\n{status_text}", chat_id=call.message.chat.id, message_id=call.message.message_id)
+        new_caption = f"{call.message.caption}\n\n🏷️ <b>ሁኔታ:</b> {status_text}"
+        bot.edit_message_caption(caption=new_caption, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
     else:
-        bot.edit_message_text(f"{call.message.text}\n\n{status_text}", chat_id=call.message.chat.id, message_id=call.message.message_id)
+        new_text = f"{call.message.text}\n\n🏷️ <b>ሁኔታ:</b> {status_text}"
+        bot.edit_message_text(text=new_text, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
 
 @server.route(f'/webhook/{TOKEN}', methods=['POST'])
 def webhook():
