@@ -1,6 +1,3 @@
-import eventlet
-eventlet.monkey_patch()  # 👈 ይህ ከምንም ነገር በፊት እዚህ መሆን አለበት
-
 import os
 import time
 import json
