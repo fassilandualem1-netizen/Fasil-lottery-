@@ -1,3 +1,4 @@
+// ================= 1. መነሻ መዋቅር እና Variables =================
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const multiplierDisplay = document.getElementById("multiplierDisplay");
@@ -6,7 +7,7 @@ const historyBar = document.getElementById("historyBar");
 const balanceDisplay = document.getElementById('balanceDisplay');
 
 const tg = window.Telegram ? window.Telegram.WebApp : null;
-const userId = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id.toString() : "8488592165";
+const userId = tg?.initDataUnsafe?.user?.id.toString() || "8488592165";
 
 // 🎮 የጨዋታ State Management
 let gameState = 'WAITING'; // WAITING, FLYING, CRASHED
@@ -25,7 +26,9 @@ let bets = {
     2: { state: 'IDLE', amount: 20, isAuto: false }
 };
 
-// 1. ልክ ሲከፈት ትክክለኛውን ባላንስ ከሰርቨር ማምጣት
+// ================= 2. API እና መረጃ ማምጣት =================
+
+// ልክ ሲከፈት ትክክለኛውን ባላንስ ከሰርቨር ማምጣት
 async function fetchInitialBalance() {
     try {
         const response = await fetch('/api/get_balance', {
@@ -34,19 +37,16 @@ async function fetchInitialBalance() {
             body: JSON.stringify({ user_id: userId })
         });
         const result = await response.json();
-        if (result.status === "success" && balanceDisplay) {
-            balanceDisplay.innerText = result.balance.toFixed(2);
-        } else if (balanceDisplay) {
-            balanceDisplay.innerText = "0.00";
+        if (balanceDisplay) {
+            balanceDisplay.innerText = result.status === "success" ? result.balance.toFixed(2) : "0.00";
         }
     } catch (e) {
         console.error("Balance fetch error:", e);
         if(balanceDisplay) balanceDisplay.innerText = "0.00";
     }
 }
-fetchInitialBalance();
 
-// 🦖 2. ልክ ሲከፈት ቋሚውን የዲኖ ታሪክ ከRedis ማምጣት
+// ልክ ሲከፈት ቋሚውን የዲኖ ታሪክ ከRedis ማምጣት
 async function loadRealHistory() {
     try {
         const response = await fetch('/api/get_history');
@@ -59,7 +59,6 @@ async function loadRealHistory() {
         console.error("History fetch error:", e);
     }
 }
-loadRealHistory();
 
 function generateCrashPoint() {
     let rand = Math.random();
@@ -67,16 +66,14 @@ function generateCrashPoint() {
     return 1.05 + (0.95 / (Math.random() + 0.01));
 }
 
-// 🔊 የድምፅ ማጫወቻ (የደህንነት ጥበቃ የተደረገለት)
+// ================= 3. የድምፅ ማጫወቻ (Audio) =================
 let audioCtx = null;
 function playSound(type) {
     try {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
         
         let osc = audioCtx.createOscillator();
         let gain = audioCtx.createGain();
@@ -109,7 +106,7 @@ function playSound(type) {
     }
 }
 
-// ================= UI INPUT LOGIC =================
+// ================= 4. UI INPUT እና HISTORY LOGIC =================
 function switchTab(panelId, mode) {
     let bet = bets[panelId];
     if (bet.state !== 'IDLE' && bet.state !== 'QUEUED') return;
@@ -156,7 +153,6 @@ function setBet(panelId, amount) {
     syncButtons();
 }
 
-// ================= HISTORY LOGIC =================
 function renderHistory() {
     if (!historyBar) return;
     historyBar.innerHTML = crashHistory.map(m => {
@@ -170,9 +166,8 @@ function renderHistory() {
     }).join('');
     historyBar.scrollLeft = 0;
 }
-renderHistory();
 
-// ================= API & BUTTON ACTION LOGIC =================
+// ================= 5. API እና BUTTON ACTION LOGIC =================
 async function placeBetAPI(panelId) {
     let bet = bets[panelId];
     try {
@@ -246,13 +241,14 @@ function handleAction(panelId) {
     }
 }
 
+// 🔄 የተሻሻለው የ Button Synchronization
 function syncButtons() {
     [1, 2].forEach(id => {
         let bet = bets[id];
         let btn = document.getElementById(`btnAction${id}`);
         let inputField = document.getElementById(`betInput${id}`);
 
-        if (!btn) return; // ኤለመንቱ ከሌለ እንዳይበላሽ መከላከል
+        if (!btn) return;
 
         if (bet.state === 'IDLE') {
             btn.className = "action-btn btn-bet";
@@ -288,7 +284,7 @@ function syncButtons() {
     });
 }
 
-// ================= CANVAS ANIMATION LOGIC =================
+// ================= 6. CANVAS ANIMATION LOGIC =================
 let sunburstAngle = 0;
 let planePos = { x: 0, y: 500 };
 
@@ -346,7 +342,7 @@ function drawCurve() {
     ctx.fill();
 }
 
-// ================= GAME LOOP =================
+// ================= 7. GAME LOOP =================
 let animationId;
 function gameLoop() {
     if (!canvas) return;
@@ -424,7 +420,7 @@ function gameLoop() {
     animationId = requestAnimationFrame(gameLoop);
 }
 
-// ================= ROUND MANAGERS =================
+// ================= 8. ROUND MANAGERS =================
 function startCountdown() {
     gameState = 'WAITING';
     countdownTimer = 10;
@@ -497,9 +493,12 @@ function triggerCrash() {
     }, 3000);
 }
 
-// ጅማሬ
+// ================= 9. ጅማሬ (Initialization) =================
+fetchInitialBalance();
+loadRealHistory();
 updateInputUI();
 startCountdown();
+
 if (canvas) {
     requestAnimationFrame(gameLoop);
 }
