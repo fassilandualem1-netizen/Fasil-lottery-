@@ -13,15 +13,19 @@ let gameState = 'WAITING'; // WAITING, FLYING, CRASHED
 let multiplier = 1.00;
 let crashPoint = 1.00;
 let countdownTimer = 10;
-let crashHistory = [1.28, 2.68, 1.44, 4.36, 2.02, 1.91, 31.23]; // መነሻ ሂስቶሪ
+let crashHistory = [1.28, 2.68, 1.44, 4.36, 2.02, 1.91, 31.23]; // መነሻ (ሰርቨሩ እስኪመልስ)
 
-// 💸 የውርርድ (Dual Bet) State (Auto Cashout ተጨምሮበት)
+// ✈️ የአውሮፕላን ምስል (SVG Icon)
+const planeImg = new Image();
+planeImg.src = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBmaWxsPSIjZTUwYjJjIiBkPSJNNDQ4IDMzNmMtMTYuNyAwLTMyLTEzLjMtMzItMzJWMjI0SDI4OEwxNTEuNiAzODMuMWMtNi44IDgtMTYuNyAxMi45LTI3LjQgMTIuOUg2NGMtMTUu1IDAtMjUuMS0xNC41LTE5LjktMjguN0w5NiAyMjRIMzJjLTE3LjcgMC0zMi0xNC4zLTMyLTMyczE0LjMtMzIgMzItMzJoNjRsLTUxLjktMTQzLjNDMzguOSAyLjUgNTMuNC03LjUgNjguNi03LjVoNjAuMmMxMC43IDAgMjAuNiA0LjkgMjcuNCAxMi45TDI4OCAxNjBoMTI4di04MGMwLTE4LjcgMTUuMy0zMiAzMi0zMnMzMiAxMy4zIDMyIDMydjIyNGMwIDE4LjctMTUuMyAzMi0zMiAzMnoiLz48L3N2Zy4=";
+
+// 💸 የውርርድ (Dual Bet) State
 let bets = {
     1: { state: 'IDLE', amount: 20, isAuto: false }, 
     2: { state: 'IDLE', amount: 20, isAuto: false }
 };
 
-// 1. ልክ ሲከፈት ትክክለኛውን ባላንስ አምጣ
+// 1. ልክ ሲከፈት ትክክለኛውን ባላንስ ከሰርቨር ማምጣት
 async function fetchInitialBalance() {
     try {
         const response = await fetch('/api/get_balance', {
@@ -41,6 +45,21 @@ async function fetchInitialBalance() {
     }
 }
 fetchInitialBalance();
+
+// 🦖 2. ልክ ሲከፈት ቋሚውን የዲኖ ታሪክ ከRedis ማምጣት (አዲሱ API)
+async function loadRealHistory() {
+    try {
+        const response = await fetch('/api/get_history'); // Back-end ላይ የሰራነው አዲሱ GET Route
+        const result = await response.json();
+        if (result.status === "success") {
+            crashHistory = result.history_data;
+            renderHistory();
+        }
+    } catch (e) {
+        console.error("History fetch error:", e);
+    }
+}
+loadRealHistory();
 
 function generateCrashPoint() {
     let rand = Math.random();
@@ -123,10 +142,15 @@ function setBet(panelId, amount) {
     syncButtons();
 }
 
-// ================= HISTORY LOGIC =================
+// ================= HISTORY LOGIC (ቀለማቱ የተስተካከለበት) =================
 function renderHistory() {
     historyBar.innerHTML = crashHistory.map(m => {
-        let colorClass = m < 2.0 ? 'color-blue' : (m < 10.0 ? 'color-purple' : 'color-pink');
+        let colorClass = 'color-blue'; // ከ 2.0 በታች ሰማያዊ
+        if (m >= 10.0) {
+            colorClass = 'color-pink'; // ከ 10.0 በላይ ሮዝ/ቀይ
+        } else if (m >= 2.0) {
+            colorClass = 'color-purple'; // ከ 2.0 እስከ 10.0 ሐምራዊ
+        }
         return `<div class="history-chip ${colorClass}">${m.toFixed(2)}x</div>`;
     }).join('');
     historyBar.scrollLeft = 0;
@@ -159,10 +183,14 @@ async function executeCashout(panelId) {
     let bet = bets[panelId];
     if (bet.state !== 'IN_GAME') return;
 
-    let currentMult = multiplier; // በዛች ቅፅበት ያለችውን መያዝ
+    let currentMult = multiplier; 
     bet.state = 'CASHED_OUT';
     playSound("win");
-    syncButtons(); 
+    
+    // ፓነሉ በአረንጓዴ እንዲያሸበርቅ
+    let btn = document.getElementById(`btnAction${panelId}`);
+    btn.className = "action-btn btn-bet"; 
+    btn.style.backgroundColor = "#28a745"; 
 
     try {
         const response = await fetch('/api/dino/cashout', {
@@ -173,7 +201,6 @@ async function executeCashout(panelId) {
         const result = await response.json();
         if (result.status === "success") {
             if (balanceDisplay) balanceDisplay.innerText = result.new_balance.toFixed(2);
-            let btn = document.getElementById(`btnAction${panelId}`);
             btn.innerHTML = `WIN <div class="btn-subtext">${result.win_amount.toFixed(2)} ETB</div>`;
         }
     } catch (e) { console.error(e); }
@@ -184,7 +211,6 @@ function handleAction(panelId) {
 
     if (bet.state === 'IDLE') {
         if(gameState === 'FLYING') {
-            // Next Round Queue
             bet.state = 'QUEUED';
             syncButtons();
         } else if (gameState === 'WAITING') {
@@ -192,7 +218,6 @@ function handleAction(panelId) {
         }
     } 
     else if (bet.state === 'QUEUED') {
-        // ገና አልተቆረጠም፣ መሰረዝ ይቻላል
         bet.state = 'IDLE';
         syncButtons();
     }
@@ -209,6 +234,7 @@ function syncButtons() {
 
         if (bet.state === 'IDLE') {
             btn.className = "action-btn btn-bet";
+            btn.style.backgroundColor = "#28a745"; // አረንጓዴ
             btn.innerHTML = `BET <div class="btn-subtext">${bet.amount.toFixed(2)} ETB</div>`;
             inputField.disabled = false;
         } 
@@ -224,13 +250,15 @@ function syncButtons() {
         }
         else if (bet.state === 'IN_GAME') {
             btn.className = "action-btn btn-cashout";
+            btn.style.backgroundColor = "#ff9800"; // ብርቱካናማ ለካሽአውት
             let winAmount = (bet.amount * multiplier).toFixed(2);
             btn.innerHTML = `CASH OUT <div class="btn-subtext">${winAmount} ETB</div>`;
             inputField.disabled = true;
         }
-        else if (bet.state === 'CASHED_OUT') {
+        else if (bet.state === 'CRASHED') {
             btn.className = "action-btn btn-disabled";
-            // ጽሁፉ በ executeCashout ውስጥ ይቀየራል
+            btn.style.backgroundColor = "#555"; // ግራጫ
+            btn.innerHTML = `CRASHED <div class="btn-subtext">- ${bet.amount.toFixed(2)} ETB</div>`;
             inputField.disabled = true;
         }
     });
@@ -249,7 +277,7 @@ function drawSunburst() {
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.arc(0, 0, canvas.width, (i * 2 * Math.PI) / rays, ((i + 0.5) * 2 * Math.PI) / rays);
-        ctx.fillStyle = "rgba(255, 255, 255, 0.02)";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.015)";
         ctx.fill();
     }
     ctx.restore();
@@ -259,29 +287,34 @@ function drawSunburst() {
 function drawPlane() {
     ctx.save();
     ctx.translate(planePos.x, planePos.y);
-    ctx.fillStyle = "#e50b2c";
-    ctx.beginPath();
-    ctx.moveTo(30, 0);
-    ctx.lineTo(-10, -15);
-    ctx.lineTo(-20, 0);
-    ctx.lineTo(-10, 15);
-    ctx.closePath();
-    ctx.fill();
+    if (planeImg.complete) {
+        ctx.drawImage(planeImg, -30, -20, 60, 45);
+    } else {
+        // ምስሉ ሎድ እስኪያደርግ ዲፎልት ቀይ ትሪያንግል
+        ctx.fillStyle = "#e50b2c";
+        ctx.beginPath();
+        ctx.moveTo(30, 0);
+        ctx.lineTo(-10, -15);
+        ctx.lineTo(-20, 0);
+        ctx.lineTo(-10, 15);
+        ctx.closePath();
+        ctx.fill();
+    }
     ctx.restore();
 }
 
 function drawCurve() {
     ctx.beginPath();
     ctx.moveTo(0, canvas.height);
-    ctx.quadraticCurveTo(planePos.x * 0.5, canvas.height, planePos.x, planePos.y);
-    ctx.lineWidth = 6;
+    ctx.quadraticCurveTo(planePos.x * 0.4, canvas.height * 0.9, planePos.x - 10, planePos.y + 10);
+    ctx.lineWidth = 5;
     ctx.strokeStyle = "#e50b2c";
     ctx.stroke();
 
     ctx.lineTo(planePos.x, canvas.height);
     ctx.lineTo(0, canvas.height);
     let gradient = ctx.createLinearGradient(0, planePos.y, 0, canvas.height);
-    gradient.addColorStop(0, "rgba(229, 11, 44, 0.4)");
+    gradient.addColorStop(0, "rgba(229, 11, 44, 0.5)");
     gradient.addColorStop(1, "rgba(229, 11, 44, 0.0)");
     ctx.fillStyle = gradient;
     ctx.fill();
@@ -313,15 +346,15 @@ function gameLoop() {
 
         if (Math.random() < 0.1) playSound("fly");
 
-        if (planePos.x < canvas.width * 0.7) planePos.x += 2.5;
-        if (planePos.y > canvas.height * 0.3) planePos.y -= 1.5;
-        let wobble = Math.sin(Date.now() / 200) * 3;
+        if (planePos.x < canvas.width * 0.75) planePos.x += 2.5;
+        if (planePos.y > canvas.height * 0.2) planePos.y -= 1.5;
+        let wobble = Math.sin(Date.now() / 200) * 2;
         planePos.y += wobble * 0.1;
 
         drawCurve();
         drawPlane();
 
-        // 3. Auto Cashout ሎጂክ ማረጋገጫ
+        // Auto Cashout ሎጂክ
         [1, 2].forEach(id => {
             let bet = bets[id];
             if (bet.state === 'IN_GAME' && bet.isAuto) {
@@ -343,6 +376,12 @@ function gameLoop() {
         statusText.style.color = "#e50b2c";
         statusText.innerText = "FLEW AWAY!";
         multiplierDisplay.style.color = "#e50b2c";
+
+        // አውሮፕላኑ ከስክሪኑ በፍጥነት እንዲወጣ (Flew Away ውጤት)
+        planePos.x += 15;
+        planePos.y -= 10;
+        drawCurve();
+        drawPlane();
     }
 
     animationId = requestAnimationFrame(gameLoop);
@@ -354,8 +393,9 @@ function startCountdown() {
     countdownTimer = 10;
     multiplier = 1.00;
     
+    // ቀጣዩ ዙር ሲጀምር በሙሉ ፓነሎችን ሪሴት እናደርጋለን
     [1, 2].forEach(id => {
-        if(bets[id].state === 'CASHED_OUT' || bets[id].state === 'IN_GAME') {
+        if(bets[id].state === 'CASHED_OUT' || bets[id].state === 'CRASHED' || bets[id].state === 'IN_GAME') {
             bets[id].state = 'IDLE';
         }
     });
@@ -364,7 +404,6 @@ function startCountdown() {
     let intervalId = setInterval(() => {
         countdownTimer--;
         
-        // 2. Next Round Queue ሎጂክ: ቆጠራው ሊያልቅ ሲል Out-standing ውርርዶችን ይቆርጣል
         if (countdownTimer === 1) {
             [1, 2].forEach(id => {
                 if (bets[id].state === 'QUEUED') {
@@ -392,23 +431,32 @@ function startRound() {
     syncButtons(); 
 }
 
+// ================= 3. TRIGGER CRASH (ውጤቱን በቋሚነት ወደ Redis የሚልክ) =================
 function triggerCrash() {
     gameState = 'CRASHED';
     playSound("crash");
     
-    // 4. Dynamic History ሎጂክ 
-    crashHistory.unshift(parseFloat(multiplier.toFixed(2)));
+    let finalCrashPoint = parseFloat(multiplier.toFixed(2));
+
+    // UI ታሪክ ማዘመን
+    crashHistory.unshift(finalCrashPoint);
     if(crashHistory.length > 20) crashHistory.pop();
     renderHistory();
 
+    // 🚀 ውጤቱን ወደ Python/Redis ቋሚ አድርጎ እንዲያስቀምጥ በ API መላክ
+    fetch('/api/save_history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ multiplier: finalCrashPoint })
+    }).catch(e => console.error("History save error:", e));
+
+    // የተሸነፉ ፓነሎችን ወደ CRASHED መቀየር
     [1, 2].forEach(id => {
         if (bets[id].state === 'IN_GAME') {
-            bets[id].state = 'IDLE';
-            let btn = document.getElementById(`btnAction${id}`);
-            btn.className = "action-btn btn-disabled";
-            btn.innerHTML = `CRASHED <div class="btn-subtext">0.00 ETB</div>`;
+            bets[id].state = 'CRASHED';
         }
     });
+    syncButtons();
 
     setTimeout(() => {
         startCountdown();
