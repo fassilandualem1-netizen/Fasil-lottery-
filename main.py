@@ -261,13 +261,18 @@ def send_welcome(message):
     markup.add(InlineKeyboardButton("🎮 Play Games", web_app=web_app_info))
     bot.reply_to(message, "👋 እንኳን ወደ ሰፈር ቦት በደህና መጡ! ለመጫወት እና ዋሌትዎን ለመጠቀም ከታች ያለውን ቁልፍ ይጫኑ።", reply_markup=markup)
 
-if __name__ == "__main__":
-    try:
-        bot.remove_webhook()
-        time.sleep(0.1)
-        bot.set_webhook(url=f"{WEB_APP_URL}/webhook/{TOKEN}")
-        print("✅ Webhook setup was successful!")
-    except Exception as e:
-        print(f"❌ Webhook Setup Failed: {e}")
+# 🌍 የ Telegram Webhook ማዋቀሪያ (Gunicorn ሲነሳም እንዲሰራ ከ "if __name__" ውጪ መሆን አለበት)
+try:
+    bot.remove_webhook()
+    time.sleep(0.1)
+    bot.set_webhook(url=f"{WEB_APP_URL}/webhook/{TOKEN}")
+    print("✅ Webhook setup was successful!")
+except Exception as e:
+    print(f"❌ Webhook Setup Failed: {e}")
 
+
+# 💻 ይህ ክፍል አንተ በኮምፒውተርህ ላይ ቴስት ስታደርግ ብቻ ነው የሚሰራው
+# (Render ላይ ግን ከላይ ባዘጋጀነው Procfile አማካኝነት በ Gunicorn ነው የሚሰራው)
+if __name__ == "__main__":
+    # ማሳሰቢያ፡ እዚህ ጋር 'If' ካለህ 'i' በትንሿ መጻፉን አረጋግጥ (if)
     socketio.run(server, host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
