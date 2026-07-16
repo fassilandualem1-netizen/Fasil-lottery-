@@ -126,10 +126,12 @@
   <!-- 4. WALLET MODAL (ገቢ/ወጪ ማስገቢያ ሳጥን) -->
   <div id="wallet-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-slate-950 border border-gray-800 rounded-2xl w-full max-w-sm overflow-hidden">
-      <!-- Tabs Header -->
+      
+      <!-- Tabs Header (3 ክፍሎች እንዲኖሩት ተደርጓል) -->
       <div class="flex border-b border-gray-800 text-sm font-bold">
-        <button onclick="switchWalletTab('deposit-tab')" id="btn-deposit-tab" class="w-1/2 py-3 text-center text-yellow-400 border-b-2 border-yellow-400">ገቢ (Deposit)</button>
-        <button onclick="switchWalletTab('withdraw-tab')" id="btn-withdraw-tab" class="w-1/2 py-3 text-center text-gray-400">ወጪ (Withdraw)</button>
+        <button onclick="switchWalletTab('deposit-tab')" id="btn-deposit-tab" class="w-1/3 py-3 text-center text-yellow-400 border-b-2 border-yellow-400 transition">ገቢ (Deposit)</button>
+        <button onclick="switchWalletTab('withdraw-tab')" id="btn-withdraw-tab" class="w-1/3 py-3 text-center text-gray-400 transition">ወጪ (Withdraw)</button>
+        <button onclick="switchWalletTab('history-tab')" id="btn-history-tab" class="w-1/3 py-3 text-center text-gray-400 transition">ታሪክ (History)</button>
       </div>
 
       <!-- Tab Content Area -->
@@ -172,11 +174,20 @@
             <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-slate-950 font-black py-2.5 rounded-lg text-sm transition">የመውጫ ጥያቄ አቅርብ</button>
           </form>
         </div>
+
+        <!-- History Tab (አዲስ የተጨመረው) -->
+        <div id="history-tab" class="hidden">
+          <h3 class="text-xs text-gray-400 mb-3 border-b border-gray-800 pb-2">የግብይት ታሪክዎ (Your Transaction History)</h3>
+          <div id="history-list" class="space-y-2">
+             <p class="text-sm text-gray-500 text-center py-4 bg-gray-900 rounded-lg">ምንም ታሪክ የለም</p>
+             <!-- ግብይቶች ሲኖሩ እዚህ ጋር በJS ሊሞሉ ይችላሉ -->
+          </div>
+        </div>
       </div>
 
       <!-- Close Button -->
       <div class="bg-gray-900 p-3 border-t border-gray-800 text-center">
-        <button onclick="closeWalletModal()" class="text-xs text-gray-400 hover:text-white font-bold">ዝጋ</button>
+        <button onclick="closeWalletModal()" class="text-xs text-gray-400 hover:text-white font-bold transition">ዝጋ</button>
       </div>
     </div>
   </div>
@@ -255,18 +266,28 @@
       document.getElementById("wallet-modal").classList.add("hidden");
     }
 
-    // በገቢ እና ወጪ ታቦች መካከል መቀያየር
+    // በገቢ፣ ወጪ እና ታሪክ ታቦች መካከል መቀያየር (አስተካክዬዋለሁ)
     function switchWalletTab(tabName) {
+      // 1. መጀመሪያ ሁሉንም ታቦች እንደብቃለን
+      document.getElementById("deposit-tab").classList.add("hidden");
+      document.getElementById("withdraw-tab").classList.add("hidden");
+      document.getElementById("history-tab").classList.add("hidden");
+
+      // 2. የሁሉንም ቁልፎች ቀለም ወደ መደበኛ እንመልሳለን
+      document.getElementById("btn-deposit-tab").className = "w-1/3 py-3 text-center text-gray-400 transition";
+      document.getElementById("btn-withdraw-tab").className = "w-1/3 py-3 text-center text-gray-400 transition";
+      document.getElementById("btn-history-tab").className = "w-1/3 py-3 text-center text-gray-400 transition";
+
+      // 3. የተመረጠውን ታብ ብቻ እናሳያለን
+      document.getElementById(tabName).classList.remove("hidden");
+
+      // 4. ለተመረጠው ታብ ቁልፍ ልዩ ቀለም እንሰጣለን
       if (tabName === "deposit-tab") {
-        document.getElementById("deposit-tab").classList.remove("hidden");
-        document.getElementById("withdraw-tab").classList.add("hidden");
-        document.getElementById("btn-deposit-tab").className = "w-1/2 py-3 text-center text-yellow-400 border-b-2 border-yellow-400";
-        document.getElementById("btn-withdraw-tab").className = "w-1/2 py-3 text-center text-gray-400";
-      } else {
-        document.getElementById("deposit-tab").classList.add("hidden");
-        document.getElementById("withdraw-tab").classList.remove("hidden");
-        document.getElementById("btn-deposit-tab").className = "w-1/2 py-3 text-center text-gray-400";
-        document.getElementById("btn-withdraw-tab").className = "w-1/2 py-3 text-center text-green-400 border-b-2 border-green-400";
+        document.getElementById("btn-deposit-tab").className = "w-1/3 py-3 text-center text-yellow-400 border-b-2 border-yellow-400 transition";
+      } else if (tabName === "withdraw-tab") {
+        document.getElementById("btn-withdraw-tab").className = "w-1/3 py-3 text-center text-green-400 border-b-2 border-green-400 transition";
+      } else if (tabName === "history-tab") {
+        document.getElementById("btn-history-tab").className = "w-1/3 py-3 text-center text-blue-400 border-b-2 border-blue-400 transition";
       }
     }
 
