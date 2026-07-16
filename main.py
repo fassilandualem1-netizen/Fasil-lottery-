@@ -72,7 +72,6 @@ def coin_flip_page():
     return render_template('coin_flip.html')
 
 
-
 # ==========================================
 # 🦖 የዲኖ ራን (Dino Run) ጨዋታ ሎጂክ ከWallet ጋር
 # ==========================================
@@ -118,6 +117,59 @@ def dino_cashout_api():
     })
 
 # ==========================================
+# 🦖 ቋሚ የዲኖ ጨዋታ ታሪክ (Dino Game History) በRedis
+# ==========================================
+@server.route('/api/get_history', methods=['GET'])
+def get_dino_history_api():
+    """
+    ለሁሉም ተጫዋቾች የጋራ የሆነውን የመጨረሻ የዲኖ ዙሮች ውጤት ታሪክ ያመጣል
+    """
+    try:
+        history_data = redis.get("dino:crash_history")
+        history_list = json.loads(history_data) if history_data else []
+        
+        # ታሪኩ ባዶ ከሆነ መነሻ ዲፎልት ቁጥሮችን እንሰጠዋለን
+        if not history_list:
+            history_list = [1.28, 2.68, 1.44, 4.36, 2.02, 1.91, 31.23]
+            redis.set("dino:crash_history", json.dumps(history_list))
+            
+        return jsonify({"status": "success", "history_data": history_list})
+    except Exception as e:
+        print(f"Error fetching dino history: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@server.route('/api/save_history', methods=['POST'])
+def save_dino_history_api():
+    """
+    አውሮፕላኑ Crash ሲያደርግ የመጨረሻውን ውጤት (multiplier) በRedis ውስጥ ቋሚ አድርጎ ሴቭ ያደርጋል
+    """
+    data = request.json or {}
+    multiplier = data.get("multiplier")
+
+    if multiplier is None:
+        return jsonify({"status": "error", "message": "Multiplier is missing"}), 400
+
+    try:
+        # የነበረውን ታሪክ ማምጣት
+        history_data = redis.get("dino:crash_history")
+        history_list = json.loads(history_data) if history_data else []
+
+        # አዲሱን ውጤት መጀመሪያ ላይ መጨመር
+        history_list.insert(0, float(multiplier))
+
+        # ታሪኩ ከ 20 እንዳይበልጥ መገደብ
+        if len(history_list) > 20:
+            history_list.pop()
+
+        # መልሶ Redis ላይ ማስቀመጥ
+        redis.set("dino:crash_history", json.dumps(history_list))
+        return jsonify({"status": "success"})
+    except Exception as e:
+        print(f"Error saving dino history: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# ==========================================
 # API Routes (Core Functionality)
 # ==========================================
 
@@ -131,8 +183,8 @@ def get_balance():
     current_balance = float(redis.hget("users:balance", user_id) or 0.0)
     return jsonify({"status": "success", "balance": current_balance})
 
-@server.route('/api/get_history', methods=['POST'])
-def get_history():
+@server.route('/api/get_user_history', methods=['POST'])  # ስሙ ከዲኖ ታሪክ ጋር እንዳይጋጭ ወደ get_user_history ተቀይሯል
+def get_user_history():
     data = request.json or {}
     user_id = data.get("user_id")
     if not user_id:
@@ -153,7 +205,6 @@ def handle_deposit():
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
 
     tx_id = str(uuid.uuid4())[:8]
-    # ለደህንነት ሲባል status እዚህ ላይ 'pending' ይደረጋል
     tx_data = {"user_id": user_id, "amount": amount, "type": "deposit", "status": "pending"}
     redis.set(f"tx:{tx_id}", json.dumps(tx_data))
     
@@ -190,7 +241,6 @@ def handle_withdraw():
     if not user_id or amount <= 0 or not phone or not bank_name or not account_name:
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
         
-    # [STABILITY FIX]: ገንዘቡን ወዲያውኑ ከዋናው ባላንስ ላይ እንቀንሳለን (Double spend ለመከላከል)
     deduct_status = deduct_balance_safely(user_id, amount)
     if deduct_status == "INSUFFICIENT":
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም"}), 400
@@ -198,7 +248,6 @@ def handle_withdraw():
         return jsonify({"status": "error", "message": "የሲስተም ስህተት ተፈጥሯል፣ እባክዎ እንደገና ይሞክሩ"}), 500
     
     tx_id = str(uuid.uuid4())[:8]
-    # ገንዘቡ አስቀድሞ ስለተቀነሰ tx_data ላይ እናስቀምጠዋለን
     tx_data = {"user_id": user_id, "amount": amount, "type": "withdraw", "status": "pending"}
     redis.set(f"tx:{tx_id}", json.dumps(tx_data))
     
@@ -230,7 +279,6 @@ def coin_flip_game():
     if not user_id or bet_amount <= 0 or not choice:
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
 
-    # [STABILITY FIX]: ጨዋታው ከመጀመሩ በፊት ባላንሱን በአቶሚክ መንገድ እንቀንሳለን
     deduct_status = deduct_balance_safely(user_id, bet_amount)
     if deduct_status == "INSUFFICIENT":
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
@@ -242,12 +290,10 @@ def coin_flip_game():
     did_win = (choice == winning_side)
     
     if did_win:
-        # ካሸነፈ የተወራረደበትን ጨምሮ እጥፍ እንመልስለታለን (Deduct ስለተደረገ አሁን የምንጨምረው bet_amount * 2 ነው)
         redis.hincrbyfloat("users:balance", user_id, bet_amount * 2)
         status_str = "completed"
         game_status = "win"
     else:
-        # ከተሸነፈ አስቀድሞ ስለተቀነሰ ምንም አንጨምርም
         status_str = "failed"
         game_status = "lose"
 
@@ -282,7 +328,6 @@ def claim_daily():
 
     cooldown_key = f"daily_bonus:cooldown:{user_id}"
     
-    # [STABILITY FIX]: Redis SET with NX=True በመጠቀም በሴኮንድ ውስጥ የሚላኩ ድርብ ጥያቄዎችን በአቶሚክ ደረጃ እንቆልፋለን
     is_claimed_today = redis.set(cooldown_key, "claimed", ex=86400, nx=True)
     if not is_claimed_today:
         return jsonify({"status": "error", "message": "የዛሬውን ነጻ ዕድል ወስደዋል! እባክዎ ከ24 ሰዓት በኋላ ይመለሱ።"})
@@ -290,10 +335,8 @@ def claim_daily():
     gifts = [1, 2, 3, 4, 5]
     gift_amount = random.choice(gifts)
 
-    # ባላንስ መጨመር
     redis.hincrbyfloat("users:balance", user_id, gift_amount)
 
-    # ታሪክ ላይ መመዝገብ
     history_data = redis.get(f"history:{user_id}")
     history_list = json.loads(history_data) if history_data else []
     history_list.insert(0, {
@@ -342,7 +385,6 @@ def process_admin_action(call):
     tx_key = f"tx:{tx_id}"
     tx_data_raw = redis.get(tx_key)
     
-    # [STABILITY FIX]: ትራንዛክሽኑ መኖሩን እና Pending መሆኑን እናረጋግጣለን (ድርብ ክሊክን ለመከላከል)
     if not tx_data_raw:
         bot.answer_callback_query(call.id, "❌ ይህ ትራንዛክሽን በሲስተሙ ውስጥ አልተገኘም!")
         return
@@ -352,7 +394,6 @@ def process_admin_action(call):
         bot.answer_callback_query(call.id, "⚠️ ይህ ጥያቄ ቀደም ብሎ ምላሽ አግኝቷል!")
         return
 
-    # ትራንዛክሽኑን ወዲያውኑ lock ለማድረግ status-ውን እንቀይራለን
     tx_status = "completed" if action == "ok" else "refund"
     tx_data["status"] = tx_status
     redis.set(tx_key, json.dumps(tx_data))
@@ -376,10 +417,8 @@ def process_admin_action(call):
             
     elif tx_type == "withdraw":
         if action == "ok":
-            # የፈሰሰው ባላንስ አስቀድሞ በ /api/withdraw ላይ ስለተቀነሰ እዚህ ጋር ድጋሚ አንቀንስም!
             bot.send_message(user_id, f"💰 የእርስዎ {amount} ብር ወጪ ተከፍሏል!")
         else:
-            # ጥያቄው ውድቅ ከተደረገ ግን የተቀነሰውን ገንዘብ ለተጠቃሚው እንመልስለታለን (Refund)
             redis.hincrbyfloat("users:balance", user_id, amount)
             bot.send_message(user_id, f"❌ የእርስዎ {amount} ብር የወጪ ጥያቄ ውድቅ ስለተደረገ ወደ አካውንትዎ ተመልሷል።")
             
