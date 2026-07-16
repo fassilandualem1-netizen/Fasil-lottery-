@@ -252,7 +252,23 @@
         .btn-disabled { background-color: #333 !important; color: #666 !important; cursor: not-allowed; }
 
         .btn-subtext { font-size: 0.8rem; font-weight: normal; margin-top: 2px; }
+ 
+        .mode-btn {
+  padding: 8px 16px;
+  border: 1px solid #e50b2c;
+  background-color: transparent;
+  color: #fff;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
 
+/* ሲመረጥ የሚኖረው ቀለማት */
+.mode-btn.active-mode {
+  background-color: #e50b2c;
+  box-shadow: 0 0 8px rgba(229, 11, 44, 0.6);
+}
     </style>
 </head>
 <body>
@@ -276,12 +292,15 @@
         <canvas id="gameCanvas" width="800" height="500"></canvas>
     </div>
 
-<!-- ለምሳሌ በ HTML ላይ መቀያየሪያ Switch -->
-    <div class="mode-selector">
-  <label>
-    <input type="checkbox" id="gameModeToggle" onchange="toggleGameMode()">
-    <span class="slider">Demo Mode</span>
-  </label>
+<!-- የ Demo/Real መቀያየሪያ ዲዛይን -->
+<div class="mode-container" style="display: flex; justify-content: center; gap: 10px; margin: 10px 0;">
+  <button id="btnDemoMode" class="mode-btn active-mode" onclick="switchGameMode('demo')">
+    🧪 Demo Mode
+  </button>
+  <button id="btnRealMode" class="mode-btn" onclick="switchGameMode('real')">
+    💰 Real Mode
+  </button>
+</div>
 </div>
 
     <div class="controls-container">
