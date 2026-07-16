@@ -12,9 +12,9 @@ let crashPoint = 1.00;
 let countdownTimer = 10;
 let crashHistory = [1.28, 2.68, 1.44, 4.36, 2.02, 1.91, 31.23]; // መነሻ ሂስቶሪ
 
-// ✈️ የአውሮፕላን ምስል (SVG Icon)
+// ✈️ የአውሮፕላን ምስል (SVG Icon) - 100% ቋሚና አስተማማኝ ፎርማት
 const planeImg = new Image();
-planeImg.src = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBmaWxsPSIjZTUwYjJjIiBkPSJNNDQ4IDMzNmMtMTYuNyAwLTMyLTEzLjMtMzAtMzJWMjI0SDI4OEwxNTEuNiAzODMuMWMtNi44IDgtMTYuNyAxMi45LTI3LjQgMTIuOUg2NGMtMTUu1IDAtMjUu1IDUtMTQuNSLTE5LjktMjguN0w5NiAyMjRIMzJjLTE3LjcgMC0zMi0xNC4zLTMyLTMyczE0LjMtMzIgMzItMzJoNjRsLTUxLjktMTQzLjNDMzguOSAyLjUgNTMuNC03LjUgNjguNi03LjVoNjAuMmMxMC43IDAgMjAuNiA0LjkgMjتری_NCAxMi45TDI4OCAxNjBoMTI4di04MGMwLTE4LjcgMTUuMy0zMiAzMi0zMnMzMiAxMy4zIDMyIDMydjIyNGMwIDE4LjctMTUuMyAzMi0zMiAzMnoiLz48L3N2Zy4=";
+planeImg.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><path fill='%23e50b2c' d='M448 336c-16.7 0-32-13.3-30-32V224H288L151.6 383.1c-6.8 8-16.7 12.9-27.4 12.9H64c-15.5 0-25.5-5-14.5-19.9l28.7-52.2H32c-17.7 0-32-14.3-32-32s14.3-32 32-32h64l-51.9-143.3C38.9 2.5 53.4-7.5 68.6-7.5h60.2c10.7 0 20.6 4.9 27.4 12.9L288 160h128v-80c0-18.7 15.3-32 32-32s32 13.3 32 32v224c0 18.7-15.3 32-32 32z'/></svg>";
 
 // 💸 የውርርድ (Dual Bet) State
 let bets = {
@@ -22,8 +22,7 @@ let bets = {
     2: { state: 'IDLE', amount: 20, isAuto: false }
 };
 
-
-// ================= 2. HTML ሎድ ሲያደርግ ብቻ ጌሙን ማስጀመር (CRITICAL FIX) =================
+// ================= 2. HTML ሎድ ሲያደርግ ብቻ ጌሙን ማስጀመር =================
 document.addEventListener("DOMContentLoaded", function() {
     canvas = document.getElementById("gameCanvas");
     if (canvas) {
@@ -35,6 +34,20 @@ document.addEventListener("DOMContentLoaded", function() {
     historyBar = document.getElementById("historyBar");
     balanceDisplay = document.getElementById('balanceDisplay');
 
+    // በእጅ የሚጻፍ ቁጥርን በቀጥታ ከእያንዳንዱ ፓነል ውርርድ ጋር ማመሳሰል
+    [1, 2].forEach(id => {
+        const input = document.getElementById(`betInput${id}`);
+        if (input) {
+            input.addEventListener('input', (e) => {
+                let val = parseFloat(e.target.value);
+                if (!isNaN(val) && val >= 2) {
+                    bets[id].amount = val;
+                    syncButtons();
+                }
+            });
+        }
+    });
+
     // ጌሙን ማስጀመር (Initialization)
     fetchInitialBalance();
     loadRealHistory();
@@ -45,7 +58,6 @@ document.addEventListener("DOMContentLoaded", function() {
         requestAnimationFrame(gameLoop);
     }
 });
-
 
 // ================= 3. API እና መረጃ ማምጣት =================
 async function fetchInitialBalance() {
@@ -80,10 +92,9 @@ async function loadRealHistory() {
 
 function generateCrashPoint() {
     let rand = Math.random();
-    if (rand < 0.05) return 1.00; // Instant crash
-    return 1.05 + (0.95 / (Math.random() + 0.01));
+    if (rand < 0.05) return 1.00; // 5% Instant crash
+    return parseFloat((1.05 + (0.95 / (Math.random() + 0.01))).toFixed(2));
 }
-
 
 // ================= 4. የድምፅ ማጫወቻ (Audio) =================
 let audioCtx = null;
@@ -121,10 +132,9 @@ function playSound(type) {
             osc.stop(audioCtx.currentTime + 0.5);
         }
     } catch (e) {
-        console.log("Audio play blocked or unsupported:", e);
+        console.log("Audio play blocked:", e);
     }
 }
-
 
 // ================= 5. UI INPUT እና HISTORY LOGIC =================
 function switchTab(panelId, mode) {
@@ -187,7 +197,6 @@ function renderHistory() {
     historyBar.scrollLeft = 0;
 }
 
-
 // ================= 6. API እና BUTTON ACTION LOGIC =================
 async function placeBetAPI(panelId) {
     let bet = bets[panelId];
@@ -244,6 +253,15 @@ async function executeCashout(panelId) {
 
 function handleAction(panelId) {
     let bet = bets[panelId];
+
+    // በእጅ የሚጻፈውን ቁጥር ከመጫኑ በፊት ድጋሚ ማረጋገጥ
+    const inputField = document.getElementById(`betInput${panelId}`);
+    if (inputField) {
+        let currentVal = parseFloat(inputField.value);
+        if (!isNaN(currentVal) && currentVal >= 2) {
+            bet.amount = currentVal;
+        }
+    }
 
     if (bet.state === 'IDLE') {
         if(gameState === 'FLYING') {
@@ -304,7 +322,6 @@ function syncButtons() {
     });
 }
 
-
 // ================= 7. CANVAS ANIMATION LOGIC =================
 let sunburstAngle = 0;
 let planePos = { x: 0, y: 500 };
@@ -362,7 +379,6 @@ function drawCurve() {
     ctx.fillStyle = gradient;
     ctx.fill();
 }
-
 
 // ================= 8. GAME LOOP =================
 let animationId;
@@ -442,16 +458,19 @@ function gameLoop() {
     animationId = requestAnimationFrame(gameLoop);
 }
 
-
 // ================= 9. ROUND MANAGERS =================
 function startCountdown() {
     gameState = 'WAITING';
     countdownTimer = 10;
     multiplier = 1.00;
     
+    // Auto-Bet በርቶ ከሆነ በቀጥታ ውርርድ Queue እንዲያደርግ ማድረግ
     [1, 2].forEach(id => {
-        if(bets[id].state === 'CASHED_OUT' || bets[id].state === 'CRASHED' || bets[id].state === 'IN_GAME') {
-            bets[id].state = 'IDLE';
+        let bet = bets[id];
+        if (bet.isAuto) {
+            bet.state = 'QUEUED';
+        } else if(bet.state === 'CASHED_OUT' || bet.state === 'CRASHED' || bet.state === 'IN_GAME') {
+            bet.state = 'IDLE';
         }
     });
     syncButtons();
