@@ -1,6 +1,7 @@
 Flask
 Flask-SocketIO
-eventlet
+gevent==24.2.1
+gevent-websocket==0.10.1
 requests
 pyTelegramBotAPI
 upstash-redis
