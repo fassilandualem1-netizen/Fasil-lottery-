@@ -13,11 +13,11 @@ let gameState = 'WAITING'; // WAITING, FLYING, CRASHED
 let multiplier = 1.00;
 let crashPoint = 1.00;
 let countdownTimer = 10;
-let crashHistory = [1.28, 2.68, 1.44, 4.36, 2.02, 1.91, 31.23]; // መነሻ (ሰርቨሩ እስኪመልስ)
+let crashHistory = [1.28, 2.68, 1.44, 4.36, 2.02, 1.91, 31.23]; // መነሻ ሂስቶሪ
 
 // ✈️ የአውሮፕላን ምስል (SVG Icon)
 const planeImg = new Image();
-planeImg.src = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBmaWxsPSIjZTUwYjJjIiBkPSJNNDQ4IDMzNmMtMTYuNyAwLTMyLTEzLjMtMzItMzJWMjI0SDI4OEwxNTEuNiAzODMuMWMtNi44IDgtMTYuNyAxMi45LTI3LjQgMTIuOUg2NGMtMTUu1IDAtMjUuMS0xNC41LTE5LjktMjguN0w5NiAyMjRIMzJjLTE3LjcgMC0zMi0xNC4zLTMyLTMyczE0LjMtMzIgMzItMzJoNjRsLTUxLjktMTQzLjNDMzguOSAyLjUgNTMuNC03LjUgNjguNi03LjVoNjAuMmMxMC43IDAgMjAuNiA0LjkgMjcuNCAxMi45TDI4OCAxNjBoMTI4di04MGMwLTE4LjcgMTUuMy0zMiAzMi0zMnMzMiAxMy4zIDMyIDMydjIyNGMwIDE4LjctMTUuMyAzMi0zMiAzMnoiLz48L3N2Zy4=";
+planeImg.src = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBmaWxsPSIjZTUwYjJjIiBkPSJNNDQ4IDMzNmMtMTYuNyAwLTMyLTEzLjMtMzAtMzJWMjI0SDI4OEwxNTEuNiAzODMuMWMtNi44IDgtMTYuNyAxMi45LTI3LjQgMTIuOUg2NGMtMTUu1IDAtMjUu1IDUtMTQuNSLTE5LjktMjguN0w5NiAyMjRIMzJjLTE3LjcgMC0zMi0xNC4zLTMyLTMyczE0LjMtMzIgMzItMzJoNjRsLTUxLjktMTQzLjNDMzguOSAyLjUgNTMuNC03LjUgNjguNi03LjVoNjAuMmMxMC43IDAgMjAuNiA0LjkgMjتری_NCAxMi45TDI4OCAxNjBoMTI4di04MGMwLTE4LjcgMTUuMy0zMiAzMi0zMnMzMiAxMy4zIDMyIDMydjIyNGMwIDE4LjctMTUuMyAzMi0zMiAzMnoiLz48L3N2Zy4=";
 
 // 💸 የውርርድ (Dual Bet) State
 let bets = {
@@ -46,12 +46,12 @@ async function fetchInitialBalance() {
 }
 fetchInitialBalance();
 
-// 🦖 2. ልክ ሲከፈት ቋሚውን የዲኖ ታሪክ ከRedis ማምጣት (አዲሱ API)
+// 🦖 2. ልክ ሲከፈት ቋሚውን የዲኖ ታሪክ ከRedis ማምጣት
 async function loadRealHistory() {
     try {
-        const response = await fetch('/api/get_history'); // Back-end ላይ የሰራነው አዲሱ GET Route
+        const response = await fetch('/api/get_history');
         const result = await response.json();
-        if (result.status === "success") {
+        if (result.status === "success" && result.history_data) {
             crashHistory = result.history_data;
             renderHistory();
         }
@@ -67,11 +67,17 @@ function generateCrashPoint() {
     return 1.05 + (0.95 / (Math.random() + 0.01));
 }
 
-// 🔊 የድምፅ ማጫወቻ
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+// 🔊 የድምፅ ማጫወቻ (የደህንነት ጥበቃ የተደረገለት)
+let audioCtx = null;
 function playSound(type) {
-    if(audioCtx.state === 'suspended') audioCtx.resume();
     try {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        
         let osc = audioCtx.createOscillator();
         let gain = audioCtx.createGain();
         osc.connect(gain);
@@ -98,7 +104,9 @@ function playSound(type) {
             osc.start();
             osc.stop(audioCtx.currentTime + 0.5);
         }
-    } catch (e) {}
+    } catch (e) {
+        console.log("Audio play blocked or unsupported:", e);
+    }
 }
 
 // ================= UI INPUT LOGIC =================
@@ -106,23 +114,29 @@ function switchTab(panelId, mode) {
     let bet = bets[panelId];
     if (bet.state !== 'IDLE' && bet.state !== 'QUEUED') return;
 
-    document.getElementById(`tabBet${panelId}`).classList.remove('active');
-    document.getElementById(`tabAuto${panelId}`).classList.remove('active');
+    const tabBet = document.getElementById(`tabBet${panelId}`);
+    const tabAuto = document.getElementById(`tabAuto${panelId}`);
+    const autoSec = document.getElementById(`autoSection${panelId}`);
+
+    if (tabBet) tabBet.classList.remove('active');
+    if (tabAuto) tabAuto.classList.remove('active');
     
     if (mode === 'auto') {
-        document.getElementById(`tabAuto${panelId}`).classList.add('active');
-        document.getElementById(`autoSection${panelId}`).style.display = 'flex';
+        if (tabAuto) tabAuto.classList.add('active');
+        if (autoSec) autoSec.style.display = 'flex';
         bet.isAuto = true;
     } else {
-        document.getElementById(`tabBet${panelId}`).classList.add('active');
-        document.getElementById(`autoSection${panelId}`).style.display = 'none';
+        if (tabBet) tabBet.classList.add('active');
+        if (autoSec) autoSec.style.display = 'none';
         bet.isAuto = false;
     }
 }
 
 function updateInputUI() {
-    document.getElementById("betInput1").value = bets[1].amount;
-    document.getElementById("betInput2").value = bets[2].amount;
+    const input1 = document.getElementById("betInput1");
+    const input2 = document.getElementById("betInput2");
+    if (input1) input1.value = bets[1].amount;
+    if (input2) input2.value = bets[2].amount;
 }
 
 function adjustBet(panelId, amount) {
@@ -142,14 +156,15 @@ function setBet(panelId, amount) {
     syncButtons();
 }
 
-// ================= HISTORY LOGIC (ቀለማቱ የተስተካከለበት) =================
+// ================= HISTORY LOGIC =================
 function renderHistory() {
+    if (!historyBar) return;
     historyBar.innerHTML = crashHistory.map(m => {
-        let colorClass = 'color-blue'; // ከ 2.0 በታች ሰማያዊ
+        let colorClass = 'color-blue'; 
         if (m >= 10.0) {
-            colorClass = 'color-pink'; // ከ 10.0 በላይ ሮዝ/ቀይ
+            colorClass = 'color-pink'; 
         } else if (m >= 2.0) {
-            colorClass = 'color-purple'; // ከ 2.0 እስከ 10.0 ሐምራዊ
+            colorClass = 'color-purple'; 
         }
         return `<div class="history-chip ${colorClass}">${m.toFixed(2)}x</div>`;
     }).join('');
@@ -176,7 +191,11 @@ async function placeBetAPI(panelId) {
             bet.state = 'IDLE';
             syncButtons();
         }
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+        console.error(e); 
+        bet.state = 'IDLE';
+        syncButtons();
+    }
 }
 
 async function executeCashout(panelId) {
@@ -187,10 +206,11 @@ async function executeCashout(panelId) {
     bet.state = 'CASHED_OUT';
     playSound("win");
     
-    // ፓነሉ በአረንጓዴ እንዲያሸበርቅ
     let btn = document.getElementById(`btnAction${panelId}`);
-    btn.className = "action-btn btn-bet"; 
-    btn.style.backgroundColor = "#28a745"; 
+    if (btn) {
+        btn.className = "action-btn btn-bet"; 
+        btn.style.backgroundColor = "#28a745"; 
+    }
 
     try {
         const response = await fetch('/api/dino/cashout', {
@@ -201,7 +221,7 @@ async function executeCashout(panelId) {
         const result = await response.json();
         if (result.status === "success") {
             if (balanceDisplay) balanceDisplay.innerText = result.new_balance.toFixed(2);
-            btn.innerHTML = `WIN <div class="btn-subtext">${result.win_amount.toFixed(2)} ETB</div>`;
+            if (btn) btn.innerHTML = `WIN <div class="btn-subtext">${result.win_amount.toFixed(2)} ETB</div>`;
         }
     } catch (e) { console.error(e); }
 }
@@ -232,34 +252,38 @@ function syncButtons() {
         let btn = document.getElementById(`btnAction${id}`);
         let inputField = document.getElementById(`betInput${id}`);
 
+        if (!btn) return; // ኤለመንቱ ከሌለ እንዳይበላሽ መከላከል
+
         if (bet.state === 'IDLE') {
             btn.className = "action-btn btn-bet";
-            btn.style.backgroundColor = "#28a745"; // አረንጓዴ
+            btn.style.backgroundColor = "#28a745"; 
             btn.innerHTML = `BET <div class="btn-subtext">${bet.amount.toFixed(2)} ETB</div>`;
-            inputField.disabled = false;
+            if (inputField) inputField.disabled = false;
         } 
         else if (bet.state === 'QUEUED') {
             btn.className = "action-btn btn-cancel";
+            btn.style.backgroundColor = ""; 
             btn.innerHTML = `CANCEL <div class="btn-subtext">Waiting next round</div>`;
-            inputField.disabled = true;
+            if (inputField) inputField.disabled = true;
         }
         else if (bet.state === 'WAITING') {
             btn.className = "action-btn btn-cancel";
+            btn.style.backgroundColor = "";
             btn.innerHTML = `WAITING... <div class="btn-subtext">Bet Placed</div>`;
-            inputField.disabled = true;
+            if (inputField) inputField.disabled = true;
         }
         else if (bet.state === 'IN_GAME') {
             btn.className = "action-btn btn-cashout";
-            btn.style.backgroundColor = "#ff9800"; // ብርቱካናማ ለካሽአውት
+            btn.style.backgroundColor = "#ff9800"; 
             let winAmount = (bet.amount * multiplier).toFixed(2);
             btn.innerHTML = `CASH OUT <div class="btn-subtext">${winAmount} ETB</div>`;
-            inputField.disabled = true;
+            if (inputField) inputField.disabled = true;
         }
         else if (bet.state === 'CRASHED') {
             btn.className = "action-btn btn-disabled";
-            btn.style.backgroundColor = "#555"; // ግራጫ
+            btn.style.backgroundColor = "#555"; 
             btn.innerHTML = `CRASHED <div class="btn-subtext">- ${bet.amount.toFixed(2)} ETB</div>`;
-            inputField.disabled = true;
+            if (inputField) inputField.disabled = true;
         }
     });
 }
@@ -269,6 +293,7 @@ let sunburstAngle = 0;
 let planePos = { x: 0, y: 500 };
 
 function drawSunburst() {
+    if (!canvas) return;
     ctx.save();
     ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.rotate(sunburstAngle);
@@ -285,12 +310,12 @@ function drawSunburst() {
 }
 
 function drawPlane() {
+    if (!canvas) return;
     ctx.save();
     ctx.translate(planePos.x, planePos.y);
     if (planeImg.complete) {
         ctx.drawImage(planeImg, -30, -20, 60, 45);
     } else {
-        // ምስሉ ሎድ እስኪያደርግ ዲፎልት ቀይ ትሪያንግል
         ctx.fillStyle = "#e50b2c";
         ctx.beginPath();
         ctx.moveTo(30, 0);
@@ -304,6 +329,7 @@ function drawPlane() {
 }
 
 function drawCurve() {
+    if (!canvas) return;
     ctx.beginPath();
     ctx.moveTo(0, canvas.height);
     ctx.quadraticCurveTo(planePos.x * 0.4, canvas.height * 0.9, planePos.x - 10, planePos.y + 10);
@@ -323,26 +349,33 @@ function drawCurve() {
 // ================= GAME LOOP =================
 let animationId;
 function gameLoop() {
+    if (!canvas) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawSunburst();
 
     if (gameState === 'WAITING') {
-        multiplierDisplay.style.color = "#ffffff";
-        multiplierDisplay.style.fontSize = "3rem";
-        multiplierDisplay.innerText = "WAITING...";
+        if (multiplierDisplay) {
+            multiplierDisplay.style.color = "#ffffff";
+            multiplierDisplay.style.fontSize = "3rem";
+            multiplierDisplay.innerText = "WAITING...";
+        }
         
-        statusText.style.display = "block";
-        statusText.innerText = `NEXT ROUND IN ${countdownTimer}s`;
+        if (statusText) {
+            statusText.style.display = "block";
+            statusText.innerText = `NEXT ROUND IN ${countdownTimer}s`;
+        }
         
         planePos = { x: 0, y: canvas.height }; 
     } 
     else if (gameState === 'FLYING') {
-        statusText.style.display = "none";
-        multiplierDisplay.style.fontSize = "4.5rem";
-        multiplierDisplay.style.color = "#ffffff";
+        if (statusText) statusText.style.display = "none";
+        if (multiplierDisplay) {
+            multiplierDisplay.style.fontSize = "4.5rem";
+            multiplierDisplay.style.color = "#ffffff";
+        }
         
         multiplier += 0.002 * (1 + (multiplier * 0.1));
-        multiplierDisplay.innerText = multiplier.toFixed(2) + "x";
+        if (multiplierDisplay) multiplierDisplay.innerText = multiplier.toFixed(2) + "x";
 
         if (Math.random() < 0.1) playSound("fly");
 
@@ -358,9 +391,12 @@ function gameLoop() {
         [1, 2].forEach(id => {
             let bet = bets[id];
             if (bet.state === 'IN_GAME' && bet.isAuto) {
-                let targetMult = parseFloat(document.getElementById(`autoCashoutInput${id}`).value);
-                if (multiplier >= targetMult) {
-                    executeCashout(id);
+                const autoInput = document.getElementById(`autoCashoutInput${id}`);
+                if (autoInput) {
+                    let targetMult = parseFloat(autoInput.value);
+                    if (multiplier >= targetMult) {
+                        executeCashout(id);
+                    }
                 }
             }
         });
@@ -372,12 +408,13 @@ function gameLoop() {
         }
     } 
     else if (gameState === 'CRASHED') {
-        statusText.style.display = "block";
-        statusText.style.color = "#e50b2c";
-        statusText.innerText = "FLEW AWAY!";
-        multiplierDisplay.style.color = "#e50b2c";
+        if (statusText) {
+            statusText.style.display = "block";
+            statusText.style.color = "#e50b2c";
+            statusText.innerText = "FLEW AWAY!";
+        }
+        if (multiplierDisplay) multiplierDisplay.style.color = "#e50b2c";
 
-        // አውሮፕላኑ ከስክሪኑ በፍጥነት እንዲወጣ (Flew Away ውጤት)
         planePos.x += 15;
         planePos.y -= 10;
         drawCurve();
@@ -393,7 +430,6 @@ function startCountdown() {
     countdownTimer = 10;
     multiplier = 1.00;
     
-    // ቀጣዩ ዙር ሲጀምር በሙሉ ፓነሎችን ሪሴት እናደርጋለን
     [1, 2].forEach(id => {
         if(bets[id].state === 'CASHED_OUT' || bets[id].state === 'CRASHED' || bets[id].state === 'IN_GAME') {
             bets[id].state = 'IDLE';
@@ -431,7 +467,6 @@ function startRound() {
     syncButtons(); 
 }
 
-// ================= 3. TRIGGER CRASH (ውጤቱን በቋሚነት ወደ Redis የሚልክ) =================
 function triggerCrash() {
     gameState = 'CRASHED';
     playSound("crash");
@@ -443,14 +478,13 @@ function triggerCrash() {
     if(crashHistory.length > 20) crashHistory.pop();
     renderHistory();
 
-    // 🚀 ውጤቱን ወደ Python/Redis ቋሚ አድርጎ እንዲያስቀምጥ በ API መላክ
+    // ውጤቱን ወደ Python/Redis መላክ
     fetch('/api/save_history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ multiplier: finalCrashPoint })
     }).catch(e => console.error("History save error:", e));
 
-    // የተሸነፉ ፓነሎችን ወደ CRASHED መቀየር
     [1, 2].forEach(id => {
         if (bets[id].state === 'IN_GAME') {
             bets[id].state = 'CRASHED';
@@ -466,4 +500,6 @@ function triggerCrash() {
 // ጅማሬ
 updateInputUI();
 startCountdown();
-requestAnimationFrame(gameLoop);
+if (canvas) {
+    requestAnimationFrame(gameLoop);
+}
