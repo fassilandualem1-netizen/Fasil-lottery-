@@ -1,1 +1,1 @@
-y
+web: gunicorn main:server
