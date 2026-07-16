@@ -81,12 +81,24 @@ def get_user_history():
     data = request.json or {}
     user_id = data.get("user_id")
     
-    # 🔍 ይሄንን Print ኮድ ጨምርበት
-    print(f"DEBUG: Getting history for user: {user_id}")
-    
-    raw_history = redis.lrange(f"history:{user_id}", 0, -1) or []
-    print(f"DEBUG: Found {len(raw_history)} items in Redis.") 
-    
+    if not user_id:
+        return jsonify({"status": "error", "message": "Missing user_id"}), 400
+
+    try:
+        # 1. ዳታውን እንደ List ለማምጣት ይሞክራል
+        raw_history = redis.lrange(f"history:{user_id}", 0, -1) or []
+        
+    except Exception as e:
+        # 2. WRONGTYPE ስህተት ካጋጠመ (ዳታው ከተበላሸ)
+        if "WRONGTYPE" in str(e):
+            print(f"⚠️ የተበላሸ ዳታ ተገኘ! እያጠፋሁ ነው... User: {user_id}")
+            redis.delete(f"history:{user_id}")  # የተበላሸውን ያጠፋዋል
+            raw_history = []                    # አዲስ ባዶ List ይጀምራል
+        else:
+            print(f"History Error: {e}")
+            return jsonify({"status": "error", "message": "የዳታቤዝ ስህተት"}), 500
+
+    # 3. ትክክለኛውን ዳታ ወደ JSON ቀይሮ ይልካል
     history_list = [json.loads(item) for item in raw_history]
     return jsonify({"status": "success", "history": history_list})
 
