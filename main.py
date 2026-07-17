@@ -51,6 +51,40 @@ def is_number_only(text):
 
 ALLOWED_BANKS = ["CBE", "Telebirr", "Awash", "Abyssinia"]
 
+
+
+
+
+# ==========================================
+# 🚀 የተጠቃሚ መግቢያ (Start & PIN Setup)
+# ==========================================
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    user_id = message.from_user.id
+    
+    # ተጠቃሚው ፒን አለው ወይ ብለን ቼክ እናደርጋለን
+    existing_pin = get_user_pin(user_id)
+    
+    if not existing_pin:
+        # ፒን ከሌለው State ወደ 'waiting_for_pin_1' እንቀይራለን
+        set_user_state(user_id, "waiting_for_pin_1")
+        
+        bot.send_message(
+            message.chat.id, 
+            "👋 እንኳን በደህና መጡ!\n\n🔒 ለገንዘብ ደህንነትዎ እባክዎ አዲስ ባለ 4 ዲጂት ፒን ይፍጠሩ (ቁጥር ብቻ ይላኩ):"
+        )
+    else:
+        # ፒን ካለው ቀጥታ ወደ ጌም ወይም ዋናው ሜኑ ይገባል
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("🎮 ጌም ጀምር (Play)", web_app=WebAppInfo(url=WEB_APP_URL)))
+        
+        bot.send_message(
+            message.chat.id,
+            "👋 እንኳን ወደ የኛ ቤት በድጋሚ መጡ!\nከታች ያለውን በተን ተጭነው መጫወት ይችላሉ።",
+            reply_markup=markup
+        )
+
+
 # --- ROUTES ---
 @server.route('/')
 def index():
