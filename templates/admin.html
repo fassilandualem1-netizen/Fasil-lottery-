@@ -43,31 +43,58 @@
             </div>
         </div>
 
-        <!-- ⚙️ Action Panel (እርምጃ መውሰጃ) -->
+                <!-- ⚙️ Action Panel (እርምጃ መውሰጃ) -->
         <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
-            <h3 class="text-lg font-bold mb-4 border-b border-gray-700 pb-2"><i class="fa-solid fa-users-gear mr-2"></i>የተጠቃሚዎች መቆጣጠሪያ</h3>
+            <h3 class="text-lg font-bold mb-5 border-b border-gray-700 pb-3">
+                <i class="fa-solid fa-users-gear mr-2 text-blue-400"></i>የተጠቃሚዎች መቆጣጠሪያ
+            </h3>
             
-            <div class="space-y-4">
+            <!-- ዋናው ፎርም (ወደ ጎን የተሰለፈ) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                
+                <!-- 1. የ ID መሙያ ክፍል -->
                 <div>
-                    <label class="block text-gray-400 text-sm mb-1">የተጠቃሚው ቴሌግራም ID</label>
-                    <input type="number" id="target-id" placeholder="ለምሳሌ: 12345678" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white outline-none focus:border-blue-500">
+                    <label class="block text-gray-400 text-sm font-semibold mb-2">የተጠቃሚው ቴሌግራም ID</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <i class="fa-solid fa-id-badge text-gray-500"></i>
+                        </div>
+                        <input type="number" id="target-id" placeholder="ለምሳሌ: 12345678" class="w-full bg-gray-900 border border-gray-600 rounded-lg pl-10 p-3 text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-sm">
+                    </div>
                 </div>
                 
+                <!-- 2. የብር ማስተካከያ ክፍል -->
                 <div>
-                    <label class="block text-gray-400 text-sm mb-1">የባላንስ ማስተካከያ መጠን (ብር)</label>
+                    <label class="block text-gray-400 text-sm font-semibold mb-2">የባላንስ ማስተካከያ (ብር)</label>
                     <div class="flex gap-2">
-                        <input type="number" id="amount-input" placeholder="ለምሳሌ: 500" class="flex-1 bg-gray-900 border border-gray-600 rounded-lg p-3 text-white outline-none focus:border-blue-500">
-                        <button onclick="submitAction('adjust_balance', 'add')" class="bg-green-600 hover:bg-green-500 px-6 rounded-lg font-bold"><i class="fa-solid fa-plus"></i> ጨምር</button>
-                        <button onclick="submitAction('adjust_balance', 'subtract')" class="bg-yellow-600 hover:bg-yellow-500 px-6 rounded-lg font-bold"><i class="fa-solid fa-minus"></i> ቀንስ</button>
+                        <div class="relative flex-1">
+                            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                <i class="fa-solid fa-money-bill text-gray-500"></i>
+                            </div>
+                            <input type="number" id="amount-input" placeholder="መጠን (ለምሳሌ: 500)" class="w-full bg-gray-900 border border-gray-600 rounded-lg pl-10 p-3 text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-sm">
+                        </div>
+                        <button onclick="submitAction('adjust_balance', 'add')" class="px-5 bg-green-600 hover:bg-green-500 rounded-lg font-bold text-sm transition shadow-sm flex items-center justify-center gap-2 whitespace-nowrap">
+                            <i class="fa-solid fa-plus"></i> ጨምር
+                        </button>
+                        <button onclick="submitAction('adjust_balance', 'subtract')" class="px-5 bg-yellow-600 hover:bg-yellow-500 rounded-lg font-bold text-sm transition shadow-sm flex items-center justify-center gap-2 whitespace-nowrap text-gray-900">
+                            <i class="fa-solid fa-minus"></i> ቀንስ
+                        </button>
                     </div>
                 </div>
 
-                <div class="flex gap-2 pt-2 border-t border-gray-700">
-                    <button onclick="submitAction('ban')" class="flex-1 bg-red-600 hover:bg-red-500 py-3 rounded-lg font-bold"><i class="fa-solid fa-ban mr-2"></i>ተጠቃሚውን እገድ</button>
-                    <button onclick="submitAction('unban')" class="flex-1 bg-gray-700 hover:bg-gray-600 py-3 rounded-lg font-bold"><i class="fa-solid fa-unlock mr-2"></i>እገዳውን አንሳ</button>
-                </div>
+            </div>
+
+            <!-- 3. የእገዳ ቁልፎች (Ban / Unban) -->
+            <div class="flex flex-col sm:flex-row gap-4 pt-5 border-t border-gray-700">
+                <button onclick="submitAction('ban')" class="flex-1 bg-red-600 hover:bg-red-500 py-3 rounded-lg font-bold transition shadow-sm flex items-center justify-center text-white">
+                    <i class="fa-solid fa-user-slash mr-2"></i>ተጠቃሚውን እገድ
+                </button>
+                <button onclick="submitAction('unban')" class="flex-1 bg-gray-700 hover:bg-gray-600 py-3 rounded-lg font-bold transition shadow-sm flex items-center justify-center text-white">
+                    <i class="fa-solid fa-user-check mr-2"></i>እገዳውን አንሳ
+                </button>
             </div>
         </div>
+
 
         <!-- 👥 Users Table (የተጠቃሚዎች ዝርዝር ሰንጠረዥ) -->
         <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
