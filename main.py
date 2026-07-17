@@ -44,11 +44,9 @@ server.register_blueprint(real_sports_bp)
 
 # --- VALIDATION HELPERS ---
 def is_text_only(text):
-    # እንግሊዘኛ፣ አማርኛ፣ ስፔስ እና ነጥብ(.) ይፈቅዳል
     return bool(re.match(r'^[a-zA-Z\u1200-\u137F\s\.]+$', text))
 
 def is_number_only(text):
-    # የ + ምልክት እና ቁጥሮችን ብቻ ይፈቅዳል
     return bool(re.match(r'^\+?[0-9]+$', text))
 
 ALLOWED_BANKS = ["CBE", "Telebirr", "Awash", "Abyssinia"]
@@ -101,7 +99,6 @@ def send_photo_background(user_name, user_id, amount, tx_id, photo_data):
     except:
         bot.send_message(ADMIN_ID, caption, reply_markup=markup)
 
-# --- 🚫 ተጠቃሚው የታገደ መሆኑን መፈተሻ ረዳት ፈንክሽን ---
 def is_user_banned(user_id):
     if not user_id:
         return False
@@ -113,7 +110,6 @@ def is_user_banned(user_id):
 def handle_deposit():
     user_id = request.form.get("user_id")
     
-    # 🚨 የታገደ መሆኑን መፈተሻ (ከሁሉም በፊት ይፈትሻል)
     if is_user_banned(user_id):
         return jsonify({"status": "error", "message": "አካውንትዎ ታግዷል! መገልገያዎችን መጠቀም አይችሉም።"}), 403
 
@@ -139,7 +135,6 @@ def handle_withdraw():
     data = request.json or {}
     user_id = data.get("user_id")
     
-    # 🚨 የታገደ መሆኑን መፈተሻ (ከሁሉም በፊት ይፈትሻል)
     if is_user_banned(user_id):
         return jsonify({"status": "error", "message": "አካውንትዎ ታግዷል! መገልገያዎችን መጠቀም አይችሉም።"}), 403
 
@@ -170,18 +165,17 @@ def handle_withdraw():
     bot.send_message(ADMIN_ID, msg, reply_markup=markup)
     return jsonify({"status": "success"})
 
-# --- 🔥 ሙሉ በሙሉ የሚሰራ የCALLBACK ሲስተም ---
+# --- CALLBACK SYSTEM ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith("ok") or call.data.startswith("no"))
 def process_admin_action(call):
     try:
         parts = call.data.split("|")
-        action = parts[0]       # ok ወይም no
-        tx_type = parts[1]      # deposit ወይም withdraw
+        action = parts[0]
+        tx_type = parts[1]
         tx_id = parts[2]
         user_id = parts[3]
         amount = float(parts[4])
 
-        # ድጋሚ ክሊክ እንዳይደረግ ከሬዲስ ላይ ቼክ ማድረግ
         tx_data_raw = redis.get(f"tx:{tx_id}")
         if not tx_data_raw:
             bot.answer_callback_query(call.id, "⚠️ ይህ ትራንዛክሽን ቀደም ብሎ ተሰርዟል ወይም አልተገኘም!")
@@ -195,10 +189,7 @@ def process_admin_action(call):
         if tx_type == "deposit":
             if action == "ok":
                 redis.hincrbyfloat("users:balance", user_id, amount)
-                
-                # 📊 አዲሱ የትርፍ መመዝገቢያ (የአድሚን ዳሽቦርድ ላይ የሚታየው)
                 redis.incrbyfloat("stats:total_deposits", amount)
-                
                 tx_data["status"] = "approved"
                 update_history_tx_status(user_id, tx_id, "approved")
                 bot.send_message(user_id, f"✅ <b>ዴፖዚትዎ ጸድቋል!</b>\n💰 መጠን: <b>{amount} ብር</b> ወደ አካውንትዎ ገብቷል።")
@@ -213,41 +204,35 @@ def process_admin_action(call):
 
         elif tx_type == "withdraw":
             if action == "ok":
-                # 📊 አዲሱ የትርፍ መመዝገቢያ (የአድሚን ዳሽቦርድ ላይ የሚታየው)
                 redis.incrbyfloat("stats:total_withdrawals", amount)
-                
                 tx_data["status"] = "approved"
                 update_history_tx_status(user_id, tx_id, "approved")
                 bot.send_message(user_id, f"✅ የ <b>{amount} ብር</b> ወጪ (Withdraw) ጥያቄዎ ተከፍሏል!")
                 bot.answer_callback_query(call.id, "✅ ክፍያ መፈጸሙ ተረጋግጧል!")
                 bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=call.message.text + "\n\n🟢 <b>[ክፍያ የተፈጸመለት]</b>")
             else:
-                # ዊዝድሮው ውድቅ ከተደረገ የተቆረጠውን ባላንስ መመለስ (Refund)
                 redis.hincrbyfloat("users:balance", user_id, amount)
-
-                # 🔥 ከዚህ በታች ያሉት ስታተሶች ወደ "refunded" ተቀይረዋል!
                 tx_data["status"] = "refunded" 
                 update_history_tx_status(user_id, tx_id, "refunded") 
-
                 bot.send_message(user_id, f"❌ የ <b>{amount} ብር</b> ወጪ ጥያቄዎ ተሰርዟል! ገንዘቡ ወደ ባላንስዎ ተመልሷል (Refunded)።")
                 bot.answer_callback_query(call.id, "❌ ወጪው ተሰርዟል፣ ገንዘቡ ተመልሷል!")
                 bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=call.message.text + "\n\n🔴 <b>[የተሰረዘ እና የተመለሰ (Refunded)]</b>")
 
-        # የትራንዛክሽኑን ስታተስ ማደስ
         redis.set(f"tx:{tx_id}", json.dumps(tx_data))
     except Exception as e:
         bot.answer_callback_query(call.id, f"⚠️ ስህተት፡ {str(e)}")
 
+
 # ==========================================
-# 🛡️ የአድሚን መቆጣጠሪያ API ROUTES (አዲስ የተጨመሩ)
+# 🛡️ አዲሱ የአድሚን መቆጣጠሪያ API ROUTES (ተሻሽሏል)
 # ==========================================
 
 @server.route('/admin-panel')
 def admin_panel():
     return render_template('admin.html')
 
-@server.route('/api/admin/stats', methods=['POST'])
-def get_admin_stats():
+@server.route('/api/admin/get_dashboard_data', methods=['POST'])
+def get_dashboard_data():
     data = request.json or {}
     admin_id = str(data.get("admin_id"))
     
@@ -255,21 +240,37 @@ def get_admin_stats():
     if admin_id != str(ADMIN_ID): 
         return jsonify({"status": "error", "message": "ያልተፈቀደ የደህንነት ጥሰት ሙከራ!"}), 403
     
-    total_users = redis.hlen("users:balance")
+    # የሁሉንም ተጠቃሚዎች ባላንስ በአንዴ ማምጣት
+    balances_raw = redis.hgetall("users:balance")
+    
+    users_list = []
+    total_system_balance = 0.0
+    
+    for uid_bytes, bal_bytes in balances_raw.items():
+        uid = uid_bytes.decode('utf-8')
+        bal = float(bal_bytes.decode('utf-8'))
+        users_list.append({"user_id": uid, "balance": bal})
+        total_system_balance += bal
+        
+    total_users = len(users_list)
     banned_users_count = redis.scard("banned_users")
     
-    # ገቢ፣ ወጪ እና ትርፍ ማስላት
+    # ገቢ፣ ወጪ እና የተጣራ ትርፍ
     total_dep = float(redis.get("stats:total_deposits") or 0.0)
     total_wd = float(redis.get("stats:total_withdrawals") or 0.0)
     net_profit = total_dep - total_wd
     
     return jsonify({
         "status": "success",
-        "total_users": total_users,
-        "banned_users": banned_users_count,
-        "total_deposits": total_dep,
-        "total_withdrawals": total_wd,
-        "net_profit": net_profit
+        "stats": {
+            "total_users": total_users,
+            "banned_users": banned_users_count,
+            "total_deposits": total_dep,
+            "total_withdrawals": total_wd,
+            "net_profit": net_profit,
+            "total_user_balances": total_system_balance
+        },
+        "users": users_list
     })
 
 @server.route('/api/admin/user_action', methods=['POST'])
@@ -277,7 +278,7 @@ def admin_user_action():
     data = request.json or {}
     admin_id = str(data.get("admin_id"))
     target_user_id = str(data.get("target_user_id"))
-    action = data.get("action") # ban, unban, adjust_balance
+    action = data.get("action") 
     
     if admin_id != str(ADMIN_ID): 
         return jsonify({"status": "error", "message": "ያልተፈቀደ ሙከራ!"}), 403
@@ -287,26 +288,29 @@ def admin_user_action():
 
     if action == "ban":
         redis.sadd("banned_users", target_user_id)
-        # ተጠቃሚው ላይ እገዳ መጣሉን በቦት ማሳወቅ
-        try:
-            bot.send_message(target_user_id, "⚠️ <b>መለያዎ (Account) በህግ ጥሰት ምክንያት በሲስተም አድሚን ታግዷል!</b>\nቅሬታ ካለዎት አድሚኑን ያነጋግሩ።", parse_mode="HTML")
+        try: bot.send_message(target_user_id, "⚠️ <b>መለያዎ (Account) በህግ ጥሰት ምክንያት ታግዷል!</b>", parse_mode="HTML")
         except: pass
         return jsonify({"status": "success", "message": "ተጠቃሚው በተሳካ ሁኔታ ታግዷል!"})
         
     elif action == "unban":
         redis.srem("banned_users", target_user_id)
-        try:
-            bot.send_message(target_user_id, "🎉 <b>የመለያዎ እገዳ በተሳካ ሁኔታ ተነስቷል!</b>\nአሁን መጫወት እና መጠቀም ይችላሉ።", parse_mode="HTML")
+        try: bot.send_message(target_user_id, "🎉 <b>የመለያዎ እገዳ ተነስቷል!</b>\nአሁን መጫወት ይችላሉ።", parse_mode="HTML")
         except: pass
         return jsonify({"status": "success", "message": "የተጠቃሚው እገዳ ተነስቷል!"})
         
     elif action == "adjust_balance":
         amount = float(data.get("amount", 0))
-        # ባላንስ መጨመር ወይም መቀነስ (አሉታዊ ቁጥር ከተላከ ይቀንሳል)
-        redis.hincrbyfloat("users:balance", target_user_id, amount)
+        # ⚠️ ዋናው ጥበቃ፦ አሁን ያለውን ብር ቼክ ማድረግ
+        current_balance = float(redis.hget("users:balance", target_user_id) or 0.0)
+        new_balance = current_balance + amount
+        
+        if new_balance < 0:
+            return jsonify({"status": "error", "message": f"ስህተት! የተጠቃሚው ባላንስ {current_balance} ብር ብቻ ነው። ወደ ኔጌቲቭ ማውረድ አይቻልም!"}), 400
+            
+        redis.hset("users:balance", target_user_id, new_balance)
         try:
             sign = "+" if amount > 0 else ""
-            bot.send_message(target_user_id, f"🔔 <b>የሂሳብ ማስተካከያ ተደርጓል!</b>\nባላንስዎ ላይ <b>{sign}{amount} ብር</b> ተጨምሯል/ተቀንሷል።", parse_mode="HTML")
+            bot.send_message(target_user_id, f"🔔 <b>የሂሳብ ማስተካከያ!</b>\nባላንስዎ ላይ <b>{sign}{amount} ብር</b> ተስተካክሏል።", parse_mode="HTML")
         except: pass
         return jsonify({"status": "success", "message": "ባላንስ በተሳካ ሁኔታ ተስተካክሏል!"})
         
@@ -321,13 +325,12 @@ def send_admin_panel(message):
     if str(message.from_user.id) == str(ADMIN_ID):
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("📊 የአድሚን ፓነል ክፈት", web_app=WebAppInfo(url=f"{WEB_APP_URL}/admin-panel")))
-        bot.send_message(message.chat.id, "🤖 <b>እንኳን ወደ 'የኛ ቤት' መቆጣጠሪያ ፓነል በሰላም መጡ!</b>\n\nእዚህ ገጽ ላይ የቦቱን ጠቅላላ ትርፍ ማየት፣ አጭበርባሪዎችን ማገድ እና የተጠቃሚዎችን ባላንስ በእጅ ማስተካከል ይችላሉ።", parse_mode="HTML", reply_markup=markup)
+        bot.send_message(message.chat.id, "🤖 <b>እንኳን ወደ 'የኛ ቤት' መቆጣጠሪያ ፓነል መጡ!</b>", parse_mode="HTML", reply_markup=markup)
     else:
         bot.send_message(message.chat.id, "❌ ይህ ትዕዛዝ ለአድሚን ብቻ የተፈቀደ ነው!")
 
-
 # ==========================================
-# 🔌 WEBHOOK & SERVER START (ያለህበት የድሮው ክፍል)
+# 🔌 WEBHOOK & SERVER START
 # ==========================================
 @server.route(f'/webhook/{TOKEN}', methods=['POST'])
 def webhook():
@@ -336,7 +339,6 @@ def webhook():
     bot.process_new_updates([update])
     return 'OK', 200
 
-# --- WEBHOOK SETUP ---
 try:
     bot.remove_webhook()
     time.sleep(0.1)
