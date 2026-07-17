@@ -7,8 +7,98 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  
+  <!-- Yegna Bet Loading Screen Custom Styles -->
+  <style>
+    .loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #0f141c; /* ከዋናው ዳራ ጋር የሚመሳሰል */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 99999; /* ከሁሉም ፊት እንዲሆን */
+        transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+    }
+
+    .loading-content {
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .loading-logo {
+        font-size: 3rem;
+        font-weight: 900;
+        color: #e53935; /* Aviator Red */
+        text-shadow: 0 0 20px rgba(229, 57, 53, 0.5);
+        letter-spacing: 2px;
+        margin: 0;
+        animation: pulseLogo 1.5s infinite alternate;
+    }
+
+    .loading-subtext {
+        font-size: 1rem;
+        color: #fbc02d; /* Gold */
+        font-weight: bold;
+        letter-spacing: 4px;
+        margin-top: -8px;
+    }
+
+    .loader-spinner {
+        width: 45px;
+        height: 45px;
+        border: 4px solid #243547;
+        border-top: 4px solid #2e7d32; /* Deposit Green */
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 15px 0;
+    }
+
+    .loading-text {
+        font-size: 0.9rem;
+        color: #8a99ad;
+        animation: blink 1.5s infinite;
+    }
+
+    /* Animations */
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    @keyframes pulseLogo {
+        0% { transform: scale(1); text-shadow: 0 0 10px rgba(229, 57, 53, 0.3); }
+        100% { transform: scale(1.08); text-shadow: 0 0 25px rgba(229, 57, 53, 0.8); }
+    }
+
+    @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .loading-screen.hidden {
+        opacity: 0;
+        visibility: hidden;
+    }
+  </style>
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans pb-24">
+
+  <!-- 🚀 Yegna Bet Loading Screen -->
+  <div id="loading-screen" class="loading-screen">
+      <div class="loading-content">
+          <h1 class="loading-logo">የኛ ቤት</h1>
+          <p class="loading-subtext">YEGNA BET</p>
+          <div class="loader-spinner"></div>
+          <p class="loading-text">እየጫነ ነው...</p>
+      </div>
+  </div>
 
   <header class="bg-slate-950 text-white p-4 sticky top-0 z-50 flex justify-between items-center border-b border-gray-800">
     <div class="flex items-center space-x-2">
@@ -117,6 +207,7 @@
     </div>
   </main>
 
+  <!-- Wallet Modal -->
   <div id="wallet-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-slate-950 border border-gray-800 rounded-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
 
@@ -183,9 +274,9 @@
         <button onclick="closeWalletModal()" class="text-xs text-gray-400 hover:text-white font-bold transition">ዝጋ</button>
       </div>
     </div>
-</div>
+  </div>
 
-
+  <!-- Betslip Panel -->
   <div id="betslip-panel" class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-gray-800 p-4 transform translate-y-full transition-transform duration-300 z-50">
     <div class="max-w-md mx-auto">
       <div class="flex justify-between items-center mb-3">
@@ -220,7 +311,17 @@
     </div>
   </div>
 
-    <script>
+  <script>
+    // 🚀 ገጹ ሙሉ በሙሉ ሲጫን ሎዲንግ ስክሪኑን ለማጥፋት የሚሰራ ኮድ
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                loadingScreen.classList.add('hidden');
+            }
+        }, 1500); // ለ1.5 ሰከንድ ይታያል
+    });
+
     // 1. Telegram WebApp ን ማስጀመር
     const tg = window.Telegram.WebApp;
     tg.expand(); // ሚኒ-አፑ ሙሉ ስክሪን እንዲሆን ማድረግ
@@ -228,7 +329,7 @@
     // የተጠቃሚ መረጃ እና የደህንነት ቶከን
     const userId = tg.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : "9999999";
     const userName = tg.initDataUnsafe?.user?.username || tg.initDataUnsafe?.user?.first_name || "የሰፈር ልጅ";
-    const initData = tg.initData; // 👈 ለ Backend ደህንነት ማረጋገጫ የሚላክ
+    const initData = tg.initData; 
 
     // ገጹ እንደተከፈተ ባላንሱን ማዘመን
     document.addEventListener("DOMContentLoaded", function() {
@@ -241,7 +342,7 @@
         method: "POST",
         headers: { 
             "Content-Type": "application/json",
-            "X-Telegram-Init-Data": initData // 👈 ተስተካክሏል
+            "X-Telegram-Init-Data": initData 
         },
         body: JSON.stringify({ user_id: userId, game_mode: "real" })
       })
@@ -280,7 +381,7 @@
         document.getElementById("btn-withdraw-tab").className = "w-1/3 py-3 text-center text-green-400 border-b-2 border-green-400 transition";
       } else if (tabName === "history-tab") {
         document.getElementById("btn-history-tab").className = "w-1/3 py-3 text-center text-blue-400 border-b-2 border-blue-400 transition";
-        fetchHistory(); // ታሪክ ታብ ሲነካ ዳታውን ያመጣል
+        fetchHistory();
       }
     }
 
@@ -293,7 +394,7 @@
         method: "POST",
         headers: { 
             "Content-Type": "application/json",
-            "X-Telegram-Init-Data": initData // 👈 ተስተካክሏል
+            "X-Telegram-Init-Data": initData 
         },
         body: JSON.stringify({ user_id: userId })
       })
@@ -305,7 +406,7 @@
             return;
           }
           
-          list.innerHTML = ""; // የድሮውን አጽዳ
+          list.innerHTML = "";
           data.history.forEach(tx => {
             let statusColor = "text-yellow-500";
             if (tx.status === "completed") statusColor = "text-green-500";
@@ -353,7 +454,7 @@
       fetch("/api/deposit", {
         method: "POST",
         headers: {
-            "X-Telegram-Init-Data": initData // 👈 ተስተካክሏል (ለ FormData Content-Type አንጨምርም)
+            "X-Telegram-Init-Data": initData 
         },
         body: formData
       })
@@ -385,7 +486,7 @@
         method: "POST",
         headers: { 
             "Content-Type": "application/json",
-            "X-Telegram-Init-Data": initData // 👈 ተስተካክሏል
+            "X-Telegram-Init-Data": initData 
         },
         body: JSON.stringify({
           user_id: userId,
@@ -453,7 +554,7 @@
         method: "POST",
         headers: { 
             "Content-Type": "application/json",
-            "X-Telegram-Init-Data": initData // 👈 ተስተካክሏል
+            "X-Telegram-Init-Data": initData 
         },
         body: JSON.stringify({
           user_id: userId,
@@ -465,7 +566,7 @@
       .then(data => {
         if (data.status === "success") {
           alert("✅ ግምትዎ በተሳካ ሁኔታ ተመዝግቧል!\nየተመረጠ ጨዋታ: " + selectedMatch + "\nየተወራረደበት ብር: " + amount + " ETB");
-          updateUserBalance(); // አዲሱን ባላንስ አዘምን
+          updateUserBalance(); 
           closeBetslip();
         } else {
           alert("⚠️ ውድቅ የተደረገበት ምክንያት: " + data.message);
