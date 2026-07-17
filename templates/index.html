@@ -312,19 +312,27 @@
   </div>
 
   <script>
-    // 🚀 ገጹ ሙሉ በሙሉ ሲጫን ሎዲንግ ስክሪኑን ለማጥፋት የሚሰራ ኮድ
+        // 🚀 ገጹ ሙሉ በሙሉ ሲጫን የኛ ቤት ሎዲንግ ስክሪኑን ረጋ ብሎ ለማጥፋት የሚሰራ ኮድ
     window.addEventListener('load', () => {
         setTimeout(() => {
             const loadingScreen = document.getElementById('loading-screen');
             if (loadingScreen) {
-                loadingScreen.classList.add('hidden');
+                // 🎬 በሚያምር ሁኔታ እያደበዘዘ (Fade-out) እንዲያጠፋው ትራንዚሽን እንሰጠዋለን
+                loadingScreen.style.transition = "opacity 0.6s ease";
+                loadingScreen.style.opacity = "0";
+
+                // መደብዘዙ ሲያልቅ (ከ 0.6 ሰከንድ በኋላ) ሙሉ በሙሉ ለመደበቅ 'hidden' ክላስን ይጨምራል
+                setTimeout(() => {
+                    loadingScreen.classList.add('hidden');
+                }, 600);
             }
-        }, 1500); // ለ1.5 ሰከንድ ይታያል
+        }, 2500); // 💡 እዚህ ጋር ከ 1500 የነበረውን ወደ 2500 (2.5 ሰከንድ) አሳድገነዋል! ይበልጥ እንዲቆይ 3000 (3 ሰከንድ) ማድረግ ትችላለህ።
     });
 
     // 1. Telegram WebApp ን ማስጀመር
     const tg = window.Telegram.WebApp;
     tg.expand(); // ሚኒ-አፑ ሙሉ ስክሪን እንዲሆን ማድረግ
+
 
     // የተጠቃሚ መረጃ እና የደህንነት ቶከን
     const userId = tg.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : "9999999";
@@ -622,24 +630,6 @@ function submitWithdraw(e) {
         alert("የሲስተም ስህተት ገጥሟል!");
       });
     }
-
-    // 🚀 የኛ ቤት (Yegna Bet) ረጋ ያለ የሎዲንግ ስክሪን መቆያ እና ማጥፊያ ኮድ
-    window.addEventListener('DOMContentLoaded', () => {
-      // አፑ ገና ሲከፈት ለ 2.5 ሰከንድ (2500ms) ሎዲንጉ እንዲቆይ ማድረግ
-      setTimeout(() => {
-        const loader = document.getElementById("loading-screen");
-        if (loader) {
-          // በሚያምር ሁኔታ እየደበዘዘ (Fade-out) እንዲጠፋ 0.6 ሰከንድ ትራንዚሽን እንሰጠዋለን
-          loader.style.transition = "opacity 0.6s ease";
-          loader.style.opacity = "0";
-          
-          // ሙሉ በሙሉ ከስክሪኑ ላይ ደብቀን የጀርባው ጨዋታ እንዲታይ ማድረግ
-          setTimeout(() => {
-            loader.style.display = "none";
-          }, 600); // ከ 0.6 ሰከንድ (600ms) በኋላ ሙሉ በሙሉ መደበቅ
-        }
-      }, 2500); // 💡 ጊዜውን ይበልጥ ለመጨመር 2500 የሚለውን ወደ 3000 (3 ሰከንድ) ማሳደግ ትችላለህ
-    });
   </script>
 </body>
 </html>
