@@ -561,12 +561,11 @@ def handle_forgot_pin(call):
     user_id = call.from_user.id
     set_user_state(user_id, "waiting_for_contact")
     
-    # ስልክ ቁጥር እንዲያጋራ የሚጠይቅ በተን
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("📞 ስልክ ቁጥር አጋራ", request_contact=True))
+    # Inline የነበረውን ወደ Reply Keyboard ቀይረነዋል
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add(KeyboardButton("📞 ስልክ ቁጥር አጋራ", request_contact=True))
     
-    bot.send_message(call.message.chat.id, "ማንነትዎን ለማረጋገጥ እባክዎ ስልክ ቁጥርዎን ያጋሩ:", reply_markup=markup)
-
+    bot.send_message(call.message.chat.id, "ማንነትዎን ለማረጋገጥ እባክዎ ከታች ያለውን በተን ተጭነው ስልክ ቁጥርዎን ያጋሩ:", reply_markup=markup)
 
 # ==========================================
 # 🔌 WEBHOOK & SERVER START
