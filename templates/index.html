@@ -385,7 +385,7 @@
       }
     }
 
-    // የታሪክ መረጃ ከሰርቨር ማምጣት
+        // የታሪክ መረጃ ከሰርቨር ማምጣት
     function fetchHistory() {
       const list = document.getElementById("history-list");
       list.innerHTML = `<p class="text-sm text-gray-500 text-center py-4 bg-gray-900 rounded-lg">እየጫነ ነው (Loading...)</p>`;
@@ -405,13 +405,20 @@
             list.innerHTML = `<p class="text-sm text-gray-500 text-center py-4 bg-gray-900 rounded-lg">ምንም ታሪክ የለም (No history)</p>`;
             return;
           }
-          
+
           list.innerHTML = "";
           data.history.forEach(tx => {
-            let statusColor = "text-yellow-500";
-            if (tx.status === "completed") statusColor = "text-green-500";
-            if (tx.status === "failed" || tx.status === "refunded") statusColor = "text-red-500";
+            // 🔥 እያንዳንዱን ስታተስ በከለር መለየት
+            let statusColor = "text-yellow-500"; // ለ Pending (ቢጫ)
             
+            if (tx.status === "completed" || tx.status === "approved") {
+              statusColor = "text-green-500"; // የጸደቀ/ያለቀ (አረንጓዴ)
+            } else if (tx.status === "failed" || tx.status === "rejected") {
+              statusColor = "text-red-500"; // ውድቅ የተደረገ/የከሸፈ (ቀይ)
+            } else if (tx.status === "refunded") {
+              statusColor = "text-blue-400"; // ተመላሽ የተደረገ (ውብ ሰማያዊ)
+            }
+
             list.innerHTML += `
             <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-800 mb-2 text-xs">
                 <div>
