@@ -545,6 +545,26 @@ def send_admin_panel(message):
     else:
         bot.send_message(message.chat.id, "❌ ይህ ትዕዛዝ ለአድሚን ብቻ የተፈቀደ ነው!")
 
+
+
+@bot.message_handler(commands=['settings'])
+def settings_menu(message):
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("🔑 ፒን ረሳሁ", callback_data="forgot_pin"))
+    bot.send_message(message.chat.id, "⚙️ የሴቲንግ ምርጫዎች:", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "forgot_pin")
+def handle_forgot_pin(call):
+    user_id = call.from_user.id
+    set_user_state(user_id, "waiting_for_contact")
+    
+    # ስልክ ቁጥር እንዲያጋራ የሚጠይቅ በተን
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("📞 ስልክ ቁጥር አጋራ", request_contact=True))
+    
+    bot.send_message(call.message.chat.id, "ማንነትዎን ለማረጋገጥ እባክዎ ስልክ ቁጥርዎን ያጋሩ:", reply_markup=markup)
+
+
 # ==========================================
 # 🔌 WEBHOOK & SERVER START
 # ==========================================
