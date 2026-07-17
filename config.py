@@ -108,7 +108,8 @@ def set_user_state(user_id, state):
 
 def get_user_state(user_id):
     state = redis.get(f"state:{user_id}")
-    return state.decode('utf-8') if state else None
+    # decode('utf-8') የሚለውን አጥፍተን በ str() ቀይረነዋል
+    return str(state) if state else None
 
 def clear_user_state(user_id):
     redis.delete(f"state:{user_id}")
@@ -119,4 +120,5 @@ def save_user_pin(user_id, pin):
 
 def get_user_pin(user_id):
     pin = redis.get(f"user_pin:{user_id}")
-    return pin.decode('utf-8') if pin else None
+    # እዚህ ጋርም decode('utf-8') የሚለውን አጥፍተን በ str() ቀይረነዋል
+    return str(pin) if pin else None
