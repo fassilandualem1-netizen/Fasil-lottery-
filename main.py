@@ -101,14 +101,27 @@ def send_photo_background(user_name, user_id, amount, tx_id, photo_data):
     except:
         bot.send_message(ADMIN_ID, caption, reply_markup=markup)
 
+# --- 🚫 ተጠቃሚው የታገደ መሆኑን መፈተሻ ረዳት ፈንክሽን ---
+def is_user_banned(user_id):
+    if not user_id:
+        return False
+    return redis.sismember("banned_users", str(user_id))
+
+# --- DEPOSIT LOGIC ---
 @server.route('/api/deposit', methods=['POST'])
 @telegram_auth_required
 def handle_deposit():
     user_id = request.form.get("user_id")
+    
+    # 🚨 የታገደ መሆኑን መፈተሻ (ከሁሉም በፊት ይፈትሻል)
+    if is_user_banned(user_id):
+        return jsonify({"status": "error", "message": "አካውንትዎ ታግዷል! መገልገያዎችን መጠቀም አይችሉም።"}), 403
+
     user_name = request.form.get("user_name", "የሰፈር ልጅ")
     amount = float(request.form.get("amount", 0))
     receipt_file = request.files.get("receipt")
-    if not user_id or amount <= 0 or not receipt_file: return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
+    if not user_id or amount <= 0 or not receipt_file: 
+        return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
 
     photo_data = receipt_file.read()
     tx_id = str(uuid.uuid4())[:8]
@@ -125,6 +138,11 @@ def handle_deposit():
 def handle_withdraw():
     data = request.json or {}
     user_id = data.get("user_id")
+    
+    # 🚨 የታገደ መሆኑን መፈተሻ (ከሁሉም በፊት ይፈትሻል)
+    if is_user_banned(user_id):
+        return jsonify({"status": "error", "message": "አካውንትዎ ታግዷል! መገልገያዎችን መጠቀም አይችሉም።"}), 403
+
     user_name = data.get("user_name", "የሰፈር ልጅ")
     amount = float(data.get("amount", 0))
     phone = str(data.get("phone", ""))
