@@ -123,7 +123,7 @@ def handle_all_text_messages(message):
         set_user_state(user_id, "waiting_for_pin_2")
         bot.send_message(chat_id, "✅ ጥሩ! ለማረጋገጥ እባክዎ ፒንዎን እንደገና ይጻፉት:")
         
-    # -----------------------------------------
+        # -----------------------------------------
     # 2. ፒኑን እያረጋገጠ ከሆነ (ደረጃ 2)
     # -----------------------------------------
     elif state == "waiting_for_pin_2":
@@ -133,7 +133,9 @@ def handle_all_text_messages(message):
         
         # መጀመሪያ ያስገባውን ጊዜያዊ ፒን ከዳታቤዝ እናመጣለን
         temp_pin_raw = redis.get(f"temp_pin:{user_id}")
-        temp_pin = temp_pin_raw.decode('utf-8') if temp_pin_raw else None
+        
+        # ስህተቱን ያስወገደው ትክክለኛ ኮድ
+        temp_pin = str(temp_pin_raw) if temp_pin_raw else None
         
         if text == temp_pin:
             # ፒኖቹ ከተመሳሰሉ በቋሚነት ሴቭ እናደርጋለን
@@ -154,8 +156,6 @@ def handle_all_text_messages(message):
             # ካልተመሳሰሉ ወደ መጀመሪያው እንመልሰዋለን
             set_user_state(user_id, "waiting_for_pin_1")
             bot.send_message(chat_id, "❌ ፒኑ አልተመሳሰለም! እባክዎ አዲስ ባለ 4 ዲጂት ፒን ከመጀመሪያው ይፍጠሩ:")
-            
-    # ወደፊት ክፍያ (Withdraw) ላይ ፒን ሲጠየቅ የሚያረጋግጠውን ሎጂክ እዚህ ስር እንጨምረዋለን።
 
 
     # -----------------------------------------
