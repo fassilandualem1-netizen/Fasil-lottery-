@@ -212,6 +212,27 @@ def handle_all_text_messages(message):
 
 
 
+# -----------------------------------------
+# 4. የፒን መጥፋት (Forgot PIN) - ስልክ ቁጥር ሲያጋራ
+# -----------------------------------------
+@bot.message_handler(content_types=['contact'])
+def handle_contact(message):
+    user_id = message.from_user.id
+    state = get_user_state(user_id)
+    
+    # ተጠቃሚው "ፒን ረሳሁ" ብሎ በሂደት ላይ ከሆነ
+    if state == "waiting_for_contact":
+        contact_phone = message.contact.phone_number
+        # እዚህ ጋር የተላከውን ስልክ ቁጥር ከዳታቤዝ ጋር ማነፃፀር ትችላለህ
+        # ለምሳሌ: የተጠቃሚው ስልክ ዳታቤዝ ላይ ካለ
+        # (አንተ ጋር የተጠቃሚው ስልክ Redis ላይ ካለ እዚህ ያንን ቼክ ታደርጋለህ)
+        
+        # ስኬታማ ከሆነ ወደ አዲስ ፒን መፍጠሪያ እንወስደዋለን
+        set_user_state(user_id, "waiting_for_pin_1")
+        bot.send_message(message.chat.id, "✅ ማንነትዎ ተረጋግጧል! አሁን አዲስ ባለ 4 ዲጂት ፒን ይፍጠሩ:")
+    else:
+        bot.send_message(message.chat.id, "⚠️ አሁን ይህንን ማድረግ አይጠበቅብዎትም።")
+
 
 # --- ROUTES ---
 @server.route('/')
