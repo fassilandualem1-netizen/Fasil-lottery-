@@ -89,11 +89,12 @@ def send_welcome(message):
 
 
 
-
 # ==========================================
 # 🛡️ አጠቃላይ የሜሴጅ እና የፒን መቆጣጠሪያ (Message Handler)
 # ==========================================
-@bot.message_handler(func=lambda message: True)
+
+# 👇 እዚህ ጋ 'not message.text.startswith('/')' የሚለውን ጨምረናል 👇
+@bot.message_handler(func=lambda message: message.text and not message.text.startswith('/'))
 def handle_all_text_messages(message):
     user_id = message.from_user.id
     text = message.text.strip()
@@ -103,6 +104,8 @@ def handle_all_text_messages(message):
     # ተጠቃሚው በአሁን ሰዓት ምን እየጠበቀ እንደሆነ ቼክ እናደርጋለን
     state = get_user_state(user_id)
     
+    # የተቀረው ኮድህ እንዳለ ይቀጥላል...
+
     # -----------------------------------------
     # 1. አዲስ ፒን እየፈጠረ ከሆነ (ደረጃ 1)
     # -----------------------------------------
