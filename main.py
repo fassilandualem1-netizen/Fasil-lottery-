@@ -238,6 +238,97 @@ def process_admin_action(call):
     except Exception as e:
         bot.answer_callback_query(call.id, f"⚠️ ስህተት፡ {str(e)}")
 
+# ==========================================
+# 🛡️ የአድሚን መቆጣጠሪያ API ROUTES (አዲስ የተጨመሩ)
+# ==========================================
+
+@server.route('/admin-panel')
+def admin_panel():
+    return render_template('admin.html')
+
+@server.route('/api/admin/stats', methods=['POST'])
+def get_admin_stats():
+    data = request.json or {}
+    admin_id = str(data.get("admin_id"))
+    
+    # የገባው ሰው አድሚን መሆኑን ማረጋገጫ
+    if admin_id != str(ADMIN_ID): 
+        return jsonify({"status": "error", "message": "ያልተፈቀደ የደህንነት ጥሰት ሙከራ!"}), 403
+    
+    total_users = redis.hlen("users:balance")
+    banned_users_count = redis.scard("banned_users")
+    
+    # ገቢ፣ ወጪ እና ትርፍ ማስላት
+    total_dep = float(redis.get("stats:total_deposits") or 0.0)
+    total_wd = float(redis.get("stats:total_withdrawals") or 0.0)
+    net_profit = total_dep - total_wd
+    
+    return jsonify({
+        "status": "success",
+        "total_users": total_users,
+        "banned_users": banned_users_count,
+        "total_deposits": total_dep,
+        "total_withdrawals": total_wd,
+        "net_profit": net_profit
+    })
+
+@server.route('/api/admin/user_action', methods=['POST'])
+def admin_user_action():
+    data = request.json or {}
+    admin_id = str(data.get("admin_id"))
+    target_user_id = str(data.get("target_user_id"))
+    action = data.get("action") # ban, unban, adjust_balance
+    
+    if admin_id != str(ADMIN_ID): 
+        return jsonify({"status": "error", "message": "ያልተፈቀደ ሙከራ!"}), 403
+        
+    if not target_user_id:
+        return jsonify({"status": "error", "message": "የተጠቃሚ ID አልተገኘም!"}), 400
+
+    if action == "ban":
+        redis.sadd("banned_users", target_user_id)
+        # ተጠቃሚው ላይ እገዳ መጣሉን በቦት ማሳወቅ
+        try:
+            bot.send_message(target_user_id, "⚠️ <b>መለያዎ (Account) በህግ ጥሰት ምክንያት በሲስተም አድሚን ታግዷል!</b>\nቅሬታ ካለዎት አድሚኑን ያነጋግሩ።", parse_mode="HTML")
+        except: pass
+        return jsonify({"status": "success", "message": "ተጠቃሚው በተሳካ ሁኔታ ታግዷል!"})
+        
+    elif action == "unban":
+        redis.srem("banned_users", target_user_id)
+        try:
+            bot.send_message(target_user_id, "🎉 <b>የመለያዎ እገዳ በተሳካ ሁኔታ ተነስቷል!</b>\nአሁን መጫወት እና መጠቀም ይችላሉ።", parse_mode="HTML")
+        except: pass
+        return jsonify({"status": "success", "message": "የተጠቃሚው እገዳ ተነስቷል!"})
+        
+    elif action == "adjust_balance":
+        amount = float(data.get("amount", 0))
+        # ባላንስ መጨመር ወይም መቀነስ (አሉታዊ ቁጥር ከተላከ ይቀንሳል)
+        redis.hincrbyfloat("users:balance", target_user_id, amount)
+        try:
+            sign = "+" if amount > 0 else ""
+            bot.send_message(target_user_id, f"🔔 <b>የሂሳብ ማስተካከያ ተደርጓል!</b>\nባላንስዎ ላይ <b>{sign}{amount} ብር</b> ተጨምሯል/ተቀንሷል።", parse_mode="HTML")
+        except: pass
+        return jsonify({"status": "success", "message": "ባላንስ በተሳካ ሁኔታ ተስተካክሏል!"})
+        
+    return jsonify({"status": "error", "message": "የማይታወቅ ትዕዛዝ!"}), 400
+
+
+# ==========================================
+# 🤖 የቴሌግራም አድሚን ቦት ትዕዛዝ
+# ==========================================
+@bot.message_handler(commands=['admin'])
+def send_admin_panel(message):
+    if str(message.from_user.id) == str(ADMIN_ID):
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("📊 የአድሚን ፓነል ክፈት", web_app=WebAppInfo(url=f"{WEB_APP_URL}/admin-panel")))
+        bot.send_message(message.chat.id, "🤖 <b>እንኳን ወደ 'የኛ ቤት' መቆጣጠሪያ ፓነል በሰላም መጡ!</b>\n\nእዚህ ገጽ ላይ የቦቱን ጠቅላላ ትርፍ ማየት፣ አጭበርባሪዎችን ማገድ እና የተጠቃሚዎችን ባላንስ በእጅ ማስተካከል ይችላሉ።", parse_mode="HTML", reply_markup=markup)
+    else:
+        bot.send_message(message.chat.id, "❌ ይህ ትዕዛዝ ለአድሚን ብቻ የተፈቀደ ነው!")
+
+
+# ==========================================
+# 🔌 WEBHOOK & SERVER START (ያለህበት የድሮው ክፍል)
+# ==========================================
 @server.route(f'/webhook/{TOKEN}', methods=['POST'])
 def webhook():
     json_string = request.get_data().decode('utf-8')
