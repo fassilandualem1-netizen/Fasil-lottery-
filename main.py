@@ -186,7 +186,7 @@ def process_admin_action(call):
         if not tx_data_raw:
             bot.answer_callback_query(call.id, "⚠️ ይህ ትራንዛክሽን ቀደም ብሎ ተሰርዟል ወይም አልተገኘም!")
             return
-        
+
         tx_data = json.loads(tx_data_raw)
         if tx_data.get("status") != "pending":
             bot.answer_callback_query(call.id, f"⚠️ ይህ ጥያቄ ቀደም ብሎ {tx_data.get('status')} ሆኗል!")
@@ -195,6 +195,10 @@ def process_admin_action(call):
         if tx_type == "deposit":
             if action == "ok":
                 redis.hincrbyfloat("users:balance", user_id, amount)
+                
+                # 📊 አዲሱ የትርፍ መመዝገቢያ (የአድሚን ዳሽቦርድ ላይ የሚታየው)
+                redis.incrbyfloat("stats:total_deposits", amount)
+                
                 tx_data["status"] = "approved"
                 update_history_tx_status(user_id, tx_id, "approved")
                 bot.send_message(user_id, f"✅ <b>ዴፖዚትዎ ጸድቋል!</b>\n💰 መጠን: <b>{amount} ብር</b> ወደ አካውንትዎ ገብቷል።")
@@ -207,8 +211,11 @@ def process_admin_action(call):
                 bot.answer_callback_query(call.id, "❌ ውድቅ ተደርጓል!")
                 bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=call.message.caption + "\n\n🔴 <b>[ውድቅ የተደረገ ገቢ]</b>")
 
-                elif tx_type == "withdraw":
+        elif tx_type == "withdraw":
             if action == "ok":
+                # 📊 አዲሱ የትርፍ መመዝገቢያ (የአድሚን ዳሽቦርድ ላይ የሚታየው)
+                redis.incrbyfloat("stats:total_withdrawals", amount)
+                
                 tx_data["status"] = "approved"
                 update_history_tx_status(user_id, tx_id, "approved")
                 bot.send_message(user_id, f"✅ የ <b>{amount} ብር</b> ወጪ (Withdraw) ጥያቄዎ ተከፍሏል!")
@@ -217,11 +224,11 @@ def process_admin_action(call):
             else:
                 # ዊዝድሮው ውድቅ ከተደረገ የተቆረጠውን ባላንስ መመለስ (Refund)
                 redis.hincrbyfloat("users:balance", user_id, amount)
-                
+
                 # 🔥 ከዚህ በታች ያሉት ስታተሶች ወደ "refunded" ተቀይረዋል!
                 tx_data["status"] = "refunded" 
                 update_history_tx_status(user_id, tx_id, "refunded") 
-                
+
                 bot.send_message(user_id, f"❌ የ <b>{amount} ብር</b> ወጪ ጥያቄዎ ተሰርዟል! ገንዘቡ ወደ ባላንስዎ ተመልሷል (Refunded)።")
                 bot.answer_callback_query(call.id, "❌ ወጪው ተሰርዟል፣ ገንዘቡ ተመልሷል!")
                 bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=call.message.text + "\n\n🔴 <b>[የተሰረዘ እና የተመለሰ (Refunded)]</b>")
