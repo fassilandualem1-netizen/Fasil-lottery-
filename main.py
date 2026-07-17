@@ -26,7 +26,12 @@ from games.real_sports import real_sports_bp
 
 server = Flask(__name__)
 server.secret_key = os.environ.get("SECRET_KEY", "gashabet_secret_super_key_123")
-socketio = SocketIO(server, cors_allowed_origins="*", async_mode='eventlet')
+
+# ⚽️ የ Football API Key እዚህ ጋር እንጨምራለን (Render Environment ላይ ያስገቡትን ይጠራል)
+FOOTBALL_API_KEY = os.environ.get("API_FOOTBALL_KEY")
+
+# 🔧 የ socketio ኤረር ማስተካከያ (eventlet የነበረውን ወደ gevent ቀይረናል)
+socketio = SocketIO(server, cors_allowed_origins="*", async_mode='gevent')
 
 server.register_blueprint(gofere_zewd_bp)
 server.register_blueprint(aviator_bp)
