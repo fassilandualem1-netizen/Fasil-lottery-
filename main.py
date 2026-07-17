@@ -85,6 +85,77 @@ def send_welcome(message):
         )
 
 
+
+
+# ==========================================
+# 🛡️ አጠቃላይ የሜሴጅ እና የፒን መቆጣጠሪያ (Message Handler)
+# ==========================================
+@bot.message_handler(func=lambda message: True)
+def handle_all_text_messages(message):
+    user_id = message.from_user.id
+    text = message.text.strip()
+    chat_id = message.chat.id
+    message_id = message.message_id
+    
+    # ተጠቃሚው በአሁን ሰዓት ምን እየጠበቀ እንደሆነ ቼክ እናደርጋለን
+    state = get_user_state(user_id)
+    
+    # -----------------------------------------
+    # 1. አዲስ ፒን እየፈጠረ ከሆነ (ደረጃ 1)
+    # -----------------------------------------
+    if state == "waiting_for_pin_1":
+        # 🔒 ደህንነት: ተጠቃሚው የላከውን ፒን የያዘ ሜሴጅ ወዲያውኑ እናጠፋለን
+        try: bot.delete_message(chat_id, message_id)
+        except: pass
+        
+        # ፒኑ ባለ 4 ዲጂት ቁጥር መሆኑን ማረጋገጥ
+        if not text.isdigit() or len(text) != 4:
+            bot.send_message(chat_id, "⚠️ ስህተት! እባክዎ ትክክለኛ ባለ 4 ዲጂት ቁጥር ብቻ ያስገቡ (ለምሳሌ: 1234):")
+            return
+            
+        # ቁጥሩ ትክክል ከሆነ በጊዜያዊነት (Temp) እናስቀምጠዋለን
+        redis.setex(f"temp_pin:{user_id}", 900, text)
+        
+        # State ወደ ማረጋገጫ (ደረጃ 2) እንቀይራለን
+        set_user_state(user_id, "waiting_for_pin_2")
+        bot.send_message(chat_id, "✅ ጥሩ! ለማረጋገጥ እባክዎ ፒንዎን እንደገና ይጻፉት:")
+        
+    # -----------------------------------------
+    # 2. ፒኑን እያረጋገጠ ከሆነ (ደረጃ 2)
+    # -----------------------------------------
+    elif state == "waiting_for_pin_2":
+        # 🔒 ደህንነት: ይሄኛውንም ሜሴጅ ወዲያውኑ እናጠፋለን
+        try: bot.delete_message(chat_id, message_id)
+        except: pass
+        
+        # መጀመሪያ ያስገባውን ጊዜያዊ ፒን ከዳታቤዝ እናመጣለን
+        temp_pin_raw = redis.get(f"temp_pin:{user_id}")
+        temp_pin = temp_pin_raw.decode('utf-8') if temp_pin_raw else None
+        
+        if text == temp_pin:
+            # ፒኖቹ ከተመሳሰሉ በቋሚነት ሴቭ እናደርጋለን
+            save_user_pin(user_id, text)
+            
+            # ስራ ስለጨረሰ State እና ጊዜያዊ ፒኑን እናጸዳለን
+            clear_user_state(user_id)
+            redis.delete(f"temp_pin:{user_id}")
+            
+            markup = InlineKeyboardMarkup()
+            markup.add(InlineKeyboardButton("🎮 ጌም ጀምር (Play)", web_app=WebAppInfo(url=WEB_APP_URL)))
+            bot.send_message(
+                chat_id, 
+                "🎉 ፒንዎ በተሳካ ሁኔታ ተፈጥሯል!\n\n(ፒንዎ የሚጠየቁት ገንዘብ ወጪ ሲያደርጉ ብቻ ነው)\nከታች ያለውን በተን በመጫን መጫወት መጀመር ይችላሉ።", 
+                reply_markup=markup
+            )
+        else:
+            # ካልተመሳሰሉ ወደ መጀመሪያው እንመልሰዋለን
+            set_user_state(user_id, "waiting_for_pin_1")
+            bot.send_message(chat_id, "❌ ፒኑ አልተመሳሰለም! እባክዎ አዲስ ባለ 4 ዲጂት ፒን ከመጀመሪያው ይፍጠሩ:")
+            
+    # ወደፊት ክፍያ (Withdraw) ላይ ፒን ሲጠየቅ የሚያረጋግጠውን ሎጂክ እዚህ ስር እንጨምረዋለን።
+
+
+
 # --- ROUTES ---
 @server.route('/')
 def index():
