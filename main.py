@@ -12,10 +12,10 @@ import telebot
 from telebot.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
 
 # ከ config.py የጋራ ማዋቀሪያዎችንና ረዳቶችን ማስገባት
-import config
 from config import (
     bot, redis, TOKEN, ADMIN_ID, WEB_APP_URL,
-    telegram_auth_required, deduct_balance_safely, add_to_history, update_history_tx_status
+    telegram_auth_required, deduct_balance_safely, add_to_history, update_history_tx_status,
+    set_user_state, get_user_state, clear_user_state, save_user_pin, get_user_pin # 👈 እነዚህን አዳዲሶቹን ጨምር
 )
 
 # 🎮 6ቱንም የጌሞች ብሉፕሪንቶች ማስገባት
