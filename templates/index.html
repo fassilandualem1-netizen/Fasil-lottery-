@@ -435,84 +435,122 @@
     }
 
     // የገቢ (Deposit) ፎርም መላኪያ
-    function submitDeposit(e) {
-      e.preventDefault();
-      const amount = document.getElementById("dep-amount").value;
-      const fileInput = document.getElementById("dep-receipt");
-      
-      if (!fileInput.files[0]) {
-        alert("እባክዎ መጀመሪያ ደረሰኝ ይጫኑ!");
-        return;
-      }
+function submitDeposit(e) {
+  e.preventDefault();
+  const amount = document.getElementById("dep-amount").value;
+  const fileInput = document.getElementById("dep-receipt");
 
-      const formData = new FormData();
-      formData.append("user_id", userId);
-      formData.append("user_name", userName);
-      formData.append("amount", amount);
-      formData.append("receipt", fileInput.files[0]);
+  if (!fileInput.files[0]) {
+    alert("እባክዎ መጀመሪያ ደረሰኝ ይጫኑ!");
+    return;
+  }
 
-      fetch("/api/deposit", {
-        method: "POST",
-        headers: {
-            "X-Telegram-Init-Data": initData 
-        },
-        body: formData
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === "success") {
-          alert("✅ የገቢ ጥያቄዎ በተሳካ ሁኔታ ለአድሚን ተልኳል! በቴሌግራም መልዕክት ይደርስዎታል።");
-          closeWalletModal();
-          document.getElementById("deposit-form").reset();
-        } else {
-          alert("⚠️ ስህተት: " + data.message);
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        alert("የኔትወርክ ስህተት ገጥሟል!");
-      });
+  // 🔥 የ Double Click መከላከያ (ልክ ፎርሙ ሲላክ በተኑን ይቆልፋል)
+  const submitBtn = e.target.querySelector('button') || document.querySelector('#deposit-form button');
+  let originalText = "";
+  if (submitBtn) {
+    originalText = submitBtn.innerText;
+    submitBtn.disabled = true;
+    submitBtn.innerText = "በማቀናበር ላይ...";
+  }
+
+  const formData = new FormData();
+  formData.append("user_id", userId);
+  formData.append("user_name", userName);
+  formData.append("amount", amount);
+  formData.append("receipt", fileInput.files[0]);
+
+  fetch("/api/deposit", {
+    method: "POST",
+    headers: {
+        "X-Telegram-Init-Data": initData 
+    },
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === "success") {
+      alert("✅ የገቢ ጥያቄዎ በተሳካ ሁኔታ ለአድሚን ተልኳል! በቴሌግራም መልዕክት ይደርስዎታል።");
+      closeWalletModal();
+      document.getElementById("deposit-form").reset();
+    } else {
+      alert("⚠️ ስህተት: " + data.message);
     }
-
-    // የወጪ (Withdraw) ፎርም መላኪያ
-    function submitWithdraw(e) {
-      e.preventDefault();
-      const bank = document.getElementById("wd-bank").value;
-      const name = document.getElementById("wd-name").value;
-      const phone = document.getElementById("wd-phone").value;
-      const amount = parseFloat(document.getElementById("wd-amount").value);
-
-      fetch("/api/withdraw", {
-        method: "POST",
-        headers: { 
-            "Content-Type": "application/json",
-            "X-Telegram-Init-Data": initData 
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          user_name: userName,
-          bank_name: bank,
-          account_name: name,
-          phone: phone,
-          amount: amount
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === "success") {
-          alert("✅ የወጪ (Withdraw) ጥያቄዎ ለአድሚን ደርሷል። ሲረጋገጥ ይላክልዎታል።");
-          updateUserBalance();
-          closeWalletModal();
-          document.getElementById("withdraw-form").reset();
-        } else {
-          alert("⚠️ ስህተት: " + data.message);
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        alert("የኔትወርክ ስህተት ገጥሟል!");
-      });
+    // 🔄 ሲስተሙ ጨርሶ ስህተት ካመጣ በተኑን መልሶ መክፈት
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerText = originalText;
     }
+  })
+  .catch(err => {
+    console.error(err);
+    alert("የኔትወርክ ስህተት ገጥሟል!");
+    // 🔄 በኔትወርክ ስህተት ጊዜ በተኑን መልሶ መክፈት
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerText = originalText;
+    }
+  });
+}
+
+// የወጪ (Withdraw) ፎርም መላኪያ
+function submitWithdraw(e) {
+  e.preventDefault();
+  const bank = document.getElementById("wd-bank").value;
+  const name = document.getElementById("wd-name").value;
+  const phone = document.getElementById("wd-phone").value;
+  const amount = parseFloat(document.getElementById("wd-amount").value);
+
+  // 🔥 የ Double Click መከላከያ (ልክ ፎርሙ ሲላክ በተኑን ይቆልፋል)
+  const submitBtn = e.target.querySelector('button') || document.querySelector('#withdraw-form button');
+  let originalText = "";
+  if (submitBtn) {
+    originalText = submitBtn.innerText;
+    submitBtn.disabled = true;
+    submitBtn.innerText = "በማቀናበር ላይ...";
+  }
+
+  fetch("/api/withdraw", {
+    method: "POST",
+    headers: { 
+        "Content-Type": "application/json",
+        "X-Telegram-Init-Data": initData 
+    },
+    body: JSON.stringify({
+      user_id: userId,
+      user_name: userName,
+      bank_name: bank,
+      account_name: name,
+      phone: phone,
+      amount: amount
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === "success") {
+      alert("✅ የወጪ (Withdraw) ጥያቄዎ ለአድሚን ደርሷል። ሲረጋገጥ ይላክልዎታል።");
+      updateUserBalance();
+      closeWalletModal();
+      document.getElementById("withdraw-form").reset();
+    } else {
+      alert("⚠️ ስህተት: " + data.message);
+    }
+    // 🔄 ሲስተሙ ጨርሶ ስህተት ካመጣ በተኑን መልሶ መክፈት
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerText = originalText;
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    alert("የኔትወርክ ስህተት ገጥሟል!");
+    // 🔄 በኔትወርክ ስህተት ጊዜ በተኑን መልሶ መክፈት
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerText = originalText;
+    }
+  });
+}
 
     // ውርርድ ማጠናቀቂያ (Place Bet)
     let selectedMatch = null;
