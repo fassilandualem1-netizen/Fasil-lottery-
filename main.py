@@ -312,12 +312,30 @@ def admin_user_action():
             return jsonify({"status": "error", "message": f"ስህተት! የተጠቃሚው ባላንስ {current_balance} ብር ብቻ ነው። ወደ ኔጌቲቭ ማውረድ አይቻልም!"}), 400
             
         redis.hset("users:balance", target_user_id, new_balance)
+        
+        # 👇 ይሄ አዲሱ ወደ ሂስቶሪ (History) መጨመሪያ ኮድ ነው 👇
+        import time
+        import uuid
+        tx_type = "ገቢ" if amount > 0 else "ወጪ"
+        abs_amount = abs(amount)
+        tx_id = "ADM-" + str(uuid.uuid4())[:5] # አድሚን መሆኑን ለመለየት ADM- ይጨመራል
+        
+        history_data = {
+            "tx_id": tx_id,
+            "type": tx_type,
+            "amount": abs_amount,
+            "status": "APPROVED", # በአድሚን ስለተደረገ ቀጥታ ጸድቋል (APPROVED)
+            "date": time.strftime("%Y-%m-%d %H:%M")
+        }
+        add_to_history(target_user_id, history_data)
+        # 👆 የሂስቶሪ ኮድ እዚህ ያልቃል 👆
+
         try:
             sign = "+" if amount > 0 else ""
-            bot.send_message(target_user_id, f"🔔 <b>የሂሳብ ማስተካከያ!</b>\nባላንስዎ ላይ <b>{sign}{amount} ብር</b> ተስተካክሏል።", parse_mode="HTML")
+            bot.send_message(target_user_id, f"🔔 <b>የሂሳብ ማስተካከያ!</b>\nባላንስዎ ላይ <b>{sign}{amount} ብር</b> በአድሚን ተስተካክሏል።", parse_mode="HTML")
         except: pass
         return jsonify({"status": "success", "message": "ባላንስ በተሳካ ሁኔታ ተስተካክሏል!"})
-        
+
     return jsonify({"status": "error", "message": "የማይታወቅ ትዕዛዝ!"}), 400
 
 
