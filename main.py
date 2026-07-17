@@ -246,11 +246,14 @@ def get_dashboard_data():
     users_list = []
     total_system_balance = 0.0
     
-    for uid_bytes, bal_bytes in balances_raw.items():
-        uid = uid_bytes.decode('utf-8')
-        bal = float(bal_bytes.decode('utf-8'))
+        for uid_raw, bal_raw in balances_raw.items():
+        # ዳታው በ string ከመጣ ቀጥታ ይጠቀማል፣ በ bytes ከመጣ ደግሞ decode ያደርጋል
+        uid = uid_raw.decode('utf-8') if isinstance(uid_raw, bytes) else str(uid_raw)
+        bal = float(bal_raw.decode('utf-8') if isinstance(bal_raw, bytes) else bal_raw)
+        
         users_list.append({"user_id": uid, "balance": bal})
         total_system_balance += bal
+
         
     total_users = len(users_list)
     banned_users_count = redis.scard("banned_users")
