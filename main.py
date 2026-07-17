@@ -1,6 +1,5 @@
 import gevent.monkey
 gevent.monkey.patch_all()
-
 import os
 import time
 import json
@@ -190,7 +189,7 @@ def process_admin_action(call):
                 bot.answer_callback_query(call.id, "❌ ውድቅ ተደርጓል!")
                 bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=call.message.caption + "\n\n🔴 <b>[ውድቅ የተደረገ ገቢ]</b>")
 
-        elif tx_type == "withdraw":
+                elif tx_type == "withdraw":
             if action == "ok":
                 tx_data["status"] = "approved"
                 update_history_tx_status(user_id, tx_id, "approved")
@@ -200,11 +199,14 @@ def process_admin_action(call):
             else:
                 # ዊዝድሮው ውድቅ ከተደረገ የተቆረጠውን ባላንስ መመለስ (Refund)
                 redis.hincrbyfloat("users:balance", user_id, amount)
-                tx_data["status"] = "rejected"
-                update_history_tx_status(user_id, tx_id, "rejected")
-                bot.send_message(user_id, f"❌ የ <b>{amount} ብር</b> ወጪ ጥያቄዎ ተሰርዟል! ገንዘቡ ወደ ባላንስዎ ተመልሷል።")
+                
+                # 🔥 ከዚህ በታች ያሉት ስታተሶች ወደ "refunded" ተቀይረዋል!
+                tx_data["status"] = "refunded" 
+                update_history_tx_status(user_id, tx_id, "refunded") 
+                
+                bot.send_message(user_id, f"❌ የ <b>{amount} ብር</b> ወጪ ጥያቄዎ ተሰርዟል! ገንዘቡ ወደ ባላንስዎ ተመልሷል (Refunded)።")
                 bot.answer_callback_query(call.id, "❌ ወጪው ተሰርዟል፣ ገንዘቡ ተመልሷል!")
-                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=call.message.text + "\n\n🔴 <b>[የተሰረዘ ወጪ]</b>")
+                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=call.message.text + "\n\n🔴 <b>[የተሰረዘ እና የተመለሰ (Refunded)]</b>")
 
         # የትራንዛክሽኑን ስታተስ ማደስ
         redis.set(f"tx:{tx_id}", json.dumps(tx_data))
