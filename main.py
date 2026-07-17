@@ -9,7 +9,9 @@ import re
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 import telebot
-from telebot.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
+
+# 👇 አሮጌውን አጥፍተህ ይሄንን አዲሱን እዚህ ጋ ታስገባዋለህ 👇
+from telebot.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
 # ከ config.py የጋራ ማዋቀሪያዎችንና ረዳቶችን ማስገባት
 from config import (
@@ -17,6 +19,7 @@ from config import (
     telegram_auth_required, deduct_balance_safely, add_to_history, update_history_tx_status,
     set_user_state, get_user_state, clear_user_state, save_user_pin, get_user_pin # 👈 እነዚህን አዳዲሶቹን ጨምር
 )
+
 
 # 🎮 6ቱንም የጌሞች ብሉፕሪንቶች ማስገባት
 from games.gofere_zewd import gofere_zewd_bp
