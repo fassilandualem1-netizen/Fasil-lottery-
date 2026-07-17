@@ -235,29 +235,30 @@ def admin_panel():
 def get_dashboard_data():
     data = request.json or {}
     admin_id = str(data.get("admin_id"))
-    
+
     # የገባው ሰው አድሚን መሆኑን ማረጋገጫ
     if admin_id != str(ADMIN_ID): 
         return jsonify({"status": "error", "message": "ያልተፈቀደ የደህንነት ጥሰት ሙከራ!"}), 403
-    
+
     # የሁሉንም ተጠቃሚዎች ባላንስ በአንዴ ማምጣት
     balances_raw = redis.hgetall("users:balance")
-    
+
     users_list = []
     total_system_balance = 0.0
-    
-        for uid_raw, bal_raw in balances_raw.items():
+
+    # 👇 እዚህ ጋ ያለው ስፔስ ተስተካክሏል (ከላይኛው መስመር ጋር እኩል ሆኗል)
+    for uid_raw, bal_raw in balances_raw.items():
         # ዳታው በ string ከመጣ ቀጥታ ይጠቀማል፣ በ bytes ከመጣ ደግሞ decode ያደርጋል
         uid = uid_raw.decode('utf-8') if isinstance(uid_raw, bytes) else str(uid_raw)
         bal = float(bal_raw.decode('utf-8') if isinstance(bal_raw, bytes) else bal_raw)
-        
+
         users_list.append({"user_id": uid, "balance": bal})
         total_system_balance += bal
 
-        
+
     total_users = len(users_list)
     banned_users_count = redis.scard("banned_users")
-    
+
     # ገቢ፣ ወጪ እና የተጣራ ትርፍ
     total_dep = float(redis.get("stats:total_deposits") or 0.0)
     total_wd = float(redis.get("stats:total_withdrawals") or 0.0)
