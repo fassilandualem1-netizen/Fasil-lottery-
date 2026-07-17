@@ -155,6 +155,63 @@ def handle_all_text_messages(message):
     # ወደፊት ክፍያ (Withdraw) ላይ ፒን ሲጠየቅ የሚያረጋግጠውን ሎጂክ እዚህ ስር እንጨምረዋለን።
 
 
+    # -----------------------------------------
+    # 3. የገንዘብ ማውጣት ፒን እያረጋገጠ ከሆነ
+    # -----------------------------------------
+    elif state == "waiting_for_withdraw_pin":
+        # 🔒 ደህንነት: የፒን ሜሴጁን ወዲያው እናጠፋዋለን
+        try: bot.delete_message(chat_id, message_id)
+        except: pass
+        
+        # ትክክለኛውን ፒን ከዳታቤዝ እናመጣለን
+        saved_pin = get_user_pin(user_id)
+        
+        if text == saved_pin:
+            # ፒኑ ትክክል ነው! የክፍያ መረጃውን ከጊዜያዊ ዳታቤዙ እናወጣለን
+            wd_data_raw = redis.get(f"temp_withdraw:{user_id}")
+            if not wd_data_raw:
+                bot.send_message(chat_id, "⚠️ የጥያቄው ጊዜ (5 ደቂቃ) አልፏል ወይም ተሰርዟል። እባክዎ እንደገና ከ WebApp ላይ ይሞክሩ።")
+                clear_user_state(user_id)
+                return
+                
+            wd_data = json.loads(wd_data_raw)
+            amount = wd_data["amount"]
+            
+            # አሁን ባላንሱን እንቀንሳለን (Deduct እናደርጋለን)
+            deduct_status = deduct_balance_safely(user_id, amount, "real")
+            if deduct_status == "INSUFFICIENT":
+                bot.send_message(chat_id, "❌ በቂ ባላንስ የለዎትም!")
+                clear_user_state(user_id)
+                return
+                
+            # ትራንዛክሽን ሪከርድ እንፈጥራለን
+            tx_id = str(uuid.uuid4())[:8]
+            redis.set(f"tx:{tx_id}", json.dumps({"user_id": user_id, "amount": amount, "type": "withdraw", "status": "pending"}))
+            add_to_history(user_id, {"tx_id": tx_id, "type": "ወጪ", "amount": amount, "status": "pending", "date": time.strftime("%Y-%m-%d %H:%M")})
+            
+            # ለአድሚን ጥያቄውን እንልካለን
+            markup = InlineKeyboardMarkup()
+            markup.add(
+                InlineKeyboardButton("✅ ተከፍሏል", callback_data=f"ok|withdraw|{tx_id}|{user_id}|{amount}"),
+                InlineKeyboardButton("❌ ሰርዝ", callback_data=f"no|withdraw|{tx_id}|{user_id}|{amount}")
+            )
+            msg = f"💸 <b>አዲስ Withdraw ጥያቄ (ፒን የተረጋገጠ)</b>\n\n👤 ስም: {wd_data['user_name']}\n🏦 ባንክ: {wd_data['bank_name']}\n👤 የአካውንት ስም: {wd_data['account_name']}\n💳 ስልክ/አካውንት: <code>{wd_data['phone']}</code>\n💰 መጠን: <b>{amount} ብር</b>"
+            bot.send_message(ADMIN_ID, msg, reply_markup=markup, parse_mode="HTML")
+            
+            # ለተጠቃሚው ማረጋገጫ እንልካለን
+            bot.send_message(chat_id, f"✅ የ <b>{amount} ብር</b> ወጪ ጥያቄዎ በተሳካ ሁኔታ ተረጋግጧል! ክፍያው ሲፈጸም መልእክት ይደርሶታል።", parse_mode="HTML")
+            
+            # ስራ ስለጨረስን State እና ጊዜያዊ ዳታውን እናጠፋለን
+            clear_user_state(user_id)
+            redis.delete(f"temp_withdraw:{user_id}")
+            
+        else:
+            # ፒኑ ከተሳሳተ
+            bot.send_message(chat_id, "❌ የተሳሳተ ፒን! እባክዎ ትክክለኛውን ፒን እንደገና ያስገቡ:")
+            # State አንቀይርም፣ ተጠቃሚው እንደገና እንዲሞክር እንጠብቀዋለን
+
+
+
 
 # --- ROUTES ---
 @server.route('/')
