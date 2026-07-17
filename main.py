@@ -26,8 +26,8 @@ from games.real_sports import real_sports_bp
 
 server = Flask(__name__)
 
-# ሚስጥራዊ ቁልፉን ከ Render Environment ያነባል (ካላገኘው የኋለኛውን ይጠቀማል)
-server.secret_key = os.environ.get("SECRET_KEY", "gashabet_secret_super_key_123")
+server.secret_key = os.environ.get("SECRET_KEY")
+
 
 # የ Football API ቁልፍ ከ Render Environment ያነባል
 FOOTBALL_API_KEY = os.environ.get("API_FOOTBALL_KEY")
