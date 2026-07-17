@@ -233,7 +233,7 @@ def handle_deposit():
     thread.start()
     return jsonify({"status": "success"})
 
-# --- WITHDRAW LOGIC ---
+# --- WITHDRAW LOGIC (በፒን የተሻሻለ) ---
 @server.route('/api/withdraw', methods=['POST'])
 @telegram_auth_required
 def handle_withdraw():
@@ -249,26 +249,37 @@ def handle_withdraw():
     bank_name = data.get("bank_name", "")
     account_name = data.get("account_name", "")
 
+    # የዳታ ማረጋገጫዎች
     if not user_id or amount <= 0: return jsonify({"status": "error", "message": "የጎደለ መረጃ"}), 400
     if bank_name not in ALLOWED_BANKS: return jsonify({"status": "error", "message": "እባክዎ ትክክለኛ ባንክ ይምረጡ"}), 400
     if not is_number_only(phone): return jsonify({"status": "error", "message": "ስልክ ቁጥር ቁጥር ብቻ መሆን አለበት"}), 400
     if not is_text_only(account_name): return jsonify({"status": "error", "message": "የአካውንት ስም ፊደል ብቻ መሆን አለበት"}), 400
 
-    deduct_status = deduct_balance_safely(user_id, amount, "real")
-    if deduct_status == "INSUFFICIENT": return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም"}), 400
+    # ተጠቃሚው በቂ ባላንስ እንዳለው ቼክ እናደርጋለን እንጂ አንቀንሰውም (deduct አናደርግም)
+    balance_raw = redis.hget("users:balance", user_id)
+    current_balance = float(balance_raw) if balance_raw else 0.0
+    
+    if amount > current_balance:
+        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም"}), 400
 
-    tx_id = str(uuid.uuid4())[:8]
-    redis.set(f"tx:{tx_id}", json.dumps({"user_id": user_id, "amount": amount, "type": "withdraw", "status": "pending"}))
-    add_to_history(user_id, {"tx_id": tx_id, "type": "ወጪ", "amount": amount, "status": "pending", "date": time.strftime("%Y-%m-%d %H:%M")})
-
-    markup = InlineKeyboardMarkup()
-    markup.add(
-        InlineKeyboardButton("✅ ተከፍሏል", callback_data=f"ok|withdraw|{tx_id}|{user_id}|{amount}"),
-        InlineKeyboardButton("❌ ሰርዝ", callback_data=f"no|withdraw|{tx_id}|{user_id}|{amount}")
-    )
-    msg = f"💸 <b>አዲስ Withdraw ጥያቄ</b>\n\n👤 ስም: {user_name}\n🏦 ባንክ: {bank_name}\n👤 የአካውንት ስም: {account_name}\n💳 ስልክ/አካውንት: <code>{phone}</code>\n💰 መጠን: <b>{amount} ብር</b>"
-    bot.send_message(ADMIN_ID, msg, reply_markup=markup)
-    return jsonify({"status": "success"})
+    # 1. መረጃውን ለ 5 ደቂቃ በጊዜያዊነት Redis ላይ እናስቀምጣለን
+    withdraw_data = {
+        "user_name": user_name, "amount": amount, "phone": phone, 
+        "bank_name": bank_name, "account_name": account_name
+    }
+    redis.setex(f"temp_withdraw:{user_id}", 300, json.dumps(withdraw_data))
+    
+    # 2. የተጠቃሚውን State ወደ ፒን መጠየቂያ እንቀይራለን
+    set_user_state(user_id, "waiting_for_withdraw_pin")
+    
+    # 3. ለተጠቃሚው ፒን እንዲያስገባ ሜሴጅ እንልካለን
+    try:
+        bot.send_message(user_id, f"💸 የ <b>{amount} ብር</b> ወጪ ጥያቄ ቀርቧል።\n\n🔒 ለማረጋገጥ እባክዎ የ 4 ዲጂት ፒንዎን ያስገቡ:", parse_mode="HTML")
+    except:
+        pass
+        
+    # 4. ለ WebApp ስኬታማ መሆኑን እንነግረዋለን
+    return jsonify({"status": "success", "message": "እባክዎ ቴሌግራም ላይ ፒንዎን በማስገባት ያረጋግጡ!"})
 
 # --- CALLBACK SYSTEM ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith("ok") or call.data.startswith("no"))
