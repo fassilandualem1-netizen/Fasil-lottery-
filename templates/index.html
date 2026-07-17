@@ -568,11 +568,11 @@ function submitWithdraw(e) {
       selectedMatch = matchName;
       selectedOdd = odd;
       selectedChoice = chosenTeam + " (" + choice + ")";
-      
+
       document.getElementById('slip-match-name').innerText = matchName;
       document.getElementById('slip-choice').innerText = selectedChoice;
       document.getElementById('slip-odd').innerText = odd;
-      
+
       calculateWin();
       document.getElementById('betslip-panel').classList.remove('translate-y-full');
     }
@@ -594,7 +594,7 @@ function submitWithdraw(e) {
         alert("⚠️ ዝቅተኛው የውርርድ መጠን 2 ETB ነው!");
         return;
       }
-      
+
       fetch("/api/aviator/bet", { 
         method: "POST",
         headers: { 
@@ -622,6 +622,24 @@ function submitWithdraw(e) {
         alert("የሲስተም ስህተት ገጥሟል!");
       });
     }
+
+    // 🚀 የኛ ቤት (Yegna Bet) ረጋ ያለ የሎዲንግ ስክሪን መቆያ እና ማጥፊያ ኮድ
+    window.addEventListener('DOMContentLoaded', () => {
+      // አፑ ገና ሲከፈት ለ 2.5 ሰከንድ (2500ms) ሎዲንጉ እንዲቆይ ማድረግ
+      setTimeout(() => {
+        const loader = document.getElementById("loading-screen");
+        if (loader) {
+          // በሚያምር ሁኔታ እየደበዘዘ (Fade-out) እንዲጠፋ 0.6 ሰከንድ ትራንዚሽን እንሰጠዋለን
+          loader.style.transition = "opacity 0.6s ease";
+          loader.style.opacity = "0";
+          
+          // ሙሉ በሙሉ ከስክሪኑ ላይ ደብቀን የጀርባው ጨዋታ እንዲታይ ማድረግ
+          setTimeout(() => {
+            loader.style.display = "none";
+          }, 600); // ከ 0.6 ሰከንድ (600ms) በኋላ ሙሉ በሙሉ መደበቅ
+        }
+      }, 2500); // 💡 ጊዜውን ይበልጥ ለመጨመር 2500 የሚለውን ወደ 3000 (3 ሰከንድ) ማሳደግ ትችላለህ
+    });
   </script>
 </body>
 </html>
