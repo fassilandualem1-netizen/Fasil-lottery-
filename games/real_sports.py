@@ -102,41 +102,35 @@ def get_odds():
 # =========================================
 @real_sports_bp.route('/api/sports/matches', methods=['GET'])
 def get_matches():
-    # 1. መጀመሪያ Redis ላይ መረጃው እንዳለ እንፈትሽ
-    cached_matches = redis.get("cached_sports_matches")
+    # Redis ቁልፍን በየቀኑ እንዲቀየር እናድርገው (በቀን አንድ ጊዜ ብቻ እንዲያዘምን)
+    today = time.strftime("%Y-%m-%d")
+    cache_key = f"sports_matches:{today}"
+    
+    cached_matches = redis.get(cache_key)
     if cached_matches:
-        # ካለ፣ ከ Redis ላይ በቀጥታ እናንብብ (API ጥሪ አያደርግም)
         return jsonify({"status": "success", "matches": json.loads(cached_matches)})
 
-    # 2. ከሌለ ብቻ የ API ጥሪ እናድርግ
     url = "https://v3.football.api-sports.io/fixtures" 
-    headers = {
-        "x-apisports-key": API_KEY,
-        "x-apisports-host": API_HOST
-    }
-    params = {
-        "date": time.strftime("%Y-%m-%d"),
-        "timezone": "Africa/Addis_Ababa" 
-    }
+    headers = {"x-apisports-key": API_KEY, "x-apisports-host": API_HOST}
+    params = {"date": today, "timezone": "Africa/Addis_Ababa"}
 
     try:
-        response = requests.get(url, headers=headers, params=params)
+        response = requests.get(url, headers=headers, params=params, timeout=10)
         raw_data = response.json()
-
+        
         matches = []
-        # መረጃውን ማጣራት
         for fixture in raw_data.get('response', [])[:30]: 
+            # ሰዓትን እና ሊግን ጨምረን እንላክ
             matches.append({
                 "fixture": {
                     "id": fixture['fixture']['id'], 
                     "teams": fixture['teams'],
-                    "league": fixture['league']['name'] 
+                    "league": fixture['league']['name'],
+                    "time": fixture['fixture']['date'] # የጨዋታ ሰዓት
                 }
             })
 
-        # 3. ያገኘነውን ውጤት ለ1 ሰዓት (3600 ሰከንድ) Redis ውስጥ እናስቀምጠው
-        redis.setex("cached_sports_matches", 3600, json.dumps(matches))
-
+        redis.setex(cache_key, 86400, json.dumps(matches)) # ለ24 ሰዓት ያህል ይቆይ
         return jsonify({"status": "success", "matches": matches})
     except Exception as e:
         return jsonify({"status": "error", "message": "ጨዋታዎችን ማምጣት አልተቻለም"}), 500
