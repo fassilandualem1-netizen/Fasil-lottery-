@@ -8,7 +8,8 @@ let selectedBets = {};
 // 1. ጨዋታዎችን ማምጣት
 async function fetchMatches() {
     try {
-        const res = await fetch('/api/sports/matches');
+        // ጥሪውን ወደ 'odds' ቀይረነዋል
+        const res = await fetch('/api/sports/odds'); 
         const data = await res.json();
         const list = document.getElementById("matches-list");
         list.innerHTML = "";
@@ -20,12 +21,14 @@ async function fetchMatches() {
 
         data.matches.forEach(m => {
             const mid = m.fixture.id;
-            const home = m.teams.home.name;
-            const away = m.teams.away.name;
+            
+            // 'fixture' የሚለውን ቃል ጨምረን አስተካክለነዋል
+            const home = m.fixture.teams.home.name; 
+            const away = m.fixture.teams.away.name; 
             const odds = m.odds;
 
             list.innerHTML += `
-            <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg">
+            <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg mb-3">
                 <div class="text-[10px] text-gray-500 font-bold mb-2 uppercase">⚽ ${home} V ${away}</div>
                 <div class="grid grid-cols-3 gap-2">
                     <button id="btn-${mid}-home" onclick="selectOdd(${mid}, 'home', ${odds.home}, '${home}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
