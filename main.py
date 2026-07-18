@@ -94,6 +94,28 @@ def help_command(message):
     )
 
 
+# ይህንን ኮድ በ main.py ውስጥ ካለው help_command በታች ጨምረው
+@bot.callback_query_handler(func=lambda call: call.data.startswith("help_"))
+def help_callback(call):
+    # ተጠቃሚው የጫነው በተን ምን እንደሆነ እናያለን
+    if call.data == "help_deposit":
+        text = "💰 <b>ዴፖዚት ለማድረግ፡</b>\n\n1. በዌብ አፕ ውስጥ 'Deposit' የሚለውን ይጫኑ።\n2. ክፍያውን ከፈጸሙ በኋላ ስክሪንሾት ይላኩ።\n3. ጥያቄዎ በአድሚን እስኪጸድቅ ይጠብቁ።"
+    
+    elif call.data == "help_withdraw":
+        text = "💸 <b>ገንዘብ ለማውጣት (Withdraw)፡</b>\n\n- ባላንስዎ ቢያንስ 50 ብር መሆን አለበት።\n- ባንክ እና አካውንት ቁጥር በትክክል ያስገቡ።\n- ክፍያው በ24 ሰዓት ውስጥ ይፈጸማል።"
+    
+    elif call.data == "help_rules":
+        text = "📜 <b>የጨዋታ ህጎች፡</b>\n\n- መለያዎን ለሌላ ሰው አያጋሩ።\n- ከአንድ በላይ አካውንት መጠቀም ክልክል ነው።\n- ህግ መጣስ አካውንትን ሊያስገድ ይችላል።"
+    
+    else:
+        text = "ይቅርታ፣ ይህ መረጃ አልተገኘም።"
+
+    # መልሱን ለተጠቃሚው እንልካለን
+    bot.answer_callback_query(call.id) # 'Loading...' የሚለውን ያጠፋል
+    # የላከውን መልዕክት በመቀየር አዲሱን መልስ እናሳያለን
+    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text, parse_mode="HTML")
+
+
 # --- ROUTES ---
 @server.route('/')
 def index():
@@ -389,20 +411,6 @@ def send_admin_panel(message):
         bot.send_message(message.chat.id, "🤖 <b>እንኳን ወደ 'የኛ ቤት' መቆጣጠሪያ ፓነል መጡ!</b>", parse_mode="HTML", reply_markup=markup)
     else:
         bot.send_message(message.chat.id, "❌ ይህ ትዕዛዝ ለአድሚን ብቻ የተፈቀደ ነው!")
-
-
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("help_"))
-def help_callback(call):
-    if call.data == "help_deposit":
-        text = "💰 <b>ዴፖዚት ለማድረግ፡</b>\n\n1. በዌብ አፕ ውስጥ 'Deposit' የሚለውን ይጫኑ።\n2. ክፍያውን ከፈጸሙ በኋላ ስክሪንሾት ይላኩ።\n3. ጥያቄዎ በአድሚን እስኪጸድቅ ይጠብቁ።"
-    elif call.data == "help_withdraw":
-        text = "💸 <b>ገንዘብ ለማውጣት (Withdraw)፡</b>\n\n- ባላንስዎ ቢያንስ 50 ብር መሆን አለበት።\n- ባንክ እና አካውንት ቁጥር በትክክል ያስገቡ።\n- ክፍያው በ24 ሰዓት ውስጥ ይፈጸማል።"
-    elif call.data == "help_rules":
-        text = "📜 <b>የጨዋታ ህጎች፡</b>\n\n- መለያዎን ለሌላ ሰው አያጋሩ።\n- ከአንድ በላይ አካውንት መጠቀም ክልክል ነው።\n- ህግ መጣስ አካውንትን ሊያስገድ ይችላል።"
-    
-    bot.answer_callback_query(call.id)
-    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text, parse_mode="HTML")
 
 
 # ==========================================
