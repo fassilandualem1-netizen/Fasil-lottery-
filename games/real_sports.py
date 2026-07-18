@@ -14,6 +14,17 @@ real_sports_bp = Blueprint('real_sports', __name__)
 API_KEY = os.environ.get("API_FOOTBALL_KEY")
 API_HOST = "v3.football.api-sports.io"
 
+@real_sports_bp.route('/api/test_sports_api', methods=['GET'])
+def test_sports_api():
+    headers = {
+        "x-apisports-key": API_KEY,
+        "x-apisports-host": API_HOST
+    }
+    # የ አካውንትህን እና የ APIውን ጤንነት (Status) ይጠይቃል
+    response = requests.get("https://v3.football.api-sports.io/status", headers=headers)
+    return jsonify(response.json())
+
+
 # =========================================
 # 1. ኦድ (Odds) ለማምጣት - የ 48 ሰዓት መረጃ (Today & Tomorrow)
 # =========================================
