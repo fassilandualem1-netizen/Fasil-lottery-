@@ -430,7 +430,6 @@ def get_dashboard_data():
     users_list = []
     total_system_balance = 0.0
 
-    # 👇 እዚህ ጋ ያለው ስፔስ ተስተካክሏል (ከላይኛው መስመር ጋር እኩል ሆኗል)
     for uid_raw, bal_raw in balances_raw.items():
         # ዳታው በ string ከመጣ ቀጥታ ይጠቀማል፣ በ bytes ከመጣ ደግሞ decode ያደርጋል
         uid = uid_raw.decode('utf-8') if isinstance(uid_raw, bytes) else str(uid_raw)
@@ -439,7 +438,6 @@ def get_dashboard_data():
         users_list.append({"user_id": uid, "balance": bal})
         total_system_balance += bal
 
-
     total_users = len(users_list)
     banned_users_count = redis.scard("banned_users")
 
@@ -447,7 +445,7 @@ def get_dashboard_data():
     total_dep = float(redis.get("stats:total_deposits") or 0.0)
     total_wd = float(redis.get("stats:total_withdrawals") or 0.0)
     net_profit = total_dep - total_wd
-    
+
     return jsonify({
         "status": "success",
         "stats": {
@@ -467,10 +465,10 @@ def admin_user_action():
     admin_id = str(data.get("admin_id"))
     target_user_id = str(data.get("target_user_id"))
     action = data.get("action") 
-    
+
     if admin_id != str(ADMIN_ID): 
         return jsonify({"status": "error", "message": "ያልተፈቀደ ሙከራ!"}), 403
-        
+
     if not target_user_id:
         return jsonify({"status": "error", "message": "የተጠቃሚ ID አልተገኘም!"}), 400
 
@@ -479,40 +477,38 @@ def admin_user_action():
         try: bot.send_message(target_user_id, "⚠️ <b>መለያዎ (Account) በህግ ጥሰት ምክንያት ታግዷል!</b>", parse_mode="HTML")
         except: pass
         return jsonify({"status": "success", "message": "ተጠቃሚው በተሳካ ሁኔታ ታግዷል!"})
-        
+
     elif action == "unban":
         redis.srem("banned_users", target_user_id)
         try: bot.send_message(target_user_id, "🎉 <b>የመለያዎ እገዳ ተነስቷል!</b>\nአሁን መጫወት ይችላሉ።", parse_mode="HTML")
         except: pass
         return jsonify({"status": "success", "message": "የተጠቃሚው እገዳ ተነስቷል!"})
-        
+
     elif action == "adjust_balance":
         amount = float(data.get("amount", 0))
         # ⚠️ ዋናው ጥበቃ፦ አሁን ያለውን ብር ቼክ ማድረግ
         current_balance = float(redis.hget("users:balance", target_user_id) or 0.0)
         new_balance = current_balance + amount
-        
+
         if new_balance < 0:
             return jsonify({"status": "error", "message": f"ስህተት! የተጠቃሚው ባላንስ {current_balance} ብር ብቻ ነው። ወደ ኔጌቲቭ ማውረድ አይቻልም!"}), 400
-            
+
         redis.hset("users:balance", target_user_id, new_balance)
-        
-        # 👇 ይሄ አዲሱ ወደ ሂስቶሪ (History) መጨመሪያ ኮድ ነው 👇
+
         import time
         import uuid
         tx_type = "ገቢ" if amount > 0 else "ወጪ"
         abs_amount = abs(amount)
-        tx_id = "ADM-" + str(uuid.uuid4())[:5] # አድሚን መሆኑን ለመለየት ADM- ይጨመራል
-        
+        tx_id = "ADM-" + str(uuid.uuid4())[:5] 
+
         history_data = {
             "tx_id": tx_id,
             "type": tx_type,
             "amount": abs_amount,
-            "status": "APPROVED", # በአድሚን ስለተደረገ ቀጥታ ጸድቋል (APPROVED)
+            "status": "APPROVED",
             "date": time.strftime("%Y-%m-%d %H:%M")
         }
         add_to_history(target_user_id, history_data)
-        # 👆 የሂስቶሪ ኮድ እዚህ ያልቃል 👆
 
         try:
             sign = "+" if amount > 0 else ""
@@ -535,24 +531,6 @@ def send_admin_panel(message):
     else:
         bot.send_message(message.chat.id, "❌ ይህ ትዕዛዝ ለአድሚን ብቻ የተፈቀደ ነው!")
 
-
-
-@bot.message_handler(commands=['settings'])
-def settings_menu(message):
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("🔑 ፒን ረሳሁ", callback_data="forgot_pin"))
-    bot.send_message(message.chat.id, "⚙️ የሴቲንግ ምርጫዎች:", reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: call.data == "forgot_pin")
-def handle_forgot_pin(call):
-    user_id = call.from_user.id
-    set_user_state(user_id, "waiting_for_contact")
-    
-    # Inline የነበረውን ወደ Reply Keyboard ቀይረነዋል
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    markup.add(KeyboardButton("📞 ስልክ ቁጥር አጋራ", request_contact=True))
-    
-    bot.send_message(call.message.chat.id, "ማንነትዎን ለማረጋገጥ እባክዎ ከታች ያለውን በተን ተጭነው ስልክ ቁጥርዎን ያጋሩ:", reply_markup=markup)
 
 # ==========================================
 # 🔌 WEBHOOK & SERVER START
