@@ -14,6 +14,24 @@ real_sports_bp = Blueprint('real_sports', __name__)
 API_KEY = os.environ.get("API_FOOTBALL_KEY")
 API_HOST = "v3.football.api-sports.io"
 
+
+# ይህንን ከሌሎች route-ዎች በታች ጨምር
+@real_sports_bp.route('/api/admin/clear_cache', methods=['GET'])
+def clear_cache_admin():
+    # ሚስጥራዊ ቁልፍ (ከመረጥክ በኋላ ሊንኩን ስትጠራ በ browser ላይ ይህንን ታስገባለህ)
+    secret_key = request.args.get('key')
+    if secret_key != "MySecret123": # የፈለግከውን ፓስወርድ እዚህ ቀይረው
+        return jsonify({"status": "error", "message": "Unauthorized"}), 403
+    
+    # ዛሬ ያለውን ቀን እና የ cache key-ውን እናውቃለን
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    cache_key = f"cached_real_odds_v2_{today_str}"
+    
+    # Redis ላይ ማጥፋት
+    redis.delete(cache_key)
+    
+    return jsonify({"status": "success", "message": f"Cache {cache_key} በተሳካ ሁኔታ ጠፍቷል!"})
+
 # =========================================
 # 1. ኦድ (Odds) ለማምጣት
 # =========================================
