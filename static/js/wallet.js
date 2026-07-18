@@ -78,15 +78,15 @@ async function secureFetch(url, options = {}) {
     if (!options.headers) {
         options.headers = {};
     }
-    
+
     // የቴሌግራም የደህንነት መረጃን በራስ-ሰር ራስጌ (Header) ላይ መጫን
     options.headers["X-Telegram-Init-Data"] = initData;
-    
+
     // የሚላከው ዳታ ፎርም (FormData - ደረሰኝ ፎቶ) ካልሆነ ብቻ Content-Typeን JSON ማድረግ
     if (options.body && !(options.body instanceof FormData)) {
         options.headers["Content-Type"] = "application/json";
     }
-    
+
     return fetch(url, options);
 }
 
@@ -136,7 +136,7 @@ function renderHistory(history) {
     historyList.innerHTML = history.map(item => {
         let statusClass = "pending";
         let statusText = "በሂደት ላይ";
-        
+
         if (item.status === "completed") {
             statusClass = "completed";
             statusText = "ተጠናቋል";
@@ -245,7 +245,7 @@ window.addEventListener("click", (e) => {
 if (depositForm) {
     depositForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-        
+
         const amount = document.getElementById("deposit_amount").value;
         const receiptFile = document.getElementById("deposit_receipt").files[0];
 
