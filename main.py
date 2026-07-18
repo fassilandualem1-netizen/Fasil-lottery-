@@ -28,14 +28,17 @@ from games.virtual_sports import virtual_sports_bp
 from games.real_sports import real_sports_bp
 
 import requests
+import os  # ይሄ ከሌለ ከላይ መጨመርህን አትርሳ
 
-# ይህ ኮድ /testapi ብለህ ለቦቱ ስትልክለት የ APIህን ጤንነት ቼክ አድርጎ ይነግርሃል
 @bot.message_handler(commands=['testapi'])
 def test_api_from_bot(message):
     bot.reply_to(message, "🔍 የ API ጤንነትን በመመርመር ላይ... እባክዎ ትንሽ ይጠብቁ።")
     
+    # Render environment ላይ ያስቀመጥከውን የ API Key ስም እዚህ ጋር ተጠቀም
+    # (ስሙ API_KEY ካልሆነ፣ Render ላይ ባለው ትክክለኛ ስም ቀይረው)
+    API_KEY = os.getenv("API_KEY") 
+    
     headers = {
-        # API_KEY የሚለውን ከላይ ካስቀመጥከው ቫሪያብል ጋር አንድ አይነት መሆኑን አረጋግጥ
         "x-apisports-key": API_KEY, 
         "x-apisports-host": "v3.football.api-sports.io"
     }
