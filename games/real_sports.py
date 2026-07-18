@@ -4,7 +4,7 @@ import requests
 import json
 import uuid
 import time
-from datetime import datetime, timedelta # 👈 የ 48 ሰዓት ቀናትን ለማስላት የተጨመረ
+from datetime import datetime, timedelta
 
 # (ከ config.py የምታመጣቸው ነገሮች እንዳሉ ሆነው)
 from config import redis, deduct_balance_safely, add_to_history, telegram_auth_required
@@ -16,7 +16,7 @@ API_HOST = "v3.football.api-sports.io"
 
 
 # =========================================
-# 1. ኦድ (Odds) ለማምጣት - የ 48 ሰዓት መረጃ (Today & Tomorrow)
+# 1. ኦድ (Odds) ለማምጣት
 # =========================================
 @real_sports_bp.route('/api/sports/odds', methods=['GET'])
 def get_odds():
@@ -26,16 +26,20 @@ def get_odds():
     target_dates = [today_str, tomorrow_str]
 
     cache_key = f"cached_real_odds_48h_{today_str}"
-    
+
     # 1. መጀመሪያ Cache የተደረገ ዳታ ካለ እንፈትሻለን
     cached_odds = redis.get(cache_key)
     if cached_odds:
         matches = json.loads(cached_odds)
-        # 🚀 ማስተካከያ 1፡ Cache የተደረገው ዳታ ባዶ ካልሆነ ብቻ መልስ
         if len(matches) > 0:
             return jsonify({"status": "success", "matches": matches})
 
     try:
+        # --- DEBUGGING START ---
+        print(f"DEBUG: API_KEY is loaded: {API_KEY is not None}")
+        print(f"DEBUG: API_KEY starts with: {str(API_KEY)[:4] if API_KEY else 'None'}")
+        # --- DEBUGGING END ---
+
         headers = {
             "x-apisports-key": API_KEY,
             "x-apisports-host": API_HOST
@@ -46,7 +50,7 @@ def get_odds():
             url_fixtures = "https://v3.football.api-sports.io/fixtures"
             params_fixtures = {"date": d, "timezone": "Africa/Addis_Ababa"}
             res_fixtures = requests.get(url_fixtures, headers=headers, params=params_fixtures, timeout=10)
-            
+
             # API Error ቼክ ማድረግ
             if res_fixtures.status_code != 200 or not res_fixtures.json().get('response'):
                 print(f"API Fixture Error for {d}: {res_fixtures.text}")
@@ -62,17 +66,16 @@ def get_odds():
         real_matches = []
         for d in target_dates:
             url_odds = "https://v3.football.api-sports.io/odds"
-            # 🚀 ማስተካከያ 2፡ "bookmaker": 8 የሚለውን አጠፋነው። ያገኘውን ኦድ ሁሉ ያመጣል።
             params_odds = {
                 "date": d,
-                "bet": 1 # Match Winner
+                "bet": 1 
             }
             response_odds = requests.get(url_odds, headers=headers, params=params_odds, timeout=10)
-            
+
             if response_odds.status_code != 200:
                 print(f"API Odds Error for {d}: {response_odds.text}")
                 continue
-                
+
             odds_data = response_odds.json().get('response', [])
 
             for item in odds_data:
@@ -83,7 +86,6 @@ def get_odds():
 
                 fixture_info = fixtures_dict[fixture_id]
 
-                # የትኛውም bookmaker ቢሆን የመጀመሪያውን ኦድ እንወስዳለን
                 if not item['bookmakers'] or not item['bookmakers'][0]['bets']:
                     continue
 
@@ -110,11 +112,10 @@ def get_odds():
 
                 if len(real_matches) >= 50:
                     break
-            
+
             if len(real_matches) >= 50:
                 break
 
-        # 🚀 ማስተካከያ 3፡ ጨዋታዎች ከተገኙ ብቻ Cache እናደርጋለን! (ባዶውን እንዳይይዝ)
         if len(real_matches) > 0:
             redis.setex(cache_key, 3600, json.dumps(real_matches))
         else:
@@ -126,13 +127,11 @@ def get_odds():
         print(f"API Odds Fetching Exception: {e}")
         return jsonify({"status": "error", "message": "እውነተኛ ኦዶችን ማምጣት አልተቻለም"}), 500
 
-# place_bet ራውትህ ትክክል ነው፣ እሱን መንካት አይጠበቅብህም!
-
 # =========================================
 # 2. ውርርድ መቁረጫ (Place Bet) ራውት
 # =========================================
 @real_sports_bp.route('/api/sports/place_bet', methods=['POST'])
-@telegram_auth_required  # 🛡️ የደህንነት ማጣሪያ
+@telegram_auth_required
 def place_bet():
     try:
         data = request.json
@@ -147,23 +146,18 @@ def place_bet():
         if bet_amount < 10:
             return jsonify({"status": "error", "message": "ቢያንስ 10 ብር መወራረድ አለብዎት!"}), 400
 
-        # ቀሪ ሂሳብ መቀነስ
         result = deduct_balance_safely(str(user_id), bet_amount, "real")
 
         if result != "SUCCESS":
             return jsonify({"status": "error", "message": "በአካውንትዎ በቂ ቀሪ ሂሳብ የሎትም! እባክዎ ዲፖዚት ያድርጉ።"}), 400
 
-        # ጠቅላላ ኦድ እና ሊያሸንፉ የሚችሉትን ብር (Possible Win) ማስላት
         total_odds = 1.0
         for sel in selections:
             total_odds *= float(sel['odd'])
 
         possible_win = bet_amount * total_odds
-
-        # የቲኬት ቁጥር መፍጠር
         ticket_id = f"RS-{str(uuid.uuid4())[:6].upper()}"
 
-        # ቲኬቱን Redis ላይ ሴቭ ማድረግ 
         bet_data = {
             "ticket_id": ticket_id,
             "user_id": user_id,
@@ -177,7 +171,6 @@ def place_bet():
 
         redis.hset(f"user_sports_bets:{user_id}", ticket_id, json.dumps(bet_data))
 
-        # ታሪክ ውስጥ መመዝገብ
         history_entry = {
             "action": f"Sports Bet (Ticket: {ticket_id})", 
             "amount": bet_amount, 
