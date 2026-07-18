@@ -81,8 +81,16 @@ def deduct_balance_safely(user_id: str, amount: float, game_mode: str = "real") 
         print(f"LUA Wallet Error: {e}")
         return "ERROR"
 
+
 def add_to_history(user_id: str, entry: dict):
     try:
+        # 1. የኢትዮጵያን ሰዓት (UTC+3) ማዘጋጀት
+        ethiopia_tz = datetime.timezone(datetime.timedelta(hours=3))
+        
+        # 2. ከየትኛውም ቦታ የመጣውን ሰዓት ወደ ትክክለኛው የኢትዮጵያ ሰዓት መተካት
+        entry["date"] = datetime.datetime.now(ethiopia_tz).strftime("%Y-%m-%d %H:%M")
+        
+        # 3. ወደ ዳታቤዝ ማስገባት
         history_key = f"history:{user_id}"
         redis.lpush(history_key, json.dumps(entry))
         redis.ltrim(history_key, 0, 19)
