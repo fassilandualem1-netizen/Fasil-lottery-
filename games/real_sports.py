@@ -53,18 +53,22 @@ def get_odds():
 
     return jsonify({"status": "success", "matches": mock_matches})
 
-# =========================================
-# 2. የጨዋታ ዝርዝር (Fixtures) ለማምጣት
+# 2. የጨዋታ ዝርዝር (Fixtures) ለማምጣት - በ Redis Caching የተሻሻለ
 # =========================================
 @real_sports_bp.route('/api/sports/matches', methods=['GET'])
 def get_matches():
-    url = "https://v3.football.api-sports.io/fixtures" 
+    # 1. መጀመሪያ Redis ላይ መረጃው እንዳለ እንፈትሽ
+    cached_matches = redis.get("cached_sports_matches")
+    if cached_matches:
+        # ካለ፣ ከ Redis ላይ በቀጥታ እናንብብ (API ጥሪ አያደርግም)
+        return jsonify({"status": "success", "matches": json.loads(cached_matches)})
 
+    # 2. ከሌለ ብቻ የ API ጥሪ እናድርግ
+    url = "https://v3.football.api-sports.io/fixtures" 
     headers = {
         "x-apisports-key": API_KEY,
         "x-apisports-host": API_HOST
     }
-
     params = {
         "date": time.strftime("%Y-%m-%d"),
         "timezone": "Africa/Addis_Ababa" 
@@ -73,8 +77,9 @@ def get_matches():
     try:
         response = requests.get(url, headers=headers, params=params)
         raw_data = response.json()
-
+        
         matches = []
+        # መረጃውን ማጣራት
         for fixture in raw_data.get('response', [])[:30]: 
             matches.append({
                 "fixture": {
@@ -83,6 +88,9 @@ def get_matches():
                     "league": fixture['league']['name'] 
                 }
             })
+
+        # 3. ያገኘነውን ውጤት ለ1 ሰዓት (3600 ሰከንድ) Redis ውስጥ እናስቀምጠው
+        redis.setex("cached_sports_matches", 3600, json.dumps(matches))
 
         return jsonify({"status": "success", "matches": matches})
     except Exception as e:
