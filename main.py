@@ -52,52 +52,56 @@ ALLOWED_BANKS = ["CBE", "Telebirr", "Awash", "Abyssinia"]
 
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo, ReplyKeyboardMarkup, KeyboardButton
 
-# 1. ቋሚ የኪቦርድ በተኖች (ከታች የሚታዩ)
+# 1. ቋሚ ሜኑ (ከታች የሚቀመጥ) - ለተጠቃሚው ሁሌም ዝግጁ ነው
 def get_main_keyboard():
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
-    btn_support = KeyboardButton("💬 የደንበኞች ድጋፍ")
-    markup.add(btn_support)
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add(KeyboardButton("🎮 ጌም ጀምር"), KeyboardButton("💬 የደንበኞች ድጋፍ"))
     return markup
 
-# 2. የ /start ኮማንድ
+# 2. የ /start ኮማንድ - ንፁህ እና ቀጥተኛ
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_id = str(message.from_user.id)
 
+    # የታገደ መሆኑን ቼክ ማድረግ
     if is_user_banned(user_id):
-        bot.send_message(
-            message.chat.id, 
-            "❌ <b>መለያዎ ታግዷል!</b>\nበህግ ጥሰት ምክንያት ይህንን ቦት እና ጌም መጠቀም አይችሉም።", 
-            parse_mode="HTML"
-        )
+        bot.send_message(message.chat.id, "❌ መለያዎ ታግዷል! አድሚንን ያግኙ።")
         return
 
     # የዌብ አፕ በተን (Inline)
     inline_markup = InlineKeyboardMarkup()
     inline_markup.add(InlineKeyboardButton("🎮 ጌም ጀምር (Play)", web_app=WebAppInfo(url=WEB_APP_URL)))
 
+    # አንድ ንፁህ መልዕክት ብቻ ላክ
     bot.send_message(
         message.chat.id,
-        "👋 እንኳን ወደ የኛ ቤት በሰላም መጡ!\n\nከታች ያለውን ወይም የዌብ አፕ በተኑን ተጭነው መጫወት ይችላሉ።",
+        "👋 <b>እንኳን ወደ 'Just Relax' በደህና መጡ!</b>\n\n"
+        "ከታች ካለው ሜኑ ወይም ከላይ ካለው በተን በመጠቀም ጨዋታውን ይጀምሩ።",
+        parse_mode="HTML",
         reply_markup=inline_markup
     )
-    
-    # ቋሚ በተኖችን እንልካለን
-    bot.send_message(
-        message.chat.id,
-        "መረጃ ወይም እርዳታ ከፈለጉ ከታች ያለውን በተን ይጠቀሙ።",
-        reply_markup=get_main_keyboard()
-    )
+    # ሜኑውን ለብቻው ላክ
+    bot.send_message(message.chat.id, "አገልግሎት ለመምረጥ ከታች ያለውን ሜኑ ይጠቀሙ:", reply_markup=get_main_keyboard())
 
-# 3. የ /help ኮማንድ
+# 3. የሜኑ በተኖች ማዳመጫ (Handlers)
+@bot.message_handler(func=lambda message: message.text == "🎮 ጌም ጀምር")
+def handle_play(message):
+    # ሰውን ወደ ስታርት ኮማንድ መልሰው (ወይም ተመሳሳይ ዌብ አፕ ሊንክ ላክለት)
+    send_welcome(message)
+
+@bot.message_handler(func=lambda message: message.text == "💬 የደንበኞች ድጋፍ")
+def handle_support(message):
+    # ቀጥታ የhelp ኮማንዱን ጥራ
+    help_command(message)
+
+# 4. የ /help ኮማንድ
 @bot.message_handler(commands=['help'])
 def help_command(message):
     markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("💰 ዴፖዚት እንዴት አደርጋለሁ?", callback_data="help_deposit"))
-    markup.add(InlineKeyboardButton("💸 ገንዘብ ማውጣት (Withdraw)", callback_data="help_withdraw"))
+    markup.add(InlineKeyboardButton("💰 ዴፖዚት እንዴት?", callback_data="help_deposit"))
+    markup.add(InlineKeyboardButton("💸 ገንዘብ ማውጣት", callback_data="help_withdraw"))
     markup.add(InlineKeyboardButton("📜 የጨዋታ ህጎች", callback_data="help_rules"))
-    # የአንተን ዩዘርኔም አስገባ
-    markup.add(InlineKeyboardButton("💬 አድሚን ያግኙ (Direct Chat)", url="https://t.me/fassilandualem"))
+    markup.add(InlineKeyboardButton("💬 አድሚን ያግኙ", url="https://t.me/fassilandualem"))
 
     bot.send_message(
         message.chat.id,
@@ -106,27 +110,21 @@ def help_command(message):
         reply_markup=markup
     )
 
-# 4. የታችኛውን በተን ማዳመጥ (Handle the Reply Keyboard)
-@bot.message_handler(func=lambda message: message.text == "💬 የደንበኞች ድጋፍ")
-def support_button_handler(message):
-    help_command(message)
-
-# 5. የ Callback Handler (የInline በተኖች ምላሽ)
+# 5. የ Callback Handler (መልዕክት ሳይደግም በቦታው ላይ ይቀይራል)
 @bot.callback_query_handler(func=lambda call: call.data.startswith("help_"))
 def help_callback(call):
     if call.data == "help_deposit":
-        text = "💰 <b>ዴፖዚት ለማድረግ፡</b>\n\n1. በዌብ አፕ ውስጥ 'Deposit' የሚለውን ይጫኑ።\n2. ክፍያውን ከፈጸሙ በኋላ ስክሪንሾት ይላኩ።\n3. ጥያቄዎ በአድሚን እስኪጸድቅ ይጠብቁ።"
+        text = "💰 <b>ዴፖዚት ለማድረግ፡</b>\n\n1. በዌብ አፕ ውስጥ 'Deposit' ይጫኑ።\n2. ክፍያ ከፈጸሙ በኋላ ስክሪንሾት ይላኩ።"
     elif call.data == "help_withdraw":
-        text = "💸 <b>ገንዘብ ለማውጣት (Withdraw)፡</b>\n\n- ባላንስዎ ቢያንስ 50 ብር መሆን አለበት።\n- ባንክ እና አካውንት ቁጥር በትክክል ያስገቡ።\n- ክፍያው በ24 ሰዓት ውስጥ ይፈጸማል።"
+        text = "💸 <b>ገንዘብ ለማውጣት፡</b>\n\n- ባላንስዎ 50 ብር መሆን አለበት።\n- ባንክ እና ቁጥርዎን በትክክል ያስገቡ።"
     elif call.data == "help_rules":
-        text = "📜 <b>የጨዋታ ህጎች፡</b>\n\n- መለያዎን ለሌላ ሰው አያጋሩ።\n- ከአንድ በላይ አካውንት መጠቀም ክልክል ነው።\n- ህግ መጣስ አካውንትን ሊያስገድ ይችላል።"
+        text = "📜 <b>የጨዋታ ህጎች፡</b>\n\n- መለያዎን ለሌላ ሰው አያጋሩ።\n- ከአንድ በላይ አካውንት ክልክል ነው።"
     else:
-        text = "ይቅርታ፣ ይህ መረጃ አልተገኘም።"
+        text = "መረጃ አልተገኘም!"
 
     bot.answer_callback_query(call.id)
-    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text, parse_mode="HTML")
-
-    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text, parse_mode="HTML")
+    # አስፈላጊው ክፍል እዚህ ላይ ነው: bot.edit_message_text ይጠቀሙ (ይህ መልዕክት እንዳይደገም ያደርጋል)
+    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text, parse_mode="HTML", reply_markup=call.message.reply_markup)
 
 
 # --- ROUTES ---
