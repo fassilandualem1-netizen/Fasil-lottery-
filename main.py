@@ -80,19 +80,22 @@ def send_welcome(message):
 @bot.message_handler(commands=['help'])
 def help_command(message):
     markup = InlineKeyboardMarkup()
-    # መምረጫ በተኖች
+    
+    # የድጋፍ አማራጮች
     markup.add(InlineKeyboardButton("💰 ዴፖዚት እንዴት አደርጋለሁ?", callback_data="help_deposit"))
     markup.add(InlineKeyboardButton("💸 ገንዘብ ማውጣት (Withdraw)", callback_data="help_withdraw"))
     markup.add(InlineKeyboardButton("📜 የጨዋታ ህጎች", callback_data="help_rules"))
-    markup.add(InlineKeyboardButton("💬 አድሚን ያግኙ", url="https://t.me/የአንተ_username")) # የአንተን ዩዘርኔም አስገባ
+    
+    # 🚨 እዚህ ጋር የአንተን ዩዘርኔም አስገባ (ያለ @ ምልክት)
+    # ለምሳሌ ዩዘርኔምህ 'fasil_admin' ከሆነ https://t.me/fasil_admin ይሆናል
+    markup.add(InlineKeyboardButton("💬 አድሚን ያግኙ (Direct Chat)", url="https://t.me/fassilandualem"))
 
     bot.send_message(
         message.chat.id,
-        "👋 **እንኳን ወደ ድጋፍ ማዕከል በሰላም መጡ!**\n\nከታች ካሉት አማራጮች ውስጥ የሚፈልጉትን ይምረጡ፡",
+        "👋 <b>የድጋፍ ማዕከል</b>\n\nየሚፈልጉትን አማራጭ ይምረጡ ወይም በቀጥታ አድሚንን ያግኙ፡",
         parse_mode="HTML",
         reply_markup=markup
     )
-
 
 # ይህንን ኮድ በ main.py ውስጥ ካለው help_command በታች ጨምረው
 @bot.callback_query_handler(func=lambda call: call.data.startswith("help_"))
