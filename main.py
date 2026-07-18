@@ -10,15 +10,15 @@ from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 import telebot
 
-# 👇 አሮጌውን አጥፍተህ ይሄንን አዲሱን እዚህ ጋ ታስገባዋለህ 👇
 from telebot.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
 # ከ config.py የጋራ ማዋቀሪያዎችንና ረዳቶችን ማስገባት
 from config import (
     bot, redis, TOKEN, ADMIN_ID, WEB_APP_URL,
     telegram_auth_required, deduct_balance_safely, add_to_history, update_history_tx_status,
-    set_user_state, get_user_state, clear_user_state, save_user_pin, get_user_pin # 👈 እነዚህን አዳዲሶቹን ጨምር
+    save_user_withdraw_details, get_user_withdraw_details
 )
+
 
 
 # 🎮 6ቱንም የጌሞች ብሉፕሪንቶች ማስገባት
