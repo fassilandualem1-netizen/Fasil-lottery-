@@ -98,27 +98,3 @@ def update_history_tx_status(user_id: str, tx_id: str, status: str):
         print(f"Update History Error: {e}")
 
 
-# ==========================================
-# 🛡️ የ PIN እና State መቆጣጠሪያዎች (አዲስ የተጨመረ)
-# ==========================================
-
-def set_user_state(user_id, state):
-    # ተጠቃሚው ፒን እያስገባ ትቶት ቢወጣ፣ ከ15 ደቂቃ በኋላ state ሪሴት እንዲሆን
-    redis.setex(f"state:{user_id}", 900, state)
-
-def get_user_state(user_id):
-    state = redis.get(f"state:{user_id}")
-    # decode('utf-8') የሚለውን አጥፍተን በ str() ቀይረነዋል
-    return str(state) if state else None
-
-def clear_user_state(user_id):
-    redis.delete(f"state:{user_id}")
-
-def save_user_pin(user_id, pin):
-    # የተጠቃሚውን ፒን በቋሚነት ሴቭ ለማድረግ
-    redis.set(f"user_pin:{user_id}", str(pin))
-
-def get_user_pin(user_id):
-    pin = redis.get(f"user_pin:{user_id}")
-    # እዚህ ጋርም decode('utf-8') የሚለውን አጥፍተን በ str() ቀይረነዋል
-    return str(pin) if pin else None
