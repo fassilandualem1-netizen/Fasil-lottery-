@@ -76,6 +76,24 @@ def send_welcome(message):
         reply_markup=markup
     )
 
+
+@bot.message_handler(commands=['help'])
+def help_command(message):
+    markup = InlineKeyboardMarkup()
+    # መምረጫ በተኖች
+    markup.add(InlineKeyboardButton("💰 ዴፖዚት እንዴት አደርጋለሁ?", callback_data="help_deposit"))
+    markup.add(InlineKeyboardButton("💸 ገንዘብ ማውጣት (Withdraw)", callback_data="help_withdraw"))
+    markup.add(InlineKeyboardButton("📜 የጨዋታ ህጎች", callback_data="help_rules"))
+    markup.add(InlineKeyboardButton("💬 አድሚን ያግኙ", url="https://t.me/የአንተ_username")) # የአንተን ዩዘርኔም አስገባ
+
+    bot.send_message(
+        message.chat.id,
+        "👋 **እንኳን ወደ ድጋፍ ማዕከል በሰላም መጡ!**\n\nከታች ካሉት አማራጮች ውስጥ የሚፈልጉትን ይምረጡ፡",
+        parse_mode="HTML",
+        reply_markup=markup
+    )
+
+
 # --- ROUTES ---
 @server.route('/')
 def index():
@@ -371,6 +389,21 @@ def send_admin_panel(message):
         bot.send_message(message.chat.id, "🤖 <b>እንኳን ወደ 'የኛ ቤት' መቆጣጠሪያ ፓነል መጡ!</b>", parse_mode="HTML", reply_markup=markup)
     else:
         bot.send_message(message.chat.id, "❌ ይህ ትዕዛዝ ለአድሚን ብቻ የተፈቀደ ነው!")
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("help_"))
+def help_callback(call):
+    if call.data == "help_deposit":
+        text = "💰 <b>ዴፖዚት ለማድረግ፡</b>\n\n1. በዌብ አፕ ውስጥ 'Deposit' የሚለውን ይጫኑ።\n2. ክፍያውን ከፈጸሙ በኋላ ስክሪንሾት ይላኩ።\n3. ጥያቄዎ በአድሚን እስኪጸድቅ ይጠብቁ።"
+    elif call.data == "help_withdraw":
+        text = "💸 <b>ገንዘብ ለማውጣት (Withdraw)፡</b>\n\n- ባላንስዎ ቢያንስ 50 ብር መሆን አለበት።\n- ባንክ እና አካውንት ቁጥር በትክክል ያስገቡ።\n- ክፍያው በ24 ሰዓት ውስጥ ይፈጸማል።"
+    elif call.data == "help_rules":
+        text = "📜 <b>የጨዋታ ህጎች፡</b>\n\n- መለያዎን ለሌላ ሰው አያጋሩ።\n- ከአንድ በላይ አካውንት መጠቀም ክልክል ነው።\n- ህግ መጣስ አካውንትን ሊያስገድ ይችላል።"
+    
+    bot.answer_callback_query(call.id)
+    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text, parse_mode="HTML")
+
 
 # ==========================================
 # 🔌 WEBHOOK & SERVER START
