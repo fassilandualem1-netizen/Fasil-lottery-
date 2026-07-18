@@ -58,11 +58,13 @@ ALLOWED_BANKS = ["CBE", "Telebirr", "Awash", "Abyssinia"]
 
 
 
-# ==========================================
 # 🚀 የተጠቃሚ መግቢያ (Start - ያለ ፒን)
 # ==========================================
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
+    # 🌟 አዲሱ ኮድ: ተጠቃሚውን ወደ ዳታቤዝ (all_users) መመዝገቢያ 🌟
+    redis.sadd("all_users", message.chat.id)
+    
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("🎮 ጌም ጀምር (Play)", web_app=WebAppInfo(url=WEB_APP_URL)))
 
