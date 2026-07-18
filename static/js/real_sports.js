@@ -1,84 +1,91 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 const initData = tg.initData || "";
-const userData = tg.initDataUnsafe?.user || { id: "8488592165" };
+const userId = tg.initDataUnsafe?.user?.id || "999999";
 
-let selectedBets = {}; // { match_id: { pick: 'home', odd: 1.8 } }
+let selectedBets = {}; 
 
 // 1. ጨዋታዎችን ማምጣት
 async function fetchMatches() {
     try {
         const res = await fetch('/api/sports/matches');
         const data = await res.json();
-        
         const list = document.getElementById("matches-list");
         list.innerHTML = "";
 
-        if (data.matches.length === 0) {
-            list.innerHTML = "<p style='text-align:center;'>ለአሁኑ ምንም ጨዋታ የለም!</p>";
+        if (!data.matches || data.matches.length === 0) {
+            list.innerHTML = "<p class='text-center text-gray-500'>ለአሁኑ ምንም ጨዋታ የለም!</p>";
             return;
         }
 
         data.matches.forEach(m => {
-            const matchId = m.fixture.id;
+            const mid = m.fixture.id;
             const home = m.teams.home.name;
             const away = m.teams.away.name;
-            const odds = m.odds; // {home: 1.8, draw: 3.2, away: 4.1}
+            const odds = m.odds;
 
             list.innerHTML += `
-                <div class="match-card">
-                    <div class="teams"><span>🏠 ${home}</span> <span>vs</span> <span>✈️ ${away}</span></div>
-                    <div class="odds-container">
-                        <button class="odd-btn" id="btn-${matchId}-home" onclick="selectOdd(${matchId}, '${home}', 'home', ${odds.home})">1 <br> ${odds.home}</button>
-                        <button class="odd-btn" id="btn-${matchId}-draw" onclick="selectOdd(${matchId}, 'Draw', 'draw', ${odds.draw})">X <br> ${odds.draw}</button>
-                        <button class="odd-btn" id="btn-${matchId}-away" onclick="selectOdd(${matchId}, '${away}', 'away', ${odds.away})">2 <br> ${odds.away}</button>
-                    </div>
+            <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg">
+                <div class="text-[10px] text-gray-500 font-bold mb-2 uppercase">⚽ ${home} V ${away}</div>
+                <div class="grid grid-cols-3 gap-2">
+                    <button id="btn-${mid}-home" onclick="selectOdd(${mid}, 'home', ${odds.home}, '${home}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
+                        <span class="text-[9px] text-gray-400">1</span><span class="text-yellow-400 font-bold text-xs">${odds.home}</span>
+                    </button>
+                    <button id="btn-${mid}-draw" onclick="selectOdd(${mid}, 'draw', ${odds.draw}, 'Draw')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
+                        <span class="text-[9px] text-gray-400">X</span><span class="text-yellow-400 font-bold text-xs">${odds.draw}</span>
+                    </button>
+                    <button id="btn-${mid}-away" onclick="selectOdd(${mid}, 'away', ${odds.away}, '${away}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
+                        <span class="text-[9px] text-gray-400">2</span><span class="text-yellow-400 font-bold text-xs">${odds.away}</span>
+                    </button>
                 </div>
-            `;
+            </div>`;
         });
     } catch (e) {
-        document.getElementById("matches-list").innerHTML = "<p>ስህተት ተፈጥሯል።</p>";
+        console.error(e);
+        document.getElementById("matches-list").innerHTML = "<p class='text-center text-red-500'>ስህተት ተፈጥሯል!</p>";
     }
 }
 
-// 2. ኦድ ሲመረጥ (Button Click)
-function selectOdd(matchId, teamName, pickType, oddValue) {
-    // የቀድሞ ምርጫ ካለ Button ከለሩን እናጠፋለን
-    if (selectedBets[matchId]) {
-        document.getElementById(`btn-${matchId}-${selectedBets[matchId].pickType}`).classList.remove("selected");
-    }
+// 2. ኦድ (Odd) ሲመረጥ ከለር መቀየር
+function selectOdd(mid, pick, odd, teamName) {
+    const btnId = `btn-${mid}-${pick}`;
+    const btn = document.getElementById(btnId);
 
-    // አዲስ ምርጫ ከሆነ እንጨምረዋለን (እንደገና ከነካው እንዲያጠፋው 토글)
-    if (selectedBets[matchId] && selectedBets[matchId].pickType === pickType) {
-        delete selectedBets[matchId];
+    // ምርጫውን መቀያየር (Toggle)
+    if (selectedBets[mid] && selectedBets[mid].pick === pick) {
+        delete selectedBets[mid];
+        btn.className = "bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition";
     } else {
-        selectedBets[matchId] = { pickType: pickType, odd: oddValue, matchId: matchId };
-        document.getElementById(`btn-${matchId}-${pickType}`).classList.add("selected");
+        // የቀድሞ ምርጫ ካለ እናጠፋለን
+        if (selectedBets[mid]) {
+            const oldPick = selectedBets[mid].pick;
+            document.getElementById(`btn-${mid}-${oldPick}`).className = "bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition";
+        }
+        
+        selectedBets[mid] = { matchId: mid, pick: pick, odd: odd, team: teamName };
+        btn.className = "bg-yellow-600 border border-yellow-500 py-2 rounded-lg flex flex-col items-center transition";
     }
-    
     updateBetSlip();
 }
 
-// 3. Bet Slip ማሳያውን ማስተካከል
+// 3. Bet Slip ማስተካከል
 function updateBetSlip() {
-    let count = 0;
+    let count = Object.keys(selectedBets).length;
     let totalOdds = 1.0;
     
-    for (let id in selectedBets) {
-        count++;
-        totalOdds *= selectedBets[id].odd;
-    }
+    for (let id in selectedBets) totalOdds *= selectedBets[id].odd;
     
-    if (count === 0) totalOdds = 1.0;
-
     document.getElementById("slip-count").innerText = count;
     document.getElementById("slip-odds").innerText = totalOdds.toFixed(2);
     
     const amount = parseFloat(document.getElementById("bet-amount").value || 0);
     document.getElementById("possible-win").innerText = (amount * totalOdds).toFixed(2);
+    
+    // በ CSS በኩል ለማሳየት
+    document.getElementById("bet-slip-container").style.display = count > 0 ? "block" : "none";
 }
 
-// 4. ውርርድ መላክ (Place Bet)
+// 4. ውርርድ መላክ
 async function placeBet() {
     const amount = parseFloat(document.getElementById("bet-amount").value || 0);
     const selections = Object.values(selectedBets);
@@ -90,23 +97,18 @@ async function placeBet() {
         const res = await fetch('/api/sports/place_bet', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
-            body: JSON.stringify({ user_id: userData.id, bet_amount: amount, selections: selections })
+            body: JSON.stringify({ user_id: userId, bet_amount: amount, selections: selections })
         });
         const data = await res.json();
         
         alert(data.message);
         
         if(data.status === "success") {
-            // ስኬታማ ከሆነ ፔጁን Reset እናደርጋለን
-            selectedBets = {};
-            document.querySelectorAll('.odd-btn').forEach(b => b.classList.remove('selected'));
-            document.getElementById("bet-amount").value = "";
-            updateBetSlip();
+            window.location.reload(); // ስኬታማ ከሆነ ገጹን ሪፍሬሽ ማድረግ
         }
     } catch (e) {
         alert("ከሰርቨር ጋር መገናኘት አልተቻለም!");
     }
 }
 
-// ገጹ ሲከፈት ጨዋታዎቹን አምጣ
 fetchMatches();
