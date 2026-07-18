@@ -33,7 +33,7 @@
     </div>
   </div>
 
-    <script>
+  <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
     const userId = tg.initDataUnsafe?.user?.id || "999999";
@@ -42,7 +42,6 @@
 
     async function fetchMatches() {
         try {
-            // 1. ጥሪውን ወደ odds ቀይረነዋል
             const res = await fetch('/api/sports/odds');
             const data = await res.json();
             const list = document.getElementById("matches-list");
@@ -54,72 +53,48 @@
             }
 
             data.matches.forEach(m => {
-    const mid = m.fixture.id;
-    const home = m.fixture.teams.home.name;
-    const away = m.fixture.teams.away.name;
-    const league = m.fixture.league || "Unknown League";
-    // ሰዓቱን ወደ readable format ይቀይረዋል
-    const matchTime = m.fixture.time ? new Date(m.fixture.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "N/A";
-    const odds = m.odds; 
+                const mid = m.fixture.id;
+                const home = m.fixture.teams.home.name;
+                const away = m.fixture.teams.away.name;
+                const league = m.fixture.league || "Unknown League";
+                const matchTime = m.fixture.time ? new Date(m.fixture.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "N/A";
+                const odds = m.odds; 
 
-    // odds ካለ ብቻ ነው Button የሚያሳየው (error እንዳይፈጠር)
-    if (odds) {
-        list.innerHTML += `
-        <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg mb-3">
-            <div class="text-[9px] text-gray-400 mb-1">${league} • ${matchTime}</div>
-            <div class="text-xs font-black text-white mb-3">${home} V ${away}</div>
-            
-            <div class="grid grid-cols-3 gap-2">
-                <button id="btn-${mid}-home" onclick="selectOdd(${mid}, 'home', ${odds.home}, '${home}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
-                    <span class="text-[10px] text-gray-400">1</span>
-                    <span class="text-xs font-bold text-yellow-400">${odds.home}</span>
-                </button>
-                <button id="btn-${mid}-draw" onclick="selectOdd(${mid}, 'draw', ${odds.draw}, 'Draw')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
-                    <span class="text-[10px] text-gray-400">X</span>
-                    <span class="text-xs font-bold text-yellow-400">${odds.draw}</span>
-                </button>
-                <button id="btn-${mid}-away" onclick="selectOdd(${mid}, 'away', ${odds.away}, '${away}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
-                    <span class="text-[10px] text-gray-400">2</span>
-                    <span class="text-xs font-bold text-yellow-400">${odds.away}</span>
-                </button>
-            </div>
-        </div>`;
-    }
-});
-
-                    
-                    <!-- 2. በተኖቹ ከእውነተኛው ኦድ እና ከ selectOdd ጋር ተገናኝተዋል -->
-                    <div class="grid grid-cols-3 gap-2">
-                        <button id="btn-${mid}-home" onclick="selectOdd(${mid}, 'home', ${odds.home}, '${home}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
-                            <span class="text-[10px] text-gray-400">1</span>
-                            <span class="text-xs font-bold text-yellow-400">${odds.home}</span>
-                        </button>
-                        <button id="btn-${mid}-draw" onclick="selectOdd(${mid}, 'draw', ${odds.draw}, 'Draw')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
-                            <span class="text-[10px] text-gray-400">X</span>
-                            <span class="text-xs font-bold text-yellow-400">${odds.draw}</span>
-                        </button>
-                        <button id="btn-${mid}-away" onclick="selectOdd(${mid}, 'away', ${odds.away}, '${away}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
-                            <span class="text-[10px] text-gray-400">2</span>
-                            <span class="text-xs font-bold text-yellow-400">${odds.away}</span>
-                        </button>
-                    </div>
-                </div>`;
+                if (odds) {
+                    list.innerHTML += `
+                    <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg mb-3">
+                        <div class="text-[9px] text-gray-400 mb-1">${league} • ${matchTime}</div>
+                        <div class="text-xs font-black text-white mb-3">${home} V ${away}</div>
+                        
+                        <div class="grid grid-cols-3 gap-2">
+                            <button id="btn-${mid}-home" onclick="selectOdd(${mid}, 'home', ${odds.home}, '${home}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
+                                <span class="text-[10px] text-gray-400">1</span>
+                                <span class="text-xs font-bold text-yellow-400">${odds.home}</span>
+                            </button>
+                            <button id="btn-${mid}-draw" onclick="selectOdd(${mid}, 'draw', ${odds.draw}, 'Draw')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
+                                <span class="text-[10px] text-gray-400">X</span>
+                                <span class="text-xs font-bold text-yellow-400">${odds.draw}</span>
+                            </button>
+                            <button id="btn-${mid}-away" onclick="selectOdd(${mid}, 'away', ${odds.away}, '${away}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
+                                <span class="text-[10px] text-gray-400">2</span>
+                                <span class="text-xs font-bold text-yellow-400">${odds.away}</span>
+                            </button>
+                        </div>
+                    </div>`;
+                }
             });
         } catch (error) {
-            // 3. የ error መልዕክቱ በትክክለኛው ቦታ (በ catch ውስጥ) ገብቷል
             document.getElementById("matches-list").innerHTML = "<p class='text-center text-red-500 mt-10'>ስህተት ተፈጥሯል! እባክዎ ኢንተርኔትዎን ያረጋግጡ።</p>";
             console.error(error);
         }
     }
 
     function selectOdd(mid, pick, odd, teamName) {
-        // ተጠቃሚው በአንድ ጨዋታ ላይ ምርጫውን ከቀየረ (ለምሳሌ ከ 1 ወደ X) የድሮውን ማጥፋት
         if (selectedBets[mid] && selectedBets[mid].pick !== pick) {
             const oldPick = selectedBets[mid].pick;
             document.getElementById(`btn-${mid}-${oldPick}`).className = "bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition";
         }
 
-        // መምረጥ እና ማጥፋት (Toggle)
         if (selectedBets[mid] && selectedBets[mid].pick === pick) {
             delete selectedBets[mid];
             document.getElementById(`btn-${mid}-${pick}`).className = "bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition";
@@ -134,14 +109,13 @@
         let count = Object.keys(selectedBets).length;
         let totalOdds = 1;
         for (let id in selectedBets) totalOdds *= selectedBets[id].odd;
-        
+
         document.getElementById("slip-count").innerText = count;
-        // ኦዱን ወደ ሁለት ዴሲማል (0.00) ማስተካከል
         document.getElementById("slip-odds").innerText = count > 0 ? totalOdds.toFixed(2) : "1.00";
-        
+
         const amount = parseFloat(document.getElementById("bet-amount").value || 0);
         document.getElementById("possible-win").innerText = (amount * (count > 0 ? totalOdds : 0)).toFixed(2);
-        
+
         document.getElementById("bet-slip-container").style.display = count > 0 ? "block" : "none";
     }
 
