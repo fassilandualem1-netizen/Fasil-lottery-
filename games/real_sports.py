@@ -17,17 +17,18 @@ API_HOST = "v3.football.api-sports.io"
 # =========================================
 @real_sports_bp.route('/api/sports/odds', methods=['GET'])
 def get_odds():
-    url = "https://v3.football.api-sports.io/odds" 
+    # 1. ኦድ ከማምጣት ይልቅ ጨዋታዎችን (Fixtures) እንዲያመጣ ቀይረነዋል (ስሞቹን ለማግኘት)
+    url = "https://v3.football.api-sports.io/fixtures" 
 
     headers = {
         "x-apisports-key": API_KEY,
         "x-apisports-host": API_HOST
     }
 
+    # 2. የሊግ ገደቡን አንስተነዋል፣ የዛሬን ማንኛውም ጨዋታ እንዲያመጣ
     params = {
         "date": time.strftime("%Y-%m-%d"),
-        "league": "39,140,135,78,61", 
-        "season": "2026"
+        "timezone": "Africa/Addis_Ababa"
     }
 
     try:
@@ -35,22 +36,25 @@ def get_odds():
         raw_data = response.json()
 
         processed_matches = []
+        
+        # 3. የመጀመሪያዎቹን 10 ጨዋታዎች ብቻ እንወስዳለን
         for item in raw_data.get('response', [])[:10]:
             fixture = item.get('fixture', {})
-            bookmakers = item.get('bookmakers', [])
-            odds_data = {"home": 2.0, "draw": 3.0, "away": 2.0} 
-
-            if bookmakers:
-                bets = bookmakers[0].get('bets', [])
-                if bets:
-                    values = bets[0].get('values', [])
-                    for v in values:
-                        if v['value'] == 'Home': odds_data['home'] = v['odd']
-                        if v['value'] == 'Draw': odds_data['draw'] = v['odd']
-                        if v['value'] == 'Away': odds_data['away'] = v['odd']
+            teams = item.get('teams', {})
+            
+            # 4. ለሙከራ (Testing) የሚሆኑ ኦዶች
+            # (እውነተኛ ኦድ ከ API-Football ለማምጣት ውስብስብ እና የነፃውን ፓኬጅ ቶሎ ስለሚጨርስ ለአሁኑ ይሄኛው ይመረጣል)
+            odds_data = {
+                "home": 2.15, 
+                "draw": 3.10, 
+                "away": 2.80
+            }
 
             processed_matches.append({
-                "fixture": {"id": fixture['id'], "teams": fixture['teams']},
+                "fixture": {
+                    "id": fixture.get('id'), 
+                    "teams": teams
+                },
                 "odds": odds_data
             })
 
@@ -58,7 +62,6 @@ def get_odds():
 
     except Exception as e:
         return jsonify({"status": "error", "message": "ጨዋታዎችን ማምጣት አልተቻለም"}), 500
-
 
 # =========================================
 # 2. የጨዋታ ዝርዝር (Fixtures) ለማምጣት
