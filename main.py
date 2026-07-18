@@ -27,6 +27,43 @@ from games.keno import keno_bp
 from games.virtual_sports import virtual_sports_bp
 from games.real_sports import real_sports_bp
 
+import requests
+
+# ይህ ኮድ /testapi ብለህ ለቦቱ ስትልክለት የ APIህን ጤንነት ቼክ አድርጎ ይነግርሃል
+@bot.message_handler(commands=['testapi'])
+def test_api_from_bot(message):
+    bot.reply_to(message, "🔍 የ API ጤንነትን በመመርመር ላይ... እባክዎ ትንሽ ይጠብቁ።")
+    
+    headers = {
+        # API_KEY የሚለውን ከላይ ካስቀመጥከው ቫሪያብል ጋር አንድ አይነት መሆኑን አረጋግጥ
+        "x-apisports-key": API_KEY, 
+        "x-apisports-host": "v3.football.api-sports.io"
+    }
+    
+    try:
+        response = requests.get("https://v3.football.api-sports.io/status", headers=headers)
+        data = response.json()
+        errors = data.get("errors", {})
+        
+        if errors:
+            bot.reply_to(message, f"❌ ችግር ተገኝቷል:\n{errors}")
+        else:
+            req_info = data.get("response", {}).get("requests", {})
+            msg = "✅ API በትክክል እየሰራ ነው (የKey ችግር የለም)!\n\n"
+            msg += f"📊 በቀን የተፈቀደልዎ የጥሪ ብዛት: {req_info.get('limit_day')}\n"
+            msg += f"📉 ዛሬ የተጠቀሙት ጥሪ: {req_info.get('current')}\n\n"
+            
+            if int(req_info.get('current', 0)) >= int(req_info.get('limit_day', 100)):
+                msg += "⚠️ ማስጠንቀቂያ: የዛሬው የጥሪ ገደብዎ (Limit) አልቋል! ለዛ ነው ጌም የማያመጣው።"
+            else:
+                msg += "👍 ገደብ አላለቀም! ስለዚህ አሁን ጌም የማያመጣው፣ ጊዜው ሀምሌ ወር (Off-season) ስለሆነና የዛሬ ጨዋታዎች ስለሌሉ ነው።"
+            
+            bot.reply_to(message, msg)
+            
+    except Exception as e:
+        bot.reply_to(message, f"❌ ከ API ጋር መገናኘት አልተቻለም:\n{e}")
+
+
 server = Flask(__name__)
 server.secret_key = os.environ.get("SECRET_KEY", "gashabet_secret_super_key_123")
 
