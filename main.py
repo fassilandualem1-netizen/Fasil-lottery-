@@ -55,6 +55,18 @@ ALLOWED_BANKS = ["CBE", "Telebirr", "Awash", "Abyssinia"]
 # ==========================================
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
+    user_id = str(message.from_user.id)
+
+    # 1. ተጠቃሚው የታገደ መሆኑን ቼክ ማድረግ
+    if is_user_banned(user_id):
+        bot.send_message(
+            message.chat.id, 
+            "❌ <b>መለያዎ ታግዷል!</b>\nበህግ ጥሰት ምክንያት ይህንን ቦት እና ጌም መጠቀም አይችሉም።", 
+            parse_mode="HTML"
+        )
+        return  # ኮዱ እዚህ ላይ ይቆማል፣ የ Play በተን አይላክለትም!
+
+    # 2. ካልታገደ የ Play በተን ይላክለታል
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("🎮 ጌም ጀምር (Play)", web_app=WebAppInfo(url=WEB_APP_URL)))
 
