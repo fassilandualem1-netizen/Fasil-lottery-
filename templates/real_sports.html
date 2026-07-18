@@ -54,15 +54,39 @@
             }
 
             data.matches.forEach(m => {
-                const mid = m.fixture.id;
-                const home = m.fixture.teams.home.name;
-                const away = m.fixture.teams.away.name;
-                const odds = m.odds; // ከ Backend የመጣው እውነተኛ ኦድ
+    const mid = m.fixture.id;
+    const home = m.fixture.teams.home.name;
+    const away = m.fixture.teams.away.name;
+    const league = m.fixture.league || "Unknown League";
+    // ሰዓቱን ወደ readable format ይቀይረዋል
+    const matchTime = m.fixture.time ? new Date(m.fixture.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "N/A";
+    const odds = m.odds; 
 
-                list.innerHTML += `
-                <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg mb-3">
-                    <div class="text-[9px] text-yellow-500 font-bold mb-1 uppercase">TOP LEAGUE</div>
-                    <div class="text-xs font-black text-white mb-3">${home} V ${away}</div>
+    // odds ካለ ብቻ ነው Button የሚያሳየው (error እንዳይፈጠር)
+    if (odds) {
+        list.innerHTML += `
+        <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg mb-3">
+            <div class="text-[9px] text-gray-400 mb-1">${league} • ${matchTime}</div>
+            <div class="text-xs font-black text-white mb-3">${home} V ${away}</div>
+            
+            <div class="grid grid-cols-3 gap-2">
+                <button id="btn-${mid}-home" onclick="selectOdd(${mid}, 'home', ${odds.home}, '${home}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
+                    <span class="text-[10px] text-gray-400">1</span>
+                    <span class="text-xs font-bold text-yellow-400">${odds.home}</span>
+                </button>
+                <button id="btn-${mid}-draw" onclick="selectOdd(${mid}, 'draw', ${odds.draw}, 'Draw')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
+                    <span class="text-[10px] text-gray-400">X</span>
+                    <span class="text-xs font-bold text-yellow-400">${odds.draw}</span>
+                </button>
+                <button id="btn-${mid}-away" onclick="selectOdd(${mid}, 'away', ${odds.away}, '${away}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
+                    <span class="text-[10px] text-gray-400">2</span>
+                    <span class="text-xs font-bold text-yellow-400">${odds.away}</span>
+                </button>
+            </div>
+        </div>`;
+    }
+});
+
                     
                     <!-- 2. በተኖቹ ከእውነተኛው ኦድ እና ከ selectOdd ጋር ተገናኝተዋል -->
                     <div class="grid grid-cols-3 gap-2">
