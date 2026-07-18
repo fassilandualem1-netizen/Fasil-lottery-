@@ -1,4 +1,4 @@
-import gevent.monkey
+Import gevent.monkey
 gevent.monkey.patch_all()
 import os
 import time
@@ -58,63 +58,187 @@ ALLOWED_BANKS = ["CBE", "Telebirr", "Awash", "Abyssinia"]
 
 
 
-# 🚀 የተጠቃሚ መግቢያ (Start - የሪፈራል ሲስተም የተጨመረበት)
+# ==========================================
+# 🚀 የተጠቃሚ መግቢያ (Start & PIN Setup)
 # ==========================================
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    user_id = str(message.chat.id)
+    user_id = message.from_user.id
     
-    # 🌟 1. የሪፈራል (የጋባዥ) ID መኖሩን ማረጋገጥ 🌟
-    # ቴሌግራም ላይ ሊንኩ t.me/botname?start=ref_123456 ስለሚሆን text_parts እናወጣለን
-    text_parts = message.text.split()
-    if len(text_parts) > 1 and text_parts[1].startswith("ref_"):
-        referrer_id = text_parts[1].replace("ref_", "")
+    # ተጠቃሚው ፒን አለው ወይ ብለን ቼክ እናደርጋለን
+    existing_pin = get_user_pin(user_id)
+    
+    if not existing_pin:
+        # ፒን ከሌለው State ወደ 'waiting_for_pin_1' እንቀይራለን
+        set_user_state(user_id, "waiting_for_pin_1")
         
-        # ተጠቃሚው አዲስ መሆኑን እና ራሱን እየጋበዘ አለመሆኑን ማረጋገጥ
-        if referrer_id != user_id and not redis.sismember("all_users", user_id):
-            # ጋባዡን መመዝገብ (ቦነሱን ዴፖዚት ሲያደርግ እንዲያገኝ)
-            redis.set(f"referrer:{user_id}", referrer_id)
+        bot.send_message(
+            message.chat.id, 
+            "👋 እንኳን በደህና መጡ!\n\n🔒 ለገንዘብ ደህንነትዎ እባክዎ አዲስ ባለ 4 ዲጂት ፒን ይፍጠሩ (ቁጥር ብቻ ይላኩ):"
+        )
+    else:
+        # ፒን ካለው ቀጥታ ወደ ጌም ወይም ዋናው ሜኑ ይገባል
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("🎮 ጌም ጀምር (Play)", web_app=WebAppInfo(url=WEB_APP_URL)))
+        
+        bot.send_message(
+            message.chat.id,
+            "👋 እንኳን ወደ የኛ ቤት በድጋሚ መጡ!\nከታች ያለውን በተን ተጭነው መጫወት ይችላሉ።",
+            reply_markup=markup
+        )
 
-    # 🌟 2. ተጠቃሚውን ወደ ዳታቤዝ (all_users) መመዝገቢያ 🌟
-    redis.sadd("all_users", user_id)
-    
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("🎮 ጌም ጀምር (Play)", web_app=WebAppInfo(url=WEB_APP_URL)))
-
-    # 🌟 3. የመጋበዣ ሊንካቸውን መስሪያ 🌟
-    bot_info = bot.get_me()
-    ref_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
-
-    welcome_msg = (
-        "👋 እንኳን ወደ የኛ ቤት በሰላም መጡ!\n\n"
-        "ከታች ያለውን በተን ተጭነው መጫወት እና ማሸነፍ ይችላሉ።\n\n"
-        "🎁 <b>ጓደኛዎን ይጋብዙ እና ቦነስ ያግኙ!</b>\n"
-        "የጋበዙት ሰው ለመጀመሪያ ጊዜ ዴፖዚት ሲያደርግ የ 5% ቦነስ ያገኛሉ!\n\n"
-        f"🔗 የእርስዎ መጋበዣ ሊንክ:\n<code>{ref_link}</code>"
-    )
-
-    bot.send_message(
-        message.chat.id,
-        welcome_msg,
-        reply_markup=markup,
-        parse_mode="HTML"
-    )
 
 
 # ==========================================
-# 🛡️ አጠቃላይ የሜሴጅ መቆጣጠሪያ 
+# 🛡️ አጠቃላይ የሜሴጅ እና የፒን መቆጣጠሪያ (Message Handler)
 # ==========================================
+
+# 👇 እዚህ ጋ 'not message.text.startswith('/')' የሚለውን ጨምረናል 👇
 @bot.message_handler(func=lambda message: message.text and not message.text.startswith('/'))
 def handle_all_text_messages(message):
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("🎮 ጌም ጀምር (Play)", web_app=WebAppInfo(url=WEB_APP_URL)))
+    user_id = message.from_user.id
+    text = message.text.strip()
+    chat_id = message.chat.id
+    message_id = message.message_id
     
-    # ፒን ሲስተም ስለጠፋ፣ ተጠቃሚው ሌላ ጽሁፍ ከጻፈ ወደ ጌሙ እንመልሰዋለን
-    bot.send_message(
-        message.chat.id, 
-        "⚠️ እባክዎ ጌሙን ለመጫወት እና ገንዘብ ወጪ ለማድረግ ከታች ያለውን በተን ይጠቀሙ።",
-        reply_markup=markup
-    )
+    # ተጠቃሚው በአሁን ሰዓት ምን እየጠበቀ እንደሆነ ቼክ እናደርጋለን
+    state = get_user_state(user_id)
+    
+    # የተቀረው ኮድህ እንዳለ ይቀጥላል...
+
+    # -----------------------------------------
+    # 1. አዲስ ፒን እየፈጠረ ከሆነ (ደረጃ 1)
+    # -----------------------------------------
+    if state == "waiting_for_pin_1":
+        # 🔒 ደህንነት: ተጠቃሚው የላከውን ፒን የያዘ ሜሴጅ ወዲያውኑ እናጠፋለን
+        try: bot.delete_message(chat_id, message_id)
+        except: pass
+        
+        # ፒኑ ባለ 4 ዲጂት ቁጥር መሆኑን ማረጋገጥ
+        if not text.isdigit() or len(text) != 4:
+            bot.send_message(chat_id, "⚠️ ስህተት! እባክዎ ትክክለኛ ባለ 4 ዲጂት ቁጥር ብቻ ያስገቡ (ለምሳሌ: 1234):")
+            return
+            
+        # ቁጥሩ ትክክል ከሆነ በጊዜያዊነት (Temp) እናስቀምጠዋለን
+        redis.setex(f"temp_pin:{user_id}", 900, text)
+        
+        # State ወደ ማረጋገጫ (ደረጃ 2) እንቀይራለን
+        set_user_state(user_id, "waiting_for_pin_2")
+        bot.send_message(chat_id, "✅ ጥሩ! ለማረጋገጥ እባክዎ ፒንዎን እንደገና ይጻፉት:")
+        
+        # -----------------------------------------
+    # 2. ፒኑን እያረጋገጠ ከሆነ (ደረጃ 2)
+    # -----------------------------------------
+    elif state == "waiting_for_pin_2":
+        # 🔒 ደህንነት: ይሄኛውንም ሜሴጅ ወዲያውኑ እናጠፋለን
+        try: bot.delete_message(chat_id, message_id)
+        except: pass
+        
+        # መጀመሪያ ያስገባውን ጊዜያዊ ፒን ከዳታቤዝ እናመጣለን
+        temp_pin_raw = redis.get(f"temp_pin:{user_id}")
+        
+        # ስህተቱን ያስወገደው ትክክለኛ ኮድ
+        temp_pin = str(temp_pin_raw) if temp_pin_raw else None
+        
+        if text == temp_pin:
+            # ፒኖቹ ከተመሳሰሉ በቋሚነት ሴቭ እናደርጋለን
+            save_user_pin(user_id, text)
+            
+            # ስራ ስለጨረሰ State እና ጊዜያዊ ፒኑን እናጸዳለን
+            clear_user_state(user_id)
+            redis.delete(f"temp_pin:{user_id}")
+            
+            markup = InlineKeyboardMarkup()
+            markup.add(InlineKeyboardButton("🎮 ጌም ጀምር (Play)", web_app=WebAppInfo(url=WEB_APP_URL)))
+            bot.send_message(
+                chat_id, 
+                "🎉 ፒንዎ በተሳካ ሁኔታ ተፈጥሯል!\n\n(ፒንዎ የሚጠየቁት ገንዘብ ወጪ ሲያደርጉ ብቻ ነው)\nከታች ያለውን በተን በመጫን መጫወት መጀመር ይችላሉ።", 
+                reply_markup=markup
+            )
+        else:
+            # ካልተመሳሰሉ ወደ መጀመሪያው እንመልሰዋለን
+            set_user_state(user_id, "waiting_for_pin_1")
+            bot.send_message(chat_id, "❌ ፒኑ አልተመሳሰለም! እባክዎ አዲስ ባለ 4 ዲጂት ፒን ከመጀመሪያው ይፍጠሩ:")
+
+
+    # -----------------------------------------
+    # 3. የገንዘብ ማውጣት ፒን እያረጋገጠ ከሆነ
+    # -----------------------------------------
+    elif state == "waiting_for_withdraw_pin":
+        # 🔒 ደህንነት: የፒን ሜሴጁን ወዲያው እናጠፋዋለን
+        try: bot.delete_message(chat_id, message_id)
+        except: pass
+        
+        # ትክክለኛውን ፒን ከዳታቤዝ እናመጣለን
+        saved_pin = get_user_pin(user_id)
+        
+        if text == saved_pin:
+            # ፒኑ ትክክል ነው! የክፍያ መረጃውን ከጊዜያዊ ዳታቤዙ እናወጣለን
+            wd_data_raw = redis.get(f"temp_withdraw:{user_id}")
+            if not wd_data_raw:
+                bot.send_message(chat_id, "⚠️ የጥያቄው ጊዜ (5 ደቂቃ) አልፏል ወይም ተሰርዟል። እባክዎ እንደገና ከ WebApp ላይ ይሞክሩ።")
+                clear_user_state(user_id)
+                return
+                
+            wd_data = json.loads(wd_data_raw)
+            amount = wd_data["amount"]
+            
+            # አሁን ባላንሱን እንቀንሳለን (Deduct እናደርጋለን)
+            deduct_status = deduct_balance_safely(user_id, amount, "real")
+            if deduct_status == "INSUFFICIENT":
+                bot.send_message(chat_id, "❌ በቂ ባላንስ የለዎትም!")
+                clear_user_state(user_id)
+                return
+                
+            # ትራንዛክሽን ሪከርድ እንፈጥራለን
+            tx_id = str(uuid.uuid4())[:8]
+            redis.set(f"tx:{tx_id}", json.dumps({"user_id": user_id, "amount": amount, "type": "withdraw", "status": "pending"}))
+            add_to_history(user_id, {"tx_id": tx_id, "type": "ወጪ", "amount": amount, "status": "pending", "date": time.strftime("%Y-%m-%d %H:%M")})
+            
+            # ለአድሚን ጥያቄውን እንልካለን
+            markup = InlineKeyboardMarkup()
+            markup.add(
+                InlineKeyboardButton("✅ ተከፍሏል", callback_data=f"ok|withdraw|{tx_id}|{user_id}|{amount}"),
+                InlineKeyboardButton("❌ ሰርዝ", callback_data=f"no|withdraw|{tx_id}|{user_id}|{amount}")
+            )
+            msg = f"💸 <b>አዲስ Withdraw ጥያቄ (ፒን የተረጋገጠ)</b>\n\n👤 ስም: {wd_data['user_name']}\n🏦 ባንክ: {wd_data['bank_name']}\n👤 የአካውንት ስም: {wd_data['account_name']}\n💳 ስልክ/አካውንት: <code>{wd_data['phone']}</code>\n💰 መጠን: <b>{amount} ብር</b>"
+            bot.send_message(ADMIN_ID, msg, reply_markup=markup, parse_mode="HTML")
+            
+            # ለተጠቃሚው ማረጋገጫ እንልካለን
+            bot.send_message(chat_id, f"✅ የ <b>{amount} ብር</b> ወጪ ጥያቄዎ በተሳካ ሁኔታ ተረጋግጧል! ክፍያው ሲፈጸም መልእክት ይደርሶታል።", parse_mode="HTML")
+            
+            # ስራ ስለጨረስን State እና ጊዜያዊ ዳታውን እናጠፋለን
+            clear_user_state(user_id)
+            redis.delete(f"temp_withdraw:{user_id}")
+            
+        else:
+            # ፒኑ ከተሳሳተ
+            bot.send_message(chat_id, "❌ የተሳሳተ ፒን! እባክዎ ትክክለኛውን ፒን እንደገና ያስገቡ:")
+            # State አንቀይርም፣ ተጠቃሚው እንደገና እንዲሞክር እንጠብቀዋለን
+
+
+
+# -----------------------------------------
+# 4. የፒን መጥፋት (Forgot PIN) - ስልክ ቁጥር ሲያጋራ
+# -----------------------------------------
+@bot.message_handler(content_types=['contact'])
+def handle_contact(message):
+    user_id = message.from_user.id
+    state = get_user_state(user_id)
+    
+    # ተጠቃሚው "ፒን ረሳሁ" ብሎ በሂደት ላይ ከሆነ
+    if state == "waiting_for_contact":
+        contact_phone = message.contact.phone_number
+        # እዚህ ጋር የተላከውን ስልክ ቁጥር ከዳታቤዝ ጋር ማነፃፀር ትችላለህ
+        # ለምሳሌ: የተጠቃሚው ስልክ ዳታቤዝ ላይ ካለ
+        # (አንተ ጋር የተጠቃሚው ስልክ Redis ላይ ካለ እዚህ ያንን ቼክ ታደርጋለህ)
+        
+        # ስኬታማ ከሆነ ወደ አዲስ ፒን መፍጠሪያ እንወስደዋለን
+        set_user_state(user_id, "waiting_for_pin_1")
+        bot.send_message(message.chat.id, "✅ ማንነትዎ ተረጋግጧል! አሁን አዲስ ባለ 4 ዲጂት ፒን ይፍጠሩ:")
+    else:
+        bot.send_message(message.chat.id, "⚠️ አሁን ይህንን ማድረግ አይጠበቅብዎትም።")
+
 
 # --- ROUTES ---
 @server.route('/')
@@ -136,19 +260,20 @@ def get_balance():
         current_balance = float(balance_raw) if balance_raw else 0.0
     return jsonify({"status": "success", "balance": current_balance, "mode": game_mode})
 
-# 🚀 አዲስ የተጨመረ፡ የተቆለፈ ስልክ ካለ ወደ WebApp የሚልክ API
-@server.route('/api/get_locked_phone', methods=['POST'])
+@server.route('/api/get_user_history', methods=['POST'])
 @telegram_auth_required
-def get_locked_phone():
+def get_user_history():
     data = request.json or {}
     user_id = data.get("user_id")
-    if not user_id: 
-        return jsonify({"status": "error", "message": "Missing user_id"}), 400
-    
-    locked_phone_raw = redis.get(f"users:locked_phone:{user_id}")
-    locked_phone = locked_phone_raw.decode('utf-8') if isinstance(locked_phone_raw, bytes) else str(locked_phone_raw) if locked_phone_raw else None
-    
-    return jsonify({"status": "success", "locked_phone": locked_phone})
+    if not user_id: return jsonify({"status": "error", "message": "Missing user_id"}), 400
+    try:
+        raw_history = redis.lrange(f"history:{user_id}", 0, -1) or []
+    except Exception as e:
+        if "WRONGTYPE" in str(e):
+            redis.delete(f"history:{user_id}")
+            raw_history = []
+        else: return jsonify({"status": "error", "message": "የዳታቤዝ ስህተት"}), 500
+    return jsonify({"status": "success", "history": [json.loads(item) for item in raw_history]})
 
 # --- DEPOSIT LOGIC (Background Thread) ---
 def send_photo_background(user_name, user_id, amount, tx_id, photo_data):
@@ -192,7 +317,7 @@ def handle_deposit():
     thread.start()
     return jsonify({"status": "success"})
 
-# --- WITHDRAW LOGIC (ከአድሚን ማጽደቂያ እና ከሂስትሪ ጋር የተገናኘው) ---
+# --- WITHDRAW LOGIC (በፒን የተሻሻለ) ---
 @server.route('/api/withdraw', methods=['POST'])
 @telegram_auth_required
 def handle_withdraw():
@@ -208,77 +333,37 @@ def handle_withdraw():
     bank_name = data.get("bank_name", "")
     account_name = data.get("account_name", "")
 
-    # 1. የዳታ ማረጋገጫዎች
+    # የዳታ ማረጋገጫዎች
     if not user_id or amount <= 0: return jsonify({"status": "error", "message": "የጎደለ መረጃ"}), 400
     if bank_name not in ALLOWED_BANKS: return jsonify({"status": "error", "message": "እባክዎ ትክክለኛ ባንክ ይምረጡ"}), 400
     if not is_number_only(phone): return jsonify({"status": "error", "message": "ስልክ ቁጥር ቁጥር ብቻ መሆን አለበት"}), 400
     if not is_text_only(account_name): return jsonify({"status": "error", "message": "የአካውንት ስም ፊደል ብቻ መሆን አለበት"}), 400
 
-    # 🚀 2. የ Closed-Loop (Address Whitelisting) ሎጂክ
-    locked_phone_raw = redis.get(f"users:locked_phone:{user_id}")
-    locked_phone = locked_phone_raw.decode('utf-8') if isinstance(locked_phone_raw, bytes) else str(locked_phone_raw) if locked_phone_raw else None
-    
-    if locked_phone:
-        if phone != locked_phone:
-            return jsonify({"status": "error", "message": f"🔒 የደህንነት ጥበቃ! ማውጣት የሚችሉት ወደ ተመዘገበው ስልክ ({locked_phone}) ብቻ ነው።"}), 403
-    else:
-        redis.set(f"users:locked_phone:{user_id}", phone)
-
-    # 3. ባላንስ ቼክ ማድረግ
+    # ተጠቃሚው በቂ ባላንስ እንዳለው ቼክ እናደርጋለን እንጂ አንቀንሰውም (deduct አናደርግም)
     balance_raw = redis.hget("users:balance", user_id)
     current_balance = float(balance_raw) if balance_raw else 0.0
     
     if amount > current_balance:
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም"}), 400
 
-    # 💸 4. ብሩን ከባላንሱ ላይ በጊዜያዊነት መቀነስ (የአድሚን ማጽደቂያ ስለሚጠብቅ)
-    redis.hincrbyfloat("users:balance", user_id, -amount)
-
-    # 🔑 5. ልዩ TxID መፍጠር እና በ Redis መመዝገብ (ለአድሚን ሲስተሙ በጣም ወሳኝ ነው!)
-    tx_id = str(uuid.uuid4())[:8]
-    redis.set(f"tx:{tx_id}", json.dumps({"user_id": user_id, "amount": amount, "type": "withdraw", "status": "pending"}))
-
-    # 📝 6. ሂስትሪ ላይ በጋራ ረዳት (add_to_history) መመዝገብ 
-    # (ይህ ካልሆነ update_history_tx_status() በትክክል ሊያገኘው አይችልም!)
-    add_to_history(user_id, {
-        "tx_id": tx_id,
-        "type": "ወጪ", # 👈 ፍሮንትኤንዱ በምስሉ ላይ እንዲያነበው "ወጪ" መሆን አለበት
-        "amount": amount,
-        "status": "pending",
-        "date": time.strftime("%Y-%m-%d %H:%M")
-    })
-
-        # 📩 7. ለአድሚን የማጽደቂያ መልዕክት ከነ በተኑ መላክ 🚀
-    markup = InlineKeyboardMarkup()
-    markup.add(
-        InlineKeyboardButton("✅ ክፍያ ፈጽሜያለሁ (አጽድቅ)", callback_data=f"ok|withdraw|{tx_id}|{user_id}|{amount}"),
-        InlineKeyboardButton("❌ ሰርዝ (ገንዘቡን መልስ)", callback_data=f"no|withdraw|{tx_id}|{user_id}|{amount}")
-    )
+    # 1. መረጃውን ለ 5 ደቂቃ በጊዜያዊነት Redis ላይ እናስቀምጣለን
+    withdraw_data = {
+        "user_name": user_name, "amount": amount, "phone": phone, 
+        "bank_name": bank_name, "account_name": account_name
+    }
+    redis.setex(f"temp_withdraw:{user_id}", 300, json.dumps(withdraw_data))
     
-    admin_msg = (
-        f"🚨 <b>አዲስ የውጪ (Withdraw) ጥያቄ</b>\n\n"
-        f"👤 ስም: {user_name}\n"
-        f"🆔 ID: <code>{user_id}</code>\n"
-        f"🏦 ባንክ: <b>{bank_name}</b>\n"
-        f"👤 አካውንት ስም: <b>{account_name}</b>\n"
-        f"📱 ስልክ: <code>{phone}</code>\n"
-        f"💰 መጠን: <b>{amount} ብር</b>\n"
-        f"🔑 TxID: <code>{tx_id}</code>"
-    )
+    # 2. የተጠቃሚውን State ወደ ፒን መጠየቂያ እንቀይራለን
+    set_user_state(user_id, "waiting_for_withdraw_pin")
     
-    # እዚህ ጋር try-except አውጥተነዋል ስህተት ካለ በግልጽ ተርሚናል ላይ እንዲያሳይህ!
-    bot.send_message(int(ADMIN_ID), admin_msg, reply_markup=markup, parse_mode="HTML")
-
-    # 📩 8. ለተጠቃሚው ማሳወቂያ መላክ
+    # 3. ለተጠቃሚው ፒን እንዲያስገባ ሜሴጅ እንልካለን
     try:
-        success_msg = f"✅ የ <b>{amount} ብር</b> ወጪ ጥያቄዎ በተሳካ ሁኔታ ተቀብለናል!\n\n🏦 ባንክ: {bank_name}\n👤 አካውንት: {account_name}\n📱 ስልክ: {phone}\n\n⏳ በአድሚን ተረጋግጦ ክፍያው በቅርቡ ይላክሎታል።"
-        bot.send_message(user_id, success_msg, parse_mode="HTML")
+        bot.send_message(user_id, f"💸 የ <b>{amount} ብር</b> ወጪ ጥያቄ ቀርቧል።\n\n🔒 ለማረጋገጥ እባክዎ የ 4 ዲጂት ፒንዎን ያስገቡ:", parse_mode="HTML")
     except:
         pass
-
-    return jsonify({"status": "success", "message": "ጥያቄዎ በተሳካ ሁኔታ ተልኳል!"})
-
-
+        
+    # 4. ለ WebApp ስኬታማ መሆኑን እንነግረዋለን
+    return jsonify({"status": "success", "message": "እባክዎ ቴሌግራም ላይ ፒንዎን በማስገባት ያረጋግጡ!"})
 
 # --- CALLBACK SYSTEM ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith("ok") or call.data.startswith("no"))
@@ -361,6 +446,7 @@ def get_dashboard_data():
     users_list = []
     total_system_balance = 0.0
 
+    # 👇 እዚህ ጋ ያለው ስፔስ ተስተካክሏል (ከላይኛው መስመር ጋር እኩል ሆኗል)
     for uid_raw, bal_raw in balances_raw.items():
         # ዳታው በ string ከመጣ ቀጥታ ይጠቀማል፣ በ bytes ከመጣ ደግሞ decode ያደርጋል
         uid = uid_raw.decode('utf-8') if isinstance(uid_raw, bytes) else str(uid_raw)
@@ -369,6 +455,7 @@ def get_dashboard_data():
         users_list.append({"user_id": uid, "balance": bal})
         total_system_balance += bal
 
+
     total_users = len(users_list)
     banned_users_count = redis.scard("banned_users")
 
@@ -376,7 +463,7 @@ def get_dashboard_data():
     total_dep = float(redis.get("stats:total_deposits") or 0.0)
     total_wd = float(redis.get("stats:total_withdrawals") or 0.0)
     net_profit = total_dep - total_wd
-
+    
     return jsonify({
         "status": "success",
         "stats": {
@@ -396,10 +483,10 @@ def admin_user_action():
     admin_id = str(data.get("admin_id"))
     target_user_id = str(data.get("target_user_id"))
     action = data.get("action") 
-
+    
     if admin_id != str(ADMIN_ID): 
         return jsonify({"status": "error", "message": "ያልተፈቀደ ሙከራ!"}), 403
-
+        
     if not target_user_id:
         return jsonify({"status": "error", "message": "የተጠቃሚ ID አልተገኘም!"}), 400
 
@@ -408,38 +495,40 @@ def admin_user_action():
         try: bot.send_message(target_user_id, "⚠️ <b>መለያዎ (Account) በህግ ጥሰት ምክንያት ታግዷል!</b>", parse_mode="HTML")
         except: pass
         return jsonify({"status": "success", "message": "ተጠቃሚው በተሳካ ሁኔታ ታግዷል!"})
-
+        
     elif action == "unban":
         redis.srem("banned_users", target_user_id)
         try: bot.send_message(target_user_id, "🎉 <b>የመለያዎ እገዳ ተነስቷል!</b>\nአሁን መጫወት ይችላሉ።", parse_mode="HTML")
         except: pass
         return jsonify({"status": "success", "message": "የተጠቃሚው እገዳ ተነስቷል!"})
-
+        
     elif action == "adjust_balance":
         amount = float(data.get("amount", 0))
         # ⚠️ ዋናው ጥበቃ፦ አሁን ያለውን ብር ቼክ ማድረግ
         current_balance = float(redis.hget("users:balance", target_user_id) or 0.0)
         new_balance = current_balance + amount
-
+        
         if new_balance < 0:
             return jsonify({"status": "error", "message": f"ስህተት! የተጠቃሚው ባላንስ {current_balance} ብር ብቻ ነው። ወደ ኔጌቲቭ ማውረድ አይቻልም!"}), 400
-
+            
         redis.hset("users:balance", target_user_id, new_balance)
-
+        
+        # 👇 ይሄ አዲሱ ወደ ሂስቶሪ (History) መጨመሪያ ኮድ ነው 👇
         import time
         import uuid
         tx_type = "ገቢ" if amount > 0 else "ወጪ"
         abs_amount = abs(amount)
-        tx_id = "ADM-" + str(uuid.uuid4())[:5] 
-
+        tx_id = "ADM-" + str(uuid.uuid4())[:5] # አድሚን መሆኑን ለመለየት ADM- ይጨመራል
+        
         history_data = {
             "tx_id": tx_id,
             "type": tx_type,
             "amount": abs_amount,
-            "status": "APPROVED",
+            "status": "APPROVED", # በአድሚን ስለተደረገ ቀጥታ ጸድቋል (APPROVED)
             "date": time.strftime("%Y-%m-%d %H:%M")
         }
         add_to_history(target_user_id, history_data)
+        # 👆 የሂስቶሪ ኮድ እዚህ ያልቃል 👆
 
         try:
             sign = "+" if amount > 0 else ""
@@ -448,67 +537,6 @@ def admin_user_action():
         return jsonify({"status": "success", "message": "ባላንስ በተሳካ ሁኔታ ተስተካክሏል!"})
 
     return jsonify({"status": "error", "message": "የማይታወቅ ትዕዛዝ!"}), 400
-
-# ==========================================
-# 🛡️ አዲሱ የአድሚን መቆጣጠሪያ API ROUTES (ተሻሽሏል)
-# ==========================================
-
-@server.route('/admin-panel')
-def admin_panel():
-    return render_template('admin.html')
-
-@server.route('/api/admin/get_dashboard_data', methods=['POST'])
-def get_dashboard_data():
-    data = request.json or {}
-    admin_id = str(data.get("admin_id"))
-
-    # 1. ጥብቅ የደህንነት ማረጋገጫ (አድሚን ካልሆነ በፍጹም አያስገባም)
-    if admin_id != str(ADMIN_ID): 
-        return jsonify({"status": "error", "message": "ያልተፈቀደ የደህንነት ጥሰት ሙከራ!"}), 403
-
-    # 2. የተጠቃሚዎችን ባላንስ ከ Redis ማምጣት
-    balances_raw = redis.hgetall("users:balance")
-
-    users_list = []
-    total_system_balance = 0.0
-
-    for uid_raw, bal_raw in balances_raw.items():
-        uid = uid_raw.decode('utf-8') if isinstance(uid_raw, bytes) else str(uid_raw)
-        bal = float(bal_raw.decode('utf-8') if isinstance(bal_raw, bytes) else bal_raw)
-        
-        users_list.append({"user_id": uid, "balance": bal})
-        total_system_balance += bal
-
-    # 3. 🌟 ትክክለኛው የጠቅላላ ተጠቃሚዎች ቆጠራ 🌟
-    # (ይህ ቦቱን start ያደረገውን ሁሉ ይቆጥራል)
-    total_users = redis.scard("all_users") 
-    
-    # ምናልባት ማንም start አላደረገም ብሎ 0 ካመጣ፣ ባላንስ ያላቸውን ሰዎች ብዛት እንዲወስድ 
-    if total_users == 0:
-        total_users = len(users_list)
-
-    banned_users_count = redis.scard("banned_users")
-
-    # 4. ጠቅላላ ገቢ፣ ወጪ እና የተጣራ ትርፍ ስሌት
-    total_dep = float(redis.get("stats:total_deposits") or 0.0)
-    total_wd = float(redis.get("stats:total_withdrawals") or 0.0)
-    
-    # 🌟 የተጣራ ትርፍ = አጠቃላይ ገቢ - አጠቃላይ ወጪ - በደንበኞች እጅ ያለ ቀሪ ሂሳብ
-    net_profit = total_dep - total_wd - total_system_balance
-
-    # 5. ዳታውን ወደ ዳሽቦርዱ (Frontend) መላክ
-    return jsonify({
-        "status": "success",
-        "stats": {
-            "total_users": total_users,
-            "banned_users": banned_users_count,
-            "total_deposits": total_dep,
-            "total_withdrawals": total_wd,
-            "net_profit": net_profit,
-            "total_user_balances": total_system_balance
-        },
-        "users": users_list
-    })
 
 
 # ==========================================
@@ -523,6 +551,24 @@ def send_admin_panel(message):
     else:
         bot.send_message(message.chat.id, "❌ ይህ ትዕዛዝ ለአድሚን ብቻ የተፈቀደ ነው!")
 
+
+
+@bot.message_handler(commands=['settings'])
+def settings_menu(message):
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("🔑 ፒን ረሳሁ", callback_data="forgot_pin"))
+    bot.send_message(message.chat.id, "⚙️ የሴቲንግ ምርጫዎች:", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "forgot_pin")
+def handle_forgot_pin(call):
+    user_id = call.from_user.id
+    set_user_state(user_id, "waiting_for_contact")
+    
+    # Inline የነበረውን ወደ Reply Keyboard ቀይረነዋል
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add(KeyboardButton("📞 ስልክ ቁጥር አጋራ", request_contact=True))
+    
+    bot.send_message(call.message.chat.id, "ማንነትዎን ለማረጋገጥ እባክዎ ከታች ያለውን በተን ተጭነው ስልክ ቁጥርዎን ያጋሩ:", reply_markup=markup)
 
 # ==========================================
 # 🔌 WEBHOOK & SERVER START
