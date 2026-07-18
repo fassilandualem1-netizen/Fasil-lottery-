@@ -53,30 +53,24 @@
             }
 
             data.matches.forEach(m => {
-                const mid = m.fixture.id;
-                const home = m.teams.home.name;
-                const away = m.teams.away.name;
-                const odds = m.odds;
+    const mid = m.fixture.id;
+    const home = m.fixture.teams.home.name;
+    const away = m.fixture.teams.away.name;
+    const league = m.fixture.league; // አዲሱ ሊግ ማሳያ
 
-                list.innerHTML += `
-                <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg">
-                  <div class="text-[10px] text-gray-500 font-bold mb-2 uppercase">⚽ ${home} V ${away}</div>
-                  <div class="grid grid-cols-3 gap-2">
-                    <button id="btn-${mid}-home" onclick="selectOdd(${mid}, 'home', ${odds.home}, '${home}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500">
-                        <span class="text-[9px] text-gray-400">1</span><span class="text-yellow-400 font-bold text-xs">${odds.home}</span>
-                    </button>
-                    <button id="btn-${mid}-draw" onclick="selectOdd(${mid}, 'draw', ${odds.draw}, 'Draw')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500">
-                        <span class="text-[9px] text-gray-400">X</span><span class="text-yellow-400 font-bold text-xs">${odds.draw}</span>
-                    </button>
-                    <button id="btn-${mid}-away" onclick="selectOdd(${mid}, 'away', ${odds.away}, '${away}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500">
-                        <span class="text-[9px] text-gray-400">2</span><span class="text-yellow-400 font-bold text-xs">${odds.away}</span>
-                    </button>
-                  </div>
-                </div>`;
-            });
-        } catch (e) {
-            console.error(e);
-            document.getElementById("matches-list").innerHTML = "<p class='text-center text-red-500'>ስህተት ተፈጥሯል!</p>";
+    list.innerHTML += `
+    <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg">
+        <div class="text-[9px] text-yellow-500 font-bold mb-1 uppercase">${league}</div>
+        <div class="text-xs font-black text-white mb-3">${home} V ${away}</div>
+        <!-- ኦድ ለመምረጥ (የአሁኑ የ API አጠቃቀም በ fixtures ስለሆነ፣ ኦዱን ለየብቻ በሌላ endpoint መጥራት ሊኖርብዎ ይችላል) -->
+        <div class="grid grid-cols-3 gap-2">
+            <button class="bg-gray-900 border border-gray-800 py-2 rounded-lg text-xs text-white">1</button>
+            <button class="bg-gray-900 border border-gray-800 py-2 rounded-lg text-xs text-white">X</button>
+            <button class="bg-gray-900 border border-gray-800 py-2 rounded-lg text-xs text-white">2</button>
+        </div>
+    </div>`;
+});
+           document.getElementById("matches-list").innerHTML = "<p class='text-center text-red-500'>ስህተት ተፈጥሯል!</p>";
         }
     }
 
