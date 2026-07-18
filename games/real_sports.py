@@ -73,7 +73,7 @@ def get_odds():
                 }
 
         real_matches = []
-        now_time = datetime.now() # የአሁኑን ሰዓት ለመውሰድ
+        now_time = datetime.now() # የጨዋታዎችን ሰዓት ለማጣራት የአሁኑን ሰዓት እንይዛለን
 
         for d in target_dates:
             for page in range(1, 11):  
@@ -103,19 +103,18 @@ def get_odds():
 
                     fixture_info = fixtures_dict[fixture_id]
                     
-                    # --- አዲስ የሰዓት ማጣሪያ (Time Filter) ---
+                    # --- ለ Betting የተስተካከለ የሰዓት ማጣሪያ (Strict Time Filter) ---
                     try:
-                        # የጨዋታውን ሰዓት ከ API string ወደ datetime መቀየር
-                        # 'Z' ካለ ማስተካከያ ይፈልጋል
                         raw_time = fixture_info["time"]
+                        # ከ API የመጣውን ሰዓት ወደ datetime object መቀየር
                         match_time_obj = datetime.fromisoformat(raw_time.replace('Z', '+03:00'))
                         
-                        # የጨዋታው ሰዓት ከአሁኑ ሰዓት በፊት ከሆነ (ያለፈ ከሆነ) እንዘለዋለን
-                        if match_time_obj.replace(tzinfo=None) < now_time:
+                        # የጨዋታው ሰዓት አሁን ካለንበት ሰዓት ጋር እኩል ከሆነ ወይም ካለፈ (ያለቀ/የተጀመረ) እናስወግደዋለን
+                        if match_time_obj.replace(tzinfo=None) <= now_time:
                             continue
                     except Exception:
-                        continue # ሰዓቱ መለየት ካልተቻለ ስህተት እንዳይፈጠር ዝለል
-                    # -------------------------------------
+                        continue # ሰዓቱን ማንበብ ካልቻለ ለጥንቃቄ ሲባል ጨዋታውን ይዘለዋል
+                    # -----------------------------------------------------------------
 
                     if not item['bookmakers'] or not item['bookmakers'][0]['bets']:
                         continue
@@ -130,6 +129,7 @@ def get_odds():
                         elif val == "Draw": odds_dict["draw"] = odd
                         elif val == "Away": odds_dict["away"] = odd
 
+                    # ለተጠቃሚው በሚያምር ሁኔታ ለማሳየት ሰዓቱን ብቻ መውሰድ (ምሳሌ፡ "15:30")
                     clean_time = match_time_obj.strftime("%H:%M")
 
                     if "home" in odds_dict and "away" in odds_dict:
@@ -151,6 +151,7 @@ def get_odds():
                     break
 
         if len(real_matches) > 0:
+            # Cache ለ 6 ሰዓት (21600 seconds) ይቀመጣል
             redis.setex(cache_key, 21600, json.dumps(real_matches))
 
         return jsonify({"status": "success", "matches": real_matches})
