@@ -136,55 +136,57 @@ def get_matches():
         return jsonify({"status": "error", "message": "ጨዋታዎችን ማምጣት አልተቻለም"}), 500
 
 # =========================================
-# 3. ውርርድ መቁረጫ (Place Bet) ራውት
+# 3. ውርርድ መቁረጫ (Place Bet) ራውት - ተስተካክሎ የተፃፈ
 # =========================================
-@real_sports_bp.route('/api/sports/place_bet', methods=['POST'])
-@telegram_auth_required  # 🛡️ የደህንነት ማጣሪያ (Security Decorator)
+@real_sports_bp.route('/api/sports/bet', methods=['POST']) # 👈 Route-ው ወደ /bet ተስተካክሏል
+@telegram_auth_required
 def place_bet():
     try:
         data = request.json
         user_id = data.get('user_id')
         bet_amount = data.get('bet_amount')
-        selections = data.get('selections') 
+        
+        # 👈 ከ WebApp የሚላኩት ትክክለኛ ዳታዎች እነዚህ ናቸው
+        match_name = data.get('match_name') 
+        choice = data.get('choice')
+        odd = data.get('odd')
 
-        if not user_id or not bet_amount or not selections:
+        # መረጃው ሙሉ መሆኑን ማረጋገጥ
+        if not user_id or not bet_amount or not match_name or not choice or not odd:
             return jsonify({"status": "error", "message": "የተላከው መረጃ አልተሟላም!"}), 400
 
         bet_amount = float(bet_amount)
-        if bet_amount < 10:
-            return jsonify({"status": "error", "message": "ቢያንስ 10 ብር መወራረድ አለብዎት!"}), 400
+        if bet_amount < 2:  # በ WebApp ላይ ዝቅተኛው 2 ብር ነው
+            return jsonify({"status": "error", "message": "ቢያንስ 2 ብር መወራረድ አለብዎት!"}), 400
 
-        # 🛠️ ማስተካከያ 1: deduct_balance_safely የሚመልሰው አንድ ቃል (String) ነው
+        # ቀሪ ሂሳብ መቀነስ
         result = deduct_balance_safely(str(user_id), bet_amount, "real")
-        
+
         if result != "SUCCESS":
             return jsonify({"status": "error", "message": "በአካውንትዎ በቂ ቀሪ ሂሳብ የሎትም! እባክዎ ዲፖዚት ያድርጉ።"}), 400
 
-        # 2. ጠቅላላ ኦድ እና ሊያሸንፉ የሚችሉትን ብር (Possible Win) ማስላት
-        total_odds = 1.0
-        for sel in selections:
-            total_odds *= float(sel['odd'])
-            
-        possible_win = bet_amount * total_odds
+        # ሊያሸንፉ የሚችሉትን ብር (Possible Win) ማስላት
+        possible_win = bet_amount * float(odd)
 
-        # 3. የቲኬት ቁጥር መፍጠር
+        # የቲኬት ቁጥር መፍጠር
         ticket_id = f"RS-{str(uuid.uuid4())[:6].upper()}"
 
-        # 4. ቲኬቱን Redis ላይ ሴቭ ማድረግ 
+        # ቲኬቱን Redis ላይ ሴቭ ማድረግ 
         bet_data = {
             "ticket_id": ticket_id,
             "user_id": user_id,
             "amount": bet_amount,
-            "total_odds": total_odds,
+            "match_name": match_name,
+            "choice": choice,
+            "odd": odd,
             "possible_win": possible_win,
-            "selections": selections,
             "status": "pending", 
             "timestamp": time.time()
         }
-        
+
         redis.hset(f"user_sports_bets:{user_id}", ticket_id, json.dumps(bet_data))
 
-        # 🛠️ ማስተካከያ 2: ታሪክ ውስጥ Dictionary ፎርማት መላክ አለበት
+        # ታሪክ ውስጥ መመዝገብ
         history_entry = {
             "action": f"Sports Bet (Ticket: {ticket_id})", 
             "amount": bet_amount, 
@@ -200,3 +202,4 @@ def place_bet():
     except Exception as e:
         print(f"Place Bet Error: {e}")
         return jsonify({"status": "error", "message": "በሰርቨር ላይ የቴክኒክ ችግር አጋጥሟል!"}), 500
+
