@@ -3,49 +3,60 @@ import os
 import requests
 import json
 import uuid
+import time
 from config import redis, deduct_balance_safely, add_to_history, telegram_auth_required
 
 real_sports_bp = Blueprint('real_sports', __name__)
 
-# ከ Render Environment ላይ ቁልፉን እናነባለን
 API_KEY = os.environ.get("API_FOOTBALL_KEY")
 API_HOST = "v3.football.api-sports.io"
 
-# 1. ጨዋታዎችን ማምጫ (Fetch Matches & Odds)
 @real_sports_bp.route('/api/sports/matches', methods=['GET'])
 def get_matches():
-    # ማስታወሻ፡ API-Sports በቀን የተወሰነ Request ስላለው፣ Live ሲገባ ዳታውን Redis ላይ Cache እናደርገዋለን።
-    # ለጊዜው ግን በቀጥታ እንጠራዋለን።
+    # ቶፕ ሊጎች (39=EPL, 140=LaLiga, 135=SerieA, 78=Bundesliga, 61=Ligue1)
+    url = "https://v3.football.api-sports.io/odds" 
     
-    url = "https://v3.football.api-sports.io/odds/live" # በቀጥታ ያሉትን ወይም የዛሬዎችን ለማምጣት
     headers = {
         "x-apisports-key": API_KEY,
         "x-apisports-host": API_HOST
     }
     
+    # ፊልተር ማድረግ (የዛሬ ጨዋታዎች ብቻ እና ቶፕ ሊጎች)
+    params = {
+        "date": time.strftime("%Y-%m-%d"),
+        "league": "39,140,135,78,61", 
+        "season": "2026"
+    }
+    
     try:
-        # ለሙከራ (Test) ቆጠባ እንዲሆን የ API ጥሪውን ኮመንት አድርጌ የውሸት (Mock) ዳታ አስገብቻለሁ
-        # ትክክለኛውን ለመጠቀም ከስር ያለውን mock_data አጥፍተው response = requests.get... የሚለውን ይክፈቱ
+        response = requests.get(url, headers=headers, params=params)
+        raw_data = response.json()
         
-        """
-        response = requests.get(url, headers=headers)
-        data = response.json()
-        matches = data.get('response', [])
-        """
+        # API-Sports ዳታው የተወሳሰበ ስለሆነ ለFrontend ቀላል እንዲሆንልን ማስተካከል (Mapping)
+        processed_matches = []
+        for item in raw_data.get('response', [])[:10]: # የመጀመሪያዎቹን 10 ጨዋታዎች ብቻ
+            fixture = item.get('fixture', {})
+            # Bookmaker 1 = Bet365 (ብዙውን ጊዜ ኦድ የሚገኝበት ነው)
+            bookmakers = item.get('bookmakers', [])
+            odds_data = {"home": 2.0, "draw": 3.0, "away": 2.0} # Default
+            
+            if bookmakers:
+                bets = bookmakers[0].get('bets', [])
+                if bets:
+                    values = bets[0].get('values', [])
+                    # Mapping: 1, X, 2
+                    for v in values:
+                        if v['value'] == 'Home': odds_data['home'] = v['odd']
+                        if v['value'] == 'Draw': odds_data['draw'] = v['odd']
+                        if v['value'] == 'Away': odds_data['away'] = v['odd']
+            
+            processed_matches.append({
+                "fixture": {"id": fixture['id'], "teams": fixture['teams']},
+                "odds": odds_data
+            })
         
-        # የሙከራ ዳታ (Frontend እሰራበት ዘንድ)
-        mock_data = [
-            {
-                "fixture": {"id": 101, "teams": {"home": {"name": "Arsenal"}, "away": {"name": "Chelsea"}}},
-                "odds": {"home": 1.80, "draw": 3.20, "away": 4.10}
-            },
-            {
-                "fixture": {"id": 102, "teams": {"home": {"name": "Man Utd"}, "away": {"name": "Liverpool"}}},
-                "odds": {"home": 2.50, "draw": 3.00, "away": 2.20}
-            }
-        ]
+        return jsonify({"status": "success", "matches": processed_matches})
         
-        return jsonify({"status": "success", "matches": mock_data})
     except Exception as e:
         return jsonify({"status": "error", "message": "ጨዋታዎችን ማምጣት አልተቻለም"}), 500
 
@@ -56,50 +67,28 @@ def place_bet():
     data = request.json or {}
     user_id = str(data.get("user_id"))
     bet_amount = float(data.get("bet_amount", 0))
-    selections = data.get("selections", []) # Array of objects: [{match_id, pick, odd}]
-    
+    selections = data.get("selections", [])
+
     if bet_amount <= 0 or not selections:
-        return jsonify({"status": "error", "message": "እባክዎ ጨዋታዎችን ይምረጡ እና የብር መጠን ያስገቡ!"}), 400
-        
-    # 1. አጠቃላይ ማባዣውን (Total Odds) እናሰላለን
+        return jsonify({"status": "error", "message": "እባክዎ ጨዋታዎችን ይምረጡ!"}), 400
+
     total_odds = 1.0
     for sel in selections:
         total_odds *= float(sel.get("odd", 1.0))
-        
-    possible_win = bet_amount * total_odds
 
-    # 2. ባላንስ ቼክ እናደርጋለን እና እንቀንሳለን
     deduct_status = deduct_balance_safely(user_id, bet_amount, "real")
     if deduct_status == "INSUFFICIENT":
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም!"}), 400
 
-    # 3. ትኬት ቆርጠን Redis ላይ እናስቀምጣለን
     ticket_id = "TKT-" + str(uuid.uuid4())[:6].upper()
-    
     bet_ticket = {
-        "user_id": user_id,
-        "ticket_id": ticket_id,
-        "amount": bet_amount,
-        "total_odds": round(total_odds, 2),
-        "possible_win": round(possible_win, 2),
-        "selections": selections,
-        "status": "PENDING" # ጨዋታው እስኪያልቅ ይጠብቃል
+        "user_id": user_id, "ticket_id": ticket_id, "amount": bet_amount,
+        "total_odds": round(total_odds, 2), "possible_win": round(bet_amount * total_odds, 2),
+        "selections": selections, "status": "PENDING"
     }
     
-    # ትኬቱን በዳታቤዝ እናስቀምጣለን
     redis.set(f"bet:ticket:{ticket_id}", json.dumps(bet_ticket))
-    # የተጠቃሚውን ትኬቶች ዝርዝር ውስጥ እንጨምረዋለን
     redis.sadd(f"user_bets:{user_id}", ticket_id)
+    add_to_history(user_id, {"tx_id": ticket_id, "type": "⚽️ ውርርድ (Bet)", "amount": -bet_amount, "status": "pending"})
     
-    # 4. ሂስቶሪ ውስጥ እንመዘግባለን
-    add_to_history(user_id, {
-        "tx_id": ticket_id, 
-        "type": "⚽️ ውርርድ (Bet)", 
-        "amount": -bet_amount, 
-        "status": "pending"
-    })
-    
-    return jsonify({
-        "status": "success", 
-        "message": f"ውርርድዎ ተቀባይነት አግኝቷል! ትኬት ቁጥር: {ticket_id}\nሊያሸንፉ የሚችሉት: {round(possible_win, 2)} ብር"
-    })
+    return jsonify({"status": "success", "message": f"ውርርድዎ ተቀባይነት አግኝቷል! ትኬት: {ticket_id}"})
