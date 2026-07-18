@@ -395,6 +395,55 @@
     }
 
 
+    // 🚀 አዲስ የተጨመረ: የ Withdraw መረጃ ካለ ሳጥኖቹን ለመቆለፍ
+    function checkLockedPhone() {
+      // ተጠቃሚው መረጃውን እያየ መሆኑን ለማሳወቅ ትንሽ ሎዲንግ እናድርግ
+      const bankSelect = document.getElementById("wd-bank");
+      const nameInput = document.getElementById("wd-name");
+      const phoneInput = document.getElementById("wd-phone");
+
+      fetch("/api/get_withdraw_info", {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            "X-Telegram-Init-Data": initData 
+        },
+        body: JSON.stringify({ user_id: userId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success" && data.info) {
+          // 1. መረጃው ስላለ ሳጥኖቹ ላይ የተገኘውን ዳታ እንሞላዋለን
+          bankSelect.value = data.info.bank_name;
+          nameInput.value = data.info.account_name;
+          phoneInput.value = data.info.phone;
+
+          // 2. ሳጥኖቹን እንቆልፋቸዋለን (Readonly / Disabled እናደርጋቸዋለን)
+          bankSelect.disabled = true; // Select box በ disabled ነው የሚቆለፈው
+          nameInput.readOnly = true;
+          phoneInput.readOnly = true;
+
+          // 3. የተቆለፈ መሆኑን በከለር (Style) እናሳውቃለን
+          bankSelect.classList.add("opacity-50", "cursor-not-allowed");
+          nameInput.classList.add("opacity-50", "cursor-not-allowed", "bg-gray-800");
+          phoneInput.classList.add("opacity-50", "cursor-not-allowed", "bg-gray-800");
+          
+          // ጠቃሚ መልእክት ማሳያ (ከፈለግክ)
+          console.log("🔒 የባንክ መረጃ ተቆልፏል (One-time Setup)");
+        } else {
+          // መረጃ ከሌለ (አዲስ ከሆነ) ሳጥኖቹ ክፍት መሆናቸውን እናረጋግጣለን
+          bankSelect.disabled = false;
+          nameInput.readOnly = false;
+          phoneInput.readOnly = false;
+
+          bankSelect.classList.remove("opacity-50", "cursor-not-allowed");
+          nameInput.classList.remove("opacity-50", "cursor-not-allowed", "bg-gray-800");
+          phoneInput.classList.remove("opacity-50", "cursor-not-allowed", "bg-gray-800");
+        }
+      })
+      .catch(err => console.error("Error fetching withdraw info:", err));
+    }
+
         // የታሪክ መረጃ ከሰርቨር ማምጣት
     function fetchHistory() {
       const list = document.getElementById("history-list");
