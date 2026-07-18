@@ -1,4 +1,4 @@
-import gevent.monkey
+Aimport gevent.monkey
 gevent.monkey.patch_all()
 import os
 import time
@@ -248,27 +248,26 @@ def handle_withdraw():
         "date": time.strftime("%Y-%m-%d %H:%M")
     })
 
-    # 📩 7. ለአድሚን የማጽደቂያ መልዕክት ከነ በተኑ መላክ 🚀
-    try:
-        markup = InlineKeyboardMarkup()
-        markup.add(
-            InlineKeyboardButton("✅ ክፍያ ፈጽሜያለሁ (አጽድቅ)", callback_data=f"ok|withdraw|{tx_id}|{user_id}|{amount}"),
-            InlineKeyboardButton("❌ ሰርዝ (ገንዘቡን መልስ)", callback_data=f"no|withdraw|{tx_id}|{user_id}|{amount}")
-        )
-        
-        admin_msg = (
-            f"🚨 <b>አዲስ የውጪ (Withdraw) ጥያቄ</b>\n\n"
-            f"👤 ስም: {user_name}\n"
-            f"🆔 ID: <code>{user_id}</code>\n"
-            f"🏦 ባንክ: <b>{bank_name}</b>\n"
-            f"👤 አካውንት ስም: <b>{account_name}</b>\n"
-            f"📱 ስልክ: <code>{phone}</code>\n"
-            f"💰 መጠን: <b>{amount} ብር</b>\n"
-            f"🔑 TxID: <code>{tx_id}</code>"
-        )
-        bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="HTML")
-    except Exception as e:
-        print(f"ለአድሚን መልዕክት መላክ አልተቻለም: {e}")
+        # 📩 7. ለአድሚን የማጽደቂያ መልዕክት ከነ በተኑ መላክ 🚀
+    markup = InlineKeyboardMarkup()
+    markup.add(
+        InlineKeyboardButton("✅ ክፍያ ፈጽሜያለሁ (አጽድቅ)", callback_data=f"ok|withdraw|{tx_id}|{user_id}|{amount}"),
+        InlineKeyboardButton("❌ ሰርዝ (ገንዘቡን መልስ)", callback_data=f"no|withdraw|{tx_id}|{user_id}|{amount}")
+    )
+    
+    admin_msg = (
+        f"🚨 <b>አዲስ የውጪ (Withdraw) ጥያቄ</b>\n\n"
+        f"👤 ስም: {user_name}\n"
+        f"🆔 ID: <code>{user_id}</code>\n"
+        f"🏦 ባንክ: <b>{bank_name}</b>\n"
+        f"👤 አካውንት ስም: <b>{account_name}</b>\n"
+        f"📱 ስልክ: <code>{phone}</code>\n"
+        f"💰 መጠን: <b>{amount} ብር</b>\n"
+        f"🔑 TxID: <code>{tx_id}</code>"
+    )
+    
+    # እዚህ ጋር try-except አውጥተነዋል ስህተት ካለ በግልጽ ተርሚናል ላይ እንዲያሳይህ!
+    bot.send_message(int(ADMIN_ID), admin_msg, reply_markup=markup, parse_mode="HTML")
 
     # 📩 8. ለተጠቃሚው ማሳወቂያ መላክ
     try:
