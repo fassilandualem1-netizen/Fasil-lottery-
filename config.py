@@ -1,11 +1,10 @@
 import os
 import json
-import time
 import hmac
 import hashlib
 import urllib.parse
 from functools import wraps
-from flask import request, jsonify
+from flask import Flask, request, jsonify
 import telebot
 from upstash_redis import Redis
 
@@ -21,8 +20,11 @@ ADMIN_ID = 8488592165
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=False)
 redis = Redis(url=REDIS_URL, token=REDIS_TOKEN)
 
+# የ Flask አፕሊኬሽን ማስነሻ
+app = Flask(__name__)
+
 # ==========================================
-# 🛡️ Security Decorator
+# 🛡️ Security Decorator (የደህንነት ማረጋገጫ)
 # ==========================================
 def telegram_auth_required(f):
     @wraps(f)
@@ -43,13 +45,17 @@ def telegram_auth_required(f):
 
             if calculated_hash != hash_from_tg:
                 return jsonify({"status": "error", "message": "የደህንነት ማረጋገጫ አልተሳካም! (Invalid Token)"}), 401
+            
+            # የተረጋገጠውን ዳታ በ request object ላይ ማሰር (ለ APIዎቹ እንዲጠቅም)
+            request.telegram_data = parsed_data
+            
         except Exception as e:
             return jsonify({"status": "error", "message": "በደህንነት ማጣሪያ ላይ ስህተት ተፈጥሯል"}), 401
         return f(*args, **kwargs)
     return decorated_function
 
 # ==========================================
-# 🛡️ Atomic Wallet & History Helpers
+# 🛠️ Atomic Wallet & History Helpers
 # ==========================================
 def deduct_balance_safely(user_id: str, amount: float, game_mode: str = "real") -> str:
     balance_key = "users:demo_balance" if game_mode == "demo" else "users:balance"
@@ -77,24 +83,71 @@ def add_to_history(user_id: str, entry: dict):
     except Exception as e:
         print(f"Add History Error: {e}")
 
-def update_history_tx_status(user_id: str, tx_id: str, status: str):
+# ==========================================
+# 🌐 API Routes (የፍላስክ ራውቶች)
+# ==========================================
+
+def get_user_id_from_request():
+    """ከ Telegram init_data ውስጥ user_id ን የሚያወጣ አጭር ፋንክሽን"""
     try:
-        history_key = f"history:{user_id}"
-        raw_history = redis.lrange(history_key, 0, -1) or []
-        updated = False
-        new_history = []
+        user_json_str = request.telegram_data.get('user', ['{}'])[0]
+        user_data = json.loads(user_json_str)
+        return str(user_data.get('id'))
+    except Exception:
+        return None
 
-        for item_raw in raw_history:
-            item = json.loads(item_raw)
-            if item.get("tx_id") == tx_id:
-                item["status"] = status
-                updated = True
-            new_history.append(json.dumps(item))
+# ለባላንስ የሚጠይቅ API (GET request)
+@app.route('/api/get-balance', methods=['GET'])
+@telegram_auth_required
+def get_user_balance():
+    user_id = get_user_id_from_request()
+    if not user_id:
+         return jsonify({"status": "error", "message": "የተጠቃሚ መረጃ አልተገኘም"}), 400
+    
+    # Redis ላይ ቼክ ማድረግ
+    balance = redis.hget("users:balance", user_id) or "0"
+    
+    return jsonify({
+        "status": "success",
+        "balance": float(balance)
+    })
 
-        if updated and new_history:
-            redis.delete(history_key)
-            redis.lpush(history_key, *reversed(new_history))
-    except Exception as e:
-        print(f"Update History Error: {e}")
+# ለገንዘብ ማውጣት (Withdrawal) የሚጠይቅ API (POST request)
+@app.route('/api/withdraw', methods=['POST'])
+@telegram_auth_required
+def withdraw():
+    data = request.json
+    amount = data.get('amount')
+    
+    # ⚠️ ሴኪዩሪቲ: user_id ን ከ ፎርም (frontend) ከመቀበል ይልቅ ከ Telegram መረጃ ማውጣት ይመረጣል!
+    user_id = get_user_id_from_request()
+    
+    if not user_id or not amount:
+        return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
+    
+    try:
+        amount = float(amount)
+        if amount <= 0:
+            return jsonify({"status": "error", "message": "የተሳሳተ የገንዘብ መጠን"}), 400
+    except ValueError:
+        return jsonify({"status": "error", "message": "የገንዘብ መጠኑ ቁጥር መሆን አለበት"}), 400
 
+    # የደህንነት ቼክ እና የሒሳብ ቅነሳ
+    result = deduct_balance_safely(user_id, amount, "real")
+    
+    if result == "SUCCESS":
+        # ታሪክ ውስጥ መመዝገብ
+        add_to_history(user_id, {"action": "withdraw", "amount": amount, "status": "pending"})
+        return jsonify({"status": "success", "message": "የማውጣት ጥያቄዎ ተቀባይነት አግኝቷል"})
+    elif result == "INSUFFICIENT":
+        return jsonify({"status": "error", "message": "በቂ ገንዘብ የለዎትም"})
+    else:
+        return jsonify({"status": "error", "message": "በሲስተሙ ላይ ችግር አጋጥሟል፣ እባክዎ ትንሽ ቆይተው ይሞክሩ"})
 
+# ==========================================
+# 🚀 ሰርቨሩን ለማስነሳት
+# ==========================================
+if __name__ == '__main__':
+    # በ Render ወይም Heroku ላይ ፖርት አሳይን እንዲያደርግ
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
