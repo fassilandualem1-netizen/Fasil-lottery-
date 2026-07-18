@@ -45,7 +45,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 9999; /* ከሁሉም ነገር በላይ እንዲሆን */
+    z-index: 9999;
     transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
 }
 
@@ -405,4 +405,53 @@ body {
 
 .input-group input:focus {
     border-color: #4caf50;
+}
+
+/* ==========================================
+   ✨ ተጨማሪ የማሳመሪያ ኮዶች (UX Enhancements)
+   ========================================== */
+
+/* 1. የ Scrollbar ውበት (ለዘመናዊ ስልክ ስክሪኖች) */
+::-webkit-scrollbar {
+    width: 6px;
+}
+::-webkit-scrollbar-track {
+    background: var(--bg-color);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--border-glow);
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* 2. አዝራሮች ሲነኩ የብርሃን ለውጥ (Hover/Active Effect) */
+.btn:hover {
+    filter: brightness(1.2);
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.game-card:hover {
+    border-color: var(--text-muted);
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* 3. ሞዳል (Modal) ሲከፈት የጀርባው ክፍል እንዲደበዝዝ */
+.modal {
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+
+/* 4. የሞዳል መዝጊያ አዝራር ማሳመሪያ */
+.modal-close:hover {
+    color: white;
+    transform: rotate(90deg);
+    transition: 0.3s;
+}
+
+/* 5. ለInput Field መረጃ ሲገባ የሚያምር የ Focus ውጤት */
+.input-group input:focus {
+    box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
 }
