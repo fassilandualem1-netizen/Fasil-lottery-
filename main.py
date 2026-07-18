@@ -316,7 +316,7 @@ def handle_deposit():
     thread.start()
     return jsonify({"status": "success"})
 
-# --- WITHDRAW LOGIC (በፒን የተሻሻለ + 🚀 የተቆለፈ ስልክ ሲስተም የተጨመረበት) ---
+# --- WITHDRAW LOGIC (ፒን የሌለው + 🚀 የተቆለፈ ስልክ ሲስተም የተጨመረበት) ---
 @server.route('/api/withdraw', methods=['POST'])
 @telegram_auth_required
 def handle_withdraw():
@@ -332,13 +332,13 @@ def handle_withdraw():
     bank_name = data.get("bank_name", "")
     account_name = data.get("account_name", "")
 
-    # የዳታ ማረጋገጫዎች
+    # 1. የዳታ ማረጋገጫዎች
     if not user_id or amount <= 0: return jsonify({"status": "error", "message": "የጎደለ መረጃ"}), 400
     if bank_name not in ALLOWED_BANKS: return jsonify({"status": "error", "message": "እባክዎ ትክክለኛ ባንክ ይምረጡ"}), 400
     if not is_number_only(phone): return jsonify({"status": "error", "message": "ስልክ ቁጥር ቁጥር ብቻ መሆን አለበት"}), 400
     if not is_text_only(account_name): return jsonify({"status": "error", "message": "የአካውንት ስም ፊደል ብቻ መሆን አለበት"}), 400
 
-    # 🚀 አዲሱ የ Closed-Loop (Address Whitelisting) ሎጂክ 🚀
+    # 🚀 2. አዲሱ የ Closed-Loop (Address Whitelisting) ሎጂክ 🚀
     locked_phone_raw = redis.get(f"users:locked_phone:{user_id}")
     locked_phone = locked_phone_raw.decode('utf-8') if isinstance(locked_phone_raw, bytes) else str(locked_phone_raw) if locked_phone_raw else None
     
@@ -350,31 +350,34 @@ def handle_withdraw():
         # ተጠቃሚው ለመጀመሪያ ጊዜ እያወጣ ከሆነ፣ ስልኩን ለዘለቄታው እንቆልፈዋለን
         redis.set(f"users:locked_phone:{user_id}", phone)
 
-    # ተጠቃሚው በቂ ባላንስ እንዳለው ቼክ እናደርጋለን እንጂ አንቀንሰውም (deduct አናደርግም)
+    # 3. ባላንስ ቼክ ማድረግ
     balance_raw = redis.hget("users:balance", user_id)
     current_balance = float(balance_raw) if balance_raw else 0.0
     
     if amount > current_balance:
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም"}), 400
 
-    # 1. መረጃውን ለ 5 ደቂቃ በጊዜያዊነት Redis ላይ እናስቀምጣለን
-    withdraw_data = {
-        "user_name": user_name, "amount": amount, "phone": phone, 
-        "bank_name": bank_name, "account_name": account_name
-    }
-    redis.setex(f"temp_withdraw:{user_id}", 300, json.dumps(withdraw_data))
+    # 💸 4. ቀጥታ ማውጣት (NO PIN) - ብሩን ከባላንሱ ላይ እንቀንሳለን
+    new_balance = redis.hincrbyfloat("users:balance", user_id, -amount)
     
-    # 2. የተጠቃሚውን State ወደ ፒን መጠየቂያ እንቀይራለን
-    set_user_state(user_id, "waiting_for_withdraw_pin")
-    
-    # 3. ለተጠቃሚው ፒን እንዲያስገባ ሜሴጅ እንልካለን
+    # 📝 5. ሂስትሪ ላይ መመዝገብ (History Record)
+    import datetime
+    date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    history_entry = json.dumps({"type": "withdraw", "amount": amount, "date": date_str, "status": "pending"})
+    redis.lpush(f"users:history:{user_id}", history_entry)
+
+    # 📩 6. ለተጠቃሚው ቴሌግራም ላይ ማሳወቂያ መላክ
     try:
-        bot.send_message(user_id, f"💸 የ <b>{amount} ብር</b> ወጪ ጥያቄ ቀርቧል።\n\n🔒 ለማረጋገጥ እባክዎ የ 4 ዲጂት ፒንዎን ያስገቡ:", parse_mode="HTML")
+        success_msg = f"✅ የ <b>{amount} ብር</b> ወጪ ጥያቄዎ በተሳካ ሁኔታ ተቀብለናል!\n\n🏦 ባንክ: {bank_name}\n👤 አካውንት: {account_name}\n📱 ስልክ: {phone}\n\n⏳ ክፍያው በቅርቡ ይላክሎታል።"
+        bot.send_message(user_id, success_msg, parse_mode="HTML")
     except:
         pass
-        
-    # 4. ለ WebApp ስኬታማ መሆኑን እንነግረዋለን
-    return jsonify({"status": "success", "message": "እባክዎ ቴሌግራም ላይ ፒንዎን በማስገባት ያረጋግጡ!"})
+
+    # (አማራጭ: እዚህ ጋር ጥያቄውን ለአድሚኖች ግሩፕ የሚልክ ኮድህን መጨመር ትችላለህ)
+
+    # 7. ለ WebApp ስኬታማ መሆኑን መንገር
+    return jsonify({"status": "success", "message": "ጥያቄዎ በተሳካ ሁኔታ ተልኳል!"})
+
 
 
 # --- CALLBACK SYSTEM ---
