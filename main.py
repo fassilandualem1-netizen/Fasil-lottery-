@@ -85,16 +85,22 @@ def index():
 def get_balance():
     data = request.json or {}
     user_id = data.get("user_id")
-    game_mode = data.get("game_mode", "real")
-    if not user_id: return jsonify({"status": "error", "message": "Missing user_id"}), 400
+    
+    if not user_id: 
+        return jsonify({"status": "error", "message": "Missing user_id"}), 400
 
-    if game_mode == "demo":
-        balance_raw = redis.hget("users:demo_balance", user_id)
-        current_balance = float(balance_raw) if balance_raw else 10000.0
-    else:
-        balance_raw = redis.hget("users:balance", user_id)
-        current_balance = float(balance_raw) if balance_raw else 0.0
-    return jsonify({"status": "success", "balance": current_balance, "mode": game_mode})
+    # 🛡️ ደህንነት: ተጠቃሚው ከታገደ የባላንስ መረጃ እንዳያገኝ እንከለክለዋለን
+    if is_user_banned(user_id):
+        return jsonify({"status": "error", "message": "አካውንትዎ ታግዷል!"}), 403
+
+    # የ Real balance ብቻ ነው የሚመጣው
+    balance_raw = redis.hget("users:balance", user_id)
+    current_balance = float(balance_raw) if balance_raw else 0.0
+    
+    return jsonify({
+        "status": "success", 
+        "balance": current_balance
+    })
 
 @server.route('/api/get_user_history', methods=['POST'])
 @telegram_auth_required
