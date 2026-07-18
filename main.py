@@ -260,20 +260,19 @@ def get_balance():
         current_balance = float(balance_raw) if balance_raw else 0.0
     return jsonify({"status": "success", "balance": current_balance, "mode": game_mode})
 
-@server.route('/api/get_user_history', methods=['POST'])
+# 🚀 አዲስ የተጨመረ፡ የተቆለፈ ስልክ ካለ ወደ WebApp የሚልክ API
+@server.route('/api/get_locked_phone', methods=['POST'])
 @telegram_auth_required
-def get_user_history():
+def get_locked_phone():
     data = request.json or {}
     user_id = data.get("user_id")
-    if not user_id: return jsonify({"status": "error", "message": "Missing user_id"}), 400
-    try:
-        raw_history = redis.lrange(f"history:{user_id}", 0, -1) or []
-    except Exception as e:
-        if "WRONGTYPE" in str(e):
-            redis.delete(f"history:{user_id}")
-            raw_history = []
-        else: return jsonify({"status": "error", "message": "የዳታቤዝ ስህተት"}), 500
-    return jsonify({"status": "success", "history": [json.loads(item) for item in raw_history]})
+    if not user_id: 
+        return jsonify({"status": "error", "message": "Missing user_id"}), 400
+    
+    locked_phone_raw = redis.get(f"users:locked_phone:{user_id}")
+    locked_phone = locked_phone_raw.decode('utf-8') if isinstance(locked_phone_raw, bytes) else str(locked_phone_raw) if locked_phone_raw else None
+    
+    return jsonify({"status": "success", "locked_phone": locked_phone})
 
 # --- DEPOSIT LOGIC (Background Thread) ---
 def send_photo_background(user_name, user_id, amount, tx_id, photo_data):
@@ -317,7 +316,7 @@ def handle_deposit():
     thread.start()
     return jsonify({"status": "success"})
 
-# --- WITHDRAW LOGIC (በፒን የተሻሻለ) ---
+# --- WITHDRAW LOGIC (በፒን የተሻሻለ + 🚀 የተቆለፈ ስልክ ሲስተም የተጨመረበት) ---
 @server.route('/api/withdraw', methods=['POST'])
 @telegram_auth_required
 def handle_withdraw():
@@ -338,6 +337,18 @@ def handle_withdraw():
     if bank_name not in ALLOWED_BANKS: return jsonify({"status": "error", "message": "እባክዎ ትክክለኛ ባንክ ይምረጡ"}), 400
     if not is_number_only(phone): return jsonify({"status": "error", "message": "ስልክ ቁጥር ቁጥር ብቻ መሆን አለበት"}), 400
     if not is_text_only(account_name): return jsonify({"status": "error", "message": "የአካውንት ስም ፊደል ብቻ መሆን አለበት"}), 400
+
+    # 🚀 አዲሱ የ Closed-Loop (Address Whitelisting) ሎጂክ 🚀
+    locked_phone_raw = redis.get(f"users:locked_phone:{user_id}")
+    locked_phone = locked_phone_raw.decode('utf-8') if isinstance(locked_phone_raw, bytes) else str(locked_phone_raw) if locked_phone_raw else None
+    
+    if locked_phone:
+        # የተቆለፈ ስልክ ካለ፣ አሁን ፎርሙ ላይ ከገባው ስልክ ጋር 100% መመሳሰል አለበት!
+        if phone != locked_phone:
+            return jsonify({"status": "error", "message": f"🔒 የደህንነት ጥበቃ! ማውጣት የሚችሉት ወደ ተመዘገበው ስልክ ({locked_phone}) ብቻ ነው።"}), 403
+    else:
+        # ተጠቃሚው ለመጀመሪያ ጊዜ እያወጣ ከሆነ፣ ስልኩን ለዘለቄታው እንቆልፈዋለን
+        redis.set(f"users:locked_phone:{user_id}", phone)
 
     # ተጠቃሚው በቂ ባላንስ እንዳለው ቼክ እናደርጋለን እንጂ አንቀንሰውም (deduct አናደርግም)
     balance_raw = redis.hget("users:balance", user_id)
@@ -364,6 +375,7 @@ def handle_withdraw():
         
     # 4. ለ WebApp ስኬታማ መሆኑን እንነግረዋለን
     return jsonify({"status": "success", "message": "እባክዎ ቴሌግራም ላይ ፒንዎን በማስገባት ያረጋግጡ!"})
+
 
 # --- CALLBACK SYSTEM ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith("ok") or call.data.startswith("no"))
