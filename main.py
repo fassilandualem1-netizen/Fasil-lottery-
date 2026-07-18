@@ -41,6 +41,12 @@ server.register_blueprint(keno_bp)
 server.register_blueprint(virtual_sports_bp)
 server.register_blueprint(real_sports_bp)
 
+
+@server.route('/real_sports')
+def real_sports_page():
+    return render_template('real_sports.html')
+
+
 # --- VALIDATION HELPERS ---
 def is_text_only(text):
     return bool(re.match(r'^[a-zA-Z\u1200-\u137F\s\.]+$', text))
