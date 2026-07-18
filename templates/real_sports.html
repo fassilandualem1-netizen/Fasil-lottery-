@@ -1,1 +1,41 @@
-z
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>እግር ኳስ ውርርድ</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { background-color: #121212; color: white; font-family: Arial, sans-serif; padding-bottom: 150px; }
+        .match-card { background: #1e1e1e; margin: 10px; padding: 15px; border-radius: 8px; }
+        .teams { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px; }
+        .odds-container { display: flex; gap: 10px; }
+        .odd-btn { flex: 1; background: #333; color: white; border: 1px solid #444; padding: 10px; border-radius: 5px; cursor: pointer; text-align: center; }
+        .odd-btn.selected { background: #4CAF50; border-color: #4CAF50; }
+        
+        /* Bet Slip (ከስር የሚጣበቅ) */
+        .bet-slip { position: fixed; bottom: 0; left: 0; width: 100%; background: #222; border-top: 2px solid #ff9800; padding: 15px; box-sizing: border-box; }
+        .bet-slip input { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 5px; border: none; background: #333; color: white; }
+        .bet-slip button { width: 100%; padding: 12px; background: #ff9800; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <h2 style="text-align: center; color: #ff9800;">⚽️ እግር ኳስ</h2>
+    
+    <div id="matches-list">
+        <!-- ጨዋታዎች እዚህ በ JS ይገባሉ -->
+        <p style="text-align: center;">ጨዋታዎችን በማምጣት ላይ... ⏳</p>
+    </div>
+
+    <!-- Bet Slip -->
+    <div class="bet-slip">
+        <div>የተመረጡ ጨዋታዎች: <span id="slip-count">0</span> | አጠቃላይ ኦድ: <span id="slip-odds">1.00</span></div>
+        <div style="color: #4CAF50; margin-bottom: 5px;">ሊያሸንፉ የሚችሉት: <span id="possible-win">0.00</span> ብር</div>
+        <input type="number" id="bet-amount" placeholder="የብር መጠን ያስገቡ (ለምሳሌ 20)" min="10" oninput="updateBetSlip()">
+        <button onclick="placeBet()">ወራረድ (Bet)</button>
+    </div>
+
+    <script src="/static/js/real_sports.js"></script>
+</body>
+</html>
