@@ -559,15 +559,21 @@ function submitDeposit(e) {
   });
 }
 
-// የወጪ (Withdraw) ፎርም መላኪያ
+// የወጪ (Withdraw) ፎርም መላኪያ - የተስተካከለ
 function submitWithdraw(e) {
   e.preventDefault();
+  
+  // 🚀 ማሻሻያ፡ ሳጥኑ ተቆልፎም ቢሆን ቫልዩው እንዳይጠፋ ማረጋገጫ
   const bank = document.getElementById("wd-bank").value;
   const name = document.getElementById("wd-name").value;
   const phone = document.getElementById("wd-phone").value;
   const amount = parseFloat(document.getElementById("wd-amount").value);
 
-  // 🔥 የ Double Click መከላከያ (ልክ ፎርሙ ሲላክ በተኑን ይቆልፋል)
+  if (!bank || !name || !phone || !amount) {
+    alert("⚠️ እባክዎ ሁሉንም መረጃዎች በትክክል ይሙሉ!");
+    return;
+  }
+
   const submitBtn = e.target.querySelector('button') || document.querySelector('#withdraw-form button');
   let originalText = "";
   if (submitBtn) {
@@ -601,16 +607,16 @@ function submitWithdraw(e) {
     } else {
       alert("⚠️ ስህተት: " + data.message);
     }
-    // 🔄 ሲስተሙ ጨርሶ ስህተት ካመጣ በተኑን መልሶ መክፈት
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.innerText = originalText;
     }
+    // መረጃው መቆለፉን ለመቀጠል ፈንክሽኑን መልሰን እንጠራዋለን
+    checkLockedPhone();
   })
   .catch(err => {
     console.error(err);
     alert("የኔትወርክ ስህተት ገጥሟል!");
-    // 🔄 በኔትወርክ ስህተት ጊዜ በተኑን መልሶ መክፈት
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.innerText = originalText;
@@ -618,69 +624,47 @@ function submitWithdraw(e) {
   });
 }
 
-    // ውርርድ ማጠናቀቂያ (Place Bet)
-    let selectedMatch = null;
-    let selectedOdd = 1.00;
-    let selectedChoice = "";
+// ውርርድ ማጠናቀቂያ (Place Bet) - የተስተካከለ
+function submitBet() {
+  let amount = parseFloat(document.getElementById('bet-amount').value);
+  if (amount < 2) {
+    alert("⚠️ ዝቅተኛው የውርርድ መጠን 2 ETB ነው!");
+    return;
+  }
 
-    function selectMatchBet(matchName, chosenTeam, odd, choice) {
-      selectedMatch = matchName;
-      selectedOdd = odd;
-      selectedChoice = chosenTeam + " (" + choice + ")";
-
-      document.getElementById('slip-match-name').innerText = matchName;
-      document.getElementById('slip-choice').innerText = selectedChoice;
-      document.getElementById('slip-odd').innerText = odd;
-
-      calculateWin();
-      document.getElementById('betslip-panel').classList.remove('translate-y-full');
+  // 🚀 ከ Aviator Endpoint ወደ እውነተኛው ስፖርት ውርርድ Endpoint የተቀየረ (ለምሳሌ፡ /api/sports/bet)
+  // ማስታወሻ፡ በ Python Blueprint ላይ የሰጠኸውን Route ስም እዚህ ጋር አረጋግጥ!
+  fetch("/api/sports/bet", { 
+    method: "POST",
+    headers: { 
+        "Content-Type": "application/json",
+        "X-Telegram-Init-Data": initData 
+    },
+    body: JSON.stringify({
+      user_id: userId,
+      bet_amount: amount,
+      match_name: selectedMatch,  // የስፖርቱን ዳታ በትክክል ለመመዝገብ
+      choice: selectedChoice,
+      odd: selectedOdd,
+      game_mode: "real"
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === "success") {
+      alert("✅ ግምትዎ በተሳካ ሁኔታ ተመዝግቧል!\nየተመረጠ ጨዋታ: " + selectedMatch + "\nየተወራረደበት ብር: " + amount + " ETB");
+      updateUserBalance(); 
+      closeBetslip();
+    } else {
+      alert("⚠️ ውድቅ የተደረገበት ምክንያት: " + data.message);
     }
+  })
+  .catch(err => {
+    console.error(err);
+    alert("የሲስተም ስህተት ገጥሟል!");
+  });
+}
 
-    function calculateWin() {
-      let amount = parseFloat(document.getElementById('bet-amount').value) || 0;
-      let potential = amount * selectedOdd;
-      document.getElementById('potential-win').innerText = potential.toFixed(2) + " ETB";
-    }
-
-    function closeBetslip() {
-      document.getElementById('betslip-panel').classList.add('translate-y-full');
-    }
-
-    // የክፍያ ውርርዱን በፊዚካል ከባላንስ ላይ መቀነስ
-    function submitBet() {
-      let amount = parseFloat(document.getElementById('bet-amount').value);
-      if (amount < 2) {
-        alert("⚠️ ዝቅተኛው የውርርድ መጠን 2 ETB ነው!");
-        return;
-      }
-
-      fetch("/api/aviator/bet", { 
-        method: "POST",
-        headers: { 
-            "Content-Type": "application/json",
-            "X-Telegram-Init-Data": initData 
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          bet_amount: amount,
-          game_mode: "real"
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === "success") {
-          alert("✅ ግምትዎ በተሳካ ሁኔታ ተመዝግቧል!\nየተመረጠ ጨዋታ: " + selectedMatch + "\nየተወራረደበት ብር: " + amount + " ETB");
-          updateUserBalance(); 
-          closeBetslip();
-        } else {
-          alert("⚠️ ውድቅ የተደረገበት ምክንያት: " + data.message);
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        alert("የሲስተም ስህተት ገጥሟል!");
-      });
-    }
   </script>
 </body>
 </html>
