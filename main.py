@@ -129,7 +129,9 @@ def is_user_banned(user_id):
         return False
     return redis.sismember("banned_users", str(user_id))
 
-# --- DEPOSIT LOGIC ---
+# ==========================================
+# 💰 DEPOSIT LOGIC (የተስተካከለ)
+# ==========================================
 @server.route('/api/deposit', methods=['POST'])
 @telegram_auth_required
 def handle_deposit():
@@ -139,7 +141,13 @@ def handle_deposit():
         return jsonify({"status": "error", "message": "አካውንትዎ ታግዷል! መገልገያዎችን መጠቀም አይችሉም።"}), 403
 
     user_name = request.form.get("user_name", "የሰፈር ልጅ")
-    amount = float(request.form.get("amount", 0))
+    
+    # 🚀 1. የ Server Crash መከላከያ (ፊደል ከገባ)
+    try:
+        amount = float(request.form.get("amount", 0))
+    except ValueError:
+        return jsonify({"status": "error", "message": "የተሳሳተ የገንዘብ መጠን ነው"}), 400
+
     receipt_file = request.files.get("receipt")
     if not user_id or amount <= 0 or not receipt_file: 
         return jsonify({"status": "error", "message": "የጎደለ መረጃ አለ"}), 400
@@ -153,7 +161,10 @@ def handle_deposit():
     thread.start()
     return jsonify({"status": "success"})
 
-# --- WITHDRAW LOGIC (በፒን የተሻሻለ) ---
+
+# ==========================================
+# 💸 WITHDRAW LOGIC (የተስተካከለ - ያለ ፒን)
+# ==========================================
 @server.route('/api/withdraw', methods=['POST'])
 @telegram_auth_required
 def handle_withdraw():
@@ -164,7 +175,13 @@ def handle_withdraw():
         return jsonify({"status": "error", "message": "አካውንትዎ ታግዷል! መገልገያዎችን መጠቀም አይችሉም።"}), 403
 
     user_name = data.get("user_name", "የሰፈር ልጅ")
-    amount = float(data.get("amount", 0))
+    
+    # 🚀 2. የ Server Crash መከላከያ
+    try:
+        amount = float(data.get("amount", 0))
+    except ValueError:
+        return jsonify({"status": "error", "message": "የተሳሳተ የገንዘብ መጠን ነው"}), 400
+
     phone = str(data.get("phone", ""))
     bank_name = data.get("bank_name", "")
     account_name = data.get("account_name", "")
@@ -175,31 +192,67 @@ def handle_withdraw():
     if not is_number_only(phone): return jsonify({"status": "error", "message": "ስልክ ቁጥር ቁጥር ብቻ መሆን አለበት"}), 400
     if not is_text_only(account_name): return jsonify({"status": "error", "message": "የአካውንት ስም ፊደል ብቻ መሆን አለበት"}), 400
 
-    # ተጠቃሚው በቂ ባላንስ እንዳለው ቼክ እናደርጋለን እንጂ አንቀንሰውም (deduct አናደርግም)
+    # ባላንስ ማረጋገጥ
     balance_raw = redis.hget("users:balance", user_id)
     current_balance = float(balance_raw) if balance_raw else 0.0
     
     if amount > current_balance:
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም"}), 400
 
-    # 1. መረጃውን ለ 5 ደቂቃ በጊዜያዊነት Redis ላይ እናስቀምጣለን
-    withdraw_data = {
-        "user_name": user_name, "amount": amount, "phone": phone, 
-        "bank_name": bank_name, "account_name": account_name
+    # 🚀 3. Race Condition መከላከያ፦ አሁን ውልብ ሳይል ብሩን ቀድመን እንቀንሰዋለን
+    redis.hincrbyfloat("users:balance", user_id, -amount)
+
+    # 🚀 4. መረጃውን ቋሚ በሆነ መልኩ ለቀጣይ (One-time Setup) እናስቀምጠዋለን
+    withdraw_info = {
+        "bank_name": bank_name,
+        "account_name": account_name,
+        "phone": phone
     }
-    redis.setex(f"temp_withdraw:{user_id}", 300, json.dumps(withdraw_data))
+    save_user_withdraw_details(user_id, withdraw_info) # በ config.py ላይ ያለውን Helper ይጠቀማል
+
+    # ትራንዛክሽን እና ሂስቶሪ መመዝገብ
+    tx_id = "WD-" + str(uuid.uuid4())[:5]
+    withdraw_data = {
+        "user_id": user_id, "amount": amount, "type": "withdraw", "status": "pending",
+        "phone": phone, "bank_name": bank_name, "account_name": account_name
+    }
+    redis.set(f"tx:{tx_id}", json.dumps(withdraw_data))
+    add_to_history(user_id, {"tx_id": tx_id, "type": "ወጪ", "amount": amount, "status": "pending", "date": time.strftime("%Y-%m-%d %H:%M")})
     
-    # 2. የተጠቃሚውን State ወደ ፒን መጠየቂያ እንቀይራለን
-    set_user_state(user_id, "waiting_for_withdraw_pin")
+    # 🚀 5. ቀጥታ ለአድሚን Accept/Reject ማድረጊያ እንልካለን (ፒን ስለሌለ)
+    markup = InlineKeyboardMarkup()
+    markup.add(
+        InlineKeyboardButton("✅ አጽድቅ (ክፍያ ፈጸምኩ)", callback_data=f"ok|withdraw|{tx_id}|{user_id}|{amount}"),
+        InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"no|withdraw|{tx_id}|{user_id}|{amount}")
+    )
+    caption = f"💸 <b>አዲስ የወጪ (Withdraw) ጥያቄ</b>\n\n👤 ስም: {user_name}\n🆔 ID: <code>{user_id}</code>\n💰 መጠን: <b>{amount} ብር</b>\n\n🏦 ባንክ: <b>{bank_name}</b>\n💳 የባንክ ስም: <b>{account_name}</b>\n📱 አካውንት/ስልክ: <code>{phone}</code>"
     
-    # 3. ለተጠቃሚው ፒን እንዲያስገባ ሜሴጅ እንልካለን
     try:
-        bot.send_message(user_id, f"💸 የ <b>{amount} ብር</b> ወጪ ጥያቄ ቀርቧል።\n\n🔒 ለማረጋገጥ እባክዎ የ 4 ዲጂት ፒንዎን ያስገቡ:", parse_mode="HTML")
-    except:
+        bot.send_message(ADMIN_ID, caption, parse_mode="HTML", reply_markup=markup)
+    except Exception as e:
+        print("Admin message error:", e)
         pass
         
-    # 4. ለ WebApp ስኬታማ መሆኑን እንነግረዋለን
-    return jsonify({"status": "success", "message": "እባክዎ ቴሌግራም ላይ ፒንዎን በማስገባት ያረጋግጡ!"})
+    return jsonify({"status": "success", "message": "የወጪ ጥያቄዎ ለአድሚን ተልኳል። ክፍያው ሲፈጸም መልዕክት ይደርስዎታል!"})
+
+
+# ==========================================
+# 🔒 የተጠቃሚን መረጃ ለማምጣት (ለ Frontend Locked Phone ሎጂክ)
+# ==========================================
+@server.route('/api/get_withdraw_info', methods=['POST'])
+def api_get_withdraw_info():
+    data = request.json or {}
+    user_id = data.get("user_id")
+    if not user_id:
+        return jsonify({"status": "error", "message": "የጎደለ መረጃ"}), 400
+    
+    # ከ config.py ያመጣነውን ፈንክሽን እንጠቀማለን
+    info = get_user_withdraw_details(user_id)
+    if info:
+        return jsonify({"status": "success", "info": info})
+    else:
+        return jsonify({"status": "success", "info": None})
+
 
 # --- CALLBACK SYSTEM ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith("ok") or call.data.startswith("no"))
