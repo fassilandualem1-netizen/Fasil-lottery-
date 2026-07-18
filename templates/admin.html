@@ -12,7 +12,7 @@
 <body class="bg-gray-900 text-white p-4 font-sans selection:bg-blue-500">
 
     <div class="max-w-4xl mx-auto space-y-6">
-        
+
         <!-- Header -->
         <div class="flex items-center space-x-3 bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-md">
             <div class="bg-blue-600 p-3 rounded-lg"><i class="fa-solid fa-user-shield text-xl"></i></div>
@@ -20,7 +20,7 @@
                 <h1 class="text-xl font-bold">የኛ ቤት - መቆጣጠሪያ</h1>
                 <p class="text-gray-400 text-sm">ADMIN SYSTEM v3.0</p>
             </div>
-            <button onclick="fetchDashboardData()" class="ml-auto text-gray-400 hover:text-white"><i class="fa-solid fa-rotate-right"></i></button>
+            <button onclick="fetchDashboardData()" class="ml-auto text-gray-400 hover:text-white transition duration-200"><i class="fa-solid fa-rotate-right"></i></button>
         </div>
 
         <!-- 📊 Stats Grid (የሪፖርት ሰሌዳ) -->
@@ -43,26 +43,26 @@
             </div>
         </div>
 
-                <!-- ⚙️ Action Panel (እርምጃ መውሰጃ) -->
+        <!-- ⚙️ Action Panel (እርምጃ መውሰጃ) -->
         <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
             <h3 class="text-lg font-bold mb-5 border-b border-gray-700 pb-3">
                 <i class="fa-solid fa-users-gear mr-2 text-blue-400"></i>የተጠቃሚዎች መቆጣጠሪያ
             </h3>
-            
-            <!-- ዋናው ፎርም (ወደ ጎን የተሰለፈ) -->
+
+            <!-- ዋናው ፎርም -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                
-                <!-- 1. የ ID መሙያ ክፍል -->
+
+                <!-- 1. የ ID መሙያ ክፍል (ወደ tel እና inputmode ተቀይሯል ቁጥር እንዳይዛባ) -->
                 <div>
                     <label class="block text-gray-400 text-sm font-semibold mb-2">የተጠቃሚው ቴሌግራም ID</label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                             <i class="fa-solid fa-id-badge text-gray-500"></i>
                         </div>
-                        <input type="number" id="target-id" placeholder="ለምሳሌ: 12345678" class="w-full bg-gray-900 border border-gray-600 rounded-lg pl-10 p-3 text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-sm">
+                        <input type="tel" inputmode="numeric" pattern="[0-9]*" id="target-id" placeholder="ለምሳሌ: 12345678" class="w-full bg-gray-900 border border-gray-600 rounded-lg pl-10 p-3 text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-sm">
                     </div>
                 </div>
-                
+
                 <!-- 2. የብር ማስተካከያ ክፍል -->
                 <div>
                     <label class="block text-gray-400 text-sm font-semibold mb-2">የባላንስ ማስተካከያ (ብር)</label>
@@ -71,12 +71,12 @@
                             <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                                 <i class="fa-solid fa-money-bill text-gray-500"></i>
                             </div>
-                            <input type="number" id="amount-input" placeholder="መጠን (ለምሳሌ: 500)" class="w-full bg-gray-900 border border-gray-600 rounded-lg pl-10 p-3 text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-sm">
+                            <input type="number" id="amount-input" min="1" placeholder="መጠን (ለምሳሌ: 500)" class="w-full bg-gray-900 border border-gray-600 rounded-lg pl-10 p-3 text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-sm">
                         </div>
-                        <button onclick="submitAction('adjust_balance', 'add')" class="px-5 bg-green-600 hover:bg-green-500 rounded-lg font-bold text-sm transition shadow-sm flex items-center justify-center gap-2 whitespace-nowrap">
+                        <button onclick="submitAction('adjust_balance', 'add')" class="px-5 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-sm transition shadow-sm flex items-center justify-center gap-2 whitespace-nowrap">
                             <i class="fa-solid fa-plus"></i> ጨምር
                         </button>
-                        <button onclick="submitAction('adjust_balance', 'subtract')" class="px-5 bg-yellow-600 hover:bg-yellow-500 rounded-lg font-bold text-sm transition shadow-sm flex items-center justify-center gap-2 whitespace-nowrap text-gray-900">
+                        <button onclick="submitAction('adjust_balance', 'subtract')" class="px-5 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-sm transition shadow-sm flex items-center justify-center gap-2 whitespace-nowrap text-gray-900">
                             <i class="fa-solid fa-minus"></i> ቀንስ
                         </button>
                     </div>
@@ -86,15 +86,14 @@
 
             <!-- 3. የእገዳ ቁልፎች (Ban / Unban) -->
             <div class="flex flex-col sm:flex-row gap-4 pt-5 border-t border-gray-700">
-                <button onclick="submitAction('ban')" class="flex-1 bg-red-600 hover:bg-red-500 py-3 rounded-lg font-bold transition shadow-sm flex items-center justify-center text-white">
+                <button onclick="submitAction('ban')" class="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed py-3 rounded-lg font-bold transition shadow-sm flex items-center justify-center text-white">
                     <i class="fa-solid fa-user-slash mr-2"></i>ተጠቃሚውን እገድ
                 </button>
-                <button onclick="submitAction('unban')" class="flex-1 bg-gray-700 hover:bg-gray-600 py-3 rounded-lg font-bold transition shadow-sm flex items-center justify-center text-white">
+                <button onclick="submitAction('unban')" class="flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed py-3 rounded-lg font-bold transition shadow-sm flex items-center justify-center text-white">
                     <i class="fa-solid fa-user-check mr-2"></i>እገዳውን አንሳ
                 </button>
             </div>
         </div>
-
 
         <!-- 👥 Users Table (የተጠቃሚዎች ዝርዝር ሰንጠረዥ) -->
         <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
@@ -102,9 +101,9 @@
                 <h3 class="text-lg font-bold"><i class="fa-solid fa-list mr-2"></i>የደንበኞች ዝርዝር</h3>
                 <h3 class="text-sm text-gray-400">በደንበኞች እጅ ያለ አጠቃላይ ብር: <span id="stat-total-user-balance" class="font-bold text-white">0.00 ETB</span></h3>
             </div>
-            
+
             <!-- ፍለጋ -->
-            <input type="text" id="search-input" onkeyup="filterUsers()" placeholder="በ ID ይፈልጉ..." class="w-full mb-4 bg-gray-900 border border-gray-600 rounded-lg p-2 text-white outline-none focus:border-blue-500">
+            <input type="text" id="search-input" onkeyup="filterUsers()" placeholder="በ ID ይፈልጉ..." class="w-full mb-4 bg-gray-900 border border-gray-600 rounded-lg p-2 text-white outline-none focus:border-blue-500 transition">
 
             <div class="overflow-x-auto h-64 overflow-y-auto rounded-lg border border-gray-700">
                 <table class="w-full text-left text-sm text-gray-300">
@@ -126,26 +125,31 @@
 
     <!-- ጃቫስክሪፕት እና ሎጂክ -->
     <script>
-        // ቴሌግራም መታወቂያን ማግኘት
-        const initData = window.Telegram.WebApp.initDataUnsafe;
-        const myAdminId = initData.user ? initData.user.id : "LOCAL_TEST";
+        // 🚀 የደህንነት ማሻሻያ፡ ትክክለኛውን የተመሰጠረውን ቶከን እና የአድሚን ID እንይዛለን
+        const tg = window.Telegram.WebApp;
+        const initData = tg.initData; 
+        const myAdminId = tg.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : "LOCAL_TEST";
 
-        // ገጹ ሲከፈት ዳታውን ያመጣል
+        // ገጹ ሲከፈት ዌብ አፑን ማስፋት እና ዳታውን ማምጣት
         window.onload = () => {
+            tg.expand();
             fetchDashboardData();
         };
 
-        // የዳሽቦርድ ዳታ ሰብሳቢ
+        // የዳሽቦርድ ዳታ ሰብሳቢ - ከደህንነት ቶከን ማረጋገጫ ጋር
         async function fetchDashboardData() {
             try {
                 const res = await fetch('/api/admin/get_dashboard_data', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Init-Data': initData // 🔥 ባክኤንድ ላይ አድሚን መሆንህን የሚያረጋግጥበት ቶከን
+                    },
                     body: JSON.stringify({ admin_id: myAdminId })
                 });
-                
+
                 const data = await res.json();
-                
+
                 if(data.status === 'success') {
                     // ቁጥሮችን መሙላት
                     document.getElementById('stat-total-users').innerText = data.stats.total_users;
@@ -168,7 +172,7 @@
                         tbody.appendChild(tr);
                     });
                 } else {
-                    alert(data.message);
+                    tg.showAlert("⚠️ ስህተት: " + data.message);
                 }
             } catch(e) {
                 console.error("Error fetching data", e);
@@ -193,41 +197,71 @@
             }
         }
 
-        // እርምጃ መውሰጃ (Ban, Unban, Adjust)
+        // እርምጃ መውሰጃ (Ban, Unban, Adjust) - ከተጨማሪ የደህንነት ጥበቃ ጋር
         async function submitAction(actionType, adjustMode = 'add') {
             const targetId = document.getElementById('target-id').value;
-            let amount = document.getElementById('amount-input').value;
+            let amountInput = document.getElementById('amount-input').value;
 
-            if(!targetId) return alert("እባክዎ የተጠቃሚውን ID ያስገቡ!");
+            if(!targetId) {
+                tg.showAlert("⚠️ እባክዎ መጀመሪያ የተጠቃሚውን የቴሌግራም ID ያስገቡ!");
+                return;
+            }
 
+            let finalAmount = null;
             if(actionType === 'adjust_balance') {
-                if(!amount) return alert("እባክዎ የብር መጠን ያስገቡ!");
-                amount = parseFloat(amount);
-                if(adjustMode === 'subtract') amount = -amount; // ሲቀነስ ኔጌቲቭ እናደርገዋለን
+                if(!amountInput) {
+                    tg.showAlert("⚠️ እባክዎ የብር መጠን ያስገቡ!");
+                    return;
+                }
+                // 🚀 የሒሳብ ማስተካከያ፡ አድሚኑ በስህተት ኔጌቲቭ ቁጥር ቢጽፍ እንኳን ወደ ፖዘቲቭ እንቀይረዋለን (Math.abs)
+                let rawAmount = Math.abs(parseFloat(amountInput));
+                if (isNaN(rawAmount) || rawAmount <= 0) {
+                    tg.showAlert("⚠️ እባክዎ ትክክለኛ ቁጥር ያስገቡ!");
+                    return;
+                }
+                finalAmount = adjustMode === 'subtract' ? -rawAmount : rawAmount;
+            }
+
+            // 🚀 የ Double-Click መከላከያ፡ የነካነውን በተን ለጊዜው መቆለፍ
+            const clickedButton = event ? event.currentTarget : null;
+            let originalText = "";
+            if (clickedButton) {
+                originalText = clickedButton.innerHTML;
+                clickedButton.disabled = true;
+                clickedButton.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> በመላክ ላይ...`;
             }
 
             try {
                 const res = await fetch('/api/admin/user_action', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Init-Data': initData // 🔥 የአድሚንነት ማረጋገጫ ቶከን
+                    },
                     body: JSON.stringify({
                         admin_id: myAdminId,
                         target_user_id: targetId,
                         action: actionType,
-                        amount: amount
+                        amount: finalAmount
                     })
                 });
 
                 const data = await res.json();
                 if(data.status === 'success') {
-                    window.Telegram.WebApp.showAlert(data.message);
+                    tg.showAlert("✅ " + data.message);
                     document.getElementById('amount-input').value = ""; // ሳጥኑን ማጽዳት
-                    fetchDashboardData(); // ዳታውን ሪፍሬሽ ማድረግ
+                    fetchDashboardData(); // የሰንጠረዡን መረጃ ማደስ
                 } else {
-                    window.Telegram.WebApp.showAlert(data.message);
+                    tg.showAlert("⚠️ ውድቅ የተደረገበት ምክንያት: " + data.message);
                 }
             } catch(e) {
-                alert("የሲስተም ስህተት ተፈጥሯል");
+                tg.showAlert("❌ የሲስተም ስህተት ተፈጥሯል። እባክዎ ኔትወርክዎን ቼክ ያድርጉ!");
+            } finally {
+                // 🔄 በተኑን መልሶ መክፈት
+                if (clickedButton) {
+                    clickedButton.disabled = false;
+                    clickedButton.innerHTML = originalText;
+                }
             }
         }
     </script>
