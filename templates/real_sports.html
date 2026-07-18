@@ -45,74 +45,40 @@
     let selectedBets = {};
 
     // 1. ጨዋታዎችን ማምጣት
-    async function fetchMatches() {
+        async function fetchMatches() {
+        console.log("ጨዋታዎችን በመጠየቅ ላይ..."); // ይህንን በConsole ታያለህ
         try {
             const res = await fetch('/api/sports/matches');
+            console.log("የAPI መልስ ደርሷል");
+            
             const data = await res.json();
+            console.log("የተገኘ ዳታ:", data); // ዳታው ከመጣ እዚህ ይታያል
+
             const list = document.getElementById("matches-list");
-            list.innerHTML = "";
+            if (!list) {
+                console.error("ስህተት: matches-list የሚባል element አልተገኘም!");
+                return;
+            }
+            
+            list.innerHTML = ""; // የጫኑ ጽሁፉን እናጠፋለን
+
+            if (!data.matches || data.matches.length === 0) {
+                list.innerHTML = "<p class='text-center text-gray-500'>ምንም ጨዋታ አልተገኘም</p>";
+                return;
+            }
 
             data.matches.forEach(m => {
-                const matchId = m.fixture.id;
-                const home = m.teams.home.name;
-                const away = m.teams.away.name;
-                const odds = m.odds;
-
-                list.innerHTML += `
-                <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg">
-                  <div class="text-[10px] text-gray-500 font-bold mb-2">⚽ PREMIER LEAGUE</div>
-                  <div class="text-xs font-black text-white mb-3">${home} V ${away}</div>
-                  <div class="grid grid-cols-3 gap-2">
-                    <button id="btn-${matchId}-home" onclick="selectOdd(${matchId}, 'home', ${odds.home})" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center">
-                        <span class="text-[9px] text-gray-500">1</span><span class="text-yellow-400 font-bold text-xs">${odds.home}</span>
-                    </button>
-                    <button id="btn-${matchId}-draw" onclick="selectOdd(${matchId}, 'draw', ${odds.draw})" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center">
-                        <span class="text-[9px] text-gray-500">X</span><span class="text-yellow-400 font-bold text-xs">${odds.draw}</span>
-                    </button>
-                    <button id="btn-${matchId}-away" onclick="selectOdd(${matchId}, 'away', ${odds.away})" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center">
-                        <span class="text-[9px] text-gray-500">2</span><span class="text-yellow-400 font-bold text-xs">${odds.away}</span>
-                    </button>
-                  </div>
-                </div>`;
+                // ... (የቀድሞው ዲዛይን ኮድ እዚህ ይቀጥላል) ...
+                // ለምሳሌ፡
+                list.innerHTML += `<div class="p-4 bg-gray-800 text-white rounded mb-2">${m.teams.home.name} V ${m.teams.away.name}</div>`;
             });
-        } catch (e) { list.innerHTML = "<p class='text-center text-red-500'>ችግር ተፈጥሯል!</p>"; }
-    }
+            console.log("ጨዋታዎች በስኬት ተጭነዋል");
 
-    function selectOdd(mId, pick, odd) {
-        if (selectedBets[mId] && selectedBets[mId].pick === pick) {
-            delete selectedBets[mId];
-            document.getElementById(`btn-${mId}-${pick}`).classList.replace("bg-yellow-600", "bg-gray-900");
-        } else {
-            selectedBets[mId] = { matchId: mId, pick: pick, odd: odd };
-            document.getElementById(`btn-${mId}-${pick}`).classList.replace("bg-gray-900", "bg-yellow-600");
+        } catch (e) {
+            console.error("የስህተት ዝርዝር:", e); // ዋናው ችግር እዚህ ይታያል
+            document.getElementById("matches-list").innerHTML = "<p class='text-center text-red-500'>ስህተት ተፈጥሯል: " + e.message + "</p>";
         }
-        updateBetSlip();
     }
-
-    function updateBetSlip() {
-        let count = Object.keys(selectedBets).length;
-        let totalOdds = 1;
-        for (let id in selectedBets) totalOdds *= selectedBets[id].odd;
-        
-        document.getElementById("slip-count").innerText = count;
-        document.getElementById("slip-odds").innerText = totalOdds.toFixed(2);
-        document.getElementById("possible-win").innerText = (parseFloat(document.getElementById("bet-amount").value || 0) * totalOdds).toFixed(2);
-        document.getElementById("bet-slip-container").style.display = count > 0 ? "block" : "none";
-    }
-
-    async function placeBet() {
-        const amount = document.getElementById("bet-amount").value;
-        const response = await fetch('/api/sports/place_bet', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData},
-            body: JSON.stringify({ user_id: userId, bet_amount: amount, selections: Object.values(selectedBets) })
-        });
-        const data = await response.json();
-        alert(data.message);
-        if(data.status === "success") window.location.reload();
-    }
-
-    fetchMatches();
   </script>
 </body>
 </html>
