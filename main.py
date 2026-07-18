@@ -59,186 +59,34 @@ ALLOWED_BANKS = ["CBE", "Telebirr", "Awash", "Abyssinia"]
 
 
 # ==========================================
-# 🚀 የተጠቃሚ መግቢያ (Start & PIN Setup)
+# 🚀 የተጠቃሚ መግቢያ (Start - ያለ ፒን)
 # ==========================================
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    user_id = message.from_user.id
-    
-    # ተጠቃሚው ፒን አለው ወይ ብለን ቼክ እናደርጋለን
-    existing_pin = get_user_pin(user_id)
-    
-    if not existing_pin:
-        # ፒን ከሌለው State ወደ 'waiting_for_pin_1' እንቀይራለን
-        set_user_state(user_id, "waiting_for_pin_1")
-        
-        bot.send_message(
-            message.chat.id, 
-            "👋 እንኳን በደህና መጡ!\n\n🔒 ለገንዘብ ደህንነትዎ እባክዎ አዲስ ባለ 4 ዲጂት ፒን ይፍጠሩ (ቁጥር ብቻ ይላኩ):"
-        )
-    else:
-        # ፒን ካለው ቀጥታ ወደ ጌም ወይም ዋናው ሜኑ ይገባል
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("🎮 ጌም ጀምር (Play)", web_app=WebAppInfo(url=WEB_APP_URL)))
-        
-        bot.send_message(
-            message.chat.id,
-            "👋 እንኳን ወደ የኛ ቤት በድጋሚ መጡ!\nከታች ያለውን በተን ተጭነው መጫወት ይችላሉ።",
-            reply_markup=markup
-        )
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("🎮 ጌም ጀምር (Play)", web_app=WebAppInfo(url=WEB_APP_URL)))
 
+    bot.send_message(
+        message.chat.id,
+        "👋 እንኳን ወደ የኛ ቤት በሰላም መጡ!\n\nከታች ያለውን በተን ተጭነው መጫወት እና ማሸነፍ ይችላሉ።",
+        reply_markup=markup
+    )
 
 
 # ==========================================
-# 🛡️ አጠቃላይ የሜሴጅ እና የፒን መቆጣጠሪያ (Message Handler)
+# 🛡️ አጠቃላይ የሜሴጅ መቆጣጠሪያ 
 # ==========================================
-
-# 👇 እዚህ ጋ 'not message.text.startswith('/')' የሚለውን ጨምረናል 👇
 @bot.message_handler(func=lambda message: message.text and not message.text.startswith('/'))
 def handle_all_text_messages(message):
-    user_id = message.from_user.id
-    text = message.text.strip()
-    chat_id = message.chat.id
-    message_id = message.message_id
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("🎮 ጌም ጀምር (Play)", web_app=WebAppInfo(url=WEB_APP_URL)))
     
-    # ተጠቃሚው በአሁን ሰዓት ምን እየጠበቀ እንደሆነ ቼክ እናደርጋለን
-    state = get_user_state(user_id)
-    
-    # የተቀረው ኮድህ እንዳለ ይቀጥላል...
-
-    # -----------------------------------------
-    # 1. አዲስ ፒን እየፈጠረ ከሆነ (ደረጃ 1)
-    # -----------------------------------------
-    if state == "waiting_for_pin_1":
-        # 🔒 ደህንነት: ተጠቃሚው የላከውን ፒን የያዘ ሜሴጅ ወዲያውኑ እናጠፋለን
-        try: bot.delete_message(chat_id, message_id)
-        except: pass
-        
-        # ፒኑ ባለ 4 ዲጂት ቁጥር መሆኑን ማረጋገጥ
-        if not text.isdigit() or len(text) != 4:
-            bot.send_message(chat_id, "⚠️ ስህተት! እባክዎ ትክክለኛ ባለ 4 ዲጂት ቁጥር ብቻ ያስገቡ (ለምሳሌ: 1234):")
-            return
-            
-        # ቁጥሩ ትክክል ከሆነ በጊዜያዊነት (Temp) እናስቀምጠዋለን
-        redis.setex(f"temp_pin:{user_id}", 900, text)
-        
-        # State ወደ ማረጋገጫ (ደረጃ 2) እንቀይራለን
-        set_user_state(user_id, "waiting_for_pin_2")
-        bot.send_message(chat_id, "✅ ጥሩ! ለማረጋገጥ እባክዎ ፒንዎን እንደገና ይጻፉት:")
-        
-        # -----------------------------------------
-    # 2. ፒኑን እያረጋገጠ ከሆነ (ደረጃ 2)
-    # -----------------------------------------
-    elif state == "waiting_for_pin_2":
-        # 🔒 ደህንነት: ይሄኛውንም ሜሴጅ ወዲያውኑ እናጠፋለን
-        try: bot.delete_message(chat_id, message_id)
-        except: pass
-        
-        # መጀመሪያ ያስገባውን ጊዜያዊ ፒን ከዳታቤዝ እናመጣለን
-        temp_pin_raw = redis.get(f"temp_pin:{user_id}")
-        
-        # ስህተቱን ያስወገደው ትክክለኛ ኮድ
-        temp_pin = str(temp_pin_raw) if temp_pin_raw else None
-        
-        if text == temp_pin:
-            # ፒኖቹ ከተመሳሰሉ በቋሚነት ሴቭ እናደርጋለን
-            save_user_pin(user_id, text)
-            
-            # ስራ ስለጨረሰ State እና ጊዜያዊ ፒኑን እናጸዳለን
-            clear_user_state(user_id)
-            redis.delete(f"temp_pin:{user_id}")
-            
-            markup = InlineKeyboardMarkup()
-            markup.add(InlineKeyboardButton("🎮 ጌም ጀምር (Play)", web_app=WebAppInfo(url=WEB_APP_URL)))
-            bot.send_message(
-                chat_id, 
-                "🎉 ፒንዎ በተሳካ ሁኔታ ተፈጥሯል!\n\n(ፒንዎ የሚጠየቁት ገንዘብ ወጪ ሲያደርጉ ብቻ ነው)\nከታች ያለውን በተን በመጫን መጫወት መጀመር ይችላሉ።", 
-                reply_markup=markup
-            )
-        else:
-            # ካልተመሳሰሉ ወደ መጀመሪያው እንመልሰዋለን
-            set_user_state(user_id, "waiting_for_pin_1")
-            bot.send_message(chat_id, "❌ ፒኑ አልተመሳሰለም! እባክዎ አዲስ ባለ 4 ዲጂት ፒን ከመጀመሪያው ይፍጠሩ:")
-
-
-    # -----------------------------------------
-    # 3. የገንዘብ ማውጣት ፒን እያረጋገጠ ከሆነ
-    # -----------------------------------------
-    elif state == "waiting_for_withdraw_pin":
-        # 🔒 ደህንነት: የፒን ሜሴጁን ወዲያው እናጠፋዋለን
-        try: bot.delete_message(chat_id, message_id)
-        except: pass
-        
-        # ትክክለኛውን ፒን ከዳታቤዝ እናመጣለን
-        saved_pin = get_user_pin(user_id)
-        
-        if text == saved_pin:
-            # ፒኑ ትክክል ነው! የክፍያ መረጃውን ከጊዜያዊ ዳታቤዙ እናወጣለን
-            wd_data_raw = redis.get(f"temp_withdraw:{user_id}")
-            if not wd_data_raw:
-                bot.send_message(chat_id, "⚠️ የጥያቄው ጊዜ (5 ደቂቃ) አልፏል ወይም ተሰርዟል። እባክዎ እንደገና ከ WebApp ላይ ይሞክሩ።")
-                clear_user_state(user_id)
-                return
-                
-            wd_data = json.loads(wd_data_raw)
-            amount = wd_data["amount"]
-            
-            # አሁን ባላንሱን እንቀንሳለን (Deduct እናደርጋለን)
-            deduct_status = deduct_balance_safely(user_id, amount, "real")
-            if deduct_status == "INSUFFICIENT":
-                bot.send_message(chat_id, "❌ በቂ ባላንስ የለዎትም!")
-                clear_user_state(user_id)
-                return
-                
-            # ትራንዛክሽን ሪከርድ እንፈጥራለን
-            tx_id = str(uuid.uuid4())[:8]
-            redis.set(f"tx:{tx_id}", json.dumps({"user_id": user_id, "amount": amount, "type": "withdraw", "status": "pending"}))
-            add_to_history(user_id, {"tx_id": tx_id, "type": "ወጪ", "amount": amount, "status": "pending", "date": time.strftime("%Y-%m-%d %H:%M")})
-            
-            # ለአድሚን ጥያቄውን እንልካለን
-            markup = InlineKeyboardMarkup()
-            markup.add(
-                InlineKeyboardButton("✅ ተከፍሏል", callback_data=f"ok|withdraw|{tx_id}|{user_id}|{amount}"),
-                InlineKeyboardButton("❌ ሰርዝ", callback_data=f"no|withdraw|{tx_id}|{user_id}|{amount}")
-            )
-            msg = f"💸 <b>አዲስ Withdraw ጥያቄ (ፒን የተረጋገጠ)</b>\n\n👤 ስም: {wd_data['user_name']}\n🏦 ባንክ: {wd_data['bank_name']}\n👤 የአካውንት ስም: {wd_data['account_name']}\n💳 ስልክ/አካውንት: <code>{wd_data['phone']}</code>\n💰 መጠን: <b>{amount} ብር</b>"
-            bot.send_message(ADMIN_ID, msg, reply_markup=markup, parse_mode="HTML")
-            
-            # ለተጠቃሚው ማረጋገጫ እንልካለን
-            bot.send_message(chat_id, f"✅ የ <b>{amount} ብር</b> ወጪ ጥያቄዎ በተሳካ ሁኔታ ተረጋግጧል! ክፍያው ሲፈጸም መልእክት ይደርሶታል።", parse_mode="HTML")
-            
-            # ስራ ስለጨረስን State እና ጊዜያዊ ዳታውን እናጠፋለን
-            clear_user_state(user_id)
-            redis.delete(f"temp_withdraw:{user_id}")
-            
-        else:
-            # ፒኑ ከተሳሳተ
-            bot.send_message(chat_id, "❌ የተሳሳተ ፒን! እባክዎ ትክክለኛውን ፒን እንደገና ያስገቡ:")
-            # State አንቀይርም፣ ተጠቃሚው እንደገና እንዲሞክር እንጠብቀዋለን
-
-
-
-# -----------------------------------------
-# 4. የፒን መጥፋት (Forgot PIN) - ስልክ ቁጥር ሲያጋራ
-# -----------------------------------------
-@bot.message_handler(content_types=['contact'])
-def handle_contact(message):
-    user_id = message.from_user.id
-    state = get_user_state(user_id)
-    
-    # ተጠቃሚው "ፒን ረሳሁ" ብሎ በሂደት ላይ ከሆነ
-    if state == "waiting_for_contact":
-        contact_phone = message.contact.phone_number
-        # እዚህ ጋር የተላከውን ስልክ ቁጥር ከዳታቤዝ ጋር ማነፃፀር ትችላለህ
-        # ለምሳሌ: የተጠቃሚው ስልክ ዳታቤዝ ላይ ካለ
-        # (አንተ ጋር የተጠቃሚው ስልክ Redis ላይ ካለ እዚህ ያንን ቼክ ታደርጋለህ)
-        
-        # ስኬታማ ከሆነ ወደ አዲስ ፒን መፍጠሪያ እንወስደዋለን
-        set_user_state(user_id, "waiting_for_pin_1")
-        bot.send_message(message.chat.id, "✅ ማንነትዎ ተረጋግጧል! አሁን አዲስ ባለ 4 ዲጂት ፒን ይፍጠሩ:")
-    else:
-        bot.send_message(message.chat.id, "⚠️ አሁን ይህንን ማድረግ አይጠበቅብዎትም።")
-
+    # ፒን ሲስተም ስለጠፋ፣ ተጠቃሚው ሌላ ጽሁፍ ከጻፈ ወደ ጌሙ እንመልሰዋለን
+    bot.send_message(
+        message.chat.id, 
+        "⚠️ እባክዎ ጌሙን ለመጫወት እና ገንዘብ ወጪ ለማድረግ ከታች ያለውን በተን ይጠቀሙ።",
+        reply_markup=markup
+    )
 
 # --- ROUTES ---
 @server.route('/')
