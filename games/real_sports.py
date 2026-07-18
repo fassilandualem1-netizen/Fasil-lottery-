@@ -14,7 +14,6 @@ real_sports_bp = Blueprint('real_sports', __name__)
 API_KEY = os.environ.get("API_FOOTBALL_KEY")
 API_HOST = "v3.football.api-sports.io"
 
-
 # =========================================
 # 1. ኦድ (Odds) ለማምጣት
 # =========================================
@@ -46,6 +45,7 @@ def get_odds():
         }
 
         fixtures_dict = {}
+        # ጨዋታዎቹን (Fixtures) ማምጣት
         for d in target_dates:
             url_fixtures = "https://v3.football.api-sports.io/fixtures"
             params_fixtures = {"date": d, "timezone": "Africa/Addis_Ababa"}
@@ -64,60 +64,71 @@ def get_odds():
                 }
 
         real_matches = []
+        # ኦዶችን (Odds) በገጽ (Pagination) ማምጣት
         for d in target_dates:
-            url_odds = "https://v3.football.api-sports.io/odds"
-            params_odds = {
-                "date": d,
-                "bet": 1 
-            }
-            response_odds = requests.get(url_odds, headers=headers, params=params_odds, timeout=10)
+            for page in range(1, 4):  # የመጀመሪያዎቹን 3 ገፆች ይፈልጋል
+                url_odds = "https://v3.football.api-sports.io/odds"
+                params_odds = {
+                    "date": d,
+                    "bet": 1,
+                    "bookmaker": 8, # Bet365 - ትክክለኛ የ 1x2 ኦድ ስለሚሰጥ
+                    "page": page
+                }
+                response_odds = requests.get(url_odds, headers=headers, params=params_odds, timeout=10)
 
-            if response_odds.status_code != 200:
-                print(f"API Odds Error for {d}: {response_odds.text}")
-                continue
+                if response_odds.status_code != 200:
+                    print(f"API Odds Error for {d} page {page}: {response_odds.text}")
+                    break
 
-            odds_data = response_odds.json().get('response', [])
+                res_json = response_odds.json()
+                odds_data = res_json.get('response', [])
 
-            for item in odds_data:
-                fixture_id = item['fixture']['id']
+                # በዚህ ገጽ ላይ ምንም ዳታ ከሌለ ቀጣዩን መፈለግ ያቆማል
+                if not odds_data:
+                    break 
 
-                if fixture_id not in fixtures_dict:
-                    continue
+                for item in odds_data:
+                    fixture_id = item['fixture']['id']
 
-                fixture_info = fixtures_dict[fixture_id]
+                    if fixture_id not in fixtures_dict:
+                        continue
 
-                if not item['bookmakers'] or not item['bookmakers'][0]['bets']:
-                    continue
+                    fixture_info = fixtures_dict[fixture_id]
 
-                bets = item['bookmakers'][0]['bets'][0]['values']
-                odds_dict = {}
+                    if not item['bookmakers'] or not item['bookmakers'][0]['bets']:
+                        continue
 
-                for bet in bets:
-                    val = bet['value']
-                    odd = float(bet['odd'])
-                    if val == "Home": odds_dict["home"] = odd
-                    elif val == "Draw": odds_dict["draw"] = odd
-                    elif val == "Away": odds_dict["away"] = odd
+                    bets = item['bookmakers'][0]['bets'][0]['values']
+                    odds_dict = {}
 
-                if "home" in odds_dict and "away" in odds_dict:
-                    real_matches.append({
-                        "fixture": {
-                            "id": fixture_id,
-                            "teams": fixture_info["teams"],
-                            "league": fixture_info["league"],
-                            "time": fixture_info["time"]
-                        },
-                        "odds": odds_dict
-                    })
+                    for bet in bets:
+                        val = bet['value']
+                        odd = float(bet['odd'])
+                        if val == "Home": odds_dict["home"] = odd
+                        elif val == "Draw": odds_dict["draw"] = odd
+                        elif val == "Away": odds_dict["away"] = odd
+
+                    if "home" in odds_dict and "away" in odds_dict:
+                        real_matches.append({
+                            "fixture": {
+                                "id": fixture_id,
+                                "teams": fixture_info["teams"],
+                                "league": fixture_info["league"],
+                                "time": fixture_info["time"]
+                            },
+                            "odds": odds_dict
+                        })
+
+                    # 50 ጨዋታዎች ከሞሉ ይበቃል
+                    if len(real_matches) >= 50:
+                        break
 
                 if len(real_matches) >= 50:
                     break
 
-            if len(real_matches) >= 50:
-                break
-
         if len(real_matches) > 0:
-            redis.setex(cache_key, 3600, json.dumps(real_matches))
+            # ⚠️ የAPI ገደብ እንዳያልቅ፣ ዳታውን ለ 6 ሰዓታት (21600 ሰከንድ) Cache እናደርገዋለን
+            redis.setex(cache_key, 21600, json.dumps(real_matches))
         else:
             print("Warning: No matches with odds found for today/tomorrow.")
 
