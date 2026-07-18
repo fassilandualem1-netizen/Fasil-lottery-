@@ -299,32 +299,41 @@ def get_dashboard_data():
     data = request.json or {}
     admin_id = str(data.get("admin_id"))
 
-    # የገባው ሰው አድሚን መሆኑን ማረጋገጫ
+    # 1. ጥብቅ የደህንነት ማረጋገጫ (አድሚን ካልሆነ በፍጹም አያስገባም)
     if admin_id != str(ADMIN_ID): 
         return jsonify({"status": "error", "message": "ያልተፈቀደ የደህንነት ጥሰት ሙከራ!"}), 403
 
-    # የሁሉንም ተጠቃሚዎች ባላንስ በአንዴ ማምጣት
+    # 2. የተጠቃሚዎችን ባላንስ ከ Redis ማምጣት
     balances_raw = redis.hgetall("users:balance")
 
     users_list = []
     total_system_balance = 0.0
 
     for uid_raw, bal_raw in balances_raw.items():
-        # ዳታው በ string ከመጣ ቀጥታ ይጠቀማል፣ በ bytes ከመጣ ደግሞ decode ያደርጋል
         uid = uid_raw.decode('utf-8') if isinstance(uid_raw, bytes) else str(uid_raw)
         bal = float(bal_raw.decode('utf-8') if isinstance(bal_raw, bytes) else bal_raw)
-
+        
         users_list.append({"user_id": uid, "balance": bal})
         total_system_balance += bal
 
-    total_users = len(users_list)
+    # 3. 🌟 ትክክለኛው የጠቅላላ ተጠቃሚዎች ቆጠራ 🌟
+    # (ይህ ቦቱን start ያደረገውን ሁሉ ይቆጥራል)
+    total_users = redis.scard("all_users") 
+    
+    # ምናልባት ማንም start አላደረገም ብሎ 0 ካመጣ፣ ባላንስ ያላቸውን ሰዎች ብዛት እንዲወስድ 
+    if total_users == 0:
+        total_users = len(users_list)
+
     banned_users_count = redis.scard("banned_users")
 
-    # ገቢ፣ ወጪ እና የተጣራ ትርፍ
+    # 4. ጠቅላላ ገቢ፣ ወጪ እና የተጣራ ትርፍ ስሌት
     total_dep = float(redis.get("stats:total_deposits") or 0.0)
     total_wd = float(redis.get("stats:total_withdrawals") or 0.0)
-    net_profit = total_dep - total_wd
+    
+    # 🌟 የተጣራ ትርፍ = አጠቃላይ ገቢ - አጠቃላይ ወጪ - በደንበኞች እጅ ያለ ቀሪ ሂሳብ
+    net_profit = total_dep - total_wd - total_system_balance
 
+    # 5. ዳታውን ወደ ዳሽቦርዱ (Frontend) መላክ
     return jsonify({
         "status": "success",
         "stats": {
@@ -337,65 +346,6 @@ def get_dashboard_data():
         },
         "users": users_list
     })
-
-@server.route('/api/admin/user_action', methods=['POST'])
-def admin_user_action():
-    data = request.json or {}
-    admin_id = str(data.get("admin_id"))
-    target_user_id = str(data.get("target_user_id"))
-    action = data.get("action") 
-
-    if admin_id != str(ADMIN_ID): 
-        return jsonify({"status": "error", "message": "ያልተፈቀደ ሙከራ!"}), 403
-
-    if not target_user_id:
-        return jsonify({"status": "error", "message": "የተጠቃሚ ID አልተገኘም!"}), 400
-
-    if action == "ban":
-        redis.sadd("banned_users", target_user_id)
-        try: bot.send_message(target_user_id, "⚠️ <b>መለያዎ (Account) በህግ ጥሰት ምክንያት ታግዷል!</b>", parse_mode="HTML")
-        except: pass
-        return jsonify({"status": "success", "message": "ተጠቃሚው በተሳካ ሁኔታ ታግዷል!"})
-
-    elif action == "unban":
-        redis.srem("banned_users", target_user_id)
-        try: bot.send_message(target_user_id, "🎉 <b>የመለያዎ እገዳ ተነስቷል!</b>\nአሁን መጫወት ይችላሉ።", parse_mode="HTML")
-        except: pass
-        return jsonify({"status": "success", "message": "የተጠቃሚው እገዳ ተነስቷል!"})
-
-    elif action == "adjust_balance":
-        amount = float(data.get("amount", 0))
-        # ⚠️ ዋናው ጥበቃ፦ አሁን ያለውን ብር ቼክ ማድረግ
-        current_balance = float(redis.hget("users:balance", target_user_id) or 0.0)
-        new_balance = current_balance + amount
-
-        if new_balance < 0:
-            return jsonify({"status": "error", "message": f"ስህተት! የተጠቃሚው ባላንስ {current_balance} ብር ብቻ ነው። ወደ ኔጌቲቭ ማውረድ አይቻልም!"}), 400
-
-        redis.hset("users:balance", target_user_id, new_balance)
-
-        import time
-        import uuid
-        tx_type = "ገቢ" if amount > 0 else "ወጪ"
-        abs_amount = abs(amount)
-        tx_id = "ADM-" + str(uuid.uuid4())[:5] 
-
-        history_data = {
-            "tx_id": tx_id,
-            "type": tx_type,
-            "amount": abs_amount,
-            "status": "APPROVED",
-            "date": time.strftime("%Y-%m-%d %H:%M")
-        }
-        add_to_history(target_user_id, history_data)
-
-        try:
-            sign = "+" if amount > 0 else ""
-            bot.send_message(target_user_id, f"🔔 <b>የሂሳብ ማስተካከያ!</b>\nባላንስዎ ላይ <b>{sign}{amount} ብር</b> በአድሚን ተስተካክሏል።", parse_mode="HTML")
-        except: pass
-        return jsonify({"status": "success", "message": "ባላንስ በተሳካ ሁኔታ ተስተካክሏል!"})
-
-    return jsonify({"status": "error", "message": "የማይታወቅ ትዕዛዝ!"}), 400
 
 
 # ==========================================
