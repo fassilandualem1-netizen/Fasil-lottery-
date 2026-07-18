@@ -57,13 +57,21 @@
                 const home = m.fixture.teams.home.name;
                 const away = m.fixture.teams.away.name;
                 const league = m.fixture.league || "Unknown League";
-                const matchTime = m.fixture.time ? new Date(m.fixture.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "N/A";
+                
+                // 🚀 የዛሬ እና የነገ መሆኑን ለመለየት የሚያስችል ሎጂክ
+                const matchDate = new Date(m.fixture.time);
+                const today = new Date();
+                const isToday = matchDate.getDate() === today.getDate() && matchDate.getMonth() === today.getMonth();
+                const dayText = isToday ? "ዛሬ" : "ነገ";
+                const timeString = matchDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const fullDisplayTime = `${dayText} • ${timeString}`;
+                
                 const odds = m.odds; 
 
                 if (odds) {
                     list.innerHTML += `
                     <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg mb-3">
-                        <div class="text-[9px] text-gray-400 mb-1">${league} • ${matchTime}</div>
+                        <div class="text-[9px] text-gray-400 mb-1">${league} • ${fullDisplayTime}</div>
                         <div class="text-xs font-black text-white mb-3">${home} V ${away}</div>
                         
                         <div class="grid grid-cols-3 gap-2">
