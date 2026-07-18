@@ -16,11 +16,11 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background-color: #0f141c; /* ከዋናው ዳራ ጋር የሚመሳሰል */
+        background-color: #0f141c; 
         display: flex;
         justify-content: center;
         align-items: center;
-        z-index: 99999; /* ከሁሉም ፊት እንዲሆን */
+        z-index: 99999; 
         transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
     }
 
@@ -35,7 +35,7 @@
     .loading-logo {
         font-size: 3rem;
         font-weight: 900;
-        color: #e53935; /* Aviator Red */
+        color: #e53935; 
         text-shadow: 0 0 20px rgba(229, 57, 53, 0.5);
         letter-spacing: 2px;
         margin: 0;
@@ -44,7 +44,7 @@
 
     .loading-subtext {
         font-size: 1rem;
-        color: #fbc02d; /* Gold */
+        color: #fbc02d; 
         font-weight: bold;
         letter-spacing: 4px;
         margin-top: -8px;
@@ -54,7 +54,7 @@
         width: 45px;
         height: 45px;
         border: 4px solid #243547;
-        border-top: 4px solid #2e7d32; /* Deposit Green */
+        border-top: 4px solid #2e7d32; 
         border-radius: 50%;
         animation: spin 1s linear infinite;
         margin: 15px 0;
@@ -66,7 +66,6 @@
         animation: blink 1.5s infinite;
     }
 
-    /* Animations */
     @keyframes spin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
@@ -100,13 +99,18 @@
       </div>
   </div>
 
+  <!-- 🔝 Header Section -->
   <header class="bg-slate-950 text-white p-4 sticky top-0 z-50 flex justify-between items-center border-b border-gray-800">
     <div class="flex items-center space-x-2">
       <span class="text-xl font-black tracking-wider text-yellow-400">YEGNA<span class="text-white">BET</span></span>
     </div>
     <div class="flex items-center space-x-3">
+      <!-- 🔄 የሪፍሬሽ በተኑ እዚሁ ባላንስ ሳጥን ውስጥ በስማርት ሁኔታ ተካቷል -->
       <div class="bg-gray-800 px-3 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1">
-        <span id="user-balance">0.00</span> <span class="text-yellow-400">ETB</span>
+        <span id="user-balance">0.00</span> <span class="text-yellow-400 mr-1">ETB</span>
+        <button id="refresh-btn" onclick="manualRefresh()" class="focus:outline-none p-0.5 hover:text-white text-gray-400 transition">
+          <i id="refresh-icon" class="fa-solid fa-rotate-right"></i>
+        </button>
       </div>
       <button onclick="openWalletModal()" class="bg-yellow-500 hover:bg-yellow-600 text-slate-950 font-black px-3 py-1.5 rounded text-xs transition duration-200">
         WALLET
@@ -114,6 +118,7 @@
     </div>
   </header>
 
+  <!-- 🗺 Navigation Bar -->
   <nav class="bg-slate-900 border-b border-gray-800 grid grid-cols-6 py-3 sticky top-[61px] z-40 text-center">
     <a href="/" class="flex flex-col items-center space-y-1 text-yellow-400 border-b-2 border-yellow-400 pb-1">
       <i class="fa-solid fa-soccer-ball text-lg"></i>
@@ -141,6 +146,7 @@
     </a>
   </nav>
 
+  <!-- 📱 Main Content -->
   <main class="max-w-md mx-auto p-3">
     
     <div class="bg-gradient-to-r from-blue-900 to-slate-950 border border-blue-800 rounded-xl p-4 mb-4 relative overflow-hidden">
@@ -207,7 +213,7 @@
     </div>
   </main>
 
-  <!-- Wallet Modal -->
+  <!-- 💳 Wallet Modal -->
   <div id="wallet-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-slate-950 border border-gray-800 rounded-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
 
@@ -251,7 +257,8 @@
             </div>
             <div>
               <label class="block text-[10px] text-gray-400 mb-1">የአካውንት ቁጥር / የቴሌብር ስልክ</label>
-              <input type="number" id="wd-phone" placeholder="ለምሳሌ፡ 0911... ወይም 1000..." required class="w-full bg-gray-900 border border-gray-800 rounded p-2.5 text-white text-sm">
+              <!-- 🛠 ማሻሻያ: type="tel" ስልክ ቁጥር ሲገባ የመጀመሪያዋ 0 እንዳትጠፋ ያደርጋል -->
+              <input type="tel" id="wd-phone" placeholder="ለምሳሌ፡ 0911... ወይም 1000..." required class="w-full bg-gray-900 border border-gray-800 rounded p-2.5 text-white text-sm">
             </div>
             <div>
               <label class="block text-[10px] text-gray-400 mb-1">የማውጫ መጠን (ETB)</label>
@@ -265,7 +272,7 @@
         <div id="history-tab" class="hidden">
           <h3 class="text-xs text-gray-400 mb-3 border-b border-gray-800 pb-2">የግብይት ታሪክዎ (Your Transaction History)</h3>
           <div id="history-list" class="space-y-2">
-             <!-- History items will be injected here -->
+             <!-- ታሪክ እዚህ ጋር በጃቫስክሪፕት ይገባል -->
           </div>
         </div>
       </div>
@@ -276,7 +283,7 @@
     </div>
   </div>
 
-  <!-- Betslip Panel -->
+  <!-- 🎫 Betslip Panel -->
   <div id="betslip-panel" class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-gray-800 p-4 transform translate-y-full transition-transform duration-300 z-50">
     <div class="max-w-md mx-auto">
       <div class="flex justify-between items-center mb-3">
@@ -311,40 +318,41 @@
     </div>
   </div>
 
+  <!-- 🛠 JavaScript Logic -->
   <script>
-        // 🚀 ገጹ ሙሉ በሙሉ ሲጫን የኛ ቤት ሎዲንግ ስክሪኑን ረጋ ብሎ ለማጥፋት የሚሰራ ኮድ
-    window.addEventListener('load', () => {
-        setTimeout(() => {
-            const loadingScreen = document.getElementById('loading-screen');
-            if (loadingScreen) {
-                // 🎬 በሚያምር ሁኔታ እያደበዘዘ (Fade-out) እንዲያጠፋው ትራንዚሽን እንሰጠዋለን
-                loadingScreen.style.transition = "opacity 0.6s ease";
-                loadingScreen.style.opacity = "0";
-
-                // መደብዘዙ ሲያልቅ (ከ 0.6 ሰከንድ በኋላ) ሙሉ በሙሉ ለመደበቅ 'hidden' ክላስን ይጨምራል
-                setTimeout(() => {
-                    loadingScreen.classList.add('hidden');
-                }, 600);
-            }
-        }, 2500); // 💡 እዚህ ጋር ከ 1500 የነበረውን ወደ 2500 (2.5 ሰከንድ) አሳድገነዋል! ይበልጥ እንዲቆይ 3000 (3 ሰከንድ) ማድረግ ትችላለህ።
-    });
-
-    // 1. Telegram WebApp ን ማስጀመር
+    // 1. Telegram WebApp ማስጀመር
     const tg = window.Telegram.WebApp;
-    tg.expand(); // ሚኒ-አፑ ሙሉ ስክሪን እንዲሆን ማድረግ
+    tg.expand(); 
 
-
-    // የተጠቃሚ መረጃ እና የደህንነት ቶከን
+    // የተጠቃሚ መረጃዎች
     const userId = tg.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : "9999999";
     const userName = tg.initDataUnsafe?.user?.username || tg.initDataUnsafe?.user?.first_name || "የሰፈር ልጅ";
     const initData = tg.initData; 
 
-    // ገጹ እንደተከፈተ ባላንሱን ማዘመን
+    // የኦድስ መረጣ መረጃ መያዣ ግሎባል ተለዋዋጮች
+    let selectedMatch = "";
+    let selectedChoice = "";
+    let selectedOdd = 1.00;
+
+    // 🚀 ገጹ ሲጫን ሎዲንግ ስክሪኑን ማጥፋት
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                loadingScreen.style.transition = "opacity 0.6s ease";
+                loadingScreen.style.opacity = "0";
+                setTimeout(() => {
+                    loadingScreen.classList.add('hidden');
+                }, 600);
+            }
+        }, 2500); 
+    });
+
     document.addEventListener("DOMContentLoaded", function() {
       updateUserBalance();
     });
 
-    // ባላንስ ከ Redis ዳታቤዝ ለማንበብ
+    // ባላንስ ማዘመኛ ከባክአንድ
     function updateUserBalance() {
       fetch("/api/get_balance", {
         method: "POST",
@@ -363,7 +371,69 @@
       .catch(err => console.error("Balance fetch error:", err));
     }
 
-    // የዋሌት ሞዳል መክፈቻና መዝጊያ
+    // 🔄 አዲስ የተዋሃደ እና የተስተካከለ የማንዋል ሪፍሬሽ ፈንክሽን
+    let isRefreshing = false;
+    async function manualRefresh() {
+        if (isRefreshing) return; 
+
+        isRefreshing = true;
+        const icon = document.getElementById('refresh-icon');
+        const btn = document.getElementById('refresh-btn');
+        
+        if (icon) icon.classList.add('fa-spin');
+        if (btn) btn.style.opacity = "0.5";
+
+        try {
+            const res = await fetch('/api/get_balance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Telegram-Init-Data': initData 
+                },
+                body: JSON.stringify({ user_id: userId, game_mode: "real" }) 
+            });
+            
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                document.getElementById('user-balance').innerText = parseFloat(data.balance).toFixed(2);
+            }
+        } catch (e) {
+            console.error("Error updating balance:", e);
+        } finally {
+            setTimeout(() => {
+                if (icon) icon.classList.remove('fa-spin');
+                if (btn) btn.style.opacity = "1";
+                isRefreshing = false;
+            }, 10000); // 10 ሰከንድ Cooldown
+        }
+    }
+
+    // የኦድስ በተን ሲጫን ቤተስሊፕ መክፈቻ
+    function selectMatchBet(matchName, choice, odd, type) {
+      selectedMatch = matchName;
+      selectedChoice = choice;
+      selectedOdd = parseFloat(odd);
+      
+      document.getElementById('slip-match-name').innerText = matchName;
+      document.getElementById('slip-choice').innerText = choice + " (" + type + ")";
+      document.getElementById('slip-odd').innerText = selectedOdd.toFixed(2);
+      
+      calculateWin(); 
+      document.getElementById('betslip-panel').classList.remove('translate-y-full');
+    }
+
+    function closeBetslip() {
+      document.getElementById('betslip-panel').classList.add('translate-y-full');
+    }
+
+    function calculateWin() {
+      const amount = parseFloat(document.getElementById('bet-amount').value) || 0;
+      const potentialWin = amount * selectedOdd;
+      document.getElementById('potential-win').innerText = potentialWin.toFixed(2) + " ETB";
+    }
+
+    // የዋሌት ሞዳል መቆጣጠሪያዎች
     function openWalletModal() {
       document.getElementById("wallet-modal").classList.remove("hidden");
     }
@@ -371,7 +441,6 @@
       document.getElementById("wallet-modal").classList.add("hidden");
     }
 
-    // በገቢ፣ ወጪ እና ታሪክ ታቦች መካከል መቀያየር
     function switchWalletTab(tabName) {
       document.getElementById("deposit-tab").classList.add("hidden");
       document.getElementById("withdraw-tab").classList.add("hidden");
@@ -387,17 +456,14 @@
         document.getElementById("btn-deposit-tab").className = "w-1/3 py-3 text-center text-yellow-400 border-b-2 border-yellow-400 transition";
       } else if (tabName === "withdraw-tab") {
         document.getElementById("btn-withdraw-tab").className = "w-1/3 py-3 text-center text-green-400 border-b-2 border-green-400 transition";
-        checkLockedPhone(); // 🚀 ይሄ አዲስ የተጨመረው ነው
+        checkLockedPhone(); 
       } else if (tabName === "history-tab") {
         document.getElementById("btn-history-tab").className = "w-1/3 py-3 text-center text-blue-400 border-b-2 border-blue-400 transition";
         fetchHistory();
       }
     }
 
-
-    // 🚀 አዲስ የተጨመረ: የ Withdraw መረጃ ካለ ሳጥኖቹን ለመቆለፍ
     function checkLockedPhone() {
-      // ተጠቃሚው መረጃውን እያየ መሆኑን ለማሳወቅ ትንሽ ሎዲንግ እናድርግ
       const bankSelect = document.getElementById("wd-bank");
       const nameInput = document.getElementById("wd-name");
       const phoneInput = document.getElementById("wd-phone");
@@ -413,25 +479,18 @@
       .then(res => res.json())
       .then(data => {
         if (data.status === "success" && data.info) {
-          // 1. መረጃው ስላለ ሳጥኖቹ ላይ የተገኘውን ዳታ እንሞላዋለን
           bankSelect.value = data.info.bank_name;
           nameInput.value = data.info.account_name;
           phoneInput.value = data.info.phone;
 
-          // 2. ሳጥኖቹን እንቆልፋቸዋለን (Readonly / Disabled እናደርጋቸዋለን)
-          bankSelect.disabled = true; // Select box በ disabled ነው የሚቆለፈው
+          bankSelect.disabled = true; 
           nameInput.readOnly = true;
           phoneInput.readOnly = true;
 
-          // 3. የተቆለፈ መሆኑን በከለር (Style) እናሳውቃለን
           bankSelect.classList.add("opacity-50", "cursor-not-allowed");
           nameInput.classList.add("opacity-50", "cursor-not-allowed", "bg-gray-800");
           phoneInput.classList.add("opacity-50", "cursor-not-allowed", "bg-gray-800");
-          
-          // ጠቃሚ መልእክት ማሳያ (ከፈለግክ)
-          console.log("🔒 የባንክ መረጃ ተቆልፏል (One-time Setup)");
         } else {
-          // መረጃ ከሌለ (አዲስ ከሆነ) ሳጥኖቹ ክፍት መሆናቸውን እናረጋግጣለን
           bankSelect.disabled = false;
           nameInput.readOnly = false;
           phoneInput.readOnly = false;
@@ -444,7 +503,6 @@
       .catch(err => console.error("Error fetching withdraw info:", err));
     }
 
-        // የታሪክ መረጃ ከሰርቨር ማምጣት
     function fetchHistory() {
       const list = document.getElementById("history-list");
       list.innerHTML = `<p class="text-sm text-gray-500 text-center py-4 bg-gray-900 rounded-lg">እየጫነ ነው (Loading...)</p>`;
@@ -467,15 +525,13 @@
 
           list.innerHTML = "";
           data.history.forEach(tx => {
-            // 🔥 እያንዳንዱን ስታተስ በከለር መለየት
-            let statusColor = "text-yellow-500"; // ለ Pending (ቢጫ)
-            
+            let statusColor = "text-yellow-500"; 
             if (tx.status === "completed" || tx.status === "approved") {
-              statusColor = "text-green-500"; // የጸደቀ/ያለቀ (አረንጓዴ)
+              statusColor = "text-green-500"; 
             } else if (tx.status === "failed" || tx.status === "rejected") {
-              statusColor = "text-red-500"; // ውድቅ የተደረገ/የከሸፈ (ቀይ)
+              statusColor = "text-red-500"; 
             } else if (tx.status === "refunded") {
-              statusColor = "text-blue-400"; // ተመላሽ የተደረገ (ውብ ሰማያዊ)
+              statusColor = "text-blue-400"; 
             }
 
             list.innerHTML += `
@@ -500,171 +556,159 @@
       });
     }
 
-    // የገቢ (Deposit) ፎርም መላኪያ
-function submitDeposit(e) {
-  e.preventDefault();
-  const amount = document.getElementById("dep-amount").value;
-  const fileInput = document.getElementById("dep-receipt");
+    function submitDeposit(e) {
+      e.preventDefault();
+      const amount = document.getElementById("dep-amount").value;
+      const fileInput = document.getElementById("dep-receipt");
 
-  if (!fileInput.files[0]) {
-    alert("እባክዎ መጀመሪያ ደረሰኝ ይጫኑ!");
-    return;
-  }
+      if (!fileInput.files[0]) {
+        alert("እባክዎ መጀመሪያ ደረሰኝ ይጫኑ!");
+        return;
+      }
 
-  // 🔥 የ Double Click መከላከያ (ልክ ፎርሙ ሲላክ በተኑን ይቆልፋል)
-  const submitBtn = e.target.querySelector('button') || document.querySelector('#deposit-form button');
-  let originalText = "";
-  if (submitBtn) {
-    originalText = submitBtn.innerText;
-    submitBtn.disabled = true;
-    submitBtn.innerText = "በማቀናበር ላይ...";
-  }
+      const submitBtn = e.target.querySelector('button') || document.querySelector('#deposit-form button');
+      let originalText = "";
+      if (submitBtn) {
+        originalText = submitBtn.innerText;
+        submitBtn.disabled = true;
+        submitBtn.innerText = "በማቀናበር ላይ...";
+      }
 
-  const formData = new FormData();
-  formData.append("user_id", userId);
-  formData.append("user_name", userName);
-  formData.append("amount", amount);
-  formData.append("receipt", fileInput.files[0]);
+      const formData = new FormData();
+      formData.append("user_id", userId);
+      formData.append("user_name", userName);
+      formData.append("amount", amount);
+      formData.append("receipt", fileInput.files[0]);
 
-  fetch("/api/deposit", {
-    method: "POST",
-    headers: {
-        "X-Telegram-Init-Data": initData 
-    },
-    body: formData
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.status === "success") {
-      alert("✅ የገቢ ጥያቄዎ በተሳካ ሁኔታ ለአድሚን ተልኳል! በቴሌግራም መልዕክት ይደርስዎታል።");
-      closeWalletModal();
-      document.getElementById("deposit-form").reset();
-    } else {
-      alert("⚠️ ስህተት: " + data.message);
+      fetch("/api/deposit", {
+        method: "POST",
+        headers: {
+            "X-Telegram-Init-Data": initData 
+        },
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          alert("✅ የገቢ ጥያቄዎ በተሳካ ሁኔታ ለአድሚን ተልኳል! በቴሌግራም መልዕክት ይደርስዎታል።");
+          closeWalletModal();
+          document.getElementById("deposit-form").reset();
+        } else {
+          alert("⚠️ ስህተት: " + data.message);
+        }
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerText = originalText;
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert("የኔትወርክ ስህተት ገጥሟል!");
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerText = originalText;
+        }
+      });
     }
-    // 🔄 ሲስተሙ ጨርሶ ስህተት ካመጣ በተኑን መልሶ መክፈት
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.innerText = originalText;
+
+    function submitWithdraw(e) {
+      e.preventDefault();
+      const bank = document.getElementById("wd-bank").value;
+      const name = document.getElementById("wd-name").value;
+      const phone = document.getElementById("wd-phone").value;
+      const amount = parseFloat(document.getElementById("wd-amount").value);
+
+      if (!bank || !name || !phone || !amount) {
+        alert("⚠️ እባክዎ ሁሉንም መረጃዎች በትክክል ይሙሉ!");
+        return;
+      }
+
+      const submitBtn = e.target.querySelector('button') || document.querySelector('#withdraw-form button');
+      let originalText = "";
+      if (submitBtn) {
+        originalText = submitBtn.innerText;
+        submitBtn.disabled = true;
+        submitBtn.innerText = "በማቀናበር ላይ...";
+      }
+
+      fetch("/api/withdraw", {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            "X-Telegram-Init-Data": initData 
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          user_name: userName,
+          bank_name: bank,
+          account_name: name,
+          phone: phone,
+          amount: amount
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          alert("✅ የወጪ (Withdraw) ጥያቄዎ ለአድሚን ደርሷል። ሲረጋገጥ ይላክልዎታል።");
+          updateUserBalance();
+          closeWalletModal();
+          document.getElementById("withdraw-form").reset();
+        } else {
+          alert("⚠️ ስህተት: " + data.message);
+        }
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerText = originalText;
+        }
+        checkLockedPhone();
+      })
+      .catch(err => {
+        console.error(err);
+        alert("የኔትወርክ ስህተት ገጥሟል!");
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerText = originalText;
+        }
+      });
     }
-  })
-  .catch(err => {
-    console.error(err);
-    alert("የኔትወርክ ስህተት ገጥሟል!");
-    // 🔄 በኔትወርክ ስህተት ጊዜ በተኑን መልሶ መክፈት
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.innerText = originalText;
+
+    function submitBet() {
+      let amount = parseFloat(document.getElementById('bet-amount').value);
+      if (amount < 2) {
+        alert("⚠️ ዝቅተኛው የውርርድ መጠን 2 ETB ነው!");
+        return;
+      }
+
+      fetch("/api/sports/bet", { 
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            "X-Telegram-Init-Data": initData 
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          bet_amount: amount,
+          match_name: selectedMatch,  
+          choice: selectedChoice,
+          odd: selectedOdd,
+          game_mode: "real"
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          alert("✅ ግምትዎ በተሳካ ሁኔታ ተመዝግቧል!\nየተመረጠ ጨዋታ: " + selectedMatch + "\nየተወራረደበት ብር: " + amount + " ETB");
+          updateUserBalance(); 
+          closeBetslip();
+        } else {
+          alert("⚠️ ውድቅ የተደረገበት ምክንያት: " + data.message);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert("የሲስተም ስህተት ገጥሟል!");
+      });
     }
-  });
-}
-
-// የወጪ (Withdraw) ፎርም መላኪያ - የተስተካከለ
-function submitWithdraw(e) {
-  e.preventDefault();
-  
-  // 🚀 ማሻሻያ፡ ሳጥኑ ተቆልፎም ቢሆን ቫልዩው እንዳይጠፋ ማረጋገጫ
-  const bank = document.getElementById("wd-bank").value;
-  const name = document.getElementById("wd-name").value;
-  const phone = document.getElementById("wd-phone").value;
-  const amount = parseFloat(document.getElementById("wd-amount").value);
-
-  if (!bank || !name || !phone || !amount) {
-    alert("⚠️ እባክዎ ሁሉንም መረጃዎች በትክክል ይሙሉ!");
-    return;
-  }
-
-  const submitBtn = e.target.querySelector('button') || document.querySelector('#withdraw-form button');
-  let originalText = "";
-  if (submitBtn) {
-    originalText = submitBtn.innerText;
-    submitBtn.disabled = true;
-    submitBtn.innerText = "በማቀናበር ላይ...";
-  }
-
-  fetch("/api/withdraw", {
-    method: "POST",
-    headers: { 
-        "Content-Type": "application/json",
-        "X-Telegram-Init-Data": initData 
-    },
-    body: JSON.stringify({
-      user_id: userId,
-      user_name: userName,
-      bank_name: bank,
-      account_name: name,
-      phone: phone,
-      amount: amount
-    })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.status === "success") {
-      alert("✅ የወጪ (Withdraw) ጥያቄዎ ለአድሚን ደርሷል። ሲረጋገጥ ይላክልዎታል።");
-      updateUserBalance();
-      closeWalletModal();
-      document.getElementById("withdraw-form").reset();
-    } else {
-      alert("⚠️ ስህተት: " + data.message);
-    }
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.innerText = originalText;
-    }
-    // መረጃው መቆለፉን ለመቀጠል ፈንክሽኑን መልሰን እንጠራዋለን
-    checkLockedPhone();
-  })
-  .catch(err => {
-    console.error(err);
-    alert("የኔትወርክ ስህተት ገጥሟል!");
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.innerText = originalText;
-    }
-  });
-}
-
-// ውርርድ ማጠናቀቂያ (Place Bet) - የተስተካከለ
-function submitBet() {
-  let amount = parseFloat(document.getElementById('bet-amount').value);
-  if (amount < 2) {
-    alert("⚠️ ዝቅተኛው የውርርድ መጠን 2 ETB ነው!");
-    return;
-  }
-
-  // 🚀 ከ Aviator Endpoint ወደ እውነተኛው ስፖርት ውርርድ Endpoint የተቀየረ (ለምሳሌ፡ /api/sports/bet)
-  // ማስታወሻ፡ በ Python Blueprint ላይ የሰጠኸውን Route ስም እዚህ ጋር አረጋግጥ!
-  fetch("/api/sports/bet", { 
-    method: "POST",
-    headers: { 
-        "Content-Type": "application/json",
-        "X-Telegram-Init-Data": initData 
-    },
-    body: JSON.stringify({
-      user_id: userId,
-      bet_amount: amount,
-      match_name: selectedMatch,  // የስፖርቱን ዳታ በትክክል ለመመዝገብ
-      choice: selectedChoice,
-      odd: selectedOdd,
-      game_mode: "real"
-    })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.status === "success") {
-      alert("✅ ግምትዎ በተሳካ ሁኔታ ተመዝግቧል!\nየተመረጠ ጨዋታ: " + selectedMatch + "\nየተወራረደበት ብር: " + amount + " ETB");
-      updateUserBalance(); 
-      closeBetslip();
-    } else {
-      alert("⚠️ ውድቅ የተደረገበት ምክንያት: " + data.message);
-    }
-  })
-  .catch(err => {
-    console.error(err);
-    alert("የሲስተም ስህተት ገጥሟል!");
-  });
-}
-
   </script>
 </body>
 </html>
