@@ -50,72 +50,82 @@ def is_number_only(text):
 
 ALLOWED_BANKS = ["CBE", "Telebirr", "Awash", "Abyssinia"]
 
-# ==========================================
-# 🚀 የተጠቃሚ መግቢያ
-# ==========================================
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo, ReplyKeyboardMarkup, KeyboardButton
+
+# 1. ቋሚ የኪቦርድ በተኖች (ከታች የሚታዩ)
+def get_main_keyboard():
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    btn_support = KeyboardButton("💬 የደንበኞች ድጋፍ")
+    markup.add(btn_support)
+    return markup
+
+# 2. የ /start ኮማንድ
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_id = str(message.from_user.id)
 
-    # 1. ተጠቃሚው የታገደ መሆኑን ቼክ ማድረግ
     if is_user_banned(user_id):
         bot.send_message(
             message.chat.id, 
             "❌ <b>መለያዎ ታግዷል!</b>\nበህግ ጥሰት ምክንያት ይህንን ቦት እና ጌም መጠቀም አይችሉም።", 
             parse_mode="HTML"
         )
-        return  # ኮዱ እዚህ ላይ ይቆማል፣ የ Play በተን አይላክለትም!
+        return
 
-    # 2. ካልታገደ የ Play በተን ይላክለታል
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("🎮 ጌም ጀምር (Play)", web_app=WebAppInfo(url=WEB_APP_URL)))
+    # የዌብ አፕ በተን (Inline)
+    inline_markup = InlineKeyboardMarkup()
+    inline_markup.add(InlineKeyboardButton("🎮 ጌም ጀምር (Play)", web_app=WebAppInfo(url=WEB_APP_URL)))
 
     bot.send_message(
         message.chat.id,
-        "👋 እንኳን ወደ የኛ ቤት በሰላም መጡ!\n\nከታች ያለውን በተን ተጭነው መጫወት እና ማሸነፍ ይችላሉ።",
-        reply_markup=markup
+        "👋 እንኳን ወደ የኛ ቤት በሰላም መጡ!\n\nከታች ያለውን ወይም የዌብ አፕ በተኑን ተጭነው መጫወት ይችላሉ።",
+        reply_markup=inline_markup
+    )
+    
+    # ቋሚ በተኖችን እንልካለን
+    bot.send_message(
+        message.chat.id,
+        "መረጃ ወይም እርዳታ ከፈለጉ ከታች ያለውን በተን ይጠቀሙ።",
+        reply_markup=get_main_keyboard()
     )
 
-
+# 3. የ /help ኮማንድ
 @bot.message_handler(commands=['help'])
 def help_command(message):
     markup = InlineKeyboardMarkup()
-    
-    # የድጋፍ አማራጮች
     markup.add(InlineKeyboardButton("💰 ዴፖዚት እንዴት አደርጋለሁ?", callback_data="help_deposit"))
     markup.add(InlineKeyboardButton("💸 ገንዘብ ማውጣት (Withdraw)", callback_data="help_withdraw"))
     markup.add(InlineKeyboardButton("📜 የጨዋታ ህጎች", callback_data="help_rules"))
-    
-    # 🚨 እዚህ ጋር የአንተን ዩዘርኔም አስገባ (ያለ @ ምልክት)
-    # ለምሳሌ ዩዘርኔምህ 'fasil_admin' ከሆነ https://t.me/fasil_admin ይሆናል
+    # የአንተን ዩዘርኔም አስገባ
     markup.add(InlineKeyboardButton("💬 አድሚን ያግኙ (Direct Chat)", url="https://t.me/fassilandualem"))
 
     bot.send_message(
         message.chat.id,
-        "👋 <b>የድጋፍ ማዕከል</b>\n\nየሚፈልጉትን አማራጭ ይምረጡ ወይም በቀጥታ አድሚንን ያግኙ፡",
+        "👋 <b>የድጋፍ ማዕከል</b>\n\nየሚፈልጉትን አማራጭ ይምረጡ፡",
         parse_mode="HTML",
         reply_markup=markup
     )
 
-# ይህንን ኮድ በ main.py ውስጥ ካለው help_command በታች ጨምረው
+# 4. የታችኛውን በተን ማዳመጥ (Handle the Reply Keyboard)
+@bot.message_handler(func=lambda message: message.text == "💬 የደንበኞች ድጋፍ")
+def support_button_handler(message):
+    help_command(message)
+
+# 5. የ Callback Handler (የInline በተኖች ምላሽ)
 @bot.callback_query_handler(func=lambda call: call.data.startswith("help_"))
 def help_callback(call):
-    # ተጠቃሚው የጫነው በተን ምን እንደሆነ እናያለን
     if call.data == "help_deposit":
         text = "💰 <b>ዴፖዚት ለማድረግ፡</b>\n\n1. በዌብ አፕ ውስጥ 'Deposit' የሚለውን ይጫኑ።\n2. ክፍያውን ከፈጸሙ በኋላ ስክሪንሾት ይላኩ።\n3. ጥያቄዎ በአድሚን እስኪጸድቅ ይጠብቁ።"
-    
     elif call.data == "help_withdraw":
         text = "💸 <b>ገንዘብ ለማውጣት (Withdraw)፡</b>\n\n- ባላንስዎ ቢያንስ 50 ብር መሆን አለበት።\n- ባንክ እና አካውንት ቁጥር በትክክል ያስገቡ።\n- ክፍያው በ24 ሰዓት ውስጥ ይፈጸማል።"
-    
     elif call.data == "help_rules":
         text = "📜 <b>የጨዋታ ህጎች፡</b>\n\n- መለያዎን ለሌላ ሰው አያጋሩ።\n- ከአንድ በላይ አካውንት መጠቀም ክልክል ነው።\n- ህግ መጣስ አካውንትን ሊያስገድ ይችላል።"
-    
     else:
         text = "ይቅርታ፣ ይህ መረጃ አልተገኘም።"
 
-    # መልሱን ለተጠቃሚው እንልካለን
-    bot.answer_callback_query(call.id) # 'Loading...' የሚለውን ያጠፋል
-    # የላከውን መልዕክት በመቀየር አዲሱን መልስ እናሳያለን
+    bot.answer_callback_query(call.id)
+    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text, parse_mode="HTML")
+
     bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text, parse_mode="HTML")
 
 
