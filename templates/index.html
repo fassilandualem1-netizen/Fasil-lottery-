@@ -105,7 +105,6 @@
       <span class="text-xl font-black tracking-wider text-yellow-400">YEGNA<span class="text-white">BET</span></span>
     </div>
     <div class="flex items-center space-x-3">
-      <!-- 🔄 የሪፍሬሽ በተኑ እዚሁ ባላንስ ሳጥን ውስጥ በስማርት ሁኔታ ተካቷል -->
       <div class="bg-gray-800 px-3 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1">
         <span id="user-balance">0.00</span> <span class="text-yellow-400 mr-1">ETB</span>
         <button id="refresh-btn" onclick="manualRefresh()" class="focus:outline-none p-0.5 hover:text-white text-gray-400 transition">
@@ -196,6 +195,7 @@
         <div class="text-xs font-black text-white mb-3 tracking-wide">ARSENAL V CHELSEA</div>
         
         <div class="grid grid-cols-3 gap-2 text-xs">
+          <!-- ማስታወሻ፡ selectMatchBet ፈንክሽን በውጫዊው (External) JS ፋይልዎ ውስጥ መኖሩን ያረጋግጡ -->
           <button onclick="selectMatchBet('Arsenal V Chelsea', 'Arsenal', 1.85, '1')" id="btn-m1-1" class="bg-gray-900 hover:bg-yellow-500 hover:text-slate-950 py-2.5 rounded-lg flex flex-col items-center font-bold border border-gray-800 transition duration-150">
             <span class="text-gray-500 text-[10px]">Arsenal (1)</span>
             <span class="text-yellow-400 font-extrabold mt-0.5">1.85</span>
@@ -257,7 +257,6 @@
             </div>
             <div>
               <label class="block text-[10px] text-gray-400 mb-1">የአካውንት ቁጥር / የቴሌብር ስልክ</label>
-              <!-- 🛠 ማሻሻያ: type="tel" ስልክ ቁጥር ሲገባ የመጀመሪያዋ 0 እንዳትጠፋ ያደርጋል -->
               <input type="tel" id="wd-phone" placeholder="ለምሳሌ፡ 0911... ወይም 1000..." required class="w-full bg-gray-900 border border-gray-800 rounded p-2.5 text-white text-sm">
             </div>
             <div>
@@ -272,7 +271,6 @@
         <div id="history-tab" class="hidden">
           <h3 class="text-xs text-gray-400 mb-3 border-b border-gray-800 pb-2">የግብይት ታሪክዎ (Your Transaction History)</h3>
           <div id="history-list" class="space-y-2">
-             <!-- ታሪክ እዚህ ጋር በጃቫስክሪፕት ይገባል -->
           </div>
         </div>
       </div>
@@ -280,41 +278,6 @@
       <div class="bg-gray-900 p-3 border-t border-gray-800 text-center flex-shrink-0">
         <button onclick="closeWalletModal()" class="text-xs text-gray-400 hover:text-white font-bold transition">ዝጋ</button>
       </div>
-    </div>
-  </div>
-
-  <!-- 🎫 Betslip Panel -->
-  <div id="betslip-panel" class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-gray-800 p-4 transform translate-y-full transition-transform duration-300 z-50">
-    <div class="max-w-md mx-auto">
-      <div class="flex justify-between items-center mb-3">
-        <h3 class="font-black text-sm text-yellow-400"><i class="fa-solid fa-receipt mr-1"></i> BETSLIP (ግምትዎ)</h3>
-        <button onclick="closeBetslip()" class="text-gray-500 hover:text-white text-xs">ይዝጉ <i class="fa-solid fa-chevron-down"></i></button>
-      </div>
-
-      <div class="bg-gray-900 p-3 rounded-lg mb-3 text-xs">
-        <div class="flex justify-between font-bold">
-          <span id="slip-match-name">-</span>
-          <span class="text-yellow-400" id="slip-choice">-</span>
-        </div>
-        <div class="text-[10px] text-gray-500 mt-1">ይህንን ቡድን መርጠዋል</div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-3 mb-4">
-        <div>
-          <label class="block text-[10px] text-gray-400 mb-1">የውርርድ መጠን (ETB)</label>
-          <input type="number" id="bet-amount" oninput="calculateWin()" value="20" min="2" class="bg-gray-900 border border-gray-800 text-white rounded p-2 w-full text-center font-bold text-sm">
-        </div>
-        <div>
-          <label class="block text-[10px] text-gray-400 mb-1">ኮፊሸንት (Odd) / ሊያሸንፉ የሚችሉት</label>
-          <div class="bg-gray-900 p-2 rounded text-center font-bold text-sm border border-gray-800">
-            <span class="text-blue-400" id="slip-odd">1.00</span> 🎯 <span class="text-green-400" id="potential-win">0.00 ETB</span>
-          </div>
-        </div>
-      </div>
-
-      <button onclick="submitBet()" class="w-full bg-green-500 hover:bg-green-600 text-slate-950 font-black py-3 rounded-xl transition duration-150">
-        ውርርድ አስምር (Place Bet)
-      </button>
     </div>
   </div>
 
@@ -328,11 +291,6 @@
     const userId = tg.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : "9999999";
     const userName = tg.initDataUnsafe?.user?.username || tg.initDataUnsafe?.user?.first_name || "የሰፈር ልጅ";
     const initData = tg.initData; 
-
-    // የኦድስ መረጣ መረጃ መያዣ ግሎባል ተለዋዋጮች
-    let selectedMatch = "";
-    let selectedChoice = "";
-    let selectedOdd = 1.00;
 
     // 🚀 ገጹ ሲጫን ሎዲንግ ስክሪኑን ማጥፋት
     window.addEventListener('load', () => {
@@ -371,7 +329,7 @@
       .catch(err => console.error("Balance fetch error:", err));
     }
 
-    // 🔄 አዲስ የተዋሃደ እና የተስተካከለ የማንዋል ሪፍሬሽ ፈንክሽን
+    // 🔄 ማንዋል ሪፍሬሽ ፈንክሽን
     let isRefreshing = false;
     async function manualRefresh() {
         if (isRefreshing) return; 
@@ -409,30 +367,6 @@
         }
     }
 
-    // የኦድስ በተን ሲጫን ቤተስሊፕ መክፈቻ
-    function selectMatchBet(matchName, choice, odd, type) {
-      selectedMatch = matchName;
-      selectedChoice = choice;
-      selectedOdd = parseFloat(odd);
-      
-      document.getElementById('slip-match-name').innerText = matchName;
-      document.getElementById('slip-choice').innerText = choice + " (" + type + ")";
-      document.getElementById('slip-odd').innerText = selectedOdd.toFixed(2);
-      
-      calculateWin(); 
-      document.getElementById('betslip-panel').classList.remove('translate-y-full');
-    }
-
-    function closeBetslip() {
-      document.getElementById('betslip-panel').classList.add('translate-y-full');
-    }
-
-    function calculateWin() {
-      const amount = parseFloat(document.getElementById('bet-amount').value) || 0;
-      const potentialWin = amount * selectedOdd;
-      document.getElementById('potential-win').innerText = potentialWin.toFixed(2) + " ETB";
-    }
-
     // የዋሌት ሞዳል መቆጣጠሪያዎች
     function openWalletModal() {
       document.getElementById("wallet-modal").classList.remove("hidden");
@@ -441,6 +375,7 @@
       document.getElementById("wallet-modal").classList.add("hidden");
     }
 
+    // ታቦችን ለመቀያየር
     function switchWalletTab(tabName) {
       document.getElementById("deposit-tab").classList.add("hidden");
       document.getElementById("withdraw-tab").classList.add("hidden");
@@ -463,6 +398,7 @@
       }
     }
 
+    // የተቆለፈ አካውንት መረጃ ቼክ ማድረጊያ
     function checkLockedPhone() {
       const bankSelect = document.getElementById("wd-bank");
       const nameInput = document.getElementById("wd-name");
@@ -503,6 +439,7 @@
       .catch(err => console.error("Error fetching withdraw info:", err));
     }
 
+    // የትራንዛክሽን ታሪክ ማምጫ
     function fetchHistory() {
       const list = document.getElementById("history-list");
       list.innerHTML = `<p class="text-sm text-gray-500 text-center py-4 bg-gray-900 rounded-lg">እየጫነ ነው (Loading...)</p>`;
@@ -556,6 +493,7 @@
       });
     }
 
+    // የገቢ (Deposit) ፎርም ሰብሚት ማድረጊያ
     function submitDeposit(e) {
       e.preventDefault();
       const amount = document.getElementById("dep-amount").value;
@@ -611,6 +549,7 @@
       });
     }
 
+    // የወጪ (Withdraw) ፎርም ሰብሚት ማድረጊያ
     function submitWithdraw(e) {
       e.preventDefault();
       const bank = document.getElementById("wd-bank").value;
@@ -669,44 +608,6 @@
           submitBtn.disabled = false;
           submitBtn.innerText = originalText;
         }
-      });
-    }
-
-    function submitBet() {
-      let amount = parseFloat(document.getElementById('bet-amount').value);
-      if (amount < 2) {
-        alert("⚠️ ዝቅተኛው የውርርድ መጠን 2 ETB ነው!");
-        return;
-      }
-
-      fetch("/api/sports/bet", { 
-        method: "POST",
-        headers: { 
-            "Content-Type": "application/json",
-            "X-Telegram-Init-Data": initData 
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          bet_amount: amount,
-          match_name: selectedMatch,  
-          choice: selectedChoice,
-          odd: selectedOdd,
-          game_mode: "real"
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === "success") {
-          alert("✅ ግምትዎ በተሳካ ሁኔታ ተመዝግቧል!\nየተመረጠ ጨዋታ: " + selectedMatch + "\nየተወራረደበት ብር: " + amount + " ETB");
-          updateUserBalance(); 
-          closeBetslip();
-        } else {
-          alert("⚠️ ውድቅ የተደረገበት ምክንያት: " + data.message);
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        alert("የሲስተም ስህተት ገጥሟል!");
       });
     }
   </script>
