@@ -10,21 +10,17 @@
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans pb-32">
 
-  <!-- 🔝 Header -->
   <header class="bg-slate-950 p-4 sticky top-0 z-50 flex items-center border-b border-gray-800">
     <a href="/" class="mr-4"><i class="fa-solid fa-arrow-left text-xl"></i></a>
     <h1 class="font-black text-lg tracking-widest text-yellow-400">REAL SPORTS</h1>
   </header>
 
-  <!-- Main Content -->
   <main class="max-w-md mx-auto p-3">
     <div id="matches-list" class="space-y-3">
-      <!-- እዚህ ጋር ጨዋታዎች በ JS ይገባሉ -->
       <p class="text-center text-gray-500 py-10"><i class="fa-solid fa-spinner fa-spin text-2xl"></i><br>ጨዋታዎችን በማምጣት ላይ...</p>
     </div>
   </main>
 
-  <!-- 🎟 Bet Slip (ከስር የሚታይ) -->
   <div id="bet-slip-container" class="fixed bottom-0 left-0 w-full bg-slate-950 border-t-2 border-yellow-500 p-4 shadow-2xl hidden z-50">
     <div class="flex justify-between text-xs font-bold text-gray-300 mb-2">
       <span>የተመረጡ: <span id="slip-count" class="text-white">0</span></span>
@@ -44,23 +40,12 @@
     const initData = tg.initData;
     let selectedBets = {};
 
-    // 1. ጨዋታዎችን ማምጣት
-        async function fetchMatches() {
-        console.log("ጨዋታዎችን በመጠየቅ ላይ..."); // ይህንን በConsole ታያለህ
+    async function fetchMatches() {
         try {
             const res = await fetch('/api/sports/matches');
-            console.log("የAPI መልስ ደርሷል");
-            
             const data = await res.json();
-            console.log("የተገኘ ዳታ:", data); // ዳታው ከመጣ እዚህ ይታያል
-
             const list = document.getElementById("matches-list");
-            if (!list) {
-                console.error("ስህተት: matches-list የሚባል element አልተገኘም!");
-                return;
-            }
-            
-            list.innerHTML = ""; // የጫኑ ጽሁፉን እናጠፋለን
+            list.innerHTML = "";
 
             if (!data.matches || data.matches.length === 0) {
                 list.innerHTML = "<p class='text-center text-gray-500'>ምንም ጨዋታ አልተገኘም</p>";
@@ -68,17 +53,70 @@
             }
 
             data.matches.forEach(m => {
-                // ... (የቀድሞው ዲዛይን ኮድ እዚህ ይቀጥላል) ...
-                // ለምሳሌ፡
-                list.innerHTML += `<div class="p-4 bg-gray-800 text-white rounded mb-2">${m.teams.home.name} V ${m.teams.away.name}</div>`;
-            });
-            console.log("ጨዋታዎች በስኬት ተጭነዋል");
+                const mid = m.fixture.id;
+                const home = m.teams.home.name;
+                const away = m.teams.away.name;
+                const odds = m.odds;
 
+                list.innerHTML += `
+                <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg">
+                  <div class="text-[10px] text-gray-500 font-bold mb-2 uppercase">⚽ ${home} V ${away}</div>
+                  <div class="grid grid-cols-3 gap-2">
+                    <button id="btn-${mid}-home" onclick="selectOdd(${mid}, 'home', ${odds.home}, '${home}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500">
+                        <span class="text-[9px] text-gray-400">1</span><span class="text-yellow-400 font-bold text-xs">${odds.home}</span>
+                    </button>
+                    <button id="btn-${mid}-draw" onclick="selectOdd(${mid}, 'draw', ${odds.draw}, 'Draw')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500">
+                        <span class="text-[9px] text-gray-400">X</span><span class="text-yellow-400 font-bold text-xs">${odds.draw}</span>
+                    </button>
+                    <button id="btn-${mid}-away" onclick="selectOdd(${mid}, 'away', ${odds.away}, '${away}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500">
+                        <span class="text-[9px] text-gray-400">2</span><span class="text-yellow-400 font-bold text-xs">${odds.away}</span>
+                    </button>
+                  </div>
+                </div>`;
+            });
         } catch (e) {
-            console.error("የስህተት ዝርዝር:", e); // ዋናው ችግር እዚህ ይታያል
-            document.getElementById("matches-list").innerHTML = "<p class='text-center text-red-500'>ስህተት ተፈጥሯል: " + e.message + "</p>";
+            console.error(e);
+            document.getElementById("matches-list").innerHTML = "<p class='text-center text-red-500'>ስህተት ተፈጥሯል!</p>";
         }
     }
+
+    function selectOdd(mid, pick, odd, teamName) {
+        if (selectedBets[mid] && selectedBets[mid].pick === pick) {
+            delete selectedBets[mid];
+            document.getElementById(`btn-${mid}-${pick}`).className = "bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500";
+        } else {
+            selectedBets[mid] = { matchId: mid, pick: pick, odd: odd, team: teamName };
+            document.getElementById(`btn-${mid}-${pick}`).className = "bg-yellow-600 border border-yellow-500 py-2 rounded-lg flex flex-col items-center";
+        }
+        updateBetSlip();
+    }
+
+    function updateBetSlip() {
+        let count = Object.keys(selectedBets).length;
+        let totalOdds = 1;
+        for (let id in selectedBets) totalOdds *= selectedBets[id].odd;
+        
+        document.getElementById("slip-count").innerText = count;
+        document.getElementById("slip-odds").innerText = totalOdds.toFixed(2);
+        
+        const amount = parseFloat(document.getElementById("bet-amount").value || 0);
+        document.getElementById("possible-win").innerText = (amount * totalOdds).toFixed(2);
+        document.getElementById("bet-slip-container").style.display = count > 0 ? "block" : "none";
+    }
+
+    async function placeBet() {
+        const amount = document.getElementById("bet-amount").value;
+        const response = await fetch('/api/sports/place_bet', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData},
+            body: JSON.stringify({ user_id: userId, bet_amount: amount, selections: Object.values(selectedBets) })
+        });
+        const data = await response.json();
+        alert(data.message);
+        if(data.status === "success") window.location.reload();
+    }
+
+    document.addEventListener("DOMContentLoaded", fetchMatches);
   </script>
 </body>
 </html>
