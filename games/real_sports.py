@@ -145,12 +145,13 @@ def get_matches():
 # 3. ውርርድ መቁረጫ (Place Bet) ራውት
 # =========================================
 @real_sports_bp.route('/api/sports/place_bet', methods=['POST'])
+@telegram_auth_required  # 🛡️ የደህንነት ማጣሪያ (Security Decorator)
 def place_bet():
     try:
         data = request.json
         user_id = data.get('user_id')
         bet_amount = data.get('bet_amount')
-        selections = data.get('selections') # የተመረጡት ጨዋታዎች ዝርዝር (List)
+        selections = data.get('selections') 
 
         if not user_id or not bet_amount or not selections:
             return jsonify({"status": "error", "message": "የተላከው መረጃ አልተሟላም!"}), 400
@@ -159,10 +160,10 @@ def place_bet():
         if bet_amount < 10:
             return jsonify({"status": "error", "message": "ቢያንስ 10 ብር መወራረድ አለብዎት!"}), 400
 
-        # 1. ከተጠቃሚው አካውንት ላይ ብሩን መቀነስ (ከ config.py የመጣው)
-        success, new_balance = deduct_balance_safely(user_id, bet_amount, "Real Sports Bet")
+        # 🛠️ ማስተካከያ 1: deduct_balance_safely የሚመልሰው አንድ ቃል (String) ነው
+        result = deduct_balance_safely(str(user_id), bet_amount, "real")
         
-        if not success:
+        if result != "SUCCESS":
             return jsonify({"status": "error", "message": "በአካውንትዎ በቂ ቀሪ ሂሳብ የሎትም! እባክዎ ዲፖዚት ያድርጉ።"}), 400
 
         # 2. ጠቅላላ ኦድ እና ሊያሸንፉ የሚችሉትን ብር (Possible Win) ማስላት
@@ -175,7 +176,7 @@ def place_bet():
         # 3. የቲኬት ቁጥር መፍጠር
         ticket_id = f"RS-{str(uuid.uuid4())[:6].upper()}"
 
-        # 4. ቲኬቱን Redis ላይ ሴቭ ማድረግ (ለወደፊት ውጤቱን ለመፈተሽ እንዲመች)
+        # 4. ቲኬቱን Redis ላይ ሴቭ ማድረግ 
         bet_data = {
             "ticket_id": ticket_id,
             "user_id": user_id,
@@ -183,15 +184,19 @@ def place_bet():
             "total_odds": total_odds,
             "possible_win": possible_win,
             "selections": selections,
-            "status": "pending", # ገና አልታወቀም
+            "status": "pending", 
             "timestamp": time.time()
         }
         
-        # በተጠቃሚው ID ስር ቲኬቱን እናስቀምጠዋለን (Hash)
         redis.hset(f"user_sports_bets:{user_id}", ticket_id, json.dumps(bet_data))
 
-        # 5. ወደ ታሪክ (History) መመዝገብ
-        add_to_history(user_id, f"Sports Bet (Ticket: {ticket_id})", bet_amount, "pending")
+        # 🛠️ ማስተካከያ 2: ታሪክ ውስጥ Dictionary ፎርማት መላክ አለበት
+        history_entry = {
+            "action": f"Sports Bet (Ticket: {ticket_id})", 
+            "amount": bet_amount, 
+            "status": "pending"
+        }
+        add_to_history(str(user_id), history_entry)
 
         return jsonify({
             "status": "success", 
