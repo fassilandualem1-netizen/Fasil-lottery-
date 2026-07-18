@@ -329,7 +329,7 @@
       .catch(err => console.error("Balance fetch error:", err));
     }
 
-    // 🔄 ማንዋል ሪፍሬሽ ፈንክሽን
+        // 🔄 ማንዋል ሪፍሬሽ ፈንክሽን
     let isRefreshing = false;
     async function manualRefresh() {
         if (isRefreshing) return; 
@@ -359,13 +359,15 @@
         } catch (e) {
             console.error("Error updating balance:", e);
         } finally {
+            // ጊዜው ወደ 5 ሰከንድ (5000ms) ተስተካክሏል
             setTimeout(() => {
                 if (icon) icon.classList.remove('fa-spin');
                 if (btn) btn.style.opacity = "1";
                 isRefreshing = false;
-            }, 10000); // 10 ሰከንድ Cooldown
+            }, 5000); // 5 ሰከንድ Cooldown
         }
     }
+
 
     // የዋሌት ሞዳል መቆጣጠሪያዎች
     function openWalletModal() {
