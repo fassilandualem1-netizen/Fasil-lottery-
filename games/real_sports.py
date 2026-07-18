@@ -19,18 +19,20 @@ API_HOST = "v3.football.api-sports.io"
 # =========================================
 @real_sports_bp.route('/api/sports/odds', methods=['GET'])
 def get_odds():
-    # ቀናቶችን ማዘጋጀት (የዛሬ እና የነገ)
     now = datetime.now()
     today_str = now.strftime("%Y-%m-%d")
     tomorrow_str = (now + timedelta(days=1)).strftime("%Y-%m-%d")
     target_dates = [today_str, tomorrow_str]
 
-    # አዲስ የ Cache Key
     cache_key = f"cached_real_odds_48h_{today_str}"
     
+    # 1. መጀመሪያ Cache የተደረገ ዳታ ካለ እንፈትሻለን
     cached_odds = redis.get(cache_key)
     if cached_odds:
-        return jsonify({"status": "success", "matches": json.loads(cached_odds)})
+        matches = json.loads(cached_odds)
+        # 🚀 ማስተካከያ 1፡ Cache የተደረገው ዳታ ባዶ ካልሆነ ብቻ መልስ
+        if len(matches) > 0:
+            return jsonify({"status": "success", "matches": matches})
 
     try:
         headers = {
@@ -39,14 +41,17 @@ def get_odds():
         }
 
         fixtures_dict = {}
-        # 1. የሁለቱንም ቀናት የጨዋታ (Fixtures) መረጃ እናመጣለን
         for d in target_dates:
             url_fixtures = "https://v3.football.api-sports.io/fixtures"
             params_fixtures = {"date": d, "timezone": "Africa/Addis_Ababa"}
             res_fixtures = requests.get(url_fixtures, headers=headers, params=params_fixtures, timeout=10)
             
+            # API Error ቼክ ማድረግ
+            if res_fixtures.status_code != 200 or not res_fixtures.json().get('response'):
+                print(f"API Fixture Error for {d}: {res_fixtures.text}")
+                continue
+
             for f in res_fixtures.json().get('response', []):
-                # 🚀 ሊግ እና ሰዓትን አካተናል
                 fixtures_dict[f['fixture']['id']] = {
                     "teams": f['teams'],
                     "league": f['league']['name'],
@@ -54,18 +59,21 @@ def get_odds():
                 }
 
         real_matches = []
-        # 2. የሁለቱንም ቀናት ኦድ (Odds) እናመጣለን
         for d in target_dates:
             url_odds = "https://v3.football.api-sports.io/odds"
+            # 🚀 ማስተካከያ 2፡ "bookmaker": 8 የሚለውን አጠፋነው። ያገኘውን ኦድ ሁሉ ያመጣል።
             params_odds = {
                 "date": d,
-                "bookmaker": 8, # Bet365
                 "bet": 1 # Match Winner
             }
             response_odds = requests.get(url_odds, headers=headers, params=params_odds, timeout=10)
+            
+            if response_odds.status_code != 200:
+                print(f"API Odds Error for {d}: {response_odds.text}")
+                continue
+                
             odds_data = response_odds.json().get('response', [])
 
-            # 3. ኦዱን እና የጨዋታውን መረጃ ማጣመር
             for item in odds_data:
                 fixture_id = item['fixture']['id']
 
@@ -74,6 +82,7 @@ def get_odds():
 
                 fixture_info = fixtures_dict[fixture_id]
 
+                # የትኛውም bookmaker ቢሆን የመጀመሪያውን ኦድ እንወስዳለን
                 if not item['bookmakers'] or not item['bookmakers'][0]['bets']:
                     continue
 
@@ -92,28 +101,31 @@ def get_odds():
                         "fixture": {
                             "id": fixture_id,
                             "teams": fixture_info["teams"],
-                            "league": fixture_info["league"], # 👈 ተስተካክሏል
-                            "time": fixture_info["time"]      # 👈 ተስተካክሏል
+                            "league": fixture_info["league"],
+                            "time": fixture_info["time"]
                         },
                         "odds": odds_dict
                     })
 
-                # ለሁለት ቀን ስለሆነ እስከ 50 ጨዋታዎች ይያዝ
                 if len(real_matches) >= 50:
                     break
             
             if len(real_matches) >= 50:
                 break
 
-        # 4. መረጃውን Redis ውስጥ Cache እናደርገዋለን (ለ 1 ሰዓት)
-        redis.setex(cache_key, 3600, json.dumps(real_matches))
+        # 🚀 ማስተካከያ 3፡ ጨዋታዎች ከተገኙ ብቻ Cache እናደርጋለን! (ባዶውን እንዳይይዝ)
+        if len(real_matches) > 0:
+            redis.setex(cache_key, 3600, json.dumps(real_matches))
+        else:
+            print("Warning: No matches with odds found for today/tomorrow.")
 
         return jsonify({"status": "success", "matches": real_matches})
 
     except Exception as e:
-        print(f"API Odds Error: {e}")
+        print(f"API Odds Fetching Exception: {e}")
         return jsonify({"status": "error", "message": "እውነተኛ ኦዶችን ማምጣት አልተቻለም"}), 500
 
+# place_bet ራውትህ ትክክል ነው፣ እሱን መንካት አይጠበቅብህም!
 
 # =========================================
 # 2. ውርርድ መቁረጫ (Place Bet) ራውት
