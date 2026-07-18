@@ -58,20 +58,46 @@ ALLOWED_BANKS = ["CBE", "Telebirr", "Awash", "Abyssinia"]
 
 
 
-# 🚀 የተጠቃሚ መግቢያ (Start - ያለ ፒን)
+# 🚀 የተጠቃሚ መግቢያ (Start - የሪፈራል ሲስተም የተጨመረበት)
 # ==========================================
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    # 🌟 አዲሱ ኮድ: ተጠቃሚውን ወደ ዳታቤዝ (all_users) መመዝገቢያ 🌟
-    redis.sadd("all_users", message.chat.id)
+    user_id = str(message.chat.id)
+    
+    # 🌟 1. የሪፈራል (የጋባዥ) ID መኖሩን ማረጋገጥ 🌟
+    # ቴሌግራም ላይ ሊንኩ t.me/botname?start=ref_123456 ስለሚሆን text_parts እናወጣለን
+    text_parts = message.text.split()
+    if len(text_parts) > 1 and text_parts[1].startswith("ref_"):
+        referrer_id = text_parts[1].replace("ref_", "")
+        
+        # ተጠቃሚው አዲስ መሆኑን እና ራሱን እየጋበዘ አለመሆኑን ማረጋገጥ
+        if referrer_id != user_id and not redis.sismember("all_users", user_id):
+            # ጋባዡን መመዝገብ (ቦነሱን ዴፖዚት ሲያደርግ እንዲያገኝ)
+            redis.set(f"referrer:{user_id}", referrer_id)
+
+    # 🌟 2. ተጠቃሚውን ወደ ዳታቤዝ (all_users) መመዝገቢያ 🌟
+    redis.sadd("all_users", user_id)
     
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("🎮 ጌም ጀምር (Play)", web_app=WebAppInfo(url=WEB_APP_URL)))
 
+    # 🌟 3. የመጋበዣ ሊንካቸውን መስሪያ 🌟
+    bot_info = bot.get_me()
+    ref_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
+
+    welcome_msg = (
+        "👋 እንኳን ወደ የኛ ቤት በሰላም መጡ!\n\n"
+        "ከታች ያለውን በተን ተጭነው መጫወት እና ማሸነፍ ይችላሉ።\n\n"
+        "🎁 <b>ጓደኛዎን ይጋብዙ እና ቦነስ ያግኙ!</b>\n"
+        "የጋበዙት ሰው ለመጀመሪያ ጊዜ ዴፖዚት ሲያደርግ የ 5% ቦነስ ያገኛሉ!\n\n"
+        f"🔗 የእርስዎ መጋበዣ ሊንክ:\n<code>{ref_link}</code>"
+    )
+
     bot.send_message(
         message.chat.id,
-        "👋 እንኳን ወደ የኛ ቤት በሰላም መጡ!\n\nከታች ያለውን በተን ተጭነው መጫወት እና ማሸነፍ ይችላሉ።",
-        reply_markup=markup
+        welcome_msg,
+        reply_markup=markup,
+        parse_mode="HTML"
     )
 
 
@@ -253,39 +279,92 @@ def process_admin_action(call):
 
         if tx_type == "deposit":
             if action == "ok":
-                redis.hincrbyfloat("users:balance", user_id, amount)
+                # 1. ዴፖዚቱን ወደ "Total Deposits" እንጨምራለን (ትክክለኛ ብር ብቻ - ቦነስ የለውም)
                 redis.incrbyfloat("stats:total_deposits", amount)
+                
+                # 2. የመጀመሪያ ዴፖዚት መሆኑን ማረጋገጥ (ቦነሱን አንዴ ብቻ ለመስጠት)
+                is_first_deposit = redis.setnx(f"has_deposited:{user_id}", "1")
+                
+                # Redis-py 1 ወይም True ሊመልስ ስለሚችል ሁለቱንም ቼክ እናደርጋለን
+                if is_first_deposit in (1, True):
+                    # 🎁 ለመጀመሪያ ዴፖዚት ቦነስ እናሰላለን
+                    user_bonus = amount * 0.10  # 10% ለተጠቃሚው
+                    total_to_add = amount + user_bonus
+                    
+                    # ለተጠቃሚው ብሩን + ቦነሱን ማስገባት
+                    redis.hincrbyfloat("users:balance", user_id, total_to_add)
+                    
+                    success_msg = f"✅ <b>ዴፖዚትዎ ጸድቋል!</b>\n\n💰 ገቢ መጠን: <b>{amount} ብር</b>\n🎁 የ 10% የመጀመሪያ ጊዜ ቦነስ: <b>{user_bonus} ብር</b>\n\n💵 በአጠቃላይ <b>{total_to_add} ብር</b> ወደ አካውንትዎ ገብቷል።"
+                    bot.send_message(user_id, success_msg, parse_mode="HTML")
+                    
+                    # 🎁 የጋባዥ (Referrer) ቦነስ ፈልጎ መስጠት
+                    referrer_id_raw = redis.get(f"referrer:{user_id}")
+                    if referrer_id_raw:
+                        referrer_id = referrer_id_raw.decode('utf-8') if isinstance(referrer_id_raw, bytes) else str(referrer_id_raw)
+                        referrer_bonus = amount * 0.05  # 5% ለጋባዡ
+                        
+                        # ለጋባዡ ቦነስ መጨመር (አየር ላይ ያለ ብር ስለሆነ ዳሽቦርድ ገቢ ውስጥ አይገባም)
+                        redis.hincrbyfloat("users:balance", referrer_id, referrer_bonus)
+                        
+                        # ለጋባዡ ማሳወቂያ መላክ
+                        try:
+                            ref_msg = f"🎉 <b>እንኳን ደስ አለዎት!</b>\n\nበእርስዎ ሊንክ የመጣ ሰው ለመጀመሪያ ጊዜ ዴፖዚት ስላደረገ የ 5% (<b>{referrer_bonus} ብር</b>) ቦነስ አግኝተዋል! ብሩ ወደ ባላንስዎ ተደምሯል።"
+                            bot.send_message(referrer_id, ref_msg, parse_mode="HTML")
+                        except:
+                            pass # ጋባዡ ቦቱን ብሎክ አድርጎት ከሆነ error እንዳያመጣ
+                            
+                else:
+                    # 🔄 2ኛ ወይም 3ኛ ዴፖዚት (ቦነስ የለውም)
+                    redis.hincrbyfloat("users:balance", user_id, amount)
+                    bot.send_message(user_id, f"✅ <b>ዴፖዚትዎ ጸድቋል!</b>\n💰 መጠን: <b>{amount} ብር</b> ወደ አካውንትዎ ገብቷ።", parse_mode="HTML")
+                
+                # 3. ትራንዛክሽኑን ጸድቋል ብሎ መዝጋት
                 tx_data["status"] = "approved"
                 update_history_tx_status(user_id, tx_id, "approved")
-                bot.send_message(user_id, f"✅ <b>ዴፖዚትዎ ጸድቋል!</b>\n💰 መጠን: <b>{amount} ብር</b> ወደ አካውንትዎ ገብቷል።")
                 bot.answer_callback_query(call.id, "✅ በተሳካ ሁኔታ ጸድቋል!")
-                bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=call.message.caption + "\n\n🟢 <b>[የጸደቀ ገቢ]</b>")
+                
+                try:
+                    bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=call.message.caption + "\n\n🟢 <b>[የጸደቀ ገቢ]</b>", parse_mode="HTML")
+                except:
+                    pass
+                
             else:
+                # ❌ ውድቅ (Reject) ሲደረግ...
                 tx_data["status"] = "rejected"
                 update_history_tx_status(user_id, tx_id, "rejected")
-                bot.send_message(user_id, f"❌ የ <b>{amount} ብር</b> ገቢ ጥያቄዎ በባለሙያ ውድቅ ተደርጓል።")
+                bot.send_message(user_id, f"❌ የ <b>{amount} ብር</b> ገቢ ጥያቄዎ በባለሙያ ውድቅ ተደርጓል።", parse_mode="HTML")
                 bot.answer_callback_query(call.id, "❌ ውድቅ ተደርጓል!")
-                bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=call.message.caption + "\n\n🔴 <b>[ውድቅ የተደረገ ገቢ]</b>")
+                try:
+                    bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=call.message.caption + "\n\n🔴 <b>[ውድቅ የተደረገ ገቢ]</b>", parse_mode="HTML")
+                except:
+                    pass
 
         elif tx_type == "withdraw":
             if action == "ok":
                 redis.incrbyfloat("stats:total_withdrawals", amount)
                 tx_data["status"] = "approved"
                 update_history_tx_status(user_id, tx_id, "approved")
-                bot.send_message(user_id, f"✅ የ <b>{amount} ብር</b> ወጪ (Withdraw) ጥያቄዎ ተከፍሏል!")
+                bot.send_message(user_id, f"✅ የ <b>{amount} ብር</b> ወጪ (Withdraw) ጥያቄዎ ተከፍሏል!", parse_mode="HTML")
                 bot.answer_callback_query(call.id, "✅ ክፍያ መፈጸሙ ተረጋግጧል!")
-                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=call.message.text + "\n\n🟢 <b>[ክፍያ የተፈጸመለት]</b>")
+                try:
+                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=call.message.text + "\n\n🟢 <b>[ክፍያ የተፈጸመለት]</b>", parse_mode="HTML")
+                except:
+                    pass
             else:
                 redis.hincrbyfloat("users:balance", user_id, amount)
                 tx_data["status"] = "refunded" 
                 update_history_tx_status(user_id, tx_id, "refunded") 
-                bot.send_message(user_id, f"❌ የ <b>{amount} ብር</b> ወጪ ጥያቄዎ ተሰርዟል! ገንዘቡ ወደ ባላንስዎ ተመልሷል (Refunded)።")
+                bot.send_message(user_id, f"❌ የ <b>{amount} ብር</b> ወጪ ጥያቄዎ ተሰርዟል! ገንዘቡ ወደ ባላንስዎ ተመልሷል (Refunded)።", parse_mode="HTML")
                 bot.answer_callback_query(call.id, "❌ ወጪው ተሰርዟል፣ ገንዘቡ ተመልሷል!")
-                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=call.message.text + "\n\n🔴 <b>[የተሰረዘ እና የተመለሰ (Refunded)]</b>")
+                try:
+                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=call.message.text + "\n\n🔴 <b>[የተሰረዘ እና የተመለሰ (Refunded)]</b>", parse_mode="HTML")
+                except:
+                    pass
 
         redis.set(f"tx:{tx_id}", json.dumps(tx_data))
     except Exception as e:
         bot.answer_callback_query(call.id, f"⚠️ ስህተት፡ {str(e)}")
+
 
 
 # ==========================================
