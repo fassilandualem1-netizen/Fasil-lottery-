@@ -36,8 +36,8 @@ def test_api_from_bot(message):
     
     # Render environment ላይ ያስቀመጥከውን የ API Key ስም እዚህ ጋር ተጠቀም
     # (ስሙ API_KEY ካልሆነ፣ Render ላይ ባለው ትክክለኛ ስም ቀይረው)
-    API_KEY = os.getenv("API_KEY") 
-    
+    API_KEY = os.getenv("API_FOOTBALL_KEY") 
+
     headers = {
         "x-apisports-key": API_KEY, 
         "x-apisports-host": "v3.football.api-sports.io"
