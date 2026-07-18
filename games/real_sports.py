@@ -42,9 +42,8 @@ def get_odds():
     tomorrow_str = (now + timedelta(days=1)).strftime("%Y-%m-%d")
     target_dates = [today_str, tomorrow_str]
 
-    cache_key = f"cached_real_odds_48h_{today_str}"
+    cache_key = f"cached_real_odds_v2_{today_str}"
 
-    # 1. መጀመሪያ Cache የተደረገ ዳታ ካለ እንፈትሻለን
     cached_odds = redis.get(cache_key)
     if cached_odds:
         matches = json.loads(cached_odds)
@@ -52,56 +51,47 @@ def get_odds():
             return jsonify({"status": "success", "matches": matches})
 
     try:
-        # --- DEBUGGING START ---
-        print(f"DEBUG: API_KEY is loaded: {API_KEY is not None}")
-        print(f"DEBUG: API_KEY starts with: {str(API_KEY)[:4] if API_KEY else 'None'}")
-        # --- DEBUGGING END ---
-
         headers = {
             "x-apisports-key": API_KEY,
             "x-apisports-host": API_HOST
         }
 
         fixtures_dict = {}
-        # ጨዋታዎቹን (Fixtures) ማምጣት
         for d in target_dates:
             url_fixtures = "https://v3.football.api-sports.io/fixtures"
             params_fixtures = {"date": d, "timezone": "Africa/Addis_Ababa"}
             res_fixtures = requests.get(url_fixtures, headers=headers, params=params_fixtures, timeout=10)
 
-            # API Error ቼክ ማድረግ
             if res_fixtures.status_code != 200 or not res_fixtures.json().get('response'):
-                print(f"API Fixture Error for {d}: {res_fixtures.text}")
                 continue
 
             for f in res_fixtures.json().get('response', []):
                 fixtures_dict[f['fixture']['id']] = {
                     "teams": f['teams'],
                     "league": f['league']['name'],
-                    "time": f['fixture']['date']
+                    "time": f['fixture']['date'] # ISO Format string
                 }
 
         real_matches = []
-        # ኦዶችን (Odds) በገጽ (Pagination) ማምጣት
+        now_time = datetime.now() # የአሁኑን ሰዓት ለመውሰድ
+
         for d in target_dates:
-            for page in range(1, 4):  # የመጀመሪያዎቹን 3 ገፆች ይፈልጋል
+            for page in range(1, 11):  
                 url_odds = "https://v3.football.api-sports.io/odds"
                 params_odds = {
                     "date": d,
                     "bet": 1,
-                    "bookmaker": 8, # Bet365 - ትክክለኛ የ 1x2 ኦድ ስለሚሰጥ
+                    "bookmaker": 8,
                     "page": page
                 }
                 response_odds = requests.get(url_odds, headers=headers, params=params_odds, timeout=10)
 
                 if response_odds.status_code != 200:
-                    print(f"API Odds Error for {d} page {page}: {response_odds.text}")
                     break
 
                 res_json = response_odds.json()
                 odds_data = res_json.get('response', [])
 
-                # በዚህ ገጽ ላይ ምንም ዳታ ከሌለ ቀጣዩን መፈለግ ያቆማል
                 if not odds_data:
                     break 
 
@@ -112,6 +102,20 @@ def get_odds():
                         continue
 
                     fixture_info = fixtures_dict[fixture_id]
+                    
+                    # --- አዲስ የሰዓት ማጣሪያ (Time Filter) ---
+                    try:
+                        # የጨዋታውን ሰዓት ከ API string ወደ datetime መቀየር
+                        # 'Z' ካለ ማስተካከያ ይፈልጋል
+                        raw_time = fixture_info["time"]
+                        match_time_obj = datetime.fromisoformat(raw_time.replace('Z', '+03:00'))
+                        
+                        # የጨዋታው ሰዓት ከአሁኑ ሰዓት በፊት ከሆነ (ያለፈ ከሆነ) እንዘለዋለን
+                        if match_time_obj.replace(tzinfo=None) < now_time:
+                            continue
+                    except Exception:
+                        continue # ሰዓቱ መለየት ካልተቻለ ስህተት እንዳይፈጠር ዝለል
+                    # -------------------------------------
 
                     if not item['bookmakers'] or not item['bookmakers'][0]['bets']:
                         continue
@@ -126,29 +130,28 @@ def get_odds():
                         elif val == "Draw": odds_dict["draw"] = odd
                         elif val == "Away": odds_dict["away"] = odd
 
+                    clean_time = match_time_obj.strftime("%H:%M")
+
                     if "home" in odds_dict and "away" in odds_dict:
                         real_matches.append({
                             "fixture": {
                                 "id": fixture_id,
                                 "teams": fixture_info["teams"],
                                 "league": fixture_info["league"],
-                                "time": fixture_info["time"]
+                                "time": clean_time,
+                                "date": d
                             },
                             "odds": odds_dict
                         })
 
-                    # 50 ጨዋታዎች ከሞሉ ይበቃል
-                    if len(real_matches) >= 50:
+                    if len(real_matches) >= 150:
                         break
 
-                if len(real_matches) >= 50:
+                if len(real_matches) >= 150:
                     break
 
         if len(real_matches) > 0:
-            # ⚠️ የAPI ገደብ እንዳያልቅ፣ ዳታውን ለ 6 ሰዓታት (21600 ሰከንድ) Cache እናደርገዋለን
             redis.setex(cache_key, 21600, json.dumps(real_matches))
-        else:
-            print("Warning: No matches with odds found for today/tomorrow.")
 
         return jsonify({"status": "success", "matches": real_matches})
 
