@@ -1,37 +1,261 @@
-let currentGameState = "WAITING"; 
-let isAutoBetEnabled = false;
-let autoCashoutValue = 2.00;
-let hasActiveBetInCurrentRound = false;
-
-// ከሰርቨር ስቴት ሲቀየር የሚሰማ (WebSocket / Polling)
-function onGameStateChange(newState) {
-    currentGameState = newState;
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gasha Bet - Aviator</title>
+    <!-- የ Socket.IO ላይብረሪ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
     
-    if (newState === "WAITING") {
-        updateButtonUI("Bet", "green");
+    <style>
+        /* ==========================================
+           🎨 የ Aviator ጨለማ እና ዘመናዊ ዲዛይን (CSS)
+           ========================================== */
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
         
-        // Auto Bet ካበራ በራሱ ጊዜ ይወራረዳል
-        if (isAutoBetEnabled) {
-            triggerPlaceBetAPI();
-        }
-    } 
-    else if (newState === "FLYING") {
-        if (hasActiveBetInCurrentRound) {
-            updateButtonUI("Cash Out", "yellow");
-        } else {
-            updateButtonUI("Bet for Next Round", "grey");
-        }
-    } 
-    else if (newState === "CRASHED") {
-        updateButtonUI("Crashed", "red", true); // Disable button
-        hasActiveBetInCurrentRound = false;
-    }
-}
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Roboto', sans-serif; user-select: none; }
+        body { background-color: #1a1a24; color: white; display: flex; flex-direction: column; height: 100vh; }
+        
+        /* 1. ሄደር እና ባላንስ */
+        .header { display: flex; justify-content: space-between; padding: 10px 15px; background-color: #121219; border-bottom: 1px solid #2a2a35; }
+        .logo { color: #e50b2c; font-weight: 900; font-size: 20px; font-style: italic; }
+        .balance { color: #28a745; font-weight: bold; font-size: 16px; }
 
-// አውሮፕላኑ እየበረረ በየሰከንዱ ቁጥሩን የሚከታተል ፈንክሽን
-function onMultiplierTick(currentMultiplier) {
-    // Auto Cashout ካበራና ቁጥሩ ከደረሰ ራሱ ካሽአውት ያደርጋል
-    if (hasActiveBetInCurrentRound && currentMultiplier >= autoCashoutValue) {
-        triggerCashoutAPI();
-    }
-}
+        /* 2. የክራሽ ታሪክ (History Tape) */
+        .history-bar { display: flex; gap: 8px; padding: 5px 15px; overflow-x: auto; background-color: #1a1a24; white-space: nowrap; }
+        .history-item { font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 12px; background: rgba(255,255,255,0.05); }
+        .hist-red { color: #e50b2c; } .hist-purple { color: #c155ff; } .hist-blue { color: #3498db; }
+
+        /* 3. ዋናው የጨዋታ ማሳያ (Game Screen) */
+        .game-screen { flex-grow: 1; background: radial-gradient(circle, #331525 0%, #111116 100%); position: relative; display: flex; justify-content: center; align-items: center; min-height: 250px; margin: 10px; border-radius: 12px; border: 1px solid #333; overflow: hidden; }
+        #multiplier-text { font-size: 80px; font-weight: 900; z-index: 2; text-shadow: 2px 4px 10px rgba(0,0,0,0.5); }
+        .plane-anim { position: absolute; width: 100%; height: 100%; opacity: 0.1; background: repeating-linear-gradient(45deg, transparent, transparent 10px, #fff 10px, #fff 20px); }
+
+        /* 4. የውርርድ ፓኔሎች (Bet Panels Container) */
+        .panels-container { padding: 0 10px 10px 10px; display: flex; flex-direction: column; gap: 10px; }
+        
+        /* እያንዳንዱ ፓኔል */
+        .bet-panel { background-color: #21212c; border-radius: 12px; padding: 10px; border: 1px solid #2a2a35; }
+        
+        /* ታቦች (Bet vs Auto) */
+        .panel-tabs { display: flex; justify-content: center; margin-bottom: 10px; background: #16161e; border-radius: 20px; padding: 2px; width: fit-content; margin-left: auto; margin-right: auto; }
+        .panel-tab { padding: 5px 20px; font-size: 12px; font-weight: bold; color: #888; border-radius: 18px; cursor: pointer; transition: 0.3s; }
+        .panel-tab.active { background-color: #2a2a35; color: white; }
+
+        /* የብር ማስገቢያ እና ዋና በተን (Split Layout) */
+        .panel-body { display: flex; gap: 10px; }
+        
+        /* ግራ በኩል - የብር ማስተካከያ */
+        .amount-controls { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+        .input-group { display: flex; align-items: center; background: #16161e; border-radius: 8px; padding: 2px; border: 1px solid #333; }
+        .btn-stepper { width: 30px; height: 30px; border-radius: 50%; border: none; background: #2a2a35; color: white; font-weight: bold; cursor: pointer; }
+        .amount-input { flex: 1; width: 100%; text-align: center; background: transparent; border: none; color: white; font-size: 16px; font-weight: bold; outline: none; }
+        
+        /* ፈጣን ብሮች */
+        .quick-amounts { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+        .btn-quick { background: #16161e; border: 1px solid #333; color: #aaa; border-radius: 4px; padding: 5px; font-size: 12px; cursor: pointer; }
+        
+        /* ቀኝ በኩል - ትልቁ በተን */
+        .btn-action { flex: 1; border: none; border-radius: 12px; font-size: 20px; font-weight: 900; text-transform: uppercase; cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; line-height: 1.2; box-shadow: inset 0px -4px 0px rgba(0,0,0,0.2); transition: 0.1s; }
+        .btn-action:active { transform: translateY(2px); box-shadow: inset 0px -2px 0px rgba(0,0,0,0.2); }
+        .btn-green { background-color: #28a745; color: white; }
+        .btn-red { background-color: #dc3545; color: white; }
+        .btn-yellow { background-color: #ffc107; color: black; }
+        
+        /* የ Auto ውርርድ መቆጣጠሪያዎች (መጀመሪያ ይደበቃሉ) */
+        .auto-controls { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid #2a2a35; font-size: 12px; color: #aaa; }
+        .auto-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .toggle-switch { width: 40px; height: 20px; background: #16161e; border-radius: 10px; position: relative; cursor: pointer; border: 1px solid #333; }
+        .toggle-switch::after { content: ''; position: absolute; width: 16px; height: 16px; background: #888; border-radius: 50%; top: 1px; left: 2px; transition: 0.3s; }
+        .toggle-switch.active { background: #28a745; border-color: #28a745; }
+        .toggle-switch.active::after { background: white; transform: translateX(20px); }
+        .auto-input { width: 60px; background: #16161e; border: 1px solid #333; color: white; border-radius: 4px; padding: 2px 5px; text-align: center; outline: none; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. Header -->
+    <header class="header">
+        <div class="logo">Aviator</div>
+        <div class="balance">3.00 ETB</div>
+    </header>
+
+    <!-- 2. History Tape -->
+    <div class="history-bar">
+        <span class="history-item hist-red">1.28x</span>
+        <span class="history-item hist-purple">2.68x</span>
+        <span class="history-item hist-blue">1.44x</span>
+        <span class="history-item hist-purple">4.36x</span>
+        <span class="history-item hist-blue">2.02x</span>
+        <span class="history-item hist-red">1.91x</span>
+    </div>
+
+    <!-- 3. Game Screen -->
+    <div class="game-screen">
+        <div class="plane-anim"></div>
+        <!-- ይህ ቁጥር በ aviator.js ነው የሚቀየረው -->
+        <div id="multiplier-text">1.00x</div> 
+    </div>
+
+    <!-- 4. Bet Panels -->
+    <div class="panels-container">
+        
+        <!-- ================= PANEL 1 ================= -->
+        <div class="bet-panel" id="panel-1">
+            <!-- Tabs -->
+            <div class="panel-tabs">
+                <div class="panel-tab active" id="p1-tab-bet">Bet</div>
+                <div class="panel-tab" id="p1-tab-auto">Auto</div>
+            </div>
+            
+            <div class="panel-body">
+                <!-- Left: Controls -->
+                <div class="amount-controls">
+                    <div class="input-group">
+                        <button class="btn-stepper" id="p1-minus">-</button>
+                        <input type="number" class="amount-input" id="p1-amount" value="20.00" readonly>
+                        <button class="btn-stepper" id="p1-plus">+</button>
+                    </div>
+                    <div class="quick-amounts">
+                        <button class="btn-quick" onclick="setAmount('p1', 20)">20</button>
+                        <button class="btn-quick" onclick="setAmount('p1', 40)">40</button>
+                        <button class="btn-quick" onclick="setAmount('p1', 80)">80</button>
+                        <button class="btn-quick" onclick="setAmount('p1', 400)">400</button>
+                    </div>
+                </div>
+                <!-- Right: Action Button -->
+                <button class="btn-action btn-green" id="p1-btn">
+                    <span>Bet</span>
+                    <span style="font-size: 14px; font-weight: 400;" id="p1-btn-text">20.00 ETB</span>
+                </button>
+            </div>
+
+            <!-- Auto Controls (Hidden by default) -->
+            <div class="auto-controls" id="p1-auto-section">
+                <div class="auto-row">
+                    <span>Auto Bet</span>
+                    <div class="toggle-switch" id="p1-auto-bet-toggle"></div>
+                </div>
+                <div class="auto-row">
+                    <span>Auto Cash Out</span>
+                    <div style="display: flex; gap: 5px; align-items: center;">
+                        <input type="number" class="auto-input" id="p1-auto-cashout-val" value="2.00" step="0.1">
+                        <div class="toggle-switch" id="p1-auto-cashout-toggle"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PANEL 2 ================= -->
+        <div class="bet-panel" id="panel-2">
+            <!-- ይሄ ልክ እንደ ፓኔል 1 ነው፣ አይዲው (ID) ብቻ 'p2' ይሆናል -->
+            <div class="panel-tabs">
+                <div class="panel-tab active" id="p2-tab-bet">Bet</div>
+                <div class="panel-tab" id="p2-tab-auto">Auto</div>
+            </div>
+            
+            <div class="panel-body">
+                <div class="amount-controls">
+                    <div class="input-group">
+                        <button class="btn-stepper" id="p2-minus">-</button>
+                        <input type="number" class="amount-input" id="p2-amount" value="20.00" readonly>
+                        <button class="btn-stepper" id="p2-plus">+</button>
+                    </div>
+                    <div class="quick-amounts">
+                        <button class="btn-quick" onclick="setAmount('p2', 20)">20</button>
+                        <button class="btn-quick" onclick="setAmount('p2', 40)">40</button>
+                        <button class="btn-quick" onclick="setAmount('p2', 80)">80</button>
+                        <button class="btn-quick" onclick="setAmount('p2', 400)">400</button>
+                    </div>
+                </div>
+                <button class="btn-action btn-green" id="p2-btn">
+                    <span>Bet</span>
+                    <span style="font-size: 14px; font-weight: 400;" id="p2-btn-text">20.00 ETB</span>
+                </button>
+            </div>
+
+            <div class="auto-controls" id="p2-auto-section">
+                <div class="auto-row">
+                    <span>Auto Bet</span>
+                    <div class="toggle-switch" id="p2-auto-bet-toggle"></div>
+                </div>
+                <div class="auto-row">
+                    <span>Auto Cash Out</span>
+                    <div style="display: flex; gap: 5px; align-items: center;">
+                        <input type="number" class="auto-input" id="p2-auto-cashout-val" value="2.00" step="0.1">
+                        <div class="toggle-switch" id="p2-auto-cashout-toggle"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ዋናው ጃቫስክሪፕትህን እዚህ አገናኝ -->
+    <!-- <script src="/static/js/aviator.js"></script> -->
+    <script>
+        // ---------------------------------------------------------
+        // ይህ ኮድ ኤችቲኤምኤሉ ላይ ያሉትን አዝራሮች (+, -, Quick Bets) ያሰራል።
+        // ዋናው aviator.js ውስጥ ከሰራኸው Class ጋር እንዴት እንደሚገናኝ ያሳያል።
+        // ---------------------------------------------------------
+
+        // 1. የገንዘብ መጠን መቀየሪያ ሎጂክ (Quick Amount & Steppers)
+        function setAmount(panelId, value) {
+            let input = document.getElementById(panelId + '-amount');
+            let btnText = document.getElementById(panelId + '-btn-text');
+            input.value = value.toFixed(2);
+            btnText.innerText = value.toFixed(2) + " ETB";
+            
+            // ለ aviator.js ለማሳወቅ (አስፈላጊ ከሆነ)
+            if(window['panel_' + panelId]) window['panel_' + panelId].amount = value;
+        }
+
+        function setupPanelUI(prefix) {
+            let input = document.getElementById(prefix + '-amount');
+            let btnText = document.getElementById(prefix + '-btn-text');
+            
+            // Plus / Minus Buttons
+            document.getElementById(prefix + '-plus').addEventListener('click', () => {
+                let val = parseFloat(input.value) + 10;
+                setAmount(prefix, val);
+            });
+            document.getElementById(prefix + '-minus').addEventListener('click', () => {
+                let val = Math.max(10, parseFloat(input.value) - 10); // Minimum bet is 10
+                setAmount(prefix, val);
+            });
+
+            // Tabs (Bet vs Auto)
+            let tabBet = document.getElementById(prefix + '-tab-bet');
+            let tabAuto = document.getElementById(prefix + '-tab-auto');
+            let autoSection = document.getElementById(prefix + '-auto-section');
+
+            tabBet.addEventListener('click', () => {
+                tabBet.classList.add('active');
+                tabAuto.classList.remove('active');
+                autoSection.style.display = 'none';
+            });
+
+            tabAuto.addEventListener('click', () => {
+                tabAuto.classList.add('active');
+                tabBet.classList.remove('active');
+                autoSection.style.display = 'block';
+            });
+
+            // Toggle Switches Animation (አረንጓዴ ማብሪያና ማጥፊያ)
+            document.getElementById(prefix + '-auto-bet-toggle').addEventListener('click', function() {
+                this.classList.toggle('active');
+                // update class property here: panel.isAutoBet = this.classList.contains('active')
+            });
+
+            document.getElementById(prefix + '-auto-cashout-toggle').addEventListener('click', function() {
+                this.classList.toggle('active');
+                // update class property here
+            });
+        }
+
+        // ሁለቱንም ፓኔሎች UI ሎጂክ ማስጀመር
+        setupPanelUI('p1');
+        setupPanelUI('p2');
+    </script>
+</body>
+</html>
