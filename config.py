@@ -105,17 +105,31 @@ def update_history_tx_status(user_id: str, tx_id: str, status: str):
         new_history = []
 
         for item_raw in raw_history:
-            item = json.loads(item_raw)
-            if item.get("tx_id") == tx_id:
-                item["status"] = status
-                updated = True
-            new_history.append(json.dumps(item))
+            try:
+                # ዳታው bytes ከሆነ ወደ string መቀየር
+                if isinstance(item_raw, bytes):
+                    item_raw = item_raw.decode('utf-8')
+                
+                item = json.loads(item_raw)
+                
+                # 'item' Dictionary መሆኑን ማረጋገጥ
+                if isinstance(item, dict):
+                    if item.get("tx_id") == tx_id:
+                        item["status"] = status
+                        updated = True
+                    new_history.append(json.dumps(item))
+            except Exception:
+                continue # የተበላሸ መረጃ ካለ ዝለለው
 
         if updated and new_history:
             redis.delete(history_key)
-            redis.lpush(history_key, *reversed(new_history))
+            # አዲስ List ማስገባት
+            for item_json in reversed(new_history):
+                redis.lpush(history_key, item_json)
+                
     except Exception as e:
         print(f"Update History Error: {e}")
+
 
 def save_user_withdraw_details(user_id: str, info: dict):
     try:
