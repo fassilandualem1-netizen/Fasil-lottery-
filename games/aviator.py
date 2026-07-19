@@ -222,15 +222,25 @@ def start_aviator_loop(socketio):
 @aviator_bp.route('/api/aviator/user_data', methods=['GET'])
 def get_user_data():
     user_id = request.args.get('user_id')
+    
     if not user_id:
         return jsonify({"status": "error", "message": "User ID ያስፈልጋል"}), 400
+
+    try:
+        # Redis ላይ ዳታ ከሌለ (None ከሆነ) ቀጥታ 0.0 ይመልሳል
+        raw_balance = redis.hget("users:balance", user_id)
+        current_balance = float(raw_balance) if raw_balance else 0.0
         
-    current_balance = float(redis.hget("users:balance", user_id) or 0.0)
-    return jsonify({
-        "status": "success",
-        "balance": current_balance,
-        "history": game_state["history"]
-    })
+        return jsonify({
+            "status": "success",
+            "balance": current_balance,
+            "history": game_state.get("history", []) # History ባይኖርም እንኳን Error እንዳይል
+        }), 200
+        
+    except Exception as e:
+        print(f"⚠️ User Data Fetch Error for {user_id}: {e}")
+        return jsonify({"status": "error", "message": "የሰርቨር ችግር አጋጥሟል፣ እባክዎ እንደገና ይሞክሩ"}), 500
+
 
 @aviator_bp.route('/api/aviator/place_bet', methods=['POST'])
 def place_bet():
