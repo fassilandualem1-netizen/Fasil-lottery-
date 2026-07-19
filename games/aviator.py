@@ -1,10 +1,18 @@
 import time
 import random
 import math
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template  # 👈 render_template እዚህ ተጨምሯል
 from config import redis, deduct_balance_safely, add_to_history # ከ config.py የጋራ ቱሎችን አስገባ
 
 aviator_bp = Blueprint('aviator', __name__)
+
+# ==========================================
+# 🗺️ 0. የጌሙን ገጽ ማሳያ ራውት (Not Found የነበረው)
+# ==========================================
+@aviator_bp.route('/aviator')
+def aviator_page():
+    """ ተጠቃሚው /aviator ሲል የ HTML ገጹን እንዲያይ ያደርጋል """
+    return render_template('aviator.html')
 
 # ==========================================
 # 🎮 1. የጨዋታው ማህደረ ትውስታ (In-Memory State)
@@ -53,8 +61,8 @@ def start_aviator_loop(socketio):
             current_round_bets = next_round_bets.copy()
             next_round_bets = {}
             
-            # ለሁሉም ክላይንቶች (Frontend) አዲስ ዙር መጀመሩን ማሳወቅ
-            socketio.emit('game_state', {'status': 'WAITING', 'time_left': 5}, namespace='/aviator')
+            # 🔥 ማስተካከያ: ከጃቫስክሪፕቱ ጋር እንዲገናኝ namespace ተወግዷል
+            socketio.emit('game_state', {'status': 'WAITING', 'time_left': 5})
             socketio.sleep(5) # Gevent-safe sleep
             
             # --- ለ. የበረራ ጊዜ (FLYING) ---
@@ -62,7 +70,7 @@ def start_aviator_loop(socketio):
             game_state["start_time"] = time.time()
             
             # አውሮፕላኑ ተነሳ! የሚለውን መላክ (የሚሊሰከንድ ማሳደጉን ክላይንቱ በራሱ ይሰራል)
-            socketio.emit('game_state', {'status': 'FLYING', 'start_time': game_state["start_time"]}, namespace='/aviator')
+            socketio.emit('game_state', {'status': 'FLYING', 'start_time': game_state["start_time"]})
             
             crashed = False
             while not crashed:
@@ -82,7 +90,7 @@ def start_aviator_loop(socketio):
             game_state["multiplier"] = game_state["crash_point"]
             
             # ክራሽ ማድረጉን መላክ!
-            socketio.emit('game_state', {'status': 'CRASHED', 'crash_point': game_state["crash_point"]}, namespace='/aviator')
+            socketio.emit('game_state', {'status': 'CRASHED', 'crash_point': game_state["crash_point"]})
             
             # 2 ሰከንድ ለዕይታ ቆይቶ ወደ WAITING ይመለሳል
             socketio.sleep(2)
@@ -144,7 +152,7 @@ def cashout():
     # አሸናፊነቱን ወደ ሬዲስ (ባላንስ) መመለስ
     redis.hincrbyfloat("users:balance", user_id, win_amount)
     
-    # ወደ ሂስትሪ መመዝገብ (አማራጭ)
+    # ወደ ሂስትሪ መመዝገብ
     add_to_history(user_id, {"type": "አቪዬተር አሸናፊ", "amount": round(win_amount, 2), "multiplier": current_multi})
     
     return jsonify({
