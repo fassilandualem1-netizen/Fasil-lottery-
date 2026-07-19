@@ -7,6 +7,7 @@ import json
 import uuid
 import threading
 import re
+import requests # <--- ⚠️ ይህንን እዚህ ጋር መልሰህ አስገባው
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 import telebot
