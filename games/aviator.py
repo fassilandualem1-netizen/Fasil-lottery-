@@ -1,6 +1,8 @@
 import time
 import random
 import math
+import logging
+from threading import Lock
 from flask import Blueprint, request, jsonify, render_template
 from config import redis, deduct_balance_safely, add_to_history 
 
@@ -14,53 +16,44 @@ game_state = {
     "multiplier": 1.00,
     "crash_point": 1.00,
     "start_time": 0,
-    "history": []  # ያለፉትን 20 የክራሽ ነጥቦች ይይዛል (ለ Frontend የቀለም ታሪክ ማሳያ)
+    "history": []  # ያለፉትን 20 የክራሽ ነጥቦች ይይዛል
 }
 
 current_round_bets = {}  
 next_round_bets = {}     
-pre_generated_crashes = [] # 500 አስቀድመው የተሰሩ የክራሽ ነጥቦች
+generated_crashes = []   # 500 አስቀድመው የተሰሩ የክራሽ ነጥቦች
+bet_lock = Lock()        # መረጃዎች እንዳይጋጩ የሚጠብቅ (Thread Safety)
 
 # ==========================================
-# 🧮 2. Provably Fair (500 ነጥቦችን አስቀድሞ ማመንጨት)
+# 🧮 2. Provably Fair (የክራሽ ነጥቦችን አስቀድሞ ማመንጨት)
 # ==========================================
-import random
+def generate_crash_point():
+    """ አንድ የክራሽ ነጥብ በ Provably Fair ሎጂክ ያመነጫል """
+    house_edge = 0.03 # 3% የቤት ትርፍ
+    
+    if random.random() < house_edge:
+        return 1.00 # ቀጥታ 1.00 ላይ ይፈነዳል
+    
+    r = random.random() 
+    if r == 1.0: 
+        r = 0.99999 # ZeroDivisionError እንዳይፈጠር መከላከያ
+        
+    crash_point = 1.0 / (1.0 - r) # Inverse Probability
+    
+    max_multiplier = 1000.00
+    final_crash = round(crash_point, 2)
+    return min(final_crash, max_multiplier)
 
-pre_generated_crashes = []
-
-# ==========================================
-# 🧮 2. Provably Fair (500 ነጥቦችን አስቀድሞ ማመንጨት)
-# ==========================================
 def generate_500_crashes():
-    """ 
-    ሰርቨሩን ጫና ላለማብዛት 500 የክራሽ ቁጥሮችን በአንድ ጊዜ ያዘጋጃል። 
-    ሲያልቅም በራሱ ይሞላል።
-    """
-    global pre_generated_crashes
-    crashes = []
-    house_edge = 0.97 # የ 3% ትርፍ (House Edge)
-    max_multiplier = 2000.00 # ⚠️ ጣሪያ (ከዚህ በላይ መብረር አይችልም)
-
-    for _ in range(500):
-        r = random.random()
-        
-        # r = 1.0 ሆኖ (ZeroDivisionError) እንዳይፈጠር መከላከያ
-        if r == 1.0: 
-            r = 0.99999 
-            
-        crash_point = house_edge / (1.0 - r)
-        
-        # ከ 1.00 በታች እንዳይወርድ እና ከ 2000.00 እንዳይበልጥ ማሰር
-        final_crash = min(max_multiplier, max(1.00, round(crash_point, 2)))
-        crashes.append(final_crash)
-        
-    pre_generated_crashes = crashes
+    """ ሰርቨሩን ጫና ላለማብዛት 500 ቁጥሮችን በአንድ ጊዜ ያዘጋጃል """
+    global generated_crashes
+    generated_crashes = [generate_crash_point() for _ in range(500)]
 
 def get_next_crash():
-    global pre_generated_crashes
-    if not pre_generated_crashes:
-        generate_500_crashes() # ካለቀበት ዳግም ይሞላል
-    return pre_generated_crashes.pop(0)
+    global generated_crashes
+    if not generated_crashes:
+        generate_500_crashes() # ቢያልቅበት እንኳን በራሱ ሪፊል (Refill) ያደርጋል
+    return generated_crashes.pop(0)
 
 # ==========================================
 # 💸 3. የካሽ አውት ተግባር (ለ Auto እና Manual የሚያገለግል)
@@ -73,7 +66,7 @@ def process_cashout(user_id, multiplier):
         if not user_bet.get("cashed_out"):
             user_bet["cashed_out"] = True
             
-            # 1. ማስተካከያ: ብሩን አስቀድሞ ወደ 2 ዴሲማል ማጠጋጋት (Rounding)
+            # ብሩን አስቀድሞ ወደ 2 ዴሲማል ማጠጋጋት (Rounding)
             win_amount = round(user_bet["amount"] * multiplier, 2)
             user_bet["win_amount"] = win_amount 
 
@@ -86,45 +79,10 @@ def process_cashout(user_id, multiplier):
             return user_bet.get("win_amount", 0)
             
     return 0
- #==========================================
+
+# ==========================================
 # 🔄 4. የጨዋታው ሞተር (Robust Background Game Loop)
 # ==========================================
-import math
-import time
-import random
-from threading import Lock
-
-# -----------------------------------------------------
-# 1. የትርፍ ማስረገጫ እና የክራሽ ነጥብ ማመንጫ (ROBUST MATH)
-# -----------------------------------------------------
-generated_crashes = []
-bet_lock = Lock() # መረጃዎች እንዳይጋጩ የሚጠብቅ (Thread Safety)
-
-def generate_crash_point():
-    house_edge = 0.03 # 3% የቤት ትርፍ
-    if random.random() < house_edge:
-        return 1.00 # ቀጥታ 1.00 ላይ ይፈነዳል
-    
-    r = random.random() 
-    crash_point = 1.0 / (1.0 - r) # Inverse Probability
-    
-    max_multiplier = 1000.00
-    final_crash = round(crash_point, 2)
-    return min(final_crash, max_multiplier)
-
-def generate_500_crashes():
-    global generated_crashes
-    generated_crashes = [generate_crash_point() for _ in range(500)]
-
-def get_next_crash():
-    global generated_crashes
-    if not generated_crashes:
-        generate_500_crashes() # ቢያልቅበት እንኳን በራሱ ሪፊል (Refill) ያደርጋል
-    return generated_crashes.pop(0)
-
-# -----------------------------------------------------
-# 2. የጌም ሉፕ ሞተር (ROBUST GAME LOOP)
-# -----------------------------------------------------
 def start_aviator_loop(socketio):
     generate_500_crashes() # ሰርቨሩ ሲነሳ 500 ዙር ያዘጋጃል
 
@@ -141,7 +99,7 @@ def start_aviator_loop(socketio):
                 # ውርርዶችን በ Lock ማዛወር (Data Race ለመከላከል)
                 with bet_lock:
                     current_round_bets = next_round_bets.copy()
-                    next_round_bets.clear() # clear ማድረግ የተሻለ ነው
+                    next_round_bets.clear() 
 
                 # ክላይንቶች ታሪኩን እና ቆጠራውን እንዲያዩ መላክ
                 socketio.emit('game_state', {
@@ -180,24 +138,30 @@ def start_aviator_loop(socketio):
 
                     # 🔥 SERVER-SIDE AUTO CASHOUT (በ Lock የተጠበቀ)
                     with bet_lock:
-                        for uid, bet in list(current_round_bets.items()): # list() መጠቀም iteration error-ን ይከላከላል
+                        for uid, bet in list(current_round_bets.items()): 
                             if not bet.get("cashed_out") and bet.get("auto_cashout_val"):
                                 if current_multi >= bet["auto_cashout_val"]:
                                     try:
-                                        # በትክክለኛው limit እንዲወጣ
                                         process_cashout(uid, bet["auto_cashout_val"])
-                                        current_round_bets[uid]["cashed_out"] = True # ድጋሚ እንዳይጠራ
+                                        current_round_bets[uid]["cashed_out"] = True 
                                     except Exception as ex:
                                         print(f"⚠️ Auto-Cashout Error for UID {uid}: {ex}")
 
-                # --- ሐ. የመከሰከስ ጊዜ (CRASHED - 3 ሰከንድ) ---
+                                # --- ሐ. የመከሰከስ ጊዜ (CRASHED - 3 ሰከንድ) ---
                 game_state["status"] = "CRASHED"
                 game_state["multiplier"] = game_state["crash_point"]
 
-                # ታሪክ ውስጥ መጨመር (በ 20 ዙር የተገደበ)
+                # 1. በሚሞሪ ታሪክ ውስጥ መጨመር 
                 game_state["history"].insert(0, game_state["crash_point"])
                 if len(game_state["history"]) > 20:
                     game_state["history"].pop()
+                
+                # 👇 2. ይህንን አዲስ ኮድ እዚህ ጋር ጨምረው (ወደ Redis ሴቭ እንዲያደርገው)
+                try:
+                    redis.lpush("aviator:history", game_state["crash_point"])
+                    redis.ltrim("aviator:history", 0, 19) # ሜሞሪ እንዳይሞላ 20ቱን ብቻ እንዲያስቀር
+                except Exception as e:
+                    print(f"Redis History Error: {e}")
 
                 socketio.emit('game_state', {
                     'status': 'CRASHED', 
@@ -207,22 +171,9 @@ def start_aviator_loop(socketio):
 
                 socketio.sleep(3) 
 
-            except Exception as e:
-                # ሉፑ ሙሉ በሙሉ እንዳይሞት መከላከያ
-                print(f"🛑 Critical Aviator Loop Error: {e}")
-                socketio.sleep(2) # ስህተት ከተፈጠረ ለ 2 ሰከንድ አርፎ እንደገና እንዲነሳ
-
-    socketio.start_background_task(loop)
-
 # ==========================================
 # 📡 5. የውርርድ እና የካሽ አውት ኤፒአይ (Endpoints)
 # ==========================================
-
-# 📌 አዲስ የተጨመረ፡ ተጠቃሚው ሲገባ መረጃ (Balance & History) የሚሰጥ
-import logging
-
-# (ያለህበት ብሉፕሪንት)
-# aviator_bp = Blueprint('aviator', __name__)
 
 @aviator_bp.route('/api/aviator/user_data', methods=['GET'])
 def get_user_data():
@@ -232,20 +183,11 @@ def get_user_data():
         return jsonify({"status": "error", "message": "የጎደለ መረጃ (User ID required)"}), 400
 
     try:
-        # 1. 💰 የተጠቃሚውን ባላንስ ከ Redis ማንበብ (Robust & Fast)
         balance_raw = redis.hget("users:balance", user_id)
         current_balance = float(balance_raw) if balance_raw else 0.0
         
-        # 2. 📈 የጨዋታውን ትክክለኛ ሂስትሪ ከ Redis ማንበብ (Lite)
-        # የመጨረሻዎቹን 15 ዙሮች ውጤት ብቻ እናነባለን (0 እስከ 14)
         raw_history = redis.lrange("aviator:history", 0, 14)
-        
-        if raw_history:
-            # ከዳታቤዝ የመጣውን የጽሁፍ ዳታ (Bytes/String) ወደ ቁጥር (Float) መቀየር
-            history_data = [float(x) for x in raw_history]
-        else:
-            # ጌሙ ገና አዲስ ከሆነ እና ምንም ዳታ ከሌለ ባዶ ወይም መነሻ ቁጥር እንሰጠዋለን
-            history_data = [] 
+        history_data = [float(x) for x in raw_history] if raw_history else [] 
             
         return jsonify({
             "status": "success",
@@ -254,9 +196,7 @@ def get_user_data():
         })
         
     except Exception as e:
-        # 🛡️ Robustness: ዳታቤዙ ችግር ቢፈጥር ሰርቨሩ ክራሽ እንዳያደርግ (No Crash)
         logging.error(f"Redis Error in Aviator User Data: {e}")
-        
         return jsonify({
             "status": "error",
             "message": "ከዳታቤዝ ጋር መገናኘት አልተቻለም (Database Error)",
@@ -270,14 +210,13 @@ def place_bet():
     data = request.json or {}
     user_id = str(data.get("user_id"))
     
-    # 1. መረጃው ትክክለኛ ቁጥር መሆኑን ማረጋገጥ
     try:
         amount = float(data.get("amount", 0))
         auto_cashout_val = float(data.get("auto_cashout", 0))
     except ValueError:
         return jsonify({"status": "error", "message": "የተሳሳተ የገንዘብ መጠን ፎርማት"}), 400
     
-    if not user_id or amount < 10: # ዝቅተኛ መነሻ 10 ETB
+    if not user_id or amount < 10: 
         return jsonify({"status": "error", "message": "ዝቅተኛው የውርርድ መጠን 10 ብር ነው"}), 400
         
     current_balance = float(redis.hget("users:balance", user_id) or 0.0)
@@ -290,23 +229,16 @@ def place_bet():
         "auto_cashout_val": auto_cashout_val if auto_cashout_val > 1.00 else None
     }
     
-    # 2. በ Lock በመጠቀም ዳታ እንዳይጋጭ (Race Condition) መከላከል
     with bet_lock:
-        # ውርርድ የሚገባበትን ዙር መለየት
         target_dict = current_round_bets if game_state["status"] == "WAITING" else next_round_bets
         round_type = "CURRENT" if game_state["status"] == "WAITING" else "NEXT"
         msg = "በአሁኑ ዙር ተሳትፈዋል!" if round_type == "CURRENT" else "ለውርርድ ለቀጣዩ ዙር ተመዝግበዋል!"
         
-        # 3. ደብል ቤቲንግ (Double Betting) መከላከል
         if user_id in target_dict:
             return jsonify({"status": "error", "message": "በዚህ ዙር አስቀድመው ተወራርደዋል!"}), 400
             
-        # ብሩን መቀነስ (ውርርዱ ተቀባይነት ካገኘ በኋላ ብቻ)
         redis.hincrbyfloat("users:balance", user_id, -amount)
-        # የ Floating point ችግር እንዳይፈጠር ማጠጋጋት (Rounding)
         new_balance = round(float(redis.hget("users:balance", user_id) or 0.0), 2)
-        
-        # ውርርዱን መመዝገብ
         target_dict[user_id] = bet_data
 
     return jsonify({
@@ -324,24 +256,18 @@ def manual_cashout():
     if not user_id:
         return jsonify({"status": "error", "message": "መረጃ የለም"}), 400
         
-    # 🔒 እጅግ ወሳኝ መቆለፊያ (Race Condition መከላከያ)
     with bet_lock:
-        # ጌሙ እየበረረ መሆኑን የምናረጋግጠው በ Lock ውስጥ ነው
         if game_state["status"] != "FLYING":
             return jsonify({"status": "error", "message": "አሁን Cash out ማድረግ አይችሉም!"}), 400
             
         current_multi = game_state["multiplier"]
-        
-        # process_cashout የራሱን ኃላፊነት ይወጣል
         win_amount = process_cashout(user_id, current_multi)
         
         if win_amount > 0:
-            # ባላንሱን ወደ 2 ዴሲማል ማጠጋጋት
             new_balance = round(float(redis.hget("users:balance", user_id) or 0.0), 2)
-            
             return jsonify({
                 "status": "success", 
-                "win_amount": win_amount, # process_cashout አስቀድሞ አጠጋግቶታል
+                "win_amount": win_amount, 
                 "multiplier": current_multi,
                 "new_balance": new_balance 
             })
@@ -349,8 +275,6 @@ def manual_cashout():
             return jsonify({"status": "error", "message": "ውርርድ አልተገኘም ወይም አስቀድመው ወስደዋል"}), 400
 
 
-# የ Aviator UI ገጽ መክፈቻ
 @aviator_bp.route('/aviator')
 def aviator_page():
     return render_template('aviator.html')
-
