@@ -43,7 +43,7 @@ def update_sports_data():
         # 'upcoming' በማለት በአለም ላይ ያሉ የቅርብ ጊዜ እውነተኛ ጨዋታዎችን በሙሉ ማምጣት
         url = f"https://api.the-odds-api.com/v4/sports/upcoming/odds/?apiKey={API_KEY}&regions=eu&markets=h2h"
         response = requests.get(url, timeout=15)
-        
+
         if response.status_code != 200:
             return jsonify({"status": "error", "message": f"API Error: {response.text}"}), response.status_code
 
@@ -57,14 +57,14 @@ def update_sports_data():
             away_team = item.get("away_team")
             commence_time_str = item.get("commence_time")
             league = item.get("sport_title", "Unknown League")
-            
+
             # ሰዓቱን ማስተካከል እና ያለፉ ጨዋታዎችን ማጣራት
             try:
-                # API የሚያመጣው ሰዓት በ UTC ነው (ለምሳሌ 2024-07-20T14:30:00Z)
+                # API የሚያመጣው ሰዓት በ UTC ነው
                 match_time_obj = datetime.strptime(commence_time_str, "%Y-%m-%dT%H:%M:%SZ")
                 if match_time_obj <= now_time:
                     continue  # ጨዋታው ከጀመረ ወይም ካለፈ ዝለለው
-                
+
                 clean_time = match_time_obj.strftime("%H:%M")
                 match_date = match_time_obj.strftime("%Y-%m-%d")
             except Exception:
@@ -86,7 +86,7 @@ def update_sports_data():
                         else:
                             odds_dict["draw"] = o["price"]
 
-            # ሆም እና አዌይ ኦድስ ካለው ብቻ ወደ ሪዲስ ማስገባት (Frontend እንዳይበላሽ የድሮውን ፎርማት ተጠቅመናል)
+            # ሆም እና አዌይ ኦድስ ካለው ብቻ ወደ ሪዲስ ማስገባት
             if "home" in odds_dict and "away" in odds_dict:
                 real_matches.append({
                     "fixture": {
@@ -103,6 +103,9 @@ def update_sports_data():
                 })
 
         if len(real_matches) > 0:
+            # 🌟 አዲሱ ኮድ: ጨዋታዎችን በሊግ ስማቸው (Albania, Azerbaijan...) ከ A እስከ Z ማደራጀት 
+            real_matches.sort(key=lambda x: x["fixture"]["league"])
+            
             # ዳታውን ወስዶ Redis ላይ ያስቀምጠዋል
             redis.set(CACHE_KEY, json.dumps(real_matches))
 
@@ -215,3 +218,38 @@ def debug_redis():
     if data:
         return jsonify({"status": "found", "data_length": len(json.loads(data))})
     return jsonify({"status": "empty"})
+
+
+# =========================================
+# 7. 🌟 አዲሱ ራውት፡ የሊጎችን ዝርዝር (Menu) ከ A-Z የሚያመጣ
+# =========================================
+@real_sports_bp.route('/api/sports/leagues', methods=['GET'])
+def get_leagues_menu():
+    if not API_KEY:
+        return jsonify({"status": "error", "message": "API Key አልተገኘም"}), 500
+    
+    try:
+        url = f'https://api.the-odds-api.com/v4/sports/?apiKey={API_KEY}'
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code != 200:
+            return jsonify({"status": "error", "message": "የሊግ ዝርዝር ማምጣት አልተቻለም"}), response.status_code
+        
+        leagues_list = response.json()
+        
+        # የእግር ኳስ (Soccer) ሊጎችን ብቻ መምረጥ
+        soccer_leagues = [league for league in leagues_list if league.get("group") == "Soccer"]
+        
+        # ሊጎቹን በስማቸው (title) መሰረት ከ A-Z ማደራጀት
+        soccer_leagues.sort(key=lambda x: x.get("title", ""))
+        
+        return jsonify({
+            "status": "success", 
+            "total_leagues": len(soccer_leagues),
+            "leagues": soccer_leagues
+        }), 200
+
+    except Exception as e:
+        print(f"API Leagues Fetching Exception: {e}")
+        return jsonify({"status": "error", "message": "የሊጎችን ዝርዝር ማምጣት አልተቻለም"}), 500
+
