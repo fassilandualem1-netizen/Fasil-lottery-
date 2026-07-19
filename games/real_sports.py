@@ -6,25 +6,28 @@ import uuid
 import time
 from datetime import datetime, timedelta
 
-# (ከ config.py የምታመጣቸው ነገሮች እንዳሉ ሆነው)
+# ከ config.py የምታመጣቸው 
 from config import redis, deduct_balance_safely, add_to_history, telegram_auth_required
 
 real_sports_bp = Blueprint('real_sports', __name__)
 
-API_KEY = os.environ.get("API_FOOTBALL_KEY")
-API_HOST = "v3.football.api-sports.io"
+# አዲሱን የ The Odds API ቁልፍ መጠቀም
+API_KEY = os.environ.get("THE_ODDS_API_KEY")
 
-# የጋራ Redis Key (በየቀኑ እንዳይቀያየር አንድ ቋሚ Key ብንጠቀም ይመረጣል ምክንያቱም በየ 10 ደቂቃው አዲስ ስለሚሆን)
+# የጋራ Redis Key
 CACHE_KEY = "cached_real_sports_odds"
 
 
+# =========================================
+# 1. ሰርቨርን ነቅቶ እንዲጠብቅ የሚያደርግ (Ping)
+# =========================================
 @real_sports_bp.route('/api/internal/ping', methods=['GET'])
 def ping():
     return jsonify({"status": "alive"}), 200
 
 
 # =========================================
-# 1. የጀርባ አገልጋይ (Google App Script የሚጠራው - ዳታ የሚያመጣው)
+# 2. የጀርባ አገልጋይ (Google App Script የሚጠራው - ዳታ የሚያመጣው)
 # =========================================
 @real_sports_bp.route('/api/internal/update_sports_data', methods=['GET'])
 def update_sports_data():
@@ -33,109 +36,77 @@ def update_sports_data():
     if secret != "mypassword123":
         return jsonify({"status": "error", "message": "Unauthorized"}), 403
 
-    now = datetime.now()
-    today_str = now.strftime("%Y-%m-%d")
-    tomorrow_str = (now + timedelta(days=1)).strftime("%Y-%m-%d")
-    target_dates = [today_str, tomorrow_str]
+    if not API_KEY:
+        return jsonify({"status": "error", "message": "API Key አልተገኘም"}), 500
 
     try:
-        headers = {
-            "x-apisports-key": API_KEY,
-            "x-apisports-host": API_HOST
-        }
+        # 'upcoming' በማለት በአለም ላይ ያሉ የቅርብ ጊዜ እውነተኛ ጨዋታዎችን በሙሉ ማምጣት
+        url = f"https://api.the-odds-api.com/v4/sports/upcoming/odds/?apiKey={API_KEY}&regions=eu&markets=h2h"
+        response = requests.get(url, timeout=15)
+        
+        if response.status_code != 200:
+            return jsonify({"status": "error", "message": f"API Error: {response.text}"}), response.status_code
 
-        fixtures_dict = {}
-        for d in target_dates:
-            url_fixtures = "https://v3.football.api-sports.io/fixtures"
-            params_fixtures = {"date": d, "timezone": "Africa/Addis_Ababa"}
-            res_fixtures = requests.get(url_fixtures, headers=headers, params=params_fixtures, timeout=10)
-
-            if res_fixtures.status_code != 200 or not res_fixtures.json().get('response'):
-                continue
-
-            for f in res_fixtures.json().get('response', []):
-                fixtures_dict[f['fixture']['id']] = {
-                    "teams": f['teams'],
-                    "league": f['league']['name'],
-                    "time": f['fixture']['date']
-                }
-
+        data = response.json()
         real_matches = []
         now_time = datetime.now()
 
-        for d in target_dates:
-            for page in range(1, 11):  
-                url_odds = "https://v3.football.api-sports.io/odds"
-                params_odds = {
-                    "date": d,
-                    "bet": 1,
-                    "bookmaker": 8,
-                    "page": page
-                }
-                response_odds = requests.get(url_odds, headers=headers, params=params_odds, timeout=10)
+        for item in data:
+            match_id = item.get("id")
+            home_team = item.get("home_team")
+            away_team = item.get("away_team")
+            commence_time_str = item.get("commence_time")
+            league = item.get("sport_title", "Unknown League")
+            
+            # ሰዓቱን ማስተካከል እና ያለፉ ጨዋታዎችን ማጣራት
+            try:
+                # API የሚያመጣው ሰዓት በ UTC ነው (ለምሳሌ 2024-07-20T14:30:00Z)
+                match_time_obj = datetime.strptime(commence_time_str, "%Y-%m-%dT%H:%M:%SZ")
+                if match_time_obj <= now_time:
+                    continue  # ጨዋታው ከጀመረ ወይም ካለፈ ዝለለው
+                
+                clean_time = match_time_obj.strftime("%H:%M")
+                match_date = match_time_obj.strftime("%Y-%m-%d")
+            except Exception:
+                clean_time = "TBA"
+                match_date = "TBA"
 
-                if response_odds.status_code != 200:
-                    break
+            # የውርርድ መጠን (Odds) ማውጣት
+            odds_dict = {}
+            bookmakers = item.get("bookmakers", [])
+            if bookmakers:
+                markets = bookmakers[0].get("markets", [])
+                if markets:
+                    outcomes = markets[0].get("outcomes", [])
+                    for o in outcomes:
+                        if o["name"] == home_team:
+                            odds_dict["home"] = o["price"]
+                        elif o["name"] == away_team:
+                            odds_dict["away"] = o["price"]
+                        else:
+                            odds_dict["draw"] = o["price"]
 
-                res_json = response_odds.json()
-                odds_data = res_json.get('response', [])
-
-                if not odds_data:
-                    break 
-
-                for item in odds_data:
-                    fixture_id = item['fixture']['id']
-
-                    if fixture_id not in fixtures_dict:
-                        continue
-
-                    fixture_info = fixtures_dict[fixture_id]
-                    
-                    try:
-                        raw_time = fixture_info["time"]
-                        match_time_obj = datetime.fromisoformat(raw_time.replace('Z', '+03:00'))
-                        if match_time_obj.replace(tzinfo=None) <= now_time:
-                            continue
-                    except Exception:
-                        continue 
-
-                    if not item['bookmakers'] or not item['bookmakers'][0]['bets']:
-                        continue
-
-                    bets = item['bookmakers'][0]['bets'][0]['values']
-                    odds_dict = {}
-
-                    for bet in bets:
-                        val = bet['value']
-                        odd = float(bet['odd'])
-                        if val == "Home": odds_dict["home"] = odd
-                        elif val == "Draw": odds_dict["draw"] = odd
-                        elif val == "Away": odds_dict["away"] = odd
-
-                    clean_time = match_time_obj.strftime("%H:%M")
-
-                    if "home" in odds_dict and "away" in odds_dict:
-                        real_matches.append({
-                            "fixture": {
-                                "id": fixture_id,
-                                "teams": fixture_info["teams"],
-                                "league": fixture_info["league"],
-                                "time": clean_time,
-                                "date": d
-                            },
-                            "odds": odds_dict
-                        })
-
-                    if len(real_matches) >= 150:
-                        break
-                if len(real_matches) >= 150:
-                    break
+            # ሆም እና አዌይ ኦድስ ካለው ብቻ ወደ ሪዲስ ማስገባት (Frontend እንዳይበላሽ የድሮውን ፎርማት ተጠቅመናል)
+            if "home" in odds_dict and "away" in odds_dict:
+                real_matches.append({
+                    "fixture": {
+                        "id": match_id,
+                        "teams": {
+                            "home": {"name": home_team},
+                            "away": {"name": away_team}
+                        },
+                        "league": league,
+                        "time": clean_time,
+                        "date": match_date
+                    },
+                    "odds": odds_dict
+                })
 
         if len(real_matches) > 0:
-            # ዳታውን ወስዶ Redis ላይ ያስቀምጠዋል (GAS በየ 10 ደቂቃው ስለሚያድሰው ጊዜ መወሰን አያስፈልግም)
+            # ዳታውን ወስዶ Redis ላይ ያስቀምጠዋል
             redis.set(CACHE_KEY, json.dumps(real_matches))
 
-        return jsonify({"status": "success", "message": f"✅ {len(real_matches)} ጨዋታዎች ተዘጋጅተው Redis ላይ ገብተዋል።"})
+        return jsonify({"status": "success", "message": f"✅ {len(real_matches)} ጨዋታዎች ተዘጋጅተው Redis ላይ ገብተዋል።"}), 200
 
     except Exception as e:
         print(f"API Odds Fetching Exception: {e}")
@@ -143,19 +114,18 @@ def update_sports_data():
 
 
 # =========================================
-# 2. ዌብሳይቱ (Frontend) ዳታ የሚወስድበት (እጅግ ፈጣኑ ራውት)
+# 3. ዌብሳይቱ (Frontend) ዳታ የሚወስድበት (ፈጣኑ ራውት)
 # =========================================
 @real_sports_bp.route('/api/sports/odds', methods=['GET'])
 def get_odds():
     try:
         # ምንም አይነት 3rd Party API አይጠይቅም! በቀጥታ ከ Redis ላይ ብቻ ያነባል።
         cached_odds = redis.get(CACHE_KEY)
-        
+
         if cached_odds:
             matches = json.loads(cached_odds)
             return jsonify({"status": "success", "matches": matches})
         else:
-            # ገና ዳታ ከ API ተጎትቶ ካልመጣ
             return jsonify({"status": "success", "matches": []})
 
     except Exception as e:
@@ -163,20 +133,20 @@ def get_odds():
 
 
 # =========================================
-# 3. የ አድሚን Cache ማጥፊያ
+# 4. የ አድሚን Cache ማጥፊያ
 # =========================================
 @real_sports_bp.route('/api/admin/clear_cache', methods=['GET'])
 def clear_cache_admin():
     secret_key = request.args.get('key')
     if secret_key != "MySecret123":
         return jsonify({"status": "error", "message": "Unauthorized"}), 403
-    
+
     redis.delete(CACHE_KEY)
     return jsonify({"status": "success", "message": "Cache በተሳካ ሁኔታ ጠፍቷል!"})
 
 
 # =========================================
-# 4. ውርርድ መቁረጫ (Place Bet) 
+# 5. ውርርድ መቁረጫ (Place Bet) 
 # =========================================
 @real_sports_bp.route('/api/sports/place_bet', methods=['POST'])
 @telegram_auth_required
@@ -235,10 +205,13 @@ def place_bet():
         print(f"Place Bet Error: {e}")
         return jsonify({"status": "error", "message": "በሰርቨር ላይ የቴክኒክ ችግር አጋጥሟል!"}), 500
 
+
+# =========================================
+# 6. የ Redis ጤንነት መመርመሪያ (Debug)
+# =========================================
 @real_sports_bp.route('/api/debug/check_redis', methods=['GET'])
 def debug_redis():
-    data = redis.get("cached_real_sports_odds")
+    data = redis.get(CACHE_KEY)
     if data:
         return jsonify({"status": "found", "data_length": len(json.loads(data))})
     return jsonify({"status": "empty"})
-
