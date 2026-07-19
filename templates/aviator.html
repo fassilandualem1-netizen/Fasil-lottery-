@@ -214,42 +214,51 @@
             tg.BackButton.onClick(() => tg.close());
         }
 
-        // ==========================================
-        // 🌟 አዲሱ የባላንስ ማምጫ ኮድ (Fetch API)
-        // ==========================================
-        fetch(`/api/aviator/user_data?user_id=${userId}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === "success") {
-                    balance = data.balance; // ከ Redis የመጣው ትክክለኛው ብር
-                    
-                    // ኤችቲኤምኤልህ ላይ 0.00 ETB የሚለው ጽሁፍ ያለበትን አይዲ (ID) አስተካክለው
-                    // ለምሳሌ አይዲው 'user-balance' ከሆነ፦
-                    document.getElementById("user-balance").innerText = balance.toFixed(2) + " ETB";
-                }
-            })
-            .catch(err => console.error("Balance fetch error:", err));
+       
 
-     // ==========================================
-        // 2. የተሻሻለ የድምፅ ሲስተም
+             // ==========================================
+        // 2. የተሻሻለ የድምፅ ሲስተም (በ Howler.js የተሰራ - Robust & Lite)
         // ==========================================
         const sounds = {
-            start: new Audio('/static/sounds/start.mp3'),
-            fly: new Audio('/static/sounds/fly.mp3'),
-            win: new Audio('/static/sounds/win.mp3'),
-            crash: new Audio('/static/sounds/crash.mp3')
+            start: new Howl({ src: ['/static/sounds/start.mp3'], volume: 0.8 }),
+            fly: new Howl({ src: ['/static/sounds/fly.mp3'], loop: true, volume: 0.5 }),
+            win: new Howl({ src: ['/static/sounds/win.mp3'], volume: 1.0 }),
+            crash: new Howl({ src: ['/static/sounds/crash.mp3'], volume: 1.0 })
         };
-        sounds.fly.loop = true;
+
+        // ተጠቃሚው ስክሪኑን አንዴ ሲነካ ድምፁን Unlock እንዲያደርግ (ለቴሌግራም ሚኒ-አፕ ወሳኝ ነው)
+        document.body.addEventListener('touchstart', function() {
+            if (Howler.ctx && Howler.ctx.state !== 'running') {
+                Howler.ctx.resume();
+            }
+        }, { once: true });
+        
+        document.body.addEventListener('click', function() {
+            if (Howler.ctx && Howler.ctx.state !== 'running') {
+                Howler.ctx.resume();
+            }
+        }, { once: true });
 
         function playSound(type) {
             try {
-                if(type === 'fly') sounds.fly.play().catch(() => {});
-                else if(type === 'stop_fly') { sounds.fly.pause(); sounds.fly.currentTime = 0; }
-                else {
-                    let s = sounds[type].cloneNode(); 
-                    s.play().catch(() => {});
+                // ድምፁ Unlock መደረጉን ማረጋገጥ
+                if (Howler.ctx && Howler.ctx.state !== 'running') {
+                    Howler.ctx.resume();
                 }
-            } catch(e) {}
+
+                if (type === 'fly') {
+                    // እየጮኸ ካልሆነ ብቻ አጫውት (እንዳይደራረብ)
+                    if (!sounds.fly.playing()) {
+                        sounds.fly.play();
+                    }
+                } else if (type === 'stop_fly') {
+                    sounds.fly.stop();
+                } else {
+                    sounds[type].play();
+                }
+            } catch(e) {
+                console.error("Sound play error:", e);
+            }
         }
 
         // ==========================================
