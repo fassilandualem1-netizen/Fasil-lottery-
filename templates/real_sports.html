@@ -42,17 +42,16 @@
 
     async function fetchMatches() {
         try {
-            // 1. ዳታውን ከ Redis API Endpoint እንጠይቃለን
-            const res = await fetch('/api/get_real_sports');
+            // 1. ትክክለኛው የዳታ መሳቢያ ሊንክ ተስተካክሏል
+            const res = await fetch('/api/sports/odds');
             const data = await res.json();
             const list = document.getElementById("matches-list");
             list.innerHTML = "";
 
-            // 2. ዳታው ከ Redis ሲመጣ በ data.data ውስጥ ሊሆን ስለሚችል ሁለቱንም እንዲያነብ አድርገነዋል
-            const matchesList = data.matches || (data.data && data.data.matches) || [];
+            const matchesList = data.matches || [];
 
             if (!matchesList || matchesList.length === 0) {
-                list.innerHTML = "<p class='text-center text-gray-500'>ምንም ጨዋታ አልተገኘም</p>";
+                list.innerHTML = "<p class='text-center text-gray-500 mt-10'>አሁን ላይ ምንም የሚገኝ ጨዋታ የለም።</p>";
                 return;
             }
 
@@ -62,31 +61,41 @@
                 const away = m.fixture.teams.away.name;
                 const league = m.fixture.league || "Unknown League";
                 
-                const matchDate = new Date(m.fixture.time);
-                const today = new Date();
-                const isToday = matchDate.getDate() === today.getDate() && matchDate.getMonth() === today.getMonth();
-                const dayText = isToday ? "ዛሬ" : "ነገ";
-                const timeString = matchDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                const fullDisplayTime = `${dayText} • ${timeString}`;
+                // Backend አስቀድሞ date እና time ስለሚልክ አሰራሩ ተቀሏል
+                const matchDate = m.fixture.date || "TBA";
+                const matchTime = m.fixture.time || "TBA";
+                const fullDisplayTime = `${matchDate} • ${matchTime}`;
                 
                 const odds = m.odds; 
 
-                if (odds) {
+                if (odds && odds.home && odds.away) {
+                    // አንዳንዴ አቻ (Draw) የሌለበት ስፖርት (ለምሳሌ ባስኬትቦል) ካለ ለማስተካከል
+                    const drawBtnHTML = odds.draw ? `
+                        <button id="btn-${mid}-draw" onclick="selectOdd('${mid}', 'draw', ${odds.draw}, 'Draw')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
+                            <span class="text-[10px] text-gray-400">X</span>
+                            <span class="text-xs font-bold text-yellow-400">${odds.draw}</span>
+                        </button>
+                    ` : `
+                        <div class="bg-gray-900/50 border border-gray-800 py-2 rounded-lg flex flex-col items-center justify-center opacity-50 cursor-not-allowed">
+                            <span class="text-[10px] text-gray-500">-</span>
+                        </div>
+                    `;
+
+                    // የጨዋታው ID (mid) String ስለሆነ በ Quotes ('${mid}') ተስተካክሏል
                     list.innerHTML += `
                     <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg mb-3">
                         <div class="text-[9px] text-gray-400 mb-1">${league} • ${fullDisplayTime}</div>
                         <div class="text-xs font-black text-white mb-3">${home} V ${away}</div>
                         
                         <div class="grid grid-cols-3 gap-2">
-                            <button id="btn-${mid}-home" onclick="selectOdd(${mid}, 'home', ${odds.home}, '${home}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
+                            <button id="btn-${mid}-home" onclick="selectOdd('${mid}', 'home', ${odds.home}, '${home.replace(/'/g, "\\'")}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
                                 <span class="text-[10px] text-gray-400">1</span>
                                 <span class="text-xs font-bold text-yellow-400">${odds.home}</span>
                             </button>
-                            <button id="btn-${mid}-draw" onclick="selectOdd(${mid}, 'draw', ${odds.draw}, 'Draw')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
-                                <span class="text-[10px] text-gray-400">X</span>
-                                <span class="text-xs font-bold text-yellow-400">${odds.draw}</span>
-                            </button>
-                            <button id="btn-${mid}-away" onclick="selectOdd(${mid}, 'away', ${odds.away}, '${away}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
+                            
+                            ${drawBtnHTML}
+                            
+                            <button id="btn-${mid}-away" onclick="selectOdd('${mid}', 'away', ${odds.away}, '${away.replace(/'/g, "\\'")}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
                                 <span class="text-[10px] text-gray-400">2</span>
                                 <span class="text-xs font-bold text-yellow-400">${odds.away}</span>
                             </button>
