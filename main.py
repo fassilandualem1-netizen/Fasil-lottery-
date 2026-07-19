@@ -27,8 +27,6 @@ from games.keno import keno_bp
 from games.virtual_sports import virtual_sports_bp
 from games.real_sports import real_sports_bp
 
-import requests
-import os  # ይሄ ከሌለ ከላይ መጨመርህን አትርሳ
 
 @bot.message_handler(commands=['testapi'])
 def test_api_from_bot(message):
