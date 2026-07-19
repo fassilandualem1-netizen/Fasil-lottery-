@@ -10,28 +10,59 @@
 
     <style>
         /* ==========================================
-           🎨 የ Yegna Bet Aviator ዲዛይን
+           🎨 የ Yegna Bet Aviator ዲዛይን (Robust & Lite)
            ========================================== */
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Roboto', sans-serif; user-select: none; }
-        body { background-color: #1a1a24; color: white; display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; }
+        
+        /* 1. Layout Fix: ለቴሌግራም ሚኒ-አፕ እንዳይሸሸግ 100dvh ተጠቅመናል */
+        body { 
+            background-color: #1a1a24; 
+            color: white; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100dvh; /* Mobile browser & Telegram safe height */
+            overflow: hidden; /* ሙሉ ስክሪኑ እንዳይንቀሳቀስ */
+        }
 
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background-color: #121219; border-bottom: 1px solid #2a2a35; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background-color: #121219; border-bottom: 1px solid #2a2a35; flex-shrink: 0; }
         .logo { color: #e50b2c; font-weight: 900; font-size: 20px; font-style: italic; display: flex; align-items: center; gap: 10px;}
-        .balance { color: #28a745; font-weight: bold; font-size: 16px; }
+        .balance-container { display: flex; flex-direction: column; align-items: flex-end; }
+        .balance { color: #28a745; font-weight: bold; font-size: 18px; }
+        
+        /* Provably Fair Badge */
+        .provably-fair { font-size: 10px; color: #4caf50; display: flex; align-items: center; gap: 4px; margin-top: 2px; }
 
-        .history-bar { display: flex; gap: 8px; padding: 5px 15px; overflow-x: auto; background-color: #1a1a24; white-space: nowrap; border-bottom: 1px solid #2a2a35; scrollbar-width: none;}
+        .history-bar { display: flex; gap: 8px; padding: 5px 15px; overflow-x: auto; background-color: #1a1a24; white-space: nowrap; border-bottom: 1px solid #2a2a35; scrollbar-width: none; flex-shrink: 0; }
         .history-bar::-webkit-scrollbar { display: none; }
         .history-item { font-size: 12px; font-weight: bold; padding: 4px 10px; border-radius: 12px; background: rgba(255,255,255,0.05); }
         .hist-red { color: #e50b2c; } .hist-purple { color: #c155ff; } .hist-blue { color: #3498db; }
 
-        .game-screen { flex-grow: 1; position: relative; display: flex; justify-content: center; align-items: center; min-height: 280px; margin: 10px; border-radius: 12px; border: 1px solid #333; overflow: hidden; background-color: #111; }
+        .game-screen { flex: 1 1 auto; position: relative; display: flex; justify-content: center; align-items: center; margin: 10px; border-radius: 12px; border: 1px solid #333; overflow: hidden; background-color: #111; min-height: 200px; }
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         #multiplier-text { font-size: 80px; font-weight: 900; z-index: 2; text-shadow: 2px 4px 10px rgba(0,0,0,0.5); }
-        #status-text { position: absolute; top: 70%; left: 50%; transform: translateX(-50%); font-size: 14px; font-weight: bold; color: #e50b2c; z-index: 2; text-align: center; display: none; }
+        
+        /* FLEW AWAY & WAITING ጽሁፍ አቀማመጥ */
+        #status-text { 
+            position: absolute; 
+            top: 65%; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            font-size: 18px; 
+            font-weight: 900; 
+            z-index: 2; 
+            text-align: center; 
+            display: none; 
+            padding: 8px 16px;
+            border-radius: 20px;
+            letter-spacing: 1px;
+        }
+        .status-waiting { color: #e50b2c; background: transparent; }
+        .status-crashed { color: #fff; background: rgba(229, 11, 44, 0.85); box-shadow: 0 4px 15px rgba(229,11,44,0.4); border: 2px solid #e50b2c; }
 
-        .panels-container { padding: 0 10px 10px 10px; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        /* መወራረጃ ፓነሎች ከስክሪን በታች ካለፉ ብቻ እንዲንሸራተቱ (Scroll) */
+        .panels-container { padding: 0 10px 10px 10px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; overflow-y: auto; max-height: 45vh; }
         .bet-panel { background-color: #21212c; border-radius: 12px; padding: 10px; border: 1px solid #2a2a35; }
         .panel-tabs { display: flex; justify-content: center; margin-bottom: 10px; background: #16161e; border-radius: 20px; padding: 2px; width: fit-content; margin-left: auto; margin-right: auto; }
         .panel-tab { padding: 5px 20px; font-size: 12px; font-weight: bold; color: #888; border-radius: 18px; cursor: pointer; transition: 0.3s; }
@@ -68,17 +99,20 @@
         <div class="logo">
             YEGNA BET 🏁 <span style="font-style: italic; color: #e50b2c; font-size: 16px; margin-left: 10px;">Aviator</span>
         </div>
-        <div class="balance" id="balanceDisplay">... ETB</div>
+        <div class="balance-container">
+            <div class="balance" id="balanceDisplay">Connecting...</div>
+            <div class="provably-fair"><i class="fa-solid fa-shield-halved"></i> Provably Fair</div>
+        </div>
     </header>
 
     <div class="history-bar" id="historyBar">
-        <!-- ታሪክ ከሰርቨር ሲመጣ እዚህ ይገባል -->
+        <!-- ታሪክ ከሞጁሉ ሲመጣ እዚህ ይገባል -->
     </div>
 
     <div class="game-screen">
         <canvas id="gameCanvas"></canvas>
         <div id="multiplier-text">1.00x</div> 
-        <div id="status-text">WAITING FOR NEXT ROUND</div>
+        <div id="status-text" class="status-waiting">WAITING FOR NEXT ROUND</div>
     </div>
 
     <div class="panels-container">
@@ -164,7 +198,7 @@
     </div>
 
     <script>
-        // ==========================================
+                // ==========================================
         // 1. መነሻ መዋቅር (Initialization & Telegram)
         // ==========================================
         const tg = window.Telegram?.WebApp;
@@ -173,7 +207,10 @@
         let gameState = { status: "WAITING", multiplier: 1.00, countdown: 10 };
 
         if (tg) {
-            tg.expand();
+            tg.expand(); // ስክሪኑን ሙሉ ያደርገዋል
+            tg.ready();
+            
+            // ይሄውልህ የ Back Button ማስተካከያ!
             tg.BackButton.show();
             tg.BackButton.onClick(() => {
                 tg.close(); // ወደ ኋላ ሲባል ቴሌግራምን ይዘጋል
@@ -181,40 +218,49 @@
         }
 
         // ==========================================
-        // 2. የተሻሻለ የድምፅ ሲስተም (Casino Style Audio)
+        // 2. የተሻሻለ የድምፅ ሲስተም
         // ==========================================
         const sounds = {
-            start: new Audio('/static/sounds/start.mp3'), // ጌም ሲጀምር (እስኪገኝ ባዶ ይሆናል)
-            fly: new Audio('/static/sounds/fly.mp3'),     // የበረራ ድምፅ
-            win: new Audio('/static/sounds/win.mp3'),     // Cash Register ድምፅ
-            crash: new Audio('/static/sounds/crash.mp3')  // የፍንዳታ/መቋረጥ ድምፅ
+            start: new Audio('/static/sounds/start.mp3'),
+            fly: new Audio('/static/sounds/fly.mp3'),
+            win: new Audio('/static/sounds/win.mp3'),
+            crash: new Audio('/static/sounds/crash.mp3')
         };
         sounds.fly.loop = true;
 
         function playSound(type) {
             try {
-                if(type === 'fly') sounds.fly.play().catch(e => {});
+                if(type === 'fly') sounds.fly.play().catch(() => {});
                 else if(type === 'stop_fly') { sounds.fly.pause(); sounds.fly.currentTime = 0; }
                 else {
                     let s = sounds[type].cloneNode(); 
-                    s.play().catch(e => {});
+                    s.play().catch(() => {});
                 }
             } catch(e) {}
         }
 
         // ==========================================
-        // 3. ዳታ ከባክኤንድ ማምጣት (Initial Fetch)
+        // 3. ዳታ ከሞጁል ባክኤንድ ማምጣት (Robust Fetch)
         // ==========================================
         async function fetchInitialData() {
+            const balanceDisplay = document.getElementById('balanceDisplay');
             try {
+                // የዋሌት ሞጁሉን በትክክል ለማግኘት
                 const res = await fetch(`/api/aviator/user_data?user_id=${userId}`);
+                if (!res.ok) throw new Error("Network response was not ok");
+                
                 const data = await res.json();
                 if (data.status === "success") {
                     updateBalance(data.balance);
                     if (data.history) renderHistory(data.history);
+                } else {
+                    balanceDisplay.innerText = "Error Loading";
                 }
             } catch (e) {
-                console.error("Initial data fetch failed.");
+                console.error("Connection error, retrying...", e);
+                balanceDisplay.innerText = "Reconnecting...";
+                // ባክኤንዱ አፍታ ቢቋረጥ ዳግም ይሞክራል
+                setTimeout(fetchInitialData, 3000); 
             }
         }
         
@@ -223,7 +269,6 @@
             document.getElementById('balanceDisplay').innerText = balance.toFixed(2) + " ETB";
         }
 
-        // ገጹ ሲከፈት ዳታ አምጣ
         fetchInitialData();
 
         // ==========================================
@@ -255,7 +300,6 @@
                 });
 
                 this.btnAction.addEventListener('click', () => {
-                    // ብሮውዘሩ ኦዲዮ እንዲፈቅድ
                     if(sounds.start.currentTime === 0) sounds.start.load();
                     this.handleAction();
                 });
@@ -295,23 +339,17 @@
                             const res = await fetch('/api/aviator/place_bet', { 
                                 method: 'POST', 
                                 headers: { 'Content-Type': 'application/json' }, 
-                                body: JSON.stringify({ 
-                                    user_id: userId, 
-                                    amount: this.amount, 
-                                    auto_cashout: this.isAutoCashout ? this.autoCashoutVal : 0
-                                }) 
+                                body: JSON.stringify({ user_id: userId, amount: this.amount, auto_cashout: this.isAutoCashout ? this.autoCashoutVal : 0 }) 
                             });
                             const data = await res.json();
                             
                             if (data.status === "success") { 
                                 this.betState = "BETTING"; 
-                                if(data.new_balance) updateBalance(data.new_balance); // ከተቆረጠ በኋላ ባላንሱን ያድሳል
+                                if(data.new_balance) updateBalance(data.new_balance); 
                             } else { 
                                 tg?.showAlert ? tg.showAlert(data.message) : alert(data.message || "የተሳሳተ ውርርድ"); 
                             }
-                        } catch (e) {
-                            console.error("Bet error", e);
-                        }
+                        } catch (e) { console.error("Bet error", e); }
                         this.updateButtonUI();
                     }
                 } 
@@ -322,7 +360,6 @@
 
             async triggerCashout() {
                 if (this.betState !== "IN_GAME") return;
-                
                 try {
                     const res = await fetch('/api/aviator/cashout', { 
                         method: 'POST', 
@@ -338,9 +375,7 @@
                         if(data.new_balance) updateBalance(data.new_balance);
                         this.updateButtonUI();
                     }
-                } catch (e) {
-                    console.error("Cashout error", e);
-                }
+                } catch (e) { console.error("Cashout error", e); }
             }
 
             onRoundStart() {
@@ -417,6 +452,7 @@
                 multText.style.color = "#fff";
                 multText.innerText = "WAITING...";
                 statusText.style.display = "block";
+                statusText.className = "status-waiting";
                 statusText.innerText = `NEXT ROUND IN ${gameState.countdown}s`;
                 planePos = { x: 0, y: canvasH };
             } 
@@ -433,7 +469,7 @@
             else if (gameState.status === 'CRASHED') {
                 multText.style.color = "#e50b2c";
                 statusText.style.display = "block";
-                statusText.style.color = "#e50b2c";
+                statusText.className = "status-crashed";
                 statusText.innerText = "FLEW AWAY!";
                 planePos.x += 15; planePos.y -= 10;
                 drawCurveAndPlane();
@@ -454,7 +490,6 @@
             });
         }
 
-        // ማቋረጦችን የሚቋቋም (Robust) የ Socket ኮንፊግሬሽን
         const socket = (typeof io !== 'undefined') ? io({
             reconnection: true,
             reconnectionAttempts: Infinity,
@@ -495,9 +530,11 @@
         } 
         
         window.addEventListener('resize', () => {
-            canvasW = canvas.parentElement.offsetWidth;
-            canvasH = canvas.parentElement.offsetHeight;
-            canvas.width = canvasW; canvas.height = canvasH;
+            if (canvas.parentElement) {
+                canvasW = canvas.parentElement.offsetWidth;
+                canvasH = canvas.parentElement.offsetHeight;
+                canvas.width = canvasW; canvas.height = canvasH;
+            }
         });
     </script>
 </body>
