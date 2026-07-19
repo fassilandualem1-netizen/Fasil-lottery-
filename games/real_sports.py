@@ -87,7 +87,18 @@ def update_sports_data():
                             odds_dict["draw"] = o["price"]
 
             # ሆም እና አዌይ ኦድስ ካለው ብቻ ወደ ሪዲስ ማስገባት
-            if "home" in odds_dict and "away" in odds_dict:
+            if "home" in odds_dict and "away" in odds_dict and "draw" in odds_dict:
+                
+                # 🌟 አዲሱ ሎጂክ: Double Chance ኦዶችን በሂሳብ ስሌት መፍጠር
+                h = float(odds_dict["home"])
+                d = float(odds_dict["draw"])
+                a = float(odds_dict["away"])
+                
+                # ቀመር: 1X = (Home * Draw) / (Home + Draw)
+                odds_dict["dc_1x"] = round((h * d) / (h + d), 2)
+                odds_dict["dc_12"] = round((h * a) / (h + a), 2)
+                odds_dict["dc_x2"] = round((d * a) / (d + a), 2)
+
                 real_matches.append({
                     "fixture": {
                         "id": match_id,
@@ -103,7 +114,7 @@ def update_sports_data():
                 })
 
         if len(real_matches) > 0:
-            # 🌟 አዲሱ ኮድ: ጨዋታዎችን በሊግ ስማቸው (Albania, Azerbaijan...) ከ A እስከ Z ማደራጀት 
+            # ጨዋታዎችን በሊግ ስማቸው (Albania, Azerbaijan...) ከ A እስከ Z ማደራጀት 
             real_matches.sort(key=lambda x: x["fixture"]["league"])
             
             # ዳታውን ወስዶ Redis ላይ ያስቀምጠዋል
@@ -122,16 +133,33 @@ def update_sports_data():
 @real_sports_bp.route('/api/sports/odds', methods=['GET'])
 def get_odds():
     try:
-        # ምንም አይነት 3rd Party API አይጠይቅም! በቀጥታ ከ Redis ላይ ብቻ ያነባል።
+        # 🌟 አዲሱ ሎጂክ: ከ Frontend የተላከውን የ Tab አይነት ማረጋገጥ (top ወይም upcoming)
+        tab_type = request.args.get('tab', 'top') 
         cached_odds = redis.get(CACHE_KEY)
 
         if cached_odds:
             matches = json.loads(cached_odds)
+            
+            # ተጠቃሚው 'TOP SPORTS' ከመረጠ ታዋቂ ሊጎችን ብቻ ማውጣት
+            if tab_type == 'top':
+                # ታዋቂ ሊጎችን እዚህ መዘርዘር ይቻላል (ስሞቹ API ከሚመልሳቸው ጋር መመሳሰል አለባቸው)
+                top_leagues = ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 'UEFA Champions League']
+                top_matches = [m for m in matches if any(league in m['fixture']['league'] for league in top_leagues)]
+                
+                # አሁን ላይ ታዋቂ ሊጎች ከሌሉ (ለምሳሌ የሊግ እረፍት ከሆነ)፣ የመጀመሪያዎቹን 15 ጨዋታዎች እንደ አማራጭ ማሳየት
+                if not top_matches:
+                    top_matches = matches[:15]
+                    
+                return jsonify({"status": "success", "matches": top_matches})
+                
+            # ተጠቃሚው 'UPCOMING' ከመረጠ ሁሉንም ያወጣል
             return jsonify({"status": "success", "matches": matches})
+            
         else:
             return jsonify({"status": "success", "matches": []})
 
     except Exception as e:
+        print(f"Get Odds Error: {e}")
         return jsonify({"status": "error", "message": "የዳታቤዝ ስህተት"}), 500
 
 
@@ -221,7 +249,7 @@ def debug_redis():
 
 
 # =========================================
-# 7. 🌟 አዲሱ ራውት፡ የሊጎችን ዝርዝር (Menu) ከ A-Z የሚያመጣ
+# 7. የሊጎችን ዝርዝር (Menu) ከ A-Z የሚያመጣ
 # =========================================
 @real_sports_bp.route('/api/sports/leagues', methods=['GET'])
 def get_leagues_menu():
@@ -252,4 +280,3 @@ def get_leagues_menu():
     except Exception as e:
         print(f"API Leagues Fetching Exception: {e}")
         return jsonify({"status": "error", "message": "የሊጎችን ዝርዝር ማምጣት አልተቻለም"}), 500
-
