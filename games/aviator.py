@@ -68,84 +68,128 @@ def process_cashout(user_id, multiplier):
 # ==========================================
 # 🔄 4. የጨዋታው ሞተር (Robust Background Game Loop)
 # ==========================================
-def start_aviator_loop(socketio):
-    generate_500_crashes() # ሰርቨሩ ሲነሳ መጀመሪያ 500 ዙር ያዘጋጃል
+import math
+import time
+import random
+from threading import Lock
+
+# -----------------------------------------------------
+# 1. የትርፍ ማስረገጫ እና የክራሽ ነጥብ ማመንጫ (ROBUST MATH)
+# -----------------------------------------------------
+generated_crashes = []
+bet_lock = Lock() # መረጃዎች እንዳይጋጩ የሚጠብቅ (Thread Safety)
+
+def generate_crash_point():
+    house_edge = 0.03 # 3% የቤት ትርፍ
+    if random.random() < house_edge:
+        return 1.00 # ቀጥታ 1.00 ላይ ይፈነዳል
     
+    r = random.random() 
+    crash_point = 1.0 / (1.0 - r) # Inverse Probability
+    
+    max_multiplier = 1000.00
+    final_crash = round(crash_point, 2)
+    return min(final_crash, max_multiplier)
+
+def generate_500_crashes():
+    global generated_crashes
+    generated_crashes = [generate_crash_point() for _ in range(500)]
+
+def get_next_crash():
+    global generated_crashes
+    if not generated_crashes:
+        generate_500_crashes() # ቢያልቅበት እንኳን በራሱ ሪፊል (Refill) ያደርጋል
+    return generated_crashes.pop(0)
+
+# -----------------------------------------------------
+# 2. የጌም ሉፕ ሞተር (ROBUST GAME LOOP)
+# -----------------------------------------------------
+def start_aviator_loop(socketio):
+    generate_500_crashes() # ሰርቨሩ ሲነሳ 500 ዙር ያዘጋጃል
+
     def loop():
         global current_round_bets, next_round_bets
-        
+
         while True:
             try:
                 # --- ሀ. የመጠባበቂያ ጊዜ (WAITING - 10 ሰከንድ) ---
                 game_state["status"] = "WAITING"
                 game_state["multiplier"] = 1.00
                 game_state["crash_point"] = get_next_crash()
-                
-                # ውርርዶችን ማዛወር
-                current_round_bets = next_round_bets.copy()
-                next_round_bets = {}
-                
+
+                # ውርርዶችን በ Lock ማዛወር (Data Race ለመከላከል)
+                with bet_lock:
+                    current_round_bets = next_round_bets.copy()
+                    next_round_bets.clear() # clear ማድረግ የተሻለ ነው
+
                 # ክላይንቶች ታሪኩን እና ቆጠራውን እንዲያዩ መላክ
                 socketio.emit('game_state', {
                     'status': 'WAITING', 
-                    'time_left': 10, # 10 ሰከንድ
+                    'time_left': 10,
                     'multiplier': 1.00,
                     'history': game_state["history"] 
                 })
                 socketio.sleep(10) 
-                
+
                 # --- ለ. የበረራ ጊዜ (FLYING) ---
                 game_state["status"] = "FLYING"
                 game_state["start_time"] = time.time()
-                
+
                 socketio.emit('game_state', {
                     'status': 'FLYING', 
                     'start_time': game_state["start_time"],
                     'multiplier': 1.00
                 })
-                
+
                 crashed = False
                 while not crashed:
                     socketio.sleep(0.05) # 20fps 
                     elapsed_time = time.time() - game_state["start_time"]
-                    
+
                     # ኃይለኛ አድጓዊ ቀመር (Exponential Growth)
                     current_multi = round(math.exp(0.06 * elapsed_time), 2)
-                    game_state["multiplier"] = current_multi
                     
-                    socketio.emit('multiplier_update', {'multiplier': current_multi})
-                    
-                    # 🔥 SERVER-SIDE AUTO CASHOUT ሎጂክ
-                    # ተጫዋቹ ኢንተርኔት ቢቋረጥበትም ሰርቨሩ አውቶማቲክ ያወጣለታል
-                    for uid, bet in current_round_bets.items():
-                        if not bet["cashed_out"] and bet.get("auto_cashout_val"):
-                            if current_multi >= bet["auto_cashout_val"]:
-                                process_cashout(uid, bet["auto_cashout_val"]) # በትክክለኛው limit እንዲወጣ 
-                    
+                    # ⚠️ ክራሽ የሚያደርግበትን ነጥብ እንዳያልፍ መገደብ
                     if current_multi >= game_state["crash_point"]:
+                        current_multi = game_state["crash_point"]
                         crashed = True
-                        
+
+                    game_state["multiplier"] = current_multi
+                    socketio.emit('multiplier_update', {'multiplier': current_multi})
+
+                    # 🔥 SERVER-SIDE AUTO CASHOUT (በ Lock የተጠበቀ)
+                    with bet_lock:
+                        for uid, bet in list(current_round_bets.items()): # list() መጠቀም iteration error-ን ይከላከላል
+                            if not bet.get("cashed_out") and bet.get("auto_cashout_val"):
+                                if current_multi >= bet["auto_cashout_val"]:
+                                    try:
+                                        # በትክክለኛው limit እንዲወጣ
+                                        process_cashout(uid, bet["auto_cashout_val"])
+                                        current_round_bets[uid]["cashed_out"] = True # ድጋሚ እንዳይጠራ
+                                    except Exception as ex:
+                                        print(f"⚠️ Auto-Cashout Error for UID {uid}: {ex}")
+
                 # --- ሐ. የመከሰከስ ጊዜ (CRASHED - 3 ሰከንድ) ---
                 game_state["status"] = "CRASHED"
                 game_state["multiplier"] = game_state["crash_point"]
-                
+
                 # ታሪክ ውስጥ መጨመር (በ 20 ዙር የተገደበ)
                 game_state["history"].insert(0, game_state["crash_point"])
                 if len(game_state["history"]) > 20:
                     game_state["history"].pop()
-                
+
                 socketio.emit('game_state', {
                     'status': 'CRASHED', 
                     'crash_point': game_state["crash_point"],
                     'history': game_state["history"]
                 })
-                
+
                 socketio.sleep(3) 
 
             except Exception as e:
-                # ሉፑ እንዳይሞት መከላከያ
-                print(f"⚠️ Aviator Loop Error: {e}")
-                socketio.sleep(1)
+                # ሉፑ ሙሉ በሙሉ እንዳይሞት መከላከያ
+                print(f"🛑 Critical Aviator Loop Error: {e}")
+                socketio.sleep(2) # ስህተት ከተፈጠረ ለ 2 ሰከንድ አርፎ እንደገና እንዲነሳ
 
     socketio.start_background_task(loop)
 
