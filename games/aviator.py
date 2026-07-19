@@ -2,151 +2,185 @@ import time
 import random
 import math
 from flask import Blueprint, request, jsonify, render_template
-from config import redis, deduct_balance_safely, add_to_history # ከ config.py የጋራ ቱሎችን አስገባ
+from config import redis, deduct_balance_safely, add_to_history 
 
 aviator_bp = Blueprint('aviator', __name__)
 
 # ==========================================
-# 🗺️ 0. የጌሙን ገጽ ማሳያ ራውት
-# ==========================================
-@aviator_bp.route('/aviator')
-def aviator_page():
-    """ ተጠቃሚው /aviator ሲል የ HTML ገጹን እንዲያይ ያደርጋል """
-    return render_template('aviator.html')
-
-# ==========================================
-# 🎮 1. የጨዋታው ማህደረ ትውስታ (In-Memory State)
+# 🎮 1. የጨዋታው ማህደረ ትውስታ (In-Memory Game State)
 # ==========================================
 game_state = {
-    "status": "WAITING",  # WAITING, FLYING, CRASHED
+    "status": "WAITING",  
     "multiplier": 1.00,
     "crash_point": 1.00,
-    "start_time": 0
+    "start_time": 0,
+    "history": []  # ያለፉትን 20 የክራሽ ነጥቦች ይይዛል (ለ Frontend የቀለም ታሪክ ማሳያ)
 }
 
-current_round_bets = {}  # የአሁኑ ዙር ውርርዶች e.g., {"user123": {"amount": 20, "cashed_out": False}}
-next_round_bets = {}     # የቀጣይ ዙር (Next Round) ውርርዶች
+current_round_bets = {}  
+next_round_bets = {}     
+pre_generated_crashes = [] # 500 አስቀድመው የተሰሩ የክራሽ ነጥቦች
 
 # ==========================================
-# 🧮 2. Provably Fair (የክራሽ ቁጥር ማመንጫ ቀመር)
+# 🧮 2. Provably Fair (500 ነጥቦችን አስቀድሞ ማመንጨት)
 # ==========================================
-def generate_crash_point():
+def generate_500_crashes():
     """ 
-    በሂሳባዊ ቀመር የካምፓኒውን ትርፍ (House Edge 3%) አስጠብቆ የሚያመነጭ።
+    ሰርቨሩን ጫና ላለማብዛት 500 የክራሽ ቁጥሮችን በአንድ ጊዜ ያዘጋጃል። 
+    ሲያልቅም በራሱ ይሞላል።
     """
-    r = random.random() # ከ 0.0 እስከ 1.0 ራንደም ቁጥር
-    house_edge = 0.97   # የ 3% ብልጫ ለካምፓኒው
-    
-    # 1.00 ላይ የመከሰከስ እድሉን መፍጠር
-    crash_point = house_edge / (1.0 - r)
-    return max(1.00, round(crash_point, 2))
+    global pre_generated_crashes
+    crashes = []
+    house_edge = 0.97 # የ 3% ትርፍ 
+    for _ in range(500):
+        r = random.random()
+        crash_point = house_edge / (1.0 - r)
+        crashes.append(max(1.00, round(crash_point, 2)))
+    pre_generated_crashes = crashes
+
+def get_next_crash():
+    global pre_generated_crashes
+    if not pre_generated_crashes:
+        generate_500_crashes() # ካለቀበት ዳግም ይሞላል
+    return pre_generated_crashes.pop(0)
 
 # ==========================================
-# 🔄 3. የጨዋታው ሞተር (Background Game Loop) - MERGED & OPTIMIZED
+# 💸 3. የካሽ አውት ተግባር (ለ Auto እና Manual የሚያገለግል)
+# ==========================================
+def process_cashout(user_id, multiplier):
+    """ ሰርቨር-ሳይድ ካሽ አውት ማድረጊያ (Robust Function) """
+    user_bet = current_round_bets.get(user_id)
+    if user_bet and not user_bet["cashed_out"]:
+        user_bet["cashed_out"] = True
+        win_amount = user_bet["amount"] * multiplier
+        
+        # ብሩን ደህንነቱ በተጠበቀ ሁኔታ Redis ላይ መጨመር
+        redis.hincrbyfloat("users:balance", str(user_id), win_amount)
+        add_to_history(user_id, {"type": "Aviator Win", "amount": round(win_amount, 2), "multiplier": multiplier})
+        return win_amount
+    return 0
+
+# ==========================================
+# 🔄 4. የጨዋታው ሞተር (Robust Background Game Loop)
 # ==========================================
 def start_aviator_loop(socketio):
-    """
-    ይህ ሞተር main.py ሲነሳ አብሮ ይጀምራል፤ 24/7 ይሰራል።
-    """
+    generate_500_crashes() # ሰርቨሩ ሲነሳ መጀመሪያ 500 ዙር ያዘጋጃል
+    
     def loop():
         global current_round_bets, next_round_bets
         
         while True:
-            # --- ሀ. የመጠባበቂያ ጊዜ (WAITING - 5 ሰከንድ) ---
-            game_state["status"] = "WAITING"
-            game_state["multiplier"] = 1.00
-            game_state["crash_point"] = generate_crash_point()
-            
-            # የቀጣይ ዙር ውርርዶችን (Next Round Bets) ወደ አሁኑ ዙር ማዛወር
-            current_round_bets = next_round_bets.copy()
-            next_round_bets = {}
-            
-            # ለክላይንት መጠበቂያ መጀመሩን መላክ
-            socketio.emit('game_state', {
-                'status': 'WAITING', 
-                'time_left': 5,
-                'multiplier': 1.00
-            })
-            socketio.sleep(5) # Gevent-safe sleep
-            
-            # --- ለ. የበረራ ጊዜ (FLYING) ---
-            game_state["status"] = "FLYING"
-            game_state["start_time"] = time.time()
-            
-            # አውሮፕላኑ ተነሳ!
-            socketio.emit('game_state', {
-                'status': 'FLYING', 
-                'start_time': game_state["start_time"],
-                'multiplier': 1.00
-            })
-            
-            crashed = False
-            while not crashed:
-                socketio.sleep(0.05) # ⚡ በየ 50 ሚሊሰከንዱ ቼክ ያደርጋል (20fps)
-                elapsed_time = time.time() - game_state["start_time"]
+            try:
+                # --- ሀ. የመጠባበቂያ ጊዜ (WAITING - 10 ሰከንድ) ---
+                game_state["status"] = "WAITING"
+                game_state["multiplier"] = 1.00
+                game_state["crash_point"] = get_next_crash()
                 
-                # የእድገት ሂሳብ ቀመር: M = e^(0.06 * t)
-                current_multi = math.exp(0.06 * elapsed_time)
-                game_state["multiplier"] = round(current_multi, 2)
+                # ውርርዶችን ማዛወር
+                current_round_bets = next_round_bets.copy()
+                next_round_bets = {}
                 
-                # 🛑 🔥 ወቅታዊውን የኦድ መጠን በየሰከንዱ ክፍል ለክላይንቱ መጮህ/መላክ!
-                socketio.emit('multiplier_update', {
-                    'multiplier': game_state["multiplier"]
+                # ክላይንቶች ታሪኩን (History Tape) እና ቆጠራውን እንዲያዩ መላክ
+                socketio.emit('game_state', {
+                    'status': 'WAITING', 
+                    'time_left': 10, # 10 ሰከንድ
+                    'multiplier': 1.00,
+                    'history': game_state["history"] 
+                })
+                socketio.sleep(10) 
+                
+                # --- ለ. የበረራ ጊዜ (FLYING) ---
+                game_state["status"] = "FLYING"
+                game_state["start_time"] = time.time()
+                
+                socketio.emit('game_state', {
+                    'status': 'FLYING', 
+                    'start_time': game_state["start_time"],
+                    'multiplier': 1.00
                 })
                 
-                # አውሮፕላኑ አስቀድሞ ከተወሰነው የክራሽ ቁጥር ደረሰ ወይ?
-                if game_state["multiplier"] >= game_state["crash_point"]:
-                    crashed = True
+                crashed = False
+                while not crashed:
+                    socketio.sleep(0.05) # 20fps 
+                    elapsed_time = time.time() - game_state["start_time"]
                     
-            # --- ሐ. የመከሰከስ ጊዜ (CRASHED - 2 ሰከንድ) ---
-            game_state["status"] = "CRASHED"
-            game_state["multiplier"] = game_state["crash_point"]
-            
-            # ክራሽ ማድረጉን መላክ!
-            socketio.emit('game_state', {
-                'status': 'CRASHED', 
-                'crash_point': game_state["crash_point"]
-            })
-            
-            # 2 ሰከንድ ለዕይታ ቆይቶ ወደ WAITING ይመለሳል
-            socketio.sleep(2)
+                    # ኃይለኛ አድጓዊ ቀመር (Exponential Growth)
+                    current_multi = round(math.exp(0.06 * elapsed_time), 2)
+                    game_state["multiplier"] = current_multi
+                    
+                    socketio.emit('multiplier_update', {'multiplier': current_multi})
+                    
+                    # 🔥 SERVER-SIDE AUTO CASHOUT ሎጂክ
+                    # ተጫዋቹ ኢንተርኔት ቢቋረጥበትም ሰርቨሩ አውቶማቲክ ያወጣለታል
+                    for uid, bet in current_round_bets.items():
+                        if not bet["cashed_out"] and bet.get("auto_cashout_val"):
+                            if current_multi >= bet["auto_cashout_val"]:
+                                process_cashout(uid, current_multi)
+                                # (አማራጭ: እዚህ ጋር ለተጠቃሚው ብቻውን 'win' ኢቨንት መላክ ይቻላል)
+                    
+                    if current_multi >= game_state["crash_point"]:
+                        crashed = True
+                        
+                # --- ሐ. የመከሰከስ ጊዜ (CRASHED - 3 ሰከንድ) ---
+                game_state["status"] = "CRASHED"
+                game_state["multiplier"] = game_state["crash_point"]
+                
+                # ታሪክ ውስጥ መጨመር (በ 20 ዙር የተገደበ)
+                game_state["history"].insert(0, game_state["crash_point"])
+                if len(game_state["history"]) > 20:
+                    game_state["history"].pop()
+                
+                socketio.emit('game_state', {
+                    'status': 'CRASHED', 
+                    'crash_point': game_state["crash_point"],
+                    'history': game_state["history"]
+                })
+                
+                socketio.sleep(3) 
 
-    # ሉፑን በ "Background task" ማስጀመር (ሰርቨሩን block አያደርገውም)
+            except Exception as e:
+                # ሉፑ እንዳይሞት መከላከያ
+                print(f"⚠️ Aviator Loop Error: {e}")
+                socketio.sleep(1)
+
     socketio.start_background_task(loop)
 
 # ==========================================
-# 💸 4. የውርርድ (Bet) እና የክፍያ (Cash Out) ኤፒአይዎች
+# 📡 5. የውርርድ እና የካሽ አውት ኤፒአይ (Endpoints)
 # ==========================================
 @aviator_bp.route('/api/aviator/place_bet', methods=['POST'])
 def place_bet():
     data = request.json or {}
-    user_id = data.get("user_id")
+    user_id = str(data.get("user_id"))
     amount = float(data.get("amount", 0))
+    auto_cashout_val = float(data.get("auto_cashout", 0)) # Auto Cashout ካለ
     
-    if not user_id or amount <= 0:
+    if not user_id or amount < 10: # ዝቅተኛ መነሻ 10 ETB
         return jsonify({"status": "error", "message": "የተሳሳተ መረጃ"}), 400
         
-    # ባላንስ ማረጋገጥና መቁረጥ (ከ redis)
     current_balance = float(redis.hget("users:balance", user_id) or 0.0)
     if current_balance < amount:
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም"}), 400
         
-    # ብሩን ከባላንስ ላይ መቀነስ
     redis.hincrbyfloat("users:balance", user_id, -amount)
     
-    # ጌሙ ምን ላይ ነው?
+    bet_data = {
+        "amount": amount, 
+        "cashed_out": False, 
+        "auto_cashout_val": auto_cashout_val if auto_cashout_val > 1.00 else None
+    }
+    
     if game_state["status"] == "WAITING":
-        current_round_bets[user_id] = {"amount": amount, "cashed_out": False}
+        current_round_bets[user_id] = bet_data
         return jsonify({"status": "success", "message": "በአሁኑ ዙር ተሳትፈዋል!", "type": "CURRENT"})
     else:
-        # ጌሙ እየበረረ ስለሆነ ለቀጣይ ዙር ይቀመጣል
-        next_round_bets[user_id] = {"amount": amount, "cashed_out": False}
+        next_round_bets[user_id] = bet_data
         return jsonify({"status": "success", "message": "ለውርርድ ለቀጣዩ ዙር ተመዝግበዋል!", "type": "NEXT"})
 
 @aviator_bp.route('/api/aviator/cashout', methods=['POST'])
-def cashout():
+def manual_cashout():
     data = request.json or {}
-    user_id = data.get("user_id")
+    user_id = str(data.get("user_id"))
     
     if not user_id:
         return jsonify({"status": "error", "message": "መረጃ የለም"}), 400
@@ -154,25 +188,18 @@ def cashout():
     if game_state["status"] != "FLYING":
         return jsonify({"status": "error", "message": "አሁን Cash out ማድረግ አይችሉም!"}), 400
         
-    user_bet = current_round_bets.get(user_id)
-    if not user_bet or user_bet["cashed_out"]:
-        return jsonify({"status": "error", "message": "ውርርድ አልተገኘም ወይም አስቀድመው ወስደዋል"}), 400
-        
-    # 🔥 SECURITY: የሰርቨሩን ወቅታዊ Muliplier እንጠቀማለን!
     current_multi = game_state["multiplier"]
+    win_amount = process_cashout(user_id, current_multi)
     
-    # ተጠቃሚው አሸነፈ
-    user_bet["cashed_out"] = True
-    win_amount = user_bet["amount"] * current_multi
-    
-    # አሸናፊነቱን ወደ ሬዲስ (ባላንስ) መመለስ
-    redis.hincrbyfloat("users:balance", user_id, win_amount)
-    
-    # ወደ ሂስትሪ መመዝገብ
-    add_to_history(user_id, {"type": "አቪዬተር አሸናፊ", "amount": round(win_amount, 2), "multiplier": current_multi})
-    
-    return jsonify({
-        "status": "success", 
-        "win_amount": round(win_amount, 2),
-        "multiplier": current_multi
-    })
+    if win_amount > 0:
+        return jsonify({
+            "status": "success", 
+            "win_amount": round(win_amount, 2),
+            "multiplier": current_multi
+        })
+    else:
+        return jsonify({"status": "error", "message": "ውርርድ አልተገኘም ወይም አስቀድመው ወስደዋል"}), 400
+
+@aviator_bp.route('/aviator')
+def aviator_page():
+    return render_template('aviator.html')
