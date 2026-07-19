@@ -1,0 +1,37 @@
+let currentGameState = "WAITING"; 
+let isAutoBetEnabled = false;
+let autoCashoutValue = 2.00;
+let hasActiveBetInCurrentRound = false;
+
+// ከሰርቨር ስቴት ሲቀየር የሚሰማ (WebSocket / Polling)
+function onGameStateChange(newState) {
+    currentGameState = newState;
+    
+    if (newState === "WAITING") {
+        updateButtonUI("Bet", "green");
+        
+        // Auto Bet ካበራ በራሱ ጊዜ ይወራረዳል
+        if (isAutoBetEnabled) {
+            triggerPlaceBetAPI();
+        }
+    } 
+    else if (newState === "FLYING") {
+        if (hasActiveBetInCurrentRound) {
+            updateButtonUI("Cash Out", "yellow");
+        } else {
+            updateButtonUI("Bet for Next Round", "grey");
+        }
+    } 
+    else if (newState === "CRASHED") {
+        updateButtonUI("Crashed", "red", true); // Disable button
+        hasActiveBetInCurrentRound = false;
+    }
+}
+
+// አውሮፕላኑ እየበረረ በየሰከንዱ ቁጥሩን የሚከታተል ፈንክሽን
+function onMultiplierTick(currentMultiplier) {
+    // Auto Cashout ካበራና ቁጥሩ ከደረሰ ራሱ ካሽአውት ያደርጋል
+    if (hasActiveBetInCurrentRound && currentMultiplier >= autoCashoutValue) {
+        triggerCashoutAPI();
+    }
+}
