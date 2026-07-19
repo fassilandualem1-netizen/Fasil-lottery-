@@ -32,36 +32,34 @@ import os  # ይሄ ከሌለ ከላይ መጨመርህን አትርሳ
 
 @bot.message_handler(commands=['testapi'])
 def test_api_from_bot(message):
-    bot.reply_to(message, "🔍 የ API ጤንነትን በመመርመር ላይ... እባክዎ ትንሽ ይጠብቁ።")
+    bot.reply_to(message, "🔍 አዲሱን (The Odds API) በመመርመር ላይ... እባክዎ ትንሽ ይጠብቁ።")
     
-    # Render environment ላይ ያስቀመጥከውን የ API Key ስም እዚህ ጋር ተጠቀም
-    # (ስሙ API_KEY ካልሆነ፣ Render ላይ ባለው ትክክለኛ ስም ቀይረው)
-    API_KEY = os.getenv("API_FOOTBALL_KEY") 
+    # Render ላይ ያስቀመጥነው አዲሱ ቁልፍ
+    API_KEY = os.getenv("THE_ODDS_API_KEY") 
+    
+    if not API_KEY:
+        bot.reply_to(message, "❌ API Key አልተገኘም! እባክዎ Render ላይ 'THE_ODDS_API_KEY' መኖሩን ያረጋግጡ።")
+        return
 
-    headers = {
-        "x-apisports-key": API_KEY, 
-        "x-apisports-host": "v3.football.api-sports.io"
-    }
-    
     try:
-        response = requests.get("https://v3.football.api-sports.io/status", headers=headers)
-        data = response.json()
-        errors = data.get("errors", {})
+        # ይህ ኤንድፖይንት ከላይ በፎቶ እንዳየነው ከኮታ(Limit) አይቀንስም! ነጻ ነው።
+        url = f"https://api.the-odds-api.com/v4/sports/?apiKey={API_KEY}"
+        response = requests.get(url)
         
-        if errors:
-            bot.reply_to(message, f"❌ ችግር ተገኝቷል:\n{errors}")
-        else:
-            req_info = data.get("response", {}).get("requests", {})
-            msg = "✅ API በትክክል እየሰራ ነው (የKey ችግር የለም)!\n\n"
-            msg += f"📊 በቀን የተፈቀደልዎ የጥሪ ብዛት: {req_info.get('limit_day')}\n"
-            msg += f"📉 ዛሬ የተጠቀሙት ጥሪ: {req_info.get('current')}\n\n"
+        if response.status_code == 200:
+            # The Odds API ስንት ጥሪ እንደቀረን የሚነግረን በ Headers ውስጥ ነው
+            used = response.headers.get('x-requests-used', 'ያልታወቀ')
+            remaining = response.headers.get('x-requests-remaining', 'ያልታወቀ')
             
-            if int(req_info.get('current', 0)) >= int(req_info.get('limit_day', 100)):
-                msg += "⚠️ ማስጠንቀቂያ: የዛሬው የጥሪ ገደብዎ (Limit) አልቋል! ለዛ ነው ጌም የማያመጣው።"
-            else:
-                msg += "👍 ገደብ አላለቀም! ስለዚህ አሁን ጌም የማያመጣው፣ ጊዜው ሀምሌ ወር (Off-season) ስለሆነና የዛሬ ጨዋታዎች ስለሌሉ ነው።"
+            msg = "✅ አዲሱ API (The Odds API) በትክክል እየሰራ ነው!\n\n"
+            msg += f"📉 ዛሬ የተጠቀሙት (Used): {used}\n"
+            msg += f"📊 ቀሪ የጥሪ ብዛት (Remaining): {remaining}\n\n"
+            msg += "👍 የድሮው መታገድ እና እገዳ አሁን የለም!"
             
             bot.reply_to(message, msg)
+        else:
+            data = response.json()
+            bot.reply_to(message, f"❌ ችግር ተገኝቷል ({response.status_code}):\n{data.get('message', 'Unknown Error')}")
             
     except Exception as e:
         bot.reply_to(message, f"❌ ከ API ጋር መገናኘት አልተቻለም:\n{e}")
