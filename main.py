@@ -197,66 +197,6 @@ def get_balance():
 
 
 
-# ==========================================
-# ⚽ REAL SPORTS - REDIS CACHE SYSTEM
-# ==========================================
-
-# 1. ይሄንን Google App Script (GAS) በየ 10 ደቂቃው ይጠራዋል
-@server.route('/api/internal/update_sports_data', methods=['GET'])
-def update_sports_data():
-    # ማንም ሰው ይሄን ራውት እየጠራ API እንዳይጨርስብህ ሚስጥራዊ ኮድ እንጠቀማለን
-    secret = request.args.get("secret")
-    if secret != "mypassword123": # ይሄንን የራስህ ፓስወርድ አድርገው
-        return jsonify({"status": "error", "message": "Unauthorized"}), 403
-
-    API_KEY = os.getenv("API_FOOTBALL_KEY") 
-    headers = {
-        "x-apisports-key": API_KEY, 
-        "x-apisports-host": "v3.football.api-sports.io"
-    }
-
-    try:
-        # ለምሳሌ የ Live ጨዋታዎችን ለማምጣት (እንደፍላጎትህ የ API ሊንኩን ቀይረው)
-        response = requests.get("https://v3.football.api-sports.io/fixtures?live=all", headers=headers)
-        data = response.json()
-        
-        # የመጣውን ዳታ ሙሉ በሙሉ ወደ Redis ሴቭ እናደርገዋለን!
-        redis.set("cache:real_sports_data", json.dumps(data))
-        
-        return jsonify({"status": "success", "message": "✅ Data successfully updated and cached in Redis!"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-# 2. ዌብሳይትህ (Frontend) ዳታ ሲፈልግ ይሄንን ይጠራል
-@server.route('/api/get_real_sports', methods=['GET'])
-def get_real_sports():
-    # ከ Frontend የመጣውን 'tab' (top ወይም upcoming) መቀበል
-    tab_type = request.args.get('tab', 'top') 
-    
-    try:
-        # በቀጥታ ከ Redis ላይ እናነባለን
-        cached_data = redis.get("cache:real_sports_data")
-
-        if cached_data:
-            matches = json.loads(cached_data)
-            
-            # ሎጂክ፡ 'top' ከሆነ ታዋቂ ሊጎችን ብቻ ማጣራት
-            if tab_type == 'top':
-                top_leagues = ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1']
-                matches = [m for m in matches if any(league in m['fixture']['league'] for league in top_leagues)]
-                
-                # አንዳንዴ ምንም ታዋቂ ሊግ ከሌለ የመጀመሪያዎቹን 15 ጨዋታዎች ማሳየት
-                if not matches:
-                    matches = json.loads(cached_data)[:15]
-            
-            return jsonify({"status": "success", "source": "redis", "data": matches})
-        else:
-            return jsonify({"status": "error", "message": "የጨዋታ መረጃ ገና አልገባም"}), 404
-
-    except Exception as e:
-        return jsonify({"status": "error", "message": "የዳታቤዝ ስህተት"}), 500
-
 
 @server.route('/api/get_user_history', methods=['POST'])
 @telegram_auth_required
