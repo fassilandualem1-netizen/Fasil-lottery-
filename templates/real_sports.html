@@ -9,7 +9,6 @@
     <style>
         /* =========================================
            1. መሠረታዊ ዲዛይን (Base Styles) 
-           (ከ "5630.jpg" ምስል ጋር አንድ አይነት)
            ========================================= */
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: #f0f2f5; color: #333; padding-bottom: 80px; }
@@ -52,7 +51,6 @@
 
         /* =========================================
            3. ቤቲንግ ስሊፕ (Bet Slip)
-           (ከ "5629.jpg" ምስል ጋር አንድ አይነት)
            ========================================= */
         .betslip-container { position: fixed; bottom: 0; left: 0; width: 100%; background: #0b3a6c; color: white; z-index: 1000; display: flex; flex-direction: column; transition: max-height 0.3s ease; max-height: 60px; overflow: hidden; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); }
         .betslip-container.expanded { max-height: 85vh; background: #f0f2f5; color: #333; }
@@ -109,15 +107,19 @@
         <div>✈️ Aviator</div>
         <div>🔢 Fast Keno</div>
     </div>
+
+    <!-- ID እና Onclick የተጨመረላቸው የ Sub ናቪጌሽን -->
     <div class="sub-nav">
-        <div class="active">TOP SPORTS</div>
-        <div>UPCOMING</div>
+        <div id="tab-top" class="active" onclick="switchTab('top')">TOP SPORTS</div>
+        <div id="tab-upcoming" onclick="switchTab('upcoming')">UPCOMING</div>
     </div>
+
+    <!-- ID እና Onclick የተጨመረላቸው የ Market ናቪጌሽን -->
     <div class="market-nav">
-        <span class="active">1x2</span>
-        <span>Double chance</span>
-        <span>Draw no bet</span>
-        <span>1st half</span>
+        <span id="market-1x2" class="active" onclick="switchMarket('1x2')">1x2</span>
+        <span id="market-dc" onclick="switchMarket('dc')">Double chance</span>
+        <span id="market-dnb" onclick="switchMarket('dnb')">Draw no bet</span>
+        <span id="market-ht" onclick="switchMarket('ht')">1st half</span>
     </div>
 
     <!-- Match List Container -->
@@ -127,7 +129,6 @@
 
     <!-- Bet Slip -->
     <div id="betslip-container" class="betslip-container" style="display: none;">
-        <!-- Bottom Bar -->
         <div class="betslip-bar" onclick="toggleBetSlip()">
             <div class="betslip-info">
                 <span>Betslip</span>
@@ -140,7 +141,6 @@
             </div>
         </div>
 
-        <!-- Expanded Content -->
         <div class="betslip-content">
             <div class="slip-header-expanded">
                 <div><span class="badge" id="slip-count-exp">0</span> <span class="bonus-badge" id="slip-bonus-exp">+0% Bonus</span></div>
@@ -174,18 +174,87 @@
         const initData = tg.initData || "";
 
         // ==========================================
-        // 2. State Management
+        // 2. State Management (ተጨማሪ ሎጂክ)
         // ==========================================
-        let apiMatches = []; // ዳታ ከ API እዚህ ይቀመጣል
-        let betSlip = [];    // የተመረጡ ኦዶች ዝርዝር
+        let apiMatches = []; 
+        let betSlip = [];    
+        let currentTab = 'top';     // 'top' ወይም 'upcoming'
+        let currentMarket = '1x2';  // '1x2', 'dc', 'dnb', 'ht'
+
+        // ታብ ለመቀየር (Top vs Upcoming)
+        function switchTab(tab) {
+            currentTab = tab;
+            document.getElementById('tab-top').classList.remove('active');
+            document.getElementById('tab-upcoming').classList.remove('active');
+            document.getElementById('tab-' + tab).classList.add('active');
+            fetchMatches(); // አዲስ ዳታ ከ API አምጣ
+        }
+
+        // ማርኬት ለመቀየር (1x2 vs Double Chance)
+        function switchMarket(market) {
+            currentMarket = market;
+            const markets = ['1x2', 'dc', 'dnb', 'ht'];
+            markets.forEach(m => document.getElementById('market-' + m).classList.remove('active'));
+            document.getElementById('market-' + market).classList.add('active');
+            renderMatches(); // ያለ ሎዲንግ በተኖቹን ብቻ ቀይር
+        }
 
         // ==========================================
-        // 3. API Data Fetching
+        // 3. Local Time & Flashscore Style Formatter
+        // ==========================================
+        function formatLocalTime(apiDateStr, apiTimeStr) {
+            try {
+                // ሰዓት ካለው 'Z' (UTC) ጨምሮ ፎርማት ያደርጋል
+                let combinedDate = apiDateStr;
+                if (apiTimeStr) {
+                     combinedDate = `${apiDateStr}T${apiTimeStr}Z`; 
+                }
+                
+                const matchDate = new Date(combinedDate);
+                if (isNaN(matchDate.getTime())) return { date: "TBA", time: "TBA" };
+
+                const now = new Date();
+                
+                const hours = matchDate.getHours().toString().padStart(2, '0');
+                const minutes = matchDate.getMinutes().toString().padStart(2, '0');
+                const timeString = `${hours}:${minutes}`;
+
+                let dateString = "";
+                const isToday = matchDate.getDate() === now.getDate() && 
+                                matchDate.getMonth() === now.getMonth() && 
+                                matchDate.getFullYear() === now.getFullYear();
+                                
+                const tomorrow = new Date(now);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const isTomorrow = matchDate.getDate() === tomorrow.getDate() && 
+                                   matchDate.getMonth() === tomorrow.getMonth() && 
+                                   matchDate.getFullYear() === tomorrow.getFullYear();
+
+                if (isToday) {
+                    dateString = "ዛሬ";
+                } else if (isTomorrow) {
+                    dateString = "ነገ";
+                } else {
+                    const day = matchDate.getDate().toString().padStart(2, '0');
+                    const month = (matchDate.getMonth() + 1).toString().padStart(2, '0');
+                    dateString = `${day}/${month}`;
+                }
+
+                return { date: dateString, time: timeString };
+            } catch (e) {
+                return { date: apiDateStr || "TBA", time: apiTimeStr || "TBA" };
+            }
+        }
+
+        // ==========================================
+        // 4. API Data Fetching
         // ==========================================
         async function fetchMatches() {
             try {
-                // ቀጥታ ወደ Python Backend ጥያቄ ይልካል
-                const res = await fetch('/api/sports/odds');
+                document.getElementById("matches-container").innerHTML = "<div class='loading-text'>ጨዋታዎችን በማምጣት ላይ... ⏳</div>";
+                
+                // የ currentTab ዋጋን በመጠቀም API ይጠራል
+                const res = await fetch(`/api/sports/odds?tab=${currentTab}`);
                 const data = await res.json();
                 
                 const container = document.getElementById("matches-container");
@@ -206,7 +275,7 @@
         }
 
         // ==========================================
-        // 4. Render Matches to HTML
+        // 5. Render Matches to HTML (Updated)
         // ==========================================
         function renderMatches() {
             const container = document.getElementById("matches-container");
@@ -217,20 +286,57 @@
                 const awayName = match.fixture.teams.away.name;
                 const mId = match.fixture.id;
                 const league = match.fixture.league || "Unknown League";
-                const date = match.fixture.date || "TBA";
-                const time = match.fixture.time || "TBA";
-                const odds = match.odds;
+                
+                // የስልክ ሰዓት እና Flashscore ፎርማት
+                const localDateTime = formatLocalTime(match.fixture.date, match.fixture.time);
+                const date = localDateTime.date;
+                const time = localDateTime.time;
 
-                // Home, Away, Draw ኦድስ ካለው አውጣ
-                const oddHome = odds.home || 0;
-                const oddDraw = odds.draw || 0;
-                const oddAway = odds.away || 0;
+                const odds = match.odds || {};
+                let oddsButtonsHTML = "";
 
-                const drawHTML = oddDraw ? `
-                    <div class="odd-btn" id="btn-${mId}-draw" onclick="toggleOdd('${mId}', 'draw', ${oddDraw}, '${homeName.replace(/'/g, "\\'")} v ${awayName.replace(/'/g, "\\'")}', 'Draw', '${league}')">
-                        <span class="label">X</span> <span>${oddDraw}</span>
-                    </div>` : `
-                    <div class="odd-btn disabled"><span class="label">X</span> <span>-</span></div>`;
+                // በ currentMarket መሰረት የተለያዩ በተኖችን ማሳየት
+                if (currentMarket === '1x2') {
+                    const oddHome = odds.home || 0;
+                    const oddDraw = odds.draw || 0;
+                    const oddAway = odds.away || 0;
+
+                    const drawHTML = oddDraw ? `
+                        <div class="odd-btn" id="btn-${mId}-draw" onclick="toggleOdd('${mId}', 'draw', ${oddDraw}, '${homeName.replace(/'/g, "\\'")} v ${awayName.replace(/'/g, "\\'")}', 'Draw', '${league}')">
+                            <span class="label">X</span> <span>${oddDraw}</span>
+                        </div>` : `
+                        <div class="odd-btn disabled"><span class="label">X</span> <span>-</span></div>`;
+
+                    oddsButtonsHTML = `
+                        <div class="odd-btn" id="btn-${mId}-home" onclick="toggleOdd('${mId}', 'home', ${oddHome}, '${homeName.replace(/'/g, "\\'")} v ${awayName.replace(/'/g, "\\'")}', '${homeName.replace(/'/g, "\\'")}', '${league}')">
+                            <span class="label">1</span> <span>${oddHome}</span>
+                        </div>
+                        ${drawHTML}
+                        <div class="odd-btn" id="btn-${mId}-away" onclick="toggleOdd('${mId}', 'away', ${oddAway}, '${homeName.replace(/'/g, "\\'")} v ${awayName.replace(/'/g, "\\'")}', '${awayName.replace(/'/g, "\\'")}', '${league}')">
+                            <span class="label">2</span> <span>${oddAway}</span>
+                        </div>
+                    `;
+                } 
+                else if (currentMarket === 'dc') {
+                    const odd1X = odds.dc_1x || 0;
+                    const odd12 = odds.dc_12 || 0;
+                    const oddX2 = odds.dc_x2 || 0;
+
+                    oddsButtonsHTML = `
+                        <div class="odd-btn" id="btn-${mId}-1x" onclick="toggleOdd('${mId}', '1x', ${odd1X}, '${homeName.replace(/'/g, "\\'")} v ${awayName.replace(/'/g, "\\'")}', '1X', '${league}')">
+                            <span class="label">1X</span> <span>${odd1X}</span>
+                        </div>
+                        <div class="odd-btn" id="btn-${mId}-12" onclick="toggleOdd('${mId}', '12', ${odd12}, '${homeName.replace(/'/g, "\\'")} v ${awayName.replace(/'/g, "\\'")}', '12', '${league}')">
+                            <span class="label">12</span> <span>${odd12}</span>
+                        </div>
+                        <div class="odd-btn" id="btn-${mId}-x2" onclick="toggleOdd('${mId}', 'x2', ${oddX2}, '${homeName.replace(/'/g, "\\'")} v ${awayName.replace(/'/g, "\\'")}', 'X2', '${league}')">
+                            <span class="label">X2</span> <span>${oddX2}</span>
+                        </div>
+                    `;
+                }
+                else {
+                    oddsButtonsHTML = `<div class="loading-text" style="padding:10px;">የ${currentMarket} ኦድ በቅርቡ ይጨመራል...</div>`;
+                }
 
                 const card = document.createElement("div");
                 card.className = "match-card";
@@ -241,13 +347,7 @@
                     </div>
                     <div class="match-title">${homeName} V ${awayName}</div>
                     <div class="odds-container">
-                        <div class="odd-btn" id="btn-${mId}-home" onclick="toggleOdd('${mId}', 'home', ${oddHome}, '${homeName.replace(/'/g, "\\'")} v ${awayName.replace(/'/g, "\\'")}', '${homeName.replace(/'/g, "\\'")}', '${league}')">
-                            <span class="label">1</span> <span>${oddHome}</span>
-                        </div>
-                        ${drawHTML}
-                        <div class="odd-btn" id="btn-${mId}-away" onclick="toggleOdd('${mId}', 'away', ${oddAway}, '${homeName.replace(/'/g, "\\'")} v ${awayName.replace(/'/g, "\\'")}', '${awayName.replace(/'/g, "\\'")}', '${league}')">
-                            <span class="label">2</span> <span>${oddAway}</span>
-                        </div>
+                        ${oddsButtonsHTML}
                     </div>
                 `;
                 container.appendChild(card);
@@ -256,14 +356,14 @@
         }
 
         // ==========================================
-        // 5. Bet Slip Logic & UI Handling
+        // 6. Bet Slip Logic & UI Handling
         // ==========================================
         function toggleOdd(matchId, selectionType, oddValue, matchName, selectionName, league) {
             const existingIndex = betSlip.findIndex(item => item.matchId === matchId);
 
             if (existingIndex > -1) {
                 if (betSlip[existingIndex].selectionType === selectionType) {
-                    betSlip.splice(existingIndex, 1); // Deselect
+                    betSlip.splice(existingIndex, 1); 
                 } else {
                     betSlip[existingIndex] = { matchId, selectionType, oddValue, matchName, selectionName, league };
                 }
@@ -293,7 +393,6 @@
             document.getElementById("slip-count").innerText = count;
             document.getElementById("slip-count-exp").innerText = count;
 
-            // ጨዋታ ካልተመረጠ Bet Slip ደብቀው
             if (count > 0) {
                 slipMain.style.display = "flex";
             } else {
@@ -302,6 +401,10 @@
             }
 
             betSlip.forEach(item => {
+                // ለ Display እንዲያምር 1x2 ወይም DC መሆኑን ለማሳየት
+                const marketLabel = (item.selectionType === '1x' || item.selectionType === '12' || item.selectionType === 'x2') 
+                                    ? 'Double Chance' : '1x2';
+
                 const slipItem = document.createElement("div");
                 slipItem.className = "slip-item";
                 slipItem.innerHTML = `
@@ -309,7 +412,7 @@
                     <div class="slip-item-league">${item.league}</div>
                     <div class="slip-item-title">${item.matchName}</div>
                     <div class="slip-item-bet">
-                        <span>1x2: ${item.selectionName}</span>
+                        <span>${marketLabel}: ${item.selectionName}</span>
                         <span class="slip-item-odd">${item.oddValue.toFixed(2)}</span>
                     </div>
                 `;
@@ -328,7 +431,6 @@
             
             if (betSlip.length === 0) totalOdds = 0;
 
-            // Multi Bonus (3 ጨዋታ ካለ 5% ይጨምራል - አንተ እንደፈለግክ ቀይረው)
             let bonusPercent = 0;
             if (betSlip.length >= 3) bonusPercent = 5; 
             
@@ -367,7 +469,7 @@
         }
 
         // ==========================================
-        // 6. API Post (Place Bet)
+        // 7. API Post (Place Bet)
         // ==========================================
         async function placeBet() {
             if (betSlip.length === 0) {
@@ -381,16 +483,14 @@
                 return;
             }
 
-            // የ Submit በተኑን Disable ማድረግ (ሁለቴ እንዳይጫን)
             const btnSubmit = document.getElementById("btn-submit-bet");
             btnSubmit.disabled = true;
             btnSubmit.innerText = "Processing...";
 
             try {
-                // Backend ለሚፈልገው ፎርማት ማዘጋጀት
                 const payloadSelections = betSlip.map(item => ({
                     match_id: item.matchId,
-                    pick: item.selectionType,
+                    pick: item.selectionType, // 'home', 'draw', 'away', '1x', '12', 'x2'
                     odd: item.oddValue,
                     team: item.selectionName
                 }));
@@ -413,7 +513,7 @@
                 alert(data.message);
 
                 if (data.status === "success") {
-                    window.location.reload(); // ከተሳካ ገጹን አድስ
+                    window.location.reload(); 
                 }
 
             } catch (error) {
