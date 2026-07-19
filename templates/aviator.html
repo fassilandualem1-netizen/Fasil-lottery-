@@ -5,42 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Yegna Bet - Aviator</title>
     
-    <!-- Socket.IO እና FontAwesome -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
     <style>
         /* ==========================================
-           🎨 የ Yegna Bet Aviator ዲዛይን (CSS)
+           🎨 የ Yegna Bet Aviator ዲዛይን
            ========================================== */
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Roboto', sans-serif; user-select: none; }
         body { background-color: #1a1a24; color: white; display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; }
 
-        /* 1. ሄደር እና ባላንስ */
         .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background-color: #121219; border-bottom: 1px solid #2a2a35; }
         .logo { color: #e50b2c; font-weight: 900; font-size: 20px; font-style: italic; display: flex; align-items: center; gap: 10px;}
         .balance { color: #28a745; font-weight: bold; font-size: 16px; }
 
-        /* 2. የክራሽ ታሪክ (History Tape) */
         .history-bar { display: flex; gap: 8px; padding: 5px 15px; overflow-x: auto; background-color: #1a1a24; white-space: nowrap; border-bottom: 1px solid #2a2a35; scrollbar-width: none;}
         .history-bar::-webkit-scrollbar { display: none; }
         .history-item { font-size: 12px; font-weight: bold; padding: 4px 10px; border-radius: 12px; background: rgba(255,255,255,0.05); }
         .hist-red { color: #e50b2c; } .hist-purple { color: #c155ff; } .hist-blue { color: #3498db; }
 
-        /* 3. ዋናው የጨዋታ ማሳያ (Game Screen with Canvas) */
         .game-screen { flex-grow: 1; position: relative; display: flex; justify-content: center; align-items: center; min-height: 280px; margin: 10px; border-radius: 12px; border: 1px solid #333; overflow: hidden; background-color: #111; }
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         #multiplier-text { font-size: 80px; font-weight: 900; z-index: 2; text-shadow: 2px 4px 10px rgba(0,0,0,0.5); }
         #status-text { position: absolute; top: 70%; left: 50%; transform: translateX(-50%); font-size: 14px; font-weight: bold; color: #e50b2c; z-index: 2; text-align: center; display: none; }
 
-        /* የሞድ መቀያየሪያ */
         .mode-container { display: flex; justify-content: center; gap: 10px; margin: 0 10px 10px 10px; }
         .mode-btn { padding: 6px 15px; border: 1px solid #e50b2c; background-color: transparent; color: #fff; border-radius: 20px; cursor: pointer; font-weight: bold; font-size: 12px; transition: all 0.3s ease; }
         .mode-btn.active-mode { background-color: #e50b2c; box-shadow: 0 0 8px rgba(229, 11, 44, 0.6); }
 
-        /* 4. የውርርድ ፓኔሎች */
         .panels-container { padding: 0 10px 10px 10px; display: flex; flex-direction: column; gap: 10px; }
         .bet-panel { background-color: #21212c; border-radius: 12px; padding: 10px; border: 1px solid #2a2a35; }
         .panel-tabs { display: flex; justify-content: center; margin-bottom: 10px; background: #16161e; border-radius: 20px; padding: 2px; width: fit-content; margin-left: auto; margin-right: auto; }
@@ -74,41 +68,31 @@
 </head>
 <body>
 
-    <!-- 1. Header -->
     <header class="header">
         <div class="logo">
-            <i class="fas fa-times" style="color: white; font-size: 16px; cursor:pointer;"></i>
+            <i class="fas fa-times" style="color: white; font-size: 16px; cursor:pointer;" onclick="tg?.close()"></i>
             YEGNA BET 🏁 <span style="font-style: italic; color: #e50b2c; font-size: 16px; margin-left: 10px;">Aviator</span>
         </div>
-        <div class="balance" id="balanceDisplay">3.00 ETB</div>
+        <div class="balance" id="balanceDisplay">... ETB</div>
     </header>
 
-    <!-- 2. History Tape -->
     <div class="history-bar" id="historyBar">
-        <span class="history-item hist-red">1.28x</span>
-        <span class="history-item hist-purple">2.68x</span>
-        <span class="history-item hist-blue">1.44x</span>
-        <span class="history-item hist-purple">4.36x</span>
-        <span class="history-item hist-blue">2.02x</span>
-        <span class="history-item hist-red">1.91x</span>
+        <!-- ታሪክ ከሰርቨር ሲመጣ እዚህ ይገባል -->
     </div>
 
-    <!-- 3. Game Screen -->
     <div class="game-screen">
         <canvas id="gameCanvas"></canvas>
         <div id="multiplier-text">1.00x</div> 
         <div id="status-text">WAITING FOR NEXT ROUND</div>
     </div>
 
-    <!-- Demo/Real Mode Switch -->
     <div class="mode-container">
-        <button id="btnDemoMode" class="mode-btn active-mode" onclick="switchGameMode('demo')">🧪 Demo Mode</button>
-        <button id="btnRealMode" class="mode-btn" onclick="switchGameMode('real')">💰 Real Mode</button>
+        <button id="btnRealMode" class="mode-btn active-mode" onclick="switchGameMode('real')">💰 Real Mode</button>
+        <button id="btnDemoMode" class="mode-btn" onclick="switchGameMode('demo')">🧪 Demo Mode</button>
     </div>
 
-    <!-- 4. Bet Panels -->
     <div class="panels-container">
-        <!-- ================= PANEL 1 ================= -->
+        <!-- PANEL 1 -->
         <div class="bet-panel" id="panel-1">
             <div class="panel-tabs">
                 <div class="panel-tab active" id="p1-tab-bet">Bet</div>
@@ -148,8 +132,9 @@
             </div>
         </div>
 
-        <!-- ================= PANEL 2 ================= -->
+        <!-- PANEL 2 -->
         <div class="bet-panel" id="panel-2">
+            <!-- (Panel 2 HTML code remains the same as provided, omitting for brevity but assumes it is identical to Panel 1 structure with 'p2' IDs) -->
             <div class="panel-tabs">
                 <div class="panel-tab active" id="p2-tab-bet">Bet</div>
                 <div class="panel-tab" id="p2-tab-auto">Auto</div>
@@ -189,21 +174,21 @@
         </div>
     </div>
 
-    <!-- JavaScript ሎጂክ -->
     <script>
         // ==========================================
-        // 1. መነሻ መዋቅር
+        // 1. መነሻ መዋቅር (Initialization)
         // ==========================================
         const socket = (typeof io !== 'undefined') ? io() : null;
-        let currentGameMode = 'demo';
-        let balance = 3.00;
+        let currentGameMode = 'real'; // ቅድሚያ ለእውነተኛ ጌም (Real Mode)
+        let balance = 0.00;
         const tg = window.Telegram?.WebApp;
-        const userId = tg?.initDataUnsafe?.user?.id || "999999";
+        const userId = tg?.initDataUnsafe?.user?.id || "test_user_123";
         
-        // ጌም ስቴት
+        if (tg) tg.expand(); // ቴሌግራም ላይ ሙሉ ስክሪን እንዲሆን
+
         let gameState = { status: "WAITING", multiplier: 1.00, countdown: 10 };
 
-        // የድምፅ ሲስተም
+        // Audio System
         let audioCtx = null;
         function playSound(type) {
             try {
@@ -219,13 +204,13 @@
         }
 
         // ==========================================
-        // 2. የውርርድ ፓነል ክላስ (Bet Logic)
+        // 2. የውርርድ ፓነል ክላስ
         // ==========================================
         class BetPanel {
             constructor(prefix) {
                 this.prefix = prefix;
                 this.amount = 20.00;
-                this.betState = "NONE"; // NONE, BETTING, IN_GAME, CASHED_OUT
+                this.betState = "NONE"; 
                 this.isAutoBet = false;
                 this.isAutoCashout = false;
                 this.autoCashoutVal = 2.00;
@@ -246,7 +231,10 @@
                     if (!isNaN(val) && val >= 10 && this.betState === "NONE") this.setAmount(val);
                 });
 
-                this.btnAction.addEventListener('click', () => this.handleAction());
+                this.btnAction.addEventListener('click', () => {
+                    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); // ድምጽ ለማንቃት
+                    this.handleAction();
+                });
 
                 let tabBet = document.getElementById(`${this.prefix}-tab-bet`);
                 let tabAuto = document.getElementById(`${this.prefix}-tab-auto`);
@@ -271,30 +259,39 @@
                 this.input.disabled = (this.betState !== "NONE");
 
                 if (this.betState === "NONE") { this.btnAction.classList.add("btn-green"); this.btnLabel.innerText = "BET"; this.btnText.innerText = this.amount.toFixed(2) + " ETB"; } 
-                else if (this.betState === "BETTING") { this.btnAction.classList.add("btn-red"); this.btnLabel.innerText = "CANCEL"; this.btnText.innerText = "Waiting..."; } 
+                else if (this.betState === "BETTING") { this.btnAction.classList.add("btn-red"); this.btnLabel.innerText = "WAITING"; this.btnText.innerText = "Registered"; } 
                 else if (this.betState === "IN_GAME") { this.btnAction.classList.add("btn-yellow"); this.btnLabel.innerText = "CASH OUT"; let currentWin = this.amount * gameState.multiplier; this.btnText.innerText = currentWin.toFixed(2) + " ETB"; }
                 else if (this.betState === "CASHED_OUT") { this.btnAction.classList.add("btn-disabled"); this.btnLabel.innerText = "CASHED OUT"; }
             }
 
             async handleAction() {
                 if (this.betState === "NONE") {
-                    if (gameState.status === 'FLYING') {
-                        this.betState = "BETTING";
-                        this.updateButtonUI();
-                    } else if (gameState.status === 'WAITING') {
+                    if (gameState.status === 'WAITING' || gameState.status === 'FLYING') {
                         try {
-                            const res = await fetch('/api/dino/bet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, amount: this.amount, game_mode: currentGameMode }) });
+                            // 🔥 ወደ ትክክለኛው የ Python API Endpoint መላክ
+                            const res = await fetch('/api/aviator/place_bet', { 
+                                method: 'POST', 
+                                headers: { 'Content-Type': 'application/json' }, 
+                                body: JSON.stringify({ 
+                                    user_id: userId, 
+                                    amount: this.amount, 
+                                    auto_cashout: this.isAutoCashout ? this.autoCashoutVal : 0 // ለ Server-side Auto cashout
+                                }) 
+                            });
                             const data = await res.json();
-                            if (data.status === "success") { this.betState = "BETTING"; updateBalance(data.new_balance); }
-                            else { this.betState = "BETTING"; } // ፎልባክ ለዴሞ
-                        } catch (e) { this.betState = "BETTING"; } // ኤፒአይ ከሌለ ዝም ብሎ ይስራ
+                            
+                            if (data.status === "success") { 
+                                this.betState = "BETTING"; 
+                                // (አማራጭ: ባላንስ ከሰርቨር ሲመጣ እዚህ ጋር update ማድረግ)
+                            } else { 
+                                alert(data.message || "የተሳሳተ ውርርድ"); 
+                            }
+                        } catch (e) { 
+                            if(currentGameMode === 'demo') this.betState = "BETTING"; // ፎልባክ ለዴሞ
+                        }
                         this.updateButtonUI();
                     }
                 } 
-                else if (this.betState === "BETTING" && gameState.status === "WAITING") {
-                    this.betState = "NONE";
-                    this.updateButtonUI();
-                }
                 else if (this.betState === "IN_GAME") {
                     this.triggerCashout();
                 }
@@ -302,17 +299,29 @@
 
             async triggerCashout() {
                 if (this.betState !== "IN_GAME") return;
-                let winAmt = this.amount * gameState.multiplier;
-                this.betState = "CASHED_OUT";
-                playSound("win");
-                this.updateButtonUI();
-                this.btnText.innerText = winAmt.toFixed(2) + " ETB";
-
+                
                 try {
-                    const res = await fetch('/api/dino/cashout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, multiplier: gameState.multiplier, amount: this.amount, game_mode: currentGameMode }) });
+                    // 🔥 ወደ ትክክለኛው የ Cashout API መላክ
+                    const res = await fetch('/api/aviator/cashout', { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify({ user_id: userId }) 
+                    });
                     const data = await res.json();
-                    if (data.status === "success") updateBalance(data.new_balance);
-                } catch (e) { updateBalance(balance + winAmt); } // ፎልባክ
+                    
+                    if (data.status === "success") {
+                        this.betState = "CASHED_OUT";
+                        playSound("win");
+                        this.btnText.innerText = data.win_amount.toFixed(2) + " ETB";
+                        this.updateButtonUI();
+                    }
+                } catch (e) { 
+                    if(currentGameMode === 'demo') {
+                        this.betState = "CASHED_OUT";
+                        playSound("win");
+                        this.updateButtonUI();
+                    }
+                }
             }
 
             onRoundStart() {
@@ -325,6 +334,7 @@
                 if (this.betState === "IN_GAME") {
                     let currentWin = this.amount * gameState.multiplier;
                     this.btnText.innerText = currentWin.toFixed(2) + " ETB";
+                    // Client-side auto cashout fallback (ሰርቨሩ ባይሰራ እንኳን)
                     if (this.isAutoCashout && gameState.multiplier >= this.autoCashoutVal) this.triggerCashout();
                 }
             }
@@ -355,19 +365,17 @@
         }
 
         // ==========================================
-        // 3. Canvas አኒሜሽን እና Logic 
+        // 3. Canvas አኒሜሽን 
         // ==========================================
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const multText = document.getElementById("multiplier-text");
         const statusText = document.getElementById("status-text");
         
-        let canvasW = canvas.offsetWidth;
-        let canvasH = canvas.offsetHeight;
+        let canvasW = canvas.offsetWidth, canvasH = canvas.offsetHeight;
         canvas.width = canvasW; canvas.height = canvasH;
         
-        let planePos = { x: 0, y: canvasH };
-        let sunburstAngle = 0;
+        let planePos = { x: 0, y: canvasH }, sunburstAngle = 0;
         
         const planeImg = new Image();
         planeImg.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><path fill='%23e50b2c' d='M448 336c-16.7 0-32-13.3-30-32V224H288L151.6 383.1c-6.8 8-16.7 12.9-27.4 12.9H64c-15.5 0-25.5-5-14.5-19.9l28.7-52.2H32c-17.7 0-32-14.3-32-32s14.3-32 32-32h64l-51.9-143.3C38.9 2.5 53.4-7.5 68.6-7.5h60.2c10.7 0 20.6 4.9 27.4 12.9L288 160h128v-80c0-18.7 15.3-32 32-32s32 13.3 32 32v224c0 18.7-15.3 32-32 32z'/></svg>";
@@ -375,9 +383,8 @@
         function drawBackground() {
             ctx.clearRect(0, 0, canvasW, canvasH);
             ctx.save(); ctx.translate(canvasW/2, canvasH/2); ctx.rotate(sunburstAngle);
-            const rays = 24;
-            for (let i = 0; i < rays; i++) {
-                ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, canvasW, (i*2*Math.PI)/rays, ((i+0.5)*2*Math.PI)/rays);
+            for (let i = 0; i < 24; i++) {
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, canvasW, (i*2*Math.PI)/24, ((i+0.5)*2*Math.PI)/24);
                 ctx.fillStyle = "rgba(255, 255, 255, 0.02)"; ctx.fill();
             }
             ctx.restore(); sunburstAngle += 0.002;
@@ -414,7 +421,7 @@
                 
                 if (planePos.x < canvasW * 0.7) planePos.x += 3;
                 if (planePos.y > canvasH * 0.25) planePos.y -= 1.5;
-                planePos.y += (Math.sin(Date.now() / 200) * 2) * 0.1; // Wobble
+                planePos.y += (Math.sin(Date.now() / 200) * 2) * 0.1;
 
                 if (Math.random() < 0.1) playSound("fly");
                 drawCurveAndPlane();
@@ -429,66 +436,45 @@
             }
             requestAnimationFrame(animateGame);
         }
-        
         requestAnimationFrame(animateGame);
 
         // ==========================================
-        // 4. Socket.IO & Fallback Logic
+        // 4. Socket.IO & Backend Sync
         // ==========================================
-        function updateHistory(mult) {
+        function renderHistory(historyArray) {
             const histBar = document.getElementById("historyBar");
-            let c = mult < 2 ? "hist-red" : (mult >= 10 ? "hist-purple" : "hist-blue");
-            const sp = document.createElement("span"); sp.className = `history-item ${c}`; sp.innerText = mult.toFixed(2) + "x";
-            histBar.insertBefore(sp, histBar.firstChild);
-            if (histBar.children.length > 8) histBar.removeChild(histBar.lastChild);
+            histBar.innerHTML = ""; // የድሮውን አጽዳ
+            historyArray.forEach(mult => {
+                let c = mult < 2 ? "hist-red" : (mult >= 10 ? "hist-purple" : "hist-blue");
+                histBar.innerHTML += `<span class="history-item ${c}">${mult.toFixed(2)}x</span>`;
+            });
         }
 
         if (socket) {
             socket.on('game_state', (data) => {
                 gameState.status = data.status;
-                if (data.status === 'WAITING') { gameState.countdown = data.countdown; window.panel_p1.onRoundCrash(); window.panel_p2.onRoundCrash(); }
+                if (data.history) renderHistory(data.history); // 🔥 Server-side history
+                
+                if (data.status === 'WAITING') { 
+                    gameState.countdown = data.time_left; 
+                    window.panel_p1.onRoundCrash(); window.panel_p2.onRoundCrash(); 
+                    
+                    // ቆጠራውን UI ላይ ለማሳየት
+                    let cdInterval = setInterval(() => {
+                        gameState.countdown--;
+                        if(gameState.countdown <= 0 || gameState.status !== 'WAITING') clearInterval(cdInterval);
+                    }, 1000);
+                }
                 if (data.status === 'FLYING') { window.panel_p1.onRoundStart(); window.panel_p2.onRoundStart(); }
-                if (data.status === 'CRASHED') { playSound("crash"); updateHistory(data.crash_point); window.panel_p1.onRoundCrash(); window.panel_p2.onRoundCrash(); }
+                if (data.status === 'CRASHED') { playSound("crash"); window.panel_p1.onRoundCrash(); window.panel_p2.onRoundCrash(); }
             });
             socket.on('multiplier_update', (data) => {
                 gameState.multiplier = data.multiplier;
                 window.panel_p1.onMultiplierTick(); window.panel_p2.onMultiplierTick();
             });
-        } else {
-            // Standalone Fallback (ለሙከራ ካለ ባክኤንድ)
-            let demoInterval;
-            function runDemoLoop() {
-                gameState.status = 'WAITING'; gameState.countdown = 5; gameState.multiplier = 1.0;
-                window.panel_p1.onRoundCrash(); window.panel_p2.onRoundCrash();
-                
-                let cd = setInterval(() => {
-                    gameState.countdown--;
-                    if (gameState.countdown <= 0) {
-                        clearInterval(cd);
-                        gameState.status = 'FLYING';
-                        window.panel_p1.onRoundStart(); window.panel_p2.onRoundStart();
-                        
-                        let crashP = (1.05 + Math.random() * 3).toFixed(2);
-                        demoInterval = setInterval(() => {
-                            gameState.multiplier += 0.005 * (1 + (gameState.multiplier * 0.1));
-                            window.panel_p1.onMultiplierTick(); window.panel_p2.onMultiplierTick();
-                            
-                            if (gameState.multiplier >= crashP) {
-                                clearInterval(demoInterval);
-                                gameState.status = 'CRASHED';
-                                playSound("crash");
-                                updateHistory(parseFloat(crashP));
-                                window.panel_p1.onRoundCrash(); window.panel_p2.onRoundCrash();
-                                setTimeout(runDemoLoop, 3000);
-                            }
-                        }, 30);
-                    }
-                }, 1000);
-            }
-            runDemoLoop();
-        }
-
-        // ስክሪኑ ሲስተካከል ካንቫሱን ማስተካከል
+        } 
+        
+        // Resize Canvas
         window.addEventListener('resize', () => {
             canvasW = canvas.parentElement.offsetWidth;
             canvasH = canvas.parentElement.offsetHeight;
