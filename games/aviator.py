@@ -86,7 +86,7 @@ def process_cashout(user_id, multiplier):
             return user_bet.get("win_amount", 0)
             
     return 0
- ==========================================
+ #==========================================
 # 🔄 4. የጨዋታው ሞተር (Robust Background Game Loop)
 # ==========================================
 import math
