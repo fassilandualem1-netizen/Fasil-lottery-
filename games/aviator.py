@@ -31,7 +31,7 @@ def generate_500_crashes():
     """
     global pre_generated_crashes
     crashes = []
-    house_edge = 0.97 # የ 3% ትርፍ 
+    house_edge = 0.97 # የ 3% ትርፍ (House Edge)
     for _ in range(500):
         r = random.random()
         crash_point = house_edge / (1.0 - r)
@@ -50,14 +50,19 @@ def get_next_crash():
 def process_cashout(user_id, multiplier):
     """ ሰርቨር-ሳይድ ካሽ አውት ማድረጊያ (Robust Function) """
     user_bet = current_round_bets.get(user_id)
-    if user_bet and not user_bet["cashed_out"]:
-        user_bet["cashed_out"] = True
-        win_amount = user_bet["amount"] * multiplier
-        
-        # ብሩን ደህንነቱ በተጠበቀ ሁኔታ Redis ላይ መጨመር
-        redis.hincrbyfloat("users:balance", str(user_id), win_amount)
-        add_to_history(user_id, {"type": "Aviator Win", "amount": round(win_amount, 2), "multiplier": multiplier})
-        return win_amount
+    if user_bet:
+        if not user_bet.get("cashed_out"):
+            user_bet["cashed_out"] = True
+            win_amount = user_bet["amount"] * multiplier
+            user_bet["win_amount"] = win_amount # ለ Race condition መከላከያ
+            
+            # ብሩን ደህንነቱ በተጠበቀ ሁኔታ Redis ላይ መጨመር
+            redis.hincrbyfloat("users:balance", str(user_id), win_amount)
+            add_to_history(user_id, {"type": "Aviator Win", "amount": round(win_amount, 2), "multiplier": multiplier})
+            return win_amount
+        else:
+            # ክላይንቱ እና ሰርቨሩ በአንድ ጊዜ Auto-cashout ቢያደርጉ፣ ቀድሞ የገባውን ትርፍ ይመልሳል እንጂ ኤረር አይልም
+            return user_bet.get("win_amount", 0)
     return 0
 
 # ==========================================
@@ -80,7 +85,7 @@ def start_aviator_loop(socketio):
                 current_round_bets = next_round_bets.copy()
                 next_round_bets = {}
                 
-                # ክላይንቶች ታሪኩን (History Tape) እና ቆጠራውን እንዲያዩ መላክ
+                # ክላይንቶች ታሪኩን እና ቆጠራውን እንዲያዩ መላክ
                 socketio.emit('game_state', {
                     'status': 'WAITING', 
                     'time_left': 10, # 10 ሰከንድ
@@ -115,8 +120,7 @@ def start_aviator_loop(socketio):
                     for uid, bet in current_round_bets.items():
                         if not bet["cashed_out"] and bet.get("auto_cashout_val"):
                             if current_multi >= bet["auto_cashout_val"]:
-                                process_cashout(uid, current_multi)
-                                # (አማራጭ: እዚህ ጋር ለተጠቃሚው ብቻውን 'win' ኢቨንት መላክ ይቻላል)
+                                process_cashout(uid, bet["auto_cashout_val"]) # በትክክለኛው limit እንዲወጣ 
                     
                     if current_multi >= game_state["crash_point"]:
                         crashed = True
@@ -148,6 +152,21 @@ def start_aviator_loop(socketio):
 # ==========================================
 # 📡 5. የውርርድ እና የካሽ አውት ኤፒአይ (Endpoints)
 # ==========================================
+
+# 📌 አዲስ የተጨመረ፡ ተጠቃሚው ሲገባ መረጃ (Balance & History) የሚሰጥ
+@aviator_bp.route('/api/aviator/user_data', methods=['GET'])
+def get_user_data():
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({"status": "error", "message": "User ID ያስፈልጋል"}), 400
+        
+    current_balance = float(redis.hget("users:balance", user_id) or 0.0)
+    return jsonify({
+        "status": "success",
+        "balance": current_balance,
+        "history": game_state["history"]
+    })
+
 @aviator_bp.route('/api/aviator/place_bet', methods=['POST'])
 def place_bet():
     data = request.json or {}
@@ -156,13 +175,15 @@ def place_bet():
     auto_cashout_val = float(data.get("auto_cashout", 0)) # Auto Cashout ካለ
     
     if not user_id or amount < 10: # ዝቅተኛ መነሻ 10 ETB
-        return jsonify({"status": "error", "message": "የተሳሳተ መረጃ"}), 400
+        return jsonify({"status": "error", "message": "የተሳሳተ የገንዘብ መጠን"}), 400
         
     current_balance = float(redis.hget("users:balance", user_id) or 0.0)
     if current_balance < amount:
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም"}), 400
         
+    # ብሩን መቀነስ
     redis.hincrbyfloat("users:balance", user_id, -amount)
+    new_balance = float(redis.hget("users:balance", user_id) or 0.0)
     
     bet_data = {
         "amount": amount, 
@@ -172,10 +193,20 @@ def place_bet():
     
     if game_state["status"] == "WAITING":
         current_round_bets[user_id] = bet_data
-        return jsonify({"status": "success", "message": "በአሁኑ ዙር ተሳትፈዋል!", "type": "CURRENT"})
+        return jsonify({
+            "status": "success", 
+            "message": "በአሁኑ ዙር ተሳትፈዋል!", 
+            "type": "CURRENT",
+            "new_balance": new_balance  # UI እንዲያስተካክለው ተጨምሯል
+        })
     else:
         next_round_bets[user_id] = bet_data
-        return jsonify({"status": "success", "message": "ለውርርድ ለቀጣዩ ዙር ተመዝግበዋል!", "type": "NEXT"})
+        return jsonify({
+            "status": "success", 
+            "message": "ለውርርድ ለቀጣዩ ዙር ተመዝግበዋል!", 
+            "type": "NEXT",
+            "new_balance": new_balance  # UI እንዲያስተካክለው ተጨምሯል
+        })
 
 @aviator_bp.route('/api/aviator/cashout', methods=['POST'])
 def manual_cashout():
@@ -192,10 +223,12 @@ def manual_cashout():
     win_amount = process_cashout(user_id, current_multi)
     
     if win_amount > 0:
+        new_balance = float(redis.hget("users:balance", user_id) or 0.0)
         return jsonify({
             "status": "success", 
             "win_amount": round(win_amount, 2),
-            "multiplier": current_multi
+            "multiplier": current_multi,
+            "new_balance": new_balance # UI እንዲያስተካክለው ተጨምሯል
         })
     else:
         return jsonify({"status": "error", "message": "ውርርድ አልተገኘም ወይም አስቀድመው ወስደዋል"}), 400
