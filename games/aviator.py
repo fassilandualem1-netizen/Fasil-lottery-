@@ -246,42 +246,52 @@ def get_user_data():
 def place_bet():
     data = request.json or {}
     user_id = str(data.get("user_id"))
-    amount = float(data.get("amount", 0))
-    auto_cashout_val = float(data.get("auto_cashout", 0)) # Auto Cashout ካለ
+    
+    # 1. መረጃው ትክክለኛ ቁጥር መሆኑን ማረጋገጥ
+    try:
+        amount = float(data.get("amount", 0))
+        auto_cashout_val = float(data.get("auto_cashout", 0))
+    except ValueError:
+        return jsonify({"status": "error", "message": "የተሳሳተ የገንዘብ መጠን ፎርማት"}), 400
     
     if not user_id or amount < 10: # ዝቅተኛ መነሻ 10 ETB
-        return jsonify({"status": "error", "message": "የተሳሳተ የገንዘብ መጠን"}), 400
+        return jsonify({"status": "error", "message": "ዝቅተኛው የውርርድ መጠን 10 ብር ነው"}), 400
         
     current_balance = float(redis.hget("users:balance", user_id) or 0.0)
     if current_balance < amount:
         return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም"}), 400
         
-    # ብሩን መቀነስ
-    redis.hincrbyfloat("users:balance", user_id, -amount)
-    new_balance = float(redis.hget("users:balance", user_id) or 0.0)
-    
     bet_data = {
         "amount": amount, 
         "cashed_out": False, 
         "auto_cashout_val": auto_cashout_val if auto_cashout_val > 1.00 else None
     }
     
-    if game_state["status"] == "WAITING":
-        current_round_bets[user_id] = bet_data
-        return jsonify({
-            "status": "success", 
-            "message": "በአሁኑ ዙር ተሳትፈዋል!", 
-            "type": "CURRENT",
-            "new_balance": new_balance  # UI እንዲያስተካክለው ተጨምሯል
-        })
-    else:
-        next_round_bets[user_id] = bet_data
-        return jsonify({
-            "status": "success", 
-            "message": "ለውርርድ ለቀጣዩ ዙር ተመዝግበዋል!", 
-            "type": "NEXT",
-            "new_balance": new_balance  # UI እንዲያስተካክለው ተጨምሯል
-        })
+    # 2. በ Lock በመጠቀም ዳታ እንዳይጋጭ (Race Condition) መከላከል
+    with bet_lock:
+        # ውርርድ የሚገባበትን ዙር መለየት
+        target_dict = current_round_bets if game_state["status"] == "WAITING" else next_round_bets
+        round_type = "CURRENT" if game_state["status"] == "WAITING" else "NEXT"
+        msg = "በአሁኑ ዙር ተሳትፈዋል!" if round_type == "CURRENT" else "ለውርርድ ለቀጣዩ ዙር ተመዝግበዋል!"
+        
+        # 3. ደብል ቤቲንግ (Double Betting) መከላከል
+        if user_id in target_dict:
+            return jsonify({"status": "error", "message": "በዚህ ዙር አስቀድመው ተወራርደዋል!"}), 400
+            
+        # ብሩን መቀነስ (ውርርዱ ተቀባይነት ካገኘ በኋላ ብቻ)
+        redis.hincrbyfloat("users:balance", user_id, -amount)
+        # የ Floating point ችግር እንዳይፈጠር ማጠጋጋት (Rounding)
+        new_balance = round(float(redis.hget("users:balance", user_id) or 0.0), 2)
+        
+        # ውርርዱን መመዝገብ
+        target_dict[user_id] = bet_data
+
+    return jsonify({
+        "status": "success", 
+        "message": msg, 
+        "type": round_type,
+        "new_balance": new_balance
+    })
 
 @aviator_bp.route('/api/aviator/cashout', methods=['POST'])
 def manual_cashout():
@@ -291,23 +301,33 @@ def manual_cashout():
     if not user_id:
         return jsonify({"status": "error", "message": "መረጃ የለም"}), 400
         
-    if game_state["status"] != "FLYING":
-        return jsonify({"status": "error", "message": "አሁን Cash out ማድረግ አይችሉም!"}), 400
+    # 🔒 እጅግ ወሳኝ መቆለፊያ (Race Condition መከላከያ)
+    with bet_lock:
+        # ጌሙ እየበረረ መሆኑን የምናረጋግጠው በ Lock ውስጥ ነው
+        if game_state["status"] != "FLYING":
+            return jsonify({"status": "error", "message": "አሁን Cash out ማድረግ አይችሉም!"}), 400
+            
+        current_multi = game_state["multiplier"]
         
-    current_multi = game_state["multiplier"]
-    win_amount = process_cashout(user_id, current_multi)
-    
-    if win_amount > 0:
-        new_balance = float(redis.hget("users:balance", user_id) or 0.0)
-        return jsonify({
-            "status": "success", 
-            "win_amount": round(win_amount, 2),
-            "multiplier": current_multi,
-            "new_balance": new_balance # UI እንዲያስተካክለው ተጨምሯል
-        })
-    else:
-        return jsonify({"status": "error", "message": "ውርርድ አልተገኘም ወይም አስቀድመው ወስደዋል"}), 400
+        # process_cashout የራሱን ኃላፊነት ይወጣል
+        win_amount = process_cashout(user_id, current_multi)
+        
+        if win_amount > 0:
+            # ባላንሱን ወደ 2 ዴሲማል ማጠጋጋት
+            new_balance = round(float(redis.hget("users:balance", user_id) or 0.0), 2)
+            
+            return jsonify({
+                "status": "success", 
+                "win_amount": win_amount, # process_cashout አስቀድሞ አጠጋግቶታል
+                "multiplier": current_multi,
+                "new_balance": new_balance 
+            })
+        else:
+            return jsonify({"status": "error", "message": "ውርርድ አልተገኘም ወይም አስቀድመው ወስደዋል"}), 400
 
+
+# የ Aviator UI ገጽ መክፈቻ
 @aviator_bp.route('/aviator')
 def aviator_page():
     return render_template('aviator.html')
+
