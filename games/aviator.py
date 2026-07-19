@@ -127,7 +127,7 @@ def start_aviator_loop(socketio):
 
                     # ኃይለኛ አድጓዊ ቀመር (Exponential Growth)
                     current_multi = round(math.exp(0.06 * elapsed_time), 2)
-                    
+
                     # ⚠️ ክራሽ የሚያደርግበትን ነጥብ እንዳያልፍ መገደብ
                     if current_multi >= game_state["crash_point"]:
                         current_multi = game_state["crash_point"]
@@ -147,30 +147,38 @@ def start_aviator_loop(socketio):
                                     except Exception as ex:
                                         print(f"⚠️ Auto-Cashout Error for UID {uid}: {ex}")
 
-            # --- ሐ. የመከሰከስ ጊዜ (CRASHED - 3 ሰከንድ) ---
-            game_state["status"] = "CRASHED"
-            game_state["multiplier"] = game_state["crash_point"]
+                # --- ሐ. የመከሰከስ ጊዜ (CRASHED - 3 ሰከንድ) ---
+                # ⚠️ ይህ ክፍል ወደ ውስጥ ገባ ብሎ የ try አካል መሆን አለበት
+                game_state["status"] = "CRASHED"
+                game_state["multiplier"] = game_state["crash_point"]
 
-            # 1. በሚሞሪ ታሪክ ውስጥ መጨመር 
-            game_state["history"].insert(0, game_state["crash_point"])
-            if len(game_state["history"]) > 20:
-                game_state["history"].pop()
+                # 1. በሚሞሪ ታሪክ ውስጥ መጨመር 
+                game_state["history"].insert(0, game_state["crash_point"])
+                if len(game_state["history"]) > 20:
+                    game_state["history"].pop()
 
-            # 👇 2. ወደ Redis ሴቭ ማድረግ (try እና except እኩል መስመር ላይ መሆናቸውን አረጋግጥ)
-            try:
-                redis.lpush("aviator:history", game_state["crash_point"])
-                redis.ltrim("aviator:history", 0, 19) # ሜሞሪ እንዳይሞላ 20ቱን ብቻ እንዲያስቀር
+                # 2. ወደ Redis ሴቭ ማድረግ
+                try:
+                    redis.lpush("aviator:history", game_state["crash_point"])
+                    redis.ltrim("aviator:history", 0, 19) # ሜሞሪ እንዳይሞላ 20ቱን ብቻ እንዲያስቀር
+                except Exception as e:
+                    print(f"Redis History Error: {e}")
+
+                # 3. ወደ ፊትለፊት (Frontend) መላክ
+                socketio.emit('game_state', {
+                    'status': 'CRASHED', 
+                    'crash_point': game_state["crash_point"],
+                    'history': game_state["history"]
+                })
+
+                socketio.sleep(3)
+
+            # ⚠️ የዋናው try ብሎክ መዝጊያ (ስህተት ቢፈጠር ጌም ሉፑ እንዳይሞት)
             except Exception as e:
-                print(f"Redis History Error: {e}")
+                print(f"🛑 Critical Aviator Loop Error: {e}")
+                socketio.sleep(2)
 
-            # 3. ወደ ፊትለፊት (Frontend) መላክ
-            socketio.emit('game_state', {
-                'status': 'CRASHED', 
-                'crash_point': game_state["crash_point"],
-                'history': game_state["history"]
-            })
-
-            socketio.sleep(3)
+    socketio.start_background_task(loop)
  
 
 # ==========================================
