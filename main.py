@@ -470,8 +470,9 @@ def send_admin_panel(message):
 
 
 # ==========================================
-# 🔌 WEBHOOK & SERVER START
+# 🔌 WEBHOOK & SERVER START (ከጌም ሞተር ጋር የተዋሃደ)
 # ==========================================
+
 @server.route(f'/webhook/{TOKEN}', methods=['POST'])
 def webhook():
     json_string = request.get_data().decode('utf-8')
@@ -479,11 +480,21 @@ def webhook():
     bot.process_new_updates([update])
     return 'OK', 200
 
+# 1. ጌሞችን ከማስመጣትህ በፊት፣ የ SocketIO instance-ን የምናሳልፍበት መንገድ
+from games.aviator import start_aviator_loop
+
+# 2. ሰርቨሩ ከመነሳቱ በፊት ቦቱን ማዘጋጀት
 try:
     bot.remove_webhook()
     time.sleep(0.1)
     bot.set_webhook(url=f"{WEB_APP_URL}/webhook/{TOKEN}")
-except: pass
+except Exception as e:
+    print(f"Webhook error: {e}")
+
+# 3. የጨዋታውን ሞተር ማስጀመር
+# socketio instance-ን ለ aviator.py የጨዋታ ሉፕ እናሳልፋለን
+start_aviator_loop(socketio)
 
 if __name__ == "__main__":
+    # በ socketio.run አማካኝነት ሰርቨሩን እንጀምራለን
     socketio.run(server, host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
