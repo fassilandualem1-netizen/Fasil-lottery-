@@ -229,3 +229,11 @@ def place_bet():
     except Exception as e:
         print(f"Place Bet Error: {e}")
         return jsonify({"status": "error", "message": "በሰርቨር ላይ የቴክኒክ ችግር አጋጥሟል!"}), 500
+
+@real_sports_bp.route('/api/debug/check_redis', methods=['GET'])
+def debug_redis():
+    data = redis.get("cached_real_sports_odds")
+    if data:
+        return jsonify({"status": "found", "data_length": len(json.loads(data))})
+    return jsonify({"status": "empty"})
+
