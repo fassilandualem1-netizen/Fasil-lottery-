@@ -1,80 +1,86 @@
 // ==========================================
 // 1. መሠረታዊ ማዋቀሪያዎች (Global Setup)
 // ==========================================
-const socket = io('/aviator'); // ከፓይተን ሰርቨር ጋር መገናኛ
-let tg = window.Telegram.WebApp; // የቴሌግራም ዌብ አፕ ዳታ
-let USER_ID = tg.initDataUnsafe?.user?.id || "test_user_123"; // በቴሌግራም ሲከፈት ትክክለኛውን አይዲ ይወስዳል
+// ኔምስፔሱን ወደ Default ቀይረነዋል
+const socket = io(); 
+let tg = window.Telegram.WebApp;
+let USER_ID = tg.initDataUnsafe?.user?.id || "test_user_123"; 
 
-let currentGameState = "WAITING"; // WAITING, FLYING, CRASHED
+let currentGameState = "WAITING"; 
 let currentMultiplier = 1.00;
 let flightStartTime = 0;
 let animationFrameId;
-
-// የድምፅ ኢፌክቶች (ካስፈለገህ)
-// const flySound = new Audio('/sounds/fly.mp3'); 
 
 // ==========================================
 // 2. የውርርድ ፓኔል መቆጣጠሪያ (Bet Panel Class)
 // ==========================================
 class BetPanel {
     constructor(panelId) {
-        this.panelId = panelId; // 'panel-1' ወይም 'panel-2'
-        this.amount = 20.00;
-        this.state = 'IDLE';    // IDLE, BET_PLACED, QUEUED, ACTIVE
+        this.panelId = panelId; // አሁን 'p1' ወይም 'p2' ነው የሚሆነው
+        this.state = 'IDLE';    
         this.isAutoBet = false;
-        this.autoCashoutValue = 0; // 0 ማለት ጠፍቷል ማለት ነው
+        this.autoCashoutValue = 0; 
 
-        // የ HTML ኤለመንቶችን ማሰር
+        // ከ HTML ጋር በትክክል ማሰር
         this.button = document.getElementById(`${panelId}-btn`);
         this.amountInput = document.getElementById(`${panelId}-amount`);
         
-        // ክሊክ ሲደረግ
-        this.button.addEventListener('click', () => this.handleButtonClick());
+        if(this.button) {
+            this.button.addEventListener('click', () => this.handleButtonClick());
+        } else {
+            console.error(`Button ${panelId}-btn not found!`);
+        }
     }
 
-    // በተኑ ሲነካ ምን ይፈጠር? (ዋናው ሎጂክ)
+    // አሁን ያለውን የብር መጠን ከ input ሳጥኑ ላይ ማንበብ
+    getCurrentAmount() {
+        return parseFloat(this.amountInput.value) || 20.00;
+    }
+
     handleButtonClick() {
         if (this.state === 'IDLE') {
             if (currentGameState === 'WAITING') {
-                this.placeBet('CURRENT'); // ለአሁኑ ዙር
+                this.placeBet('CURRENT'); 
             } else if (currentGameState === 'FLYING') {
-                this.placeBet('NEXT');    // ለቀጣይ ዙር (Next Round)
+                this.placeBet('NEXT');    
             }
         } 
         else if (this.state === 'ACTIVE' && currentGameState === 'FLYING') {
-            this.cashOut(); // ብር ማውጣት
+            this.cashOut(); 
         }
         else if (this.state === 'BET_PLACED' || this.state === 'QUEUED') {
-            // Cancel ማድረግ (ገና ሳይበር ሀሳቡን ከቀየረ)
             this.cancelBet();
         }
     }
 
-    // ወደ ባክኤንድ ኤፒአይ (Python) መረጃ መላክ
     async placeBet(roundType) {
+        let betAmount = this.getCurrentAmount();
         this.button.innerText = "Loading...";
+        
         try {
+            // ማሳሰቢያ፡ ይህ ራውት በ Flask (aviator.py) ውስጥ መኖሩን አረጋግጥ
             let response = await fetch('/api/aviator/place_bet', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: USER_ID, amount: this.amount })
+                body: JSON.stringify({ user_id: USER_ID, amount: betAmount })
             });
             let data = await response.json();
 
             if (data.status === 'success') {
-                if (data.type === 'CURRENT') {
+                if (data.type === 'CURRENT' || roundType === 'CURRENT') {
                     this.state = 'BET_PLACED';
-                    this.updateUI('Cancel', '#dc3545'); // ቀይ Cancel
-                } else if (data.type === 'NEXT') {
+                    this.updateUI('CANCEL', '#dc3545', ''); 
+                } else {
                     this.state = 'QUEUED';
-                    this.updateUI('Cancel (Next Round)', '#dc3545'); // ቀይ Cancel
+                    this.updateUI('CANCEL', '#dc3545', '(Next Round)'); 
                 }
             } else {
-                alert(data.message); // ባላንስ ካጠረው
-                this.updateUI(`Bet ${this.amount} ETB`, '#28a745'); // አረንጓዴ ይሁን
+                alert(data.message || "ውርርድ አልተሳካም!"); 
+                this.updateUI('BET', '#28a745', betAmount + ' ETB'); 
             }
         } catch (error) {
             console.error("Bet Error:", error);
+            this.updateUI('BET', '#28a745', betAmount + ' ETB');
         }
     }
 
@@ -89,9 +95,9 @@ class BetPanel {
 
             if (data.status === 'success') {
                 this.state = 'IDLE';
-                this.updateUI(`Bet ${this.amount} ETB`, '#28a745');
+                let betAmount = this.getCurrentAmount();
+                this.updateUI('BET', '#28a745', betAmount + ' ETB');
                 
-                // አሸነፍክ የሚል አኒሜሽን ስክሪኑ ላይ ማሳየት
                 showWinAnimation(data.win_amount, data.multiplier);
             }
         } catch (error) {
@@ -100,25 +106,28 @@ class BetPanel {
     }
 
     cancelBet() {
-        // (Optional: እዚህ ጋር ወደ ባክኤንድ ኤፒአይ ልከህ ብሩን መመለስ ትችላለህ)
+        let betAmount = this.getCurrentAmount();
         this.state = 'IDLE';
-        this.updateUI(`Bet ${this.amount} ETB`, '#28a745');
+        this.updateUI('BET', '#28a745', betAmount + ' ETB');
     }
 
-    updateUI(text, bgColor) {
-        this.button.innerText = text;
+    updateUI(text, bgColor, subText = "") {
         this.button.style.backgroundColor = bgColor;
         this.button.style.color = "white";
+        if (subText) {
+            this.button.innerHTML = `<span>${text}</span><span style="font-size: 14px; font-weight: 400;">${subText}</span>`;
+        } else {
+            this.button.innerHTML = `<span>${text}</span>`;
+        }
     }
 
-    // ጌሙ ስቴት ሲቀይር ፓኔሉ ራሱን የሚያስተካክልበት
     onGameStateChange(newState) {
+        let betAmount = this.getCurrentAmount();
         if (newState === 'WAITING') {
             if (this.state === 'QUEUED') {
                 this.state = 'BET_PLACED';
-                this.updateUI('Cancel', '#dc3545');
+                this.updateUI('CANCEL', '#dc3545', '');
             } 
-            // Auto Bet አብርቶ ከሆነ ራሱ ይጫወታል
             else if (this.state === 'IDLE' && this.isAutoBet) {
                 this.placeBet('CURRENT');
             }
@@ -126,19 +135,18 @@ class BetPanel {
         else if (newState === 'FLYING') {
             if (this.state === 'BET_PLACED') {
                 this.state = 'ACTIVE';
-                this.updateUI(`Cash Out`, '#ffc107'); // ቢጫ ቀለም ብር ማውጫ
+                this.updateUI('CASH OUT', '#ffc107', ''); 
+                this.button.style.color = "black"; // ለቢጫ ባክግራውንድ ጥቁር ጽሁፍ
             }
         }
         else if (newState === 'CRASHED') {
-            if (this.state === 'ACTIVE') {
-                // ተበላ ማለት ነው
+            if (this.state === 'ACTIVE' || this.state === 'BET_PLACED') {
                 this.state = 'IDLE';
-                this.updateUI(`Bet ${this.amount} ETB`, '#28a745');
+                this.updateUI('BET', '#28a745', betAmount + ' ETB');
             }
         }
     }
 
-    // ራሱ ቼክ እያደረገ Cash out የሚያደርግበት
     checkAutoCashout(currentMulti) {
         if (this.state === 'ACTIVE' && this.autoCashoutValue > 0) {
             if (currentMulti >= this.autoCashoutValue) {
@@ -148,34 +156,30 @@ class BetPanel {
     }
 }
 
-// ሁለቱን ፓኔሎች ማስጀመር
-const panel1 = new BetPanel('panel-1');
-const panel2 = new BetPanel('panel-2'); // ኤችቲኤምኤል ላይ ሁለተኛ ፓኔል ካለህ
+// ትልቁ ማስተካከያ፡ 'panel-1' የነበረው ወደ 'p1' ተቀይሯል!
+const panel1 = new BetPanel('p1');
+const panel2 = new BetPanel('p2'); 
 
 
 // ==========================================
 // 3. የአውሮፕላኑ ሞተር (The Math & Animation Engine)
 // ==========================================
 const multiplierDisplay = document.getElementById("multiplier-text");
+const planeAnim = document.querySelector('.plane-anim'); // የጀርባ አኒሜሽን
 
 function updateFlightAnimation() {
     if (currentGameState !== 'FLYING') return;
 
-    // አውሮፕላኑ ከተነሳ ያለፈውን ጊዜ (በሰከንድ) ማስላት
     let elapsedTime = (Date.now() - flightStartTime) / 1000;
-    
-    // ከፓይተኑ ጋር አንድ አይነት የሆነው የእድገት ቀመር (M = e^(0.06 * t))
     currentMultiplier = Math.exp(0.06 * elapsedTime);
     
-    // ስክሪኑ ላይ ቁጥሩን መጻፍ
     multiplierDisplay.innerText = currentMultiplier.toFixed(2) + "x";
-    multiplierDisplay.style.color = "white"; // እየበረረ ነጭ ነው
+    multiplierDisplay.style.color = "white"; 
+    planeAnim.style.opacity = '0.3'; // ሲበር እንዲታይ
 
-    // Auto cashout ቼክ ማድረግ (በየሚሊሰከንዱ)
     panel1.checkAutoCashout(currentMultiplier);
     panel2.checkAutoCashout(currentMultiplier);
 
-    // ሪፍሬሽ ሲያደርግ ራሱን መልሶ ይጠራል (60 FPS)
     animationFrameId = requestAnimationFrame(updateFlightAnimation);
 }
 
@@ -185,34 +189,49 @@ function updateFlightAnimation() {
 socket.on('game_state', (data) => {
     currentGameState = data.status;
 
-    // ፓኔሎቹን አፕዴት ማድረግ
     panel1.onGameStateChange(currentGameState);
     panel2.onGameStateChange(currentGameState);
 
     if (currentGameState === 'WAITING') {
         cancelAnimationFrame(animationFrameId);
-        multiplierDisplay.innerText = "WAITING..."; // ወይም ፕሮግሬስ ባር ማሳየት
-        multiplierDisplay.style.color = "#dc3545"; // ቀይ ቴክስት
+        multiplierDisplay.innerText = "WAITING...\n" + (data.time_left || "") + "s"; 
+        multiplierDisplay.style.color = "#ffc107"; 
+        planeAnim.style.opacity = '0.1';
     } 
     else if (currentGameState === 'FLYING') {
-        // ሰርቨር እና ክላይንት ሰዓት እንዳይፋለስ የራሳችንን ቆጣሪ እንጀምራለን
-        flightStartTime = Date.now(); 
-        updateFlightAnimation(); // አኒሜሽኑን አስጀምር!
+        // አዲስ መብረር ሲጀምር ብቻ ቆጣሪውን እናስጀምረዋለን
+        if (!animationFrameId || currentMultiplier === 1.00) {
+            flightStartTime = Date.now(); 
+            updateFlightAnimation(); 
+        }
     } 
     else if (currentGameState === 'CRASHED') {
         cancelAnimationFrame(animationFrameId);
-        // መከሰከሻውን ከሰርቨሩ እንደመጣ በትክክል ማሳየት
-        multiplierDisplay.innerText = "Flew Away\n" + data.crash_point.toFixed(2) + "x";
-        multiplierDisplay.style.color = "#dc3545"; // ክራሽ ሲያደርግ ቀይ ይሆናል
+        animationFrameId = null; // ሪሴት
+        currentMultiplier = 1.00;
+        
+        let crashPoint = data.crash_point ? data.crash_point.toFixed(2) : "1.00";
+        multiplierDisplay.innerText = "CRASHED @ " + crashPoint + "x";
+        multiplierDisplay.style.color = "#e50b2c"; 
+        planeAnim.style.opacity = '0';
     }
 });
 
-// አሸናፊ ሲሆን ፖፕ-አፕ (Toast) የሚያሳይ ጌጥ
+// አሸናፊ ሲሆን ፖፕ-አፕ የሚያሳይ
 function showWinAnimation(amount, multiplier) {
     let winDiv = document.createElement('div');
-    winDiv.className = "win-popup";
-    winDiv.innerText = `You won ${amount} ETB at ${multiplier.toFixed(2)}x`;
-    document.body.appendChild(winDiv);
+    winDiv.style.position = 'absolute';
+    winDiv.style.top = '20%';
+    winDiv.style.left = '50%';
+    winDiv.style.transform = 'translate(-50%, -50%)';
+    winDiv.style.backgroundColor = '#28a745';
+    winDiv.style.color = 'white';
+    winDiv.style.padding = '10px 20px';
+    winDiv.style.borderRadius = '20px';
+    winDiv.style.fontWeight = 'bold';
+    winDiv.style.zIndex = '100';
+    winDiv.innerText = `Won ${amount} ETB @ ${multiplier.toFixed(2)}x`;
     
-    setTimeout(() => { winDiv.remove(); }, 3000); // ከ 3 ሰከንድ በኋላ ይጠፋል
+    document.querySelector('.game-screen').appendChild(winDiv);
+    setTimeout(() => { winDiv.remove(); }, 3000); 
 }
