@@ -31,11 +31,7 @@
         #multiplier-text { font-size: 80px; font-weight: 900; z-index: 2; text-shadow: 2px 4px 10px rgba(0,0,0,0.5); }
         #status-text { position: absolute; top: 70%; left: 50%; transform: translateX(-50%); font-size: 14px; font-weight: bold; color: #e50b2c; z-index: 2; text-align: center; display: none; }
 
-        .mode-container { display: flex; justify-content: center; gap: 10px; margin: 0 10px 10px 10px; }
-        .mode-btn { padding: 6px 15px; border: 1px solid #e50b2c; background-color: transparent; color: #fff; border-radius: 20px; cursor: pointer; font-weight: bold; font-size: 12px; transition: all 0.3s ease; }
-        .mode-btn.active-mode { background-color: #e50b2c; box-shadow: 0 0 8px rgba(229, 11, 44, 0.6); }
-
-        .panels-container { padding: 0 10px 10px 10px; display: flex; flex-direction: column; gap: 10px; }
+        .panels-container { padding: 0 10px 10px 10px; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
         .bet-panel { background-color: #21212c; border-radius: 12px; padding: 10px; border: 1px solid #2a2a35; }
         .panel-tabs { display: flex; justify-content: center; margin-bottom: 10px; background: #16161e; border-radius: 20px; padding: 2px; width: fit-content; margin-left: auto; margin-right: auto; }
         .panel-tab { padding: 5px 20px; font-size: 12px; font-weight: bold; color: #888; border-radius: 18px; cursor: pointer; transition: 0.3s; }
@@ -70,7 +66,6 @@
 
     <header class="header">
         <div class="logo">
-            <i class="fas fa-times" style="color: white; font-size: 16px; cursor:pointer;" onclick="tg?.close()"></i>
             YEGNA BET 🏁 <span style="font-style: italic; color: #e50b2c; font-size: 16px; margin-left: 10px;">Aviator</span>
         </div>
         <div class="balance" id="balanceDisplay">... ETB</div>
@@ -84,11 +79,6 @@
         <canvas id="gameCanvas"></canvas>
         <div id="multiplier-text">1.00x</div> 
         <div id="status-text">WAITING FOR NEXT ROUND</div>
-    </div>
-
-    <div class="mode-container">
-        <button id="btnRealMode" class="mode-btn active-mode" onclick="switchGameMode('real')">💰 Real Mode</button>
-        <button id="btnDemoMode" class="mode-btn" onclick="switchGameMode('demo')">🧪 Demo Mode</button>
     </div>
 
     <div class="panels-container">
@@ -134,7 +124,6 @@
 
         <!-- PANEL 2 -->
         <div class="bet-panel" id="panel-2">
-            <!-- (Panel 2 HTML code remains the same as provided, omitting for brevity but assumes it is identical to Panel 1 structure with 'p2' IDs) -->
             <div class="panel-tabs">
                 <div class="panel-tab active" id="p2-tab-bet">Bet</div>
                 <div class="panel-tab" id="p2-tab-auto">Auto</div>
@@ -176,35 +165,69 @@
 
     <script>
         // ==========================================
-        // 1. መነሻ መዋቅር (Initialization)
+        // 1. መነሻ መዋቅር (Initialization & Telegram)
         // ==========================================
-        const socket = (typeof io !== 'undefined') ? io() : null;
-        let currentGameMode = 'real'; // ቅድሚያ ለእውነተኛ ጌም (Real Mode)
-        let balance = 0.00;
         const tg = window.Telegram?.WebApp;
         const userId = tg?.initDataUnsafe?.user?.id || "test_user_123";
-        
-        if (tg) tg.expand(); // ቴሌግራም ላይ ሙሉ ስክሪን እንዲሆን
-
+        let balance = 0.00;
         let gameState = { status: "WAITING", multiplier: 1.00, countdown: 10 };
 
-        // Audio System
-        let audioCtx = null;
+        if (tg) {
+            tg.expand();
+            tg.BackButton.show();
+            tg.BackButton.onClick(() => {
+                tg.close(); // ወደ ኋላ ሲባል ቴሌግራምን ይዘጋል
+            });
+        }
+
+        // ==========================================
+        // 2. የተሻሻለ የድምፅ ሲስተም (Casino Style Audio)
+        // ==========================================
+        const sounds = {
+            start: new Audio('/static/sounds/start.mp3'), // ጌም ሲጀምር (እስኪገኝ ባዶ ይሆናል)
+            fly: new Audio('/static/sounds/fly.mp3'),     // የበረራ ድምፅ
+            win: new Audio('/static/sounds/win.mp3'),     // Cash Register ድምፅ
+            crash: new Audio('/static/sounds/crash.mp3')  // የፍንዳታ/መቋረጥ ድምፅ
+        };
+        sounds.fly.loop = true;
+
         function playSound(type) {
             try {
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                let osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                
-                if (type === "fly") { osc.type = "sine"; osc.frequency.setValueAtTime(80 + (gameState.multiplier * 5), audioCtx.currentTime); gain.gain.setValueAtTime(0.01, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
-                else if (type === "win") { osc.type = "sine"; osc.frequency.setValueAtTime(600, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(1500, audioCtx.currentTime + 0.3); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime + 0.4); }
-                else if (type === "crash") { osc.type = "sawtooth"; osc.frequency.setValueAtTime(150, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.5); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime + 0.5); }
+                if(type === 'fly') sounds.fly.play().catch(e => {});
+                else if(type === 'stop_fly') { sounds.fly.pause(); sounds.fly.currentTime = 0; }
+                else {
+                    let s = sounds[type].cloneNode(); 
+                    s.play().catch(e => {});
+                }
             } catch(e) {}
         }
 
         // ==========================================
-        // 2. የውርርድ ፓነል ክላስ
+        // 3. ዳታ ከባክኤንድ ማምጣት (Initial Fetch)
+        // ==========================================
+        async function fetchInitialData() {
+            try {
+                const res = await fetch(`/api/aviator/user_data?user_id=${userId}`);
+                const data = await res.json();
+                if (data.status === "success") {
+                    updateBalance(data.balance);
+                    if (data.history) renderHistory(data.history);
+                }
+            } catch (e) {
+                console.error("Initial data fetch failed.");
+            }
+        }
+        
+        function updateBalance(newBal) {
+            balance = parseFloat(newBal);
+            document.getElementById('balanceDisplay').innerText = balance.toFixed(2) + " ETB";
+        }
+
+        // ገጹ ሲከፈት ዳታ አምጣ
+        fetchInitialData();
+
+        // ==========================================
+        // 4. የውርርድ ፓነል ክላስ
         // ==========================================
         class BetPanel {
             constructor(prefix) {
@@ -232,7 +255,8 @@
                 });
 
                 this.btnAction.addEventListener('click', () => {
-                    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); // ድምጽ ለማንቃት
+                    // ብሮውዘሩ ኦዲዮ እንዲፈቅድ
+                    if(sounds.start.currentTime === 0) sounds.start.load();
                     this.handleAction();
                 });
 
@@ -268,26 +292,25 @@
                 if (this.betState === "NONE") {
                     if (gameState.status === 'WAITING' || gameState.status === 'FLYING') {
                         try {
-                            // 🔥 ወደ ትክክለኛው የ Python API Endpoint መላክ
                             const res = await fetch('/api/aviator/place_bet', { 
                                 method: 'POST', 
                                 headers: { 'Content-Type': 'application/json' }, 
                                 body: JSON.stringify({ 
                                     user_id: userId, 
                                     amount: this.amount, 
-                                    auto_cashout: this.isAutoCashout ? this.autoCashoutVal : 0 // ለ Server-side Auto cashout
+                                    auto_cashout: this.isAutoCashout ? this.autoCashoutVal : 0
                                 }) 
                             });
                             const data = await res.json();
                             
                             if (data.status === "success") { 
                                 this.betState = "BETTING"; 
-                                // (አማራጭ: ባላንስ ከሰርቨር ሲመጣ እዚህ ጋር update ማድረግ)
+                                if(data.new_balance) updateBalance(data.new_balance); // ከተቆረጠ በኋላ ባላንሱን ያድሳል
                             } else { 
-                                alert(data.message || "የተሳሳተ ውርርድ"); 
+                                tg?.showAlert ? tg.showAlert(data.message) : alert(data.message || "የተሳሳተ ውርርድ"); 
                             }
-                        } catch (e) { 
-                            if(currentGameMode === 'demo') this.betState = "BETTING"; // ፎልባክ ለዴሞ
+                        } catch (e) {
+                            console.error("Bet error", e);
                         }
                         this.updateButtonUI();
                     }
@@ -301,7 +324,6 @@
                 if (this.betState !== "IN_GAME") return;
                 
                 try {
-                    // 🔥 ወደ ትክክለኛው የ Cashout API መላክ
                     const res = await fetch('/api/aviator/cashout', { 
                         method: 'POST', 
                         headers: { 'Content-Type': 'application/json' }, 
@@ -313,14 +335,11 @@
                         this.betState = "CASHED_OUT";
                         playSound("win");
                         this.btnText.innerText = data.win_amount.toFixed(2) + " ETB";
+                        if(data.new_balance) updateBalance(data.new_balance);
                         this.updateButtonUI();
                     }
-                } catch (e) { 
-                    if(currentGameMode === 'demo') {
-                        this.betState = "CASHED_OUT";
-                        playSound("win");
-                        this.updateButtonUI();
-                    }
+                } catch (e) {
+                    console.error("Cashout error", e);
                 }
             }
 
@@ -334,7 +353,6 @@
                 if (this.betState === "IN_GAME") {
                     let currentWin = this.amount * gameState.multiplier;
                     this.btnText.innerText = currentWin.toFixed(2) + " ETB";
-                    // Client-side auto cashout fallback (ሰርቨሩ ባይሰራ እንኳን)
                     if (this.isAutoCashout && gameState.multiplier >= this.autoCashoutVal) this.triggerCashout();
                 }
             }
@@ -352,20 +370,8 @@
         window.panel_p1 = new BetPanel('p1');
         window.panel_p2 = new BetPanel('p2');
 
-        function updateBalance(newBal) {
-            balance = newBal;
-            document.getElementById('balanceDisplay').innerText = balance.toFixed(2) + " ETB";
-        }
-
-        function switchGameMode(mode) {
-            if (gameState.status === 'FLYING') return alert("⚠️ አውሮፕላኑ እየበረረ ማስተካከል አይቻልም!");
-            currentGameMode = mode;
-            document.getElementById("btnDemoMode").classList.toggle('active-mode', mode === 'demo');
-            document.getElementById("btnRealMode").classList.toggle('active-mode', mode === 'real');
-        }
-
         // ==========================================
-        // 3. Canvas አኒሜሽን 
+        // 5. Canvas አኒሜሽን 
         // ==========================================
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
@@ -422,8 +428,6 @@
                 if (planePos.x < canvasW * 0.7) planePos.x += 3;
                 if (planePos.y > canvasH * 0.25) planePos.y -= 1.5;
                 planePos.y += (Math.sin(Date.now() / 200) * 2) * 0.1;
-
-                if (Math.random() < 0.1) playSound("fly");
                 drawCurveAndPlane();
             } 
             else if (gameState.status === 'CRASHED') {
@@ -439,34 +443,50 @@
         requestAnimationFrame(animateGame);
 
         // ==========================================
-        // 4. Socket.IO & Backend Sync
+        // 6. Robust Socket.IO & Backend Sync
         // ==========================================
         function renderHistory(historyArray) {
             const histBar = document.getElementById("historyBar");
-            histBar.innerHTML = ""; // የድሮውን አጽዳ
+            histBar.innerHTML = ""; 
             historyArray.forEach(mult => {
                 let c = mult < 2 ? "hist-red" : (mult >= 10 ? "hist-purple" : "hist-blue");
                 histBar.innerHTML += `<span class="history-item ${c}">${mult.toFixed(2)}x</span>`;
             });
         }
 
+        // ማቋረጦችን የሚቋቋም (Robust) የ Socket ኮንፊግሬሽን
+        const socket = (typeof io !== 'undefined') ? io({
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 20000,
+        }) : null;
+
         if (socket) {
             socket.on('game_state', (data) => {
                 gameState.status = data.status;
-                if (data.history) renderHistory(data.history); // 🔥 Server-side history
+                if (data.history) renderHistory(data.history); 
                 
                 if (data.status === 'WAITING') { 
+                    playSound("stop_fly");
                     gameState.countdown = data.time_left; 
                     window.panel_p1.onRoundCrash(); window.panel_p2.onRoundCrash(); 
                     
-                    // ቆጠራውን UI ላይ ለማሳየት
                     let cdInterval = setInterval(() => {
                         gameState.countdown--;
                         if(gameState.countdown <= 0 || gameState.status !== 'WAITING') clearInterval(cdInterval);
                     }, 1000);
                 }
-                if (data.status === 'FLYING') { window.panel_p1.onRoundStart(); window.panel_p2.onRoundStart(); }
-                if (data.status === 'CRASHED') { playSound("crash"); window.panel_p1.onRoundCrash(); window.panel_p2.onRoundCrash(); }
+                if (data.status === 'FLYING') { 
+                    playSound("fly");
+                    window.panel_p1.onRoundStart(); window.panel_p2.onRoundStart(); 
+                }
+                if (data.status === 'CRASHED') { 
+                    playSound("stop_fly");
+                    playSound("crash"); 
+                    window.panel_p1.onRoundCrash(); window.panel_p2.onRoundCrash(); 
+                }
             });
             socket.on('multiplier_update', (data) => {
                 gameState.multiplier = data.multiplier;
@@ -474,7 +494,6 @@
             });
         } 
         
-        // Resize Canvas
         window.addEventListener('resize', () => {
             canvasW = canvas.parentElement.offsetWidth;
             canvasH = canvas.parentElement.offsetHeight;
