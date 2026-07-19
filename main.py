@@ -228,23 +228,34 @@ def update_sports_data():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-# 2. ዌብሳይትህ (Frontend) ዳታ ሲፈልግ ይሄንን ይጠራል (ከ 10 ሺህ ሰውም በላይ ቢመጣ አይጨናነቅም)
+# 2. ዌብሳይትህ (Frontend) ዳታ ሲፈልግ ይሄንን ይጠራል
 @server.route('/api/get_real_sports', methods=['GET'])
 def get_real_sports():
+    # ከ Frontend የመጣውን 'tab' (top ወይም upcoming) መቀበል
+    tab_type = request.args.get('tab', 'top') 
+    
     try:
-        # ዋናውን API አንጠይቅም፤ በቀጥታ ከ Redis ላይ እናነባለን!
+        # በቀጥታ ከ Redis ላይ እናነባለን
         cached_data = redis.get("cache:real_sports_data")
-        
+
         if cached_data:
-            # Redis ላይ ያለው String ስለሆነ ወደ JSON እንቀይረዋለን
-            parsed_data = json.loads(cached_data)
-            return jsonify({"status": "success", "source": "redis", "data": parsed_data})
+            matches = json.loads(cached_data)
+            
+            # ሎጂክ፡ 'top' ከሆነ ታዋቂ ሊጎችን ብቻ ማጣራት
+            if tab_type == 'top':
+                top_leagues = ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1']
+                matches = [m for m in matches if any(league in m['fixture']['league'] for league in top_leagues)]
+                
+                # አንዳንዴ ምንም ታዋቂ ሊግ ከሌለ የመጀመሪያዎቹን 15 ጨዋታዎች ማሳየት
+                if not matches:
+                    matches = json.loads(cached_data)[:15]
+            
+            return jsonify({"status": "success", "source": "redis", "data": matches})
         else:
-            return jsonify({"status": "error", "message": "የጨዋታ መረጃ ገና አልገባም (እየተዘጋጀ ነው)።"}), 404
+            return jsonify({"status": "error", "message": "የጨዋታ መረጃ ገና አልገባም"}), 404
 
     except Exception as e:
-        return jsonify({"status": "error", "message": "የዳታቤዝ ስህተት አጋጥሟል"}), 500
-
+        return jsonify({"status": "error", "message": "የዳታቤዝ ስህተት"}), 500
 
 
 @server.route('/api/get_user_history', methods=['POST'])
