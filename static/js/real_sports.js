@@ -8,36 +8,49 @@ let selectedBets = {};
 // 1. ጨዋታዎችን ማምጣት
 async function fetchMatches() {
     try {
-        // ጥሪውን ወደ 'odds' ቀይረነዋል
         const res = await fetch('/api/sports/odds'); 
         const data = await res.json();
         const list = document.getElementById("matches-list");
         list.innerHTML = "";
 
         if (!data.matches || data.matches.length === 0) {
-            list.innerHTML = "<p class='text-center text-gray-500'>ለአሁኑ ምንም ጨዋታ የለም!</p>";
+            list.innerHTML = "<p class='text-center text-gray-500 mt-10'>ለአሁኑ ምንም ጨዋታ የለም!</p>";
             return;
         }
 
         data.matches.forEach(m => {
-            const mid = m.fixture.id;
-            
-            // 'fixture' የሚለውን ቃል ጨምረን አስተካክለነዋል
+            const mid = m.fixture.id; // አዲሱ API ፊደል የተቀላቀለበት ID ነው የሚልከው
             const home = m.fixture.teams.home.name; 
             const away = m.fixture.teams.away.name; 
             const odds = m.odds;
 
+            // የቡድን ስሞች ላይ ነጠላ ኮማ (') ካለ ኮድ እንዳያበላሽ ማስተካከል
+            const safeHome = home.replace(/'/g, "\\'");
+            const safeAway = away.replace(/'/g, "\\'");
+
+            // Draw (አቻ) ከሌለ (ለምሳሌ ለባስኬትቦል) የተዘጋጀ አማራጭ
+            const drawButton = odds.draw ? `
+                <button id="btn-${mid}-draw" onclick="selectOdd('${mid}', 'draw', ${odds.draw}, 'Draw')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
+                    <span class="text-[9px] text-gray-400">X</span><span class="text-yellow-400 font-bold text-xs">${odds.draw}</span>
+                </button>
+            ` : `
+                <div class="bg-gray-900/50 border border-gray-800 py-2 rounded-lg flex flex-col items-center justify-center opacity-50 cursor-not-allowed">
+                    <span class="text-[9px] text-gray-500">-</span>
+                </div>
+            `;
+
+            // mid በ String መልክ እንዲገባ '${mid}' ተብሎ ተስተካክሏል
             list.innerHTML += `
             <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg mb-3">
                 <div class="text-[10px] text-gray-500 font-bold mb-2 uppercase">⚽ ${home} V ${away}</div>
                 <div class="grid grid-cols-3 gap-2">
-                    <button id="btn-${mid}-home" onclick="selectOdd(${mid}, 'home', ${odds.home}, '${home}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
+                    <button id="btn-${mid}-home" onclick="selectOdd('${mid}', 'home', ${odds.home}, '${safeHome}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
                         <span class="text-[9px] text-gray-400">1</span><span class="text-yellow-400 font-bold text-xs">${odds.home}</span>
                     </button>
-                    <button id="btn-${mid}-draw" onclick="selectOdd(${mid}, 'draw', ${odds.draw}, 'Draw')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
-                        <span class="text-[9px] text-gray-400">X</span><span class="text-yellow-400 font-bold text-xs">${odds.draw}</span>
-                    </button>
-                    <button id="btn-${mid}-away" onclick="selectOdd(${mid}, 'away', ${odds.away}, '${away}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
+                    
+                    ${drawButton}
+                    
+                    <button id="btn-${mid}-away" onclick="selectOdd('${mid}', 'away', ${odds.away}, '${safeAway}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
                         <span class="text-[9px] text-gray-400">2</span><span class="text-yellow-400 font-bold text-xs">${odds.away}</span>
                     </button>
                 </div>
@@ -45,7 +58,7 @@ async function fetchMatches() {
         });
     } catch (e) {
         console.error(e);
-        document.getElementById("matches-list").innerHTML = "<p class='text-center text-red-500'>ስህተት ተፈጥሯል!</p>";
+        document.getElementById("matches-list").innerHTML = "<p class='text-center text-red-500 mt-10'>ስህተት ተፈጥሯል! ኢንተርኔትዎን ያረጋግጡ።</p>";
     }
 }
 
@@ -79,10 +92,10 @@ function updateBetSlip() {
     for (let id in selectedBets) totalOdds *= selectedBets[id].odd;
     
     document.getElementById("slip-count").innerText = count;
-    document.getElementById("slip-odds").innerText = totalOdds.toFixed(2);
+    document.getElementById("slip-odds").innerText = count > 0 ? totalOdds.toFixed(2) : "1.00";
     
     const amount = parseFloat(document.getElementById("bet-amount").value || 0);
-    document.getElementById("possible-win").innerText = (amount * totalOdds).toFixed(2);
+    document.getElementById("possible-win").innerText = (amount * (count > 0 ? totalOdds : 0)).toFixed(2);
     
     // በ CSS በኩል ለማሳየት
     document.getElementById("bet-slip-container").style.display = count > 0 ? "block" : "none";
@@ -94,9 +107,15 @@ async function placeBet() {
     const selections = Object.values(selectedBets);
     
     if (selections.length === 0) return alert("እባክዎ ቢያንስ አንድ ጨዋታ ይምረጡ!");
-    if (amount <= 0) return alert("እባክዎ የብር መጠን ያስገቡ!");
+    if (amount < 10) return alert("እባክዎ ቢያንስ 10 ብር ያስገቡ!");
 
     try {
+        // Submit Button Disable ማድረግ (ደጋግሞ እንዳይነካ)
+        const btn = document.querySelector("button[onclick='placeBet()']");
+        const originalText = btn.innerText;
+        btn.innerText = "በመላክ ላይ...";
+        btn.disabled = true;
+
         const res = await fetch('/api/sports/place_bet', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
@@ -108,9 +127,16 @@ async function placeBet() {
         
         if(data.status === "success") {
             window.location.reload(); // ስኬታማ ከሆነ ገጹን ሪፍሬሽ ማድረግ
+        } else {
+            // ስህተት ካለ በተኑን መመለስ
+            btn.innerText = originalText;
+            btn.disabled = false;
         }
     } catch (e) {
         alert("ከሰርቨር ጋር መገናኘት አልተቻለም!");
+        const btn = document.querySelector("button[onclick='placeBet()']");
+        btn.innerText = "ወራረድ (BET)";
+        btn.disabled = false;
     }
 }
 
