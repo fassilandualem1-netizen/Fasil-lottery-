@@ -3,66 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gasha Bet - Aviator</title>
-    <!-- የ Socket.IO ላይብረሪ -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
+    <title>Yegna Bet - Aviator</title>
     
+    <!-- Socket.IO እና FontAwesome -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
     <style>
         /* ==========================================
-           🎨 የ Aviator ጨለማ እና ዘመናዊ ዲዛይን (CSS)
+           🎨 የ Yegna Bet Aviator ዲዛይን (CSS)
            ========================================== */
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
-        
+
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Roboto', sans-serif; user-select: none; }
-        body { background-color: #1a1a24; color: white; display: flex; flex-direction: column; height: 100vh; }
-        
+        body { background-color: #1a1a24; color: white; display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; }
+
         /* 1. ሄደር እና ባላንስ */
-        .header { display: flex; justify-content: space-between; padding: 10px 15px; background-color: #121219; border-bottom: 1px solid #2a2a35; }
-        .logo { color: #e50b2c; font-weight: 900; font-size: 20px; font-style: italic; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background-color: #121219; border-bottom: 1px solid #2a2a35; }
+        .logo { color: #e50b2c; font-weight: 900; font-size: 20px; font-style: italic; display: flex; align-items: center; gap: 10px;}
         .balance { color: #28a745; font-weight: bold; font-size: 16px; }
 
         /* 2. የክራሽ ታሪክ (History Tape) */
-        .history-bar { display: flex; gap: 8px; padding: 5px 15px; overflow-x: auto; background-color: #1a1a24; white-space: nowrap; }
-        .history-item { font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 12px; background: rgba(255,255,255,0.05); }
+        .history-bar { display: flex; gap: 8px; padding: 5px 15px; overflow-x: auto; background-color: #1a1a24; white-space: nowrap; border-bottom: 1px solid #2a2a35; scrollbar-width: none;}
+        .history-bar::-webkit-scrollbar { display: none; }
+        .history-item { font-size: 12px; font-weight: bold; padding: 4px 10px; border-radius: 12px; background: rgba(255,255,255,0.05); }
         .hist-red { color: #e50b2c; } .hist-purple { color: #c155ff; } .hist-blue { color: #3498db; }
 
-        /* 3. ዋናው የጨዋታ ማሳያ (Game Screen) */
-        .game-screen { flex-grow: 1; background: radial-gradient(circle, #331525 0%, #111116 100%); position: relative; display: flex; justify-content: center; align-items: center; min-height: 250px; margin: 10px; border-radius: 12px; border: 1px solid #333; overflow: hidden; }
+        /* 3. ዋናው የጨዋታ ማሳያ (Game Screen with Canvas) */
+        .game-screen { flex-grow: 1; position: relative; display: flex; justify-content: center; align-items: center; min-height: 280px; margin: 10px; border-radius: 12px; border: 1px solid #333; overflow: hidden; background-color: #111; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         #multiplier-text { font-size: 80px; font-weight: 900; z-index: 2; text-shadow: 2px 4px 10px rgba(0,0,0,0.5); }
-        .plane-anim { position: absolute; width: 100%; height: 100%; opacity: 0.1; background: repeating-linear-gradient(45deg, transparent, transparent 10px, #fff 10px, #fff 20px); }
+        #status-text { position: absolute; top: 70%; left: 50%; transform: translateX(-50%); font-size: 14px; font-weight: bold; color: #e50b2c; z-index: 2; text-align: center; display: none; }
 
-        /* 4. የውርርድ ፓኔሎች (Bet Panels Container) */
+        /* የሞድ መቀያየሪያ */
+        .mode-container { display: flex; justify-content: center; gap: 10px; margin: 0 10px 10px 10px; }
+        .mode-btn { padding: 6px 15px; border: 1px solid #e50b2c; background-color: transparent; color: #fff; border-radius: 20px; cursor: pointer; font-weight: bold; font-size: 12px; transition: all 0.3s ease; }
+        .mode-btn.active-mode { background-color: #e50b2c; box-shadow: 0 0 8px rgba(229, 11, 44, 0.6); }
+
+        /* 4. የውርርድ ፓኔሎች */
         .panels-container { padding: 0 10px 10px 10px; display: flex; flex-direction: column; gap: 10px; }
-        
-        /* እያንዳንዱ ፓኔል */
         .bet-panel { background-color: #21212c; border-radius: 12px; padding: 10px; border: 1px solid #2a2a35; }
-        
-        /* ታቦች (Bet vs Auto) */
         .panel-tabs { display: flex; justify-content: center; margin-bottom: 10px; background: #16161e; border-radius: 20px; padding: 2px; width: fit-content; margin-left: auto; margin-right: auto; }
         .panel-tab { padding: 5px 20px; font-size: 12px; font-weight: bold; color: #888; border-radius: 18px; cursor: pointer; transition: 0.3s; }
         .panel-tab.active { background-color: #2a2a35; color: white; }
 
-        /* የብር ማስገቢያ እና ዋና በተን (Split Layout) */
-        .panel-body { display: flex; gap: 10px; }
-        
-        /* ግራ በኩል - የብር ማስተካከያ */
+        .panel-body { display: flex; gap: 10px; align-items: stretch; }
         .amount-controls { flex: 1; display: flex; flex-direction: column; gap: 5px; }
-        .input-group { display: flex; align-items: center; background: #16161e; border-radius: 8px; padding: 2px; border: 1px solid #333; }
-        .btn-stepper { width: 30px; height: 30px; border-radius: 50%; border: none; background: #2a2a35; color: white; font-weight: bold; cursor: pointer; }
+        .input-group { display: flex; align-items: center; background: #16161e; border-radius: 8px; padding: 2px; border: 1px solid #333; height: 35px; }
+        .btn-stepper { width: 30px; height: 100%; border: none; background: transparent; color: #aaa; font-weight: bold; font-size: 18px; cursor: pointer; }
         .amount-input { flex: 1; width: 100%; text-align: center; background: transparent; border: none; color: white; font-size: 16px; font-weight: bold; outline: none; }
         
-        /* ፈጣን ብሮች */
         .quick-amounts { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-        .btn-quick { background: #16161e; border: 1px solid #333; color: #aaa; border-radius: 4px; padding: 5px; font-size: 12px; cursor: pointer; }
-        
-        /* ቀኝ በኩል - ትልቁ በተን */
+        .btn-quick { background: #16161e; border: 1px solid #333; color: #aaa; border-radius: 4px; padding: 5px; font-size: 12px; cursor: pointer; font-weight: bold; }
+
         .btn-action { flex: 1; border: none; border-radius: 12px; font-size: 20px; font-weight: 900; text-transform: uppercase; cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; line-height: 1.2; box-shadow: inset 0px -4px 0px rgba(0,0,0,0.2); transition: 0.1s; }
         .btn-action:active { transform: translateY(2px); box-shadow: inset 0px -2px 0px rgba(0,0,0,0.2); }
         .btn-green { background-color: #28a745; color: white; }
         .btn-red { background-color: #dc3545; color: white; }
-        .btn-yellow { background-color: #ffc107; color: black; }
-        
-        /* የ Auto ውርርድ መቆጣጠሪያዎች (መጀመሪያ ይደበቃሉ) */
+        .btn-yellow { background-color: #ff9800; color: white; }
+        .btn-disabled { background-color: #444; color: #888; pointer-events: none; }
+
         .auto-controls { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid #2a2a35; font-size: 12px; color: #aaa; }
         .auto-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
         .toggle-switch { width: 40px; height: 20px; background: #16161e; border-radius: 10px; position: relative; cursor: pointer; border: 1px solid #333; }
@@ -76,12 +76,15 @@
 
     <!-- 1. Header -->
     <header class="header">
-        <div class="logo">Aviator</div>
-        <div class="balance">3.00 ETB</div>
+        <div class="logo">
+            <i class="fas fa-times" style="color: white; font-size: 16px; cursor:pointer;"></i>
+            YEGNA BET 🏁 <span style="font-style: italic; color: #e50b2c; font-size: 16px; margin-left: 10px;">Aviator</span>
+        </div>
+        <div class="balance" id="balanceDisplay">3.00 ETB</div>
     </header>
 
     <!-- 2. History Tape -->
-    <div class="history-bar">
+    <div class="history-bar" id="historyBar">
         <span class="history-item hist-red">1.28x</span>
         <span class="history-item hist-purple">2.68x</span>
         <span class="history-item hist-blue">1.44x</span>
@@ -92,45 +95,44 @@
 
     <!-- 3. Game Screen -->
     <div class="game-screen">
-        <div class="plane-anim"></div>
-        <!-- ይህ ቁጥር በ aviator.js ነው የሚቀየረው -->
+        <canvas id="gameCanvas"></canvas>
         <div id="multiplier-text">1.00x</div> 
+        <div id="status-text">WAITING FOR NEXT ROUND</div>
+    </div>
+
+    <!-- Demo/Real Mode Switch -->
+    <div class="mode-container">
+        <button id="btnDemoMode" class="mode-btn active-mode" onclick="switchGameMode('demo')">🧪 Demo Mode</button>
+        <button id="btnRealMode" class="mode-btn" onclick="switchGameMode('real')">💰 Real Mode</button>
     </div>
 
     <!-- 4. Bet Panels -->
     <div class="panels-container">
-        
         <!-- ================= PANEL 1 ================= -->
         <div class="bet-panel" id="panel-1">
-            <!-- Tabs -->
             <div class="panel-tabs">
                 <div class="panel-tab active" id="p1-tab-bet">Bet</div>
                 <div class="panel-tab" id="p1-tab-auto">Auto</div>
             </div>
-            
             <div class="panel-body">
-                <!-- Left: Controls -->
                 <div class="amount-controls">
                     <div class="input-group">
                         <button class="btn-stepper" id="p1-minus">-</button>
-                        <input type="number" class="amount-input" id="p1-amount" value="20.00" readonly>
+                        <input type="number" class="amount-input" id="p1-amount" value="20.00">
                         <button class="btn-stepper" id="p1-plus">+</button>
                     </div>
                     <div class="quick-amounts">
-                        <button class="btn-quick" onclick="setAmount('p1', 20)">20</button>
-                        <button class="btn-quick" onclick="setAmount('p1', 40)">40</button>
-                        <button class="btn-quick" onclick="setAmount('p1', 80)">80</button>
-                        <button class="btn-quick" onclick="setAmount('p1', 400)">400</button>
+                        <button class="btn-quick" onclick="window.panel_p1.setAmount(20)">20</button>
+                        <button class="btn-quick" onclick="window.panel_p1.setAmount(40)">40</button>
+                        <button class="btn-quick" onclick="window.panel_p1.setAmount(80)">80</button>
+                        <button class="btn-quick" onclick="window.panel_p1.setAmount(400)">400</button>
                     </div>
                 </div>
-                <!-- Right: Action Button -->
                 <button class="btn-action btn-green" id="p1-btn">
-                    <span>Bet</span>
+                    <span id="p1-btn-label">BET</span>
                     <span style="font-size: 14px; font-weight: 400;" id="p1-btn-text">20.00 ETB</span>
                 </button>
             </div>
-
-            <!-- Auto Controls (Hidden by default) -->
             <div class="auto-controls" id="p1-auto-section">
                 <div class="auto-row">
                     <span>Auto Bet</span>
@@ -148,32 +150,29 @@
 
         <!-- ================= PANEL 2 ================= -->
         <div class="bet-panel" id="panel-2">
-            <!-- ይሄ ልክ እንደ ፓኔል 1 ነው፣ አይዲው (ID) ብቻ 'p2' ይሆናል -->
             <div class="panel-tabs">
                 <div class="panel-tab active" id="p2-tab-bet">Bet</div>
                 <div class="panel-tab" id="p2-tab-auto">Auto</div>
             </div>
-            
             <div class="panel-body">
                 <div class="amount-controls">
                     <div class="input-group">
                         <button class="btn-stepper" id="p2-minus">-</button>
-                        <input type="number" class="amount-input" id="p2-amount" value="20.00" readonly>
+                        <input type="number" class="amount-input" id="p2-amount" value="20.00">
                         <button class="btn-stepper" id="p2-plus">+</button>
                     </div>
                     <div class="quick-amounts">
-                        <button class="btn-quick" onclick="setAmount('p2', 20)">20</button>
-                        <button class="btn-quick" onclick="setAmount('p2', 40)">40</button>
-                        <button class="btn-quick" onclick="setAmount('p2', 80)">80</button>
-                        <button class="btn-quick" onclick="setAmount('p2', 400)">400</button>
+                        <button class="btn-quick" onclick="window.panel_p2.setAmount(20)">20</button>
+                        <button class="btn-quick" onclick="window.panel_p2.setAmount(40)">40</button>
+                        <button class="btn-quick" onclick="window.panel_p2.setAmount(80)">80</button>
+                        <button class="btn-quick" onclick="window.panel_p2.setAmount(400)">400</button>
                     </div>
                 </div>
                 <button class="btn-action btn-green" id="p2-btn">
-                    <span>Bet</span>
+                    <span id="p2-btn-label">BET</span>
                     <span style="font-size: 14px; font-weight: 400;" id="p2-btn-text">20.00 ETB</span>
                 </button>
             </div>
-
             <div class="auto-controls" id="p2-auto-section">
                 <div class="auto-row">
                     <span>Auto Bet</span>
@@ -188,293 +187,313 @@
                 </div>
             </div>
         </div>
-
     </div>
 
-        <!-- ከታች ያለውን የጃቫስክሪፕት ክፍል ሙሉ በሙሉ ተካው -->
+    <!-- JavaScript ሎጂክ -->
     <script>
         // ==========================================
-        // 🌐 1. የ Socket.IO እና ቴሌግራም ኮኔክሽን ማሰሪያ
+        // 1. መነሻ መዋቅር
         // ==========================================
-        const socket = io(); 
+        const socket = (typeof io !== 'undefined') ? io() : null;
+        let currentGameMode = 'demo';
+        let balance = 3.00;
         const tg = window.Telegram?.WebApp;
-        if (tg) tg.expand();
-        
-        // የዩዘር አይዲ ከቴሌግራም ማግኘት (ከሌለ ቴስት ማድረጊያ 999999)
         const userId = tg?.initDataUnsafe?.user?.id || "999999";
+        
+        // ጌም ስቴት
+        let gameState = { status: "WAITING", multiplier: 1.00, countdown: 10 };
 
-        // የጨዋታው ወቅታዊ ሁኔታ ማከማቻ (Client State)
-        let gameState = { status: "WAITING", multiplier: 1.00 };
+        // የድምፅ ሲስተም
+        let audioCtx = null;
+        function playSound(type) {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                let osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                
+                if (type === "fly") { osc.type = "sine"; osc.frequency.setValueAtTime(80 + (gameState.multiplier * 5), audioCtx.currentTime); gain.gain.setValueAtTime(0.01, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
+                else if (type === "win") { osc.type = "sine"; osc.frequency.setValueAtTime(600, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(1500, audioCtx.currentTime + 0.3); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime + 0.4); }
+                else if (type === "crash") { osc.type = "sawtooth"; osc.frequency.setValueAtTime(150, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.5); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime + 0.5); }
+            } catch(e) {}
+        }
 
         // ==========================================
-        // 🎮 2. የውርርድ ፓነል ክላስ (Panel Logic Engine)
+        // 2. የውርርድ ፓነል ክላስ (Bet Logic)
         // ==========================================
         class BetPanel {
             constructor(prefix) {
                 this.prefix = prefix;
                 this.amount = 20.00;
-                this.betState = "NONE"; // NONE, BETTING (ዙሩን በመጠባበቅ ላይ), IN_GAME (እየበረረ ያለ), CASHED_OUT
+                this.betState = "NONE"; // NONE, BETTING, IN_GAME, CASHED_OUT
                 this.isAutoBet = false;
                 this.isAutoCashout = false;
                 this.autoCashoutVal = 2.00;
-
                 this.initUI();
             }
 
             initUI() {
                 this.input = document.getElementById(`${this.prefix}-amount`);
                 this.btnText = document.getElementById(`${this.prefix}-btn-text`);
+                this.btnLabel = document.getElementById(`${this.prefix}-btn-label`);
                 this.btnAction = document.getElementById(`${this.prefix}-btn`);
-                this.btnLabel = this.btnAction.querySelector('span:first-child');
 
-                // የፕላስ / ማይነስ በተኖች
-                document.getElementById(`${this.prefix}-plus`).addEventListener('click', () => {
-                    if (this.betState === "NONE") this.setAmount(this.amount + 10);
-                });
-                document.getElementById(`${this.prefix}-minus`).addEventListener('click', () => {
-                    if (this.betState === "NONE") this.setAmount(Math.max(10, this.amount - 10));
+                document.getElementById(`${this.prefix}-plus`).addEventListener('click', () => { if (this.betState === "NONE") this.setAmount(this.amount + 10); });
+                document.getElementById(`${this.prefix}-minus`).addEventListener('click', () => { if (this.betState === "NONE") this.setAmount(Math.max(10, this.amount - 10)); });
+                
+                this.input.addEventListener('input', (e) => {
+                    let val = parseFloat(e.target.value);
+                    if (!isNaN(val) && val >= 10 && this.betState === "NONE") this.setAmount(val);
                 });
 
-                // ዋናውን የ Bet / Cash Out በተን መጫን
                 this.btnAction.addEventListener('click', () => this.handleAction());
 
-                // ታቦች (Bet vs Auto)
                 let tabBet = document.getElementById(`${this.prefix}-tab-bet`);
                 let tabAuto = document.getElementById(`${this.prefix}-tab-auto`);
                 let autoSection = document.getElementById(`${this.prefix}-auto-section`);
 
-                tabBet.addEventListener('click', () => {
-                    tabBet.classList.add('active');
-                    tabAuto.classList.remove('active');
-                    autoSection.style.display = 'none';
-                });
+                tabBet.addEventListener('click', () => { tabBet.classList.add('active'); tabAuto.classList.remove('active'); autoSection.style.display = 'none'; });
+                tabAuto.addEventListener('click', () => { tabAuto.classList.add('active'); tabBet.classList.remove('active'); autoSection.style.display = 'block'; });
 
-                tabAuto.addEventListener('click', () => {
-                    tabAuto.classList.add('active');
-                    tabBet.classList.remove('active');
-                    autoSection.style.display = 'block';
-                });
-
-                // የቶግል ማብሪያ ማጥፊያዎች (Toggle Switches)
-                document.getElementById(`${this.prefix}-auto-bet-toggle').addEventListener('click', function() {
-                    this.classList.toggle('active');
-                    window[`panel_${prefix}`].isAutoBet = this.classList.contains('active');
-                });
-
-                document.getElementById(`${this.prefix}-auto-cashout-toggle').addEventListener('click', function() {
-                    this.classList.toggle('active');
-                    window[`panel_${prefix}`].isAutoCashout = this.classList.contains('active');
-                });
-
-                // የ Auto Cashout ቁጥር መቀየሪያ
-                document.getElementById(`${this.prefix}-auto-cashout-val`).addEventListener('input', (e) => {
-                    this.autoCashoutVal = parseFloat(e.target.value || 2.00);
-                });
+                document.getElementById(`${this.prefix}-auto-bet-toggle`).addEventListener('click', (e) => { e.target.classList.toggle('active'); this.isAutoBet = e.target.classList.contains('active'); });
+                document.getElementById(`${this.prefix}-auto-cashout-toggle`).addEventListener('click', (e) => { e.target.classList.toggle('active'); this.isAutoCashout = e.target.classList.contains('active'); });
+                document.getElementById(`${this.prefix}-auto-cashout-val`).addEventListener('input', (e) => { this.autoCashoutVal = parseFloat(e.target.value || 2.00); });
             }
 
             setAmount(value) {
                 this.amount = value;
                 this.input.value = this.amount.toFixed(2);
-                if (this.betState === "NONE") {
-                    this.btnText.innerText = this.amount.toFixed(2) + " ETB";
-                }
+                if (this.betState === "NONE") this.btnText.innerText = this.amount.toFixed(2) + " ETB";
             }
 
-            // የፓነሉን ከለር እና ፅሁፍ እንደ ስቴቱ መቀያየሪያ
             updateButtonUI() {
-                this.btnAction.className = "btn-action"; // reset
-                
-                if (this.betState === "NONE") {
-                    this.btnAction.classList.add("btn-green");
-                    this.btnLabel.innerText = "Bet";
-                    this.btnText.innerText = this.amount.toFixed(2) + " ETB";
-                } 
-                else if (this.betState === "BETTING") {
-                    this.btnAction.classList.add("btn-red");
-                    this.btnLabel.innerText = "Cancel";
-                    this.btnText.innerText = "Waiting...";
-                } 
-                else if (this.betState === "IN_GAME") {
-                    this.btnAction.classList.add("btn-yellow");
-                    this.btnLabel.innerText = "Cash Out";
-                    // በየሚሊሰከንዱ የሚጨምረውን ጥቅም ለማሳየት
-                    let currentWin = this.amount * gameState.multiplier;
-                    this.btnText.innerText = currentWin.toFixed(2) + " ETB";
-                }
-                else if (this.betState === "CASHED_OUT") {
-                    this.btnAction.classList.add("btn-green");
-                    this.btnAction.style.opacity = "0.6";
-                    this.btnLabel.innerText = "Cashed Out";
-                    this.btnText.innerText = "Success";
-                }
+                this.btnAction.className = "btn-action";
+                this.input.disabled = (this.betState !== "NONE");
+
+                if (this.betState === "NONE") { this.btnAction.classList.add("btn-green"); this.btnLabel.innerText = "BET"; this.btnText.innerText = this.amount.toFixed(2) + " ETB"; } 
+                else if (this.betState === "BETTING") { this.btnAction.classList.add("btn-red"); this.btnLabel.innerText = "CANCEL"; this.btnText.innerText = "Waiting..."; } 
+                else if (this.betState === "IN_GAME") { this.btnAction.classList.add("btn-yellow"); this.btnLabel.innerText = "CASH OUT"; let currentWin = this.amount * gameState.multiplier; this.btnText.innerText = currentWin.toFixed(2) + " ETB"; }
+                else if (this.betState === "CASHED_OUT") { this.btnAction.classList.add("btn-disabled"); this.btnLabel.innerText = "CASHED OUT"; }
             }
 
-            // ዋናው የሲስተም አክሽን
             async handleAction() {
                 if (this.betState === "NONE") {
-                    // 1. ውርርድ ማስገባት (Place Bet)
-                    try {
-                        const res = await fetch('/api/aviator/place_bet', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ user_id: userId, amount: this.amount })
-                        });
-                        const data = await res.json();
-                        
-                        if (data.status === "success") {
-                            this.betState = "BETTING";
-                            this.updateButtonUI();
-                        } else {
-                            alert(data.message);
-                        }
-                    } catch (e) {
-                        alert("ከሰርቨር ጋር መገናኘት አልተቻለም!");
+                    if (gameState.status === 'FLYING') {
+                        this.betState = "BETTING";
+                        this.updateButtonUI();
+                    } else if (gameState.status === 'WAITING') {
+                        try {
+                            const res = await fetch('/api/dino/bet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, amount: this.amount, game_mode: currentGameMode }) });
+                            const data = await res.json();
+                            if (data.status === "success") { this.betState = "BETTING"; updateBalance(data.new_balance); }
+                            else { this.betState = "BETTING"; } // ፎልባክ ለዴሞ
+                        } catch (e) { this.betState = "BETTING"; } // ኤፒአይ ከሌለ ዝም ብሎ ይስራ
+                        this.updateButtonUI();
                     }
                 } 
                 else if (this.betState === "BETTING" && gameState.status === "WAITING") {
-                    // ዙሩ ሳይጀምር በፊት ከተሰረዘ (ለመሰረዝ ባክኤንድ ኤፒአይ ካለህ እዚህ መጥራት ትችላለህ)
                     this.betState = "NONE";
                     this.updateButtonUI();
                 }
                 else if (this.betState === "IN_GAME") {
-                    // 2. ብር ማውጣት (Cash Out)
                     this.triggerCashout();
                 }
             }
 
             async triggerCashout() {
                 if (this.betState !== "IN_GAME") return;
-                
-                try {
-                    const res = await fetch('/api/aviator/cashout', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user_id: userId })
-                    });
-                    const data = await res.json();
+                let winAmt = this.amount * gameState.multiplier;
+                this.betState = "CASHED_OUT";
+                playSound("win");
+                this.updateButtonUI();
+                this.btnText.innerText = winAmt.toFixed(2) + " ETB";
 
-                    if (data.status === "success") {
-                        this.betState = "CASHED_OUT";
-                        this.updateButtonUI();
-                        // አዲስ ባላንስ ማሳየት ከፈለግክ እዚህ Header ላይ ማስተካከል ትችላለህ
-                        document.querySelector(".balance").innerText = (parseFloat(document.querySelector(".balance").innerText) + data.win_amount).toFixed(2) + " ETB";
-                    } else {
-                        alert(data.message);
-                    }
-                } catch (e) {
-                    console.error("Cashout error:", e);
-                }
+                try {
+                    const res = await fetch('/api/dino/cashout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, multiplier: gameState.multiplier, amount: this.amount, game_mode: currentGameMode }) });
+                    const data = await res.json();
+                    if (data.status === "success") updateBalance(data.new_balance);
+                } catch (e) { updateBalance(balance + winAmt); } // ፎልባክ
             }
 
-            // ዙሩ ሲጀምር (FLYING ሲሆን)
             onRoundStart() {
-                if (this.betState === "BETTING") {
-                    this.betState = "IN_GAME";
-                } else {
-                    this.betState = "NONE";
-                    // Auto Bet በርቶ ከሆነ በራሱ አዲስ ውርርድ እንዲያስገባ ማድረግ
-                    if (this.isAutoBet && gameState.status === "WAITING") {
-                        this.handleAction();
-                    }
-                }
+                if (this.betState === "BETTING") { this.betState = "IN_GAME"; } 
+                else { this.betState = "NONE"; if (this.isAutoBet && gameState.status === "WAITING") this.handleAction(); }
                 this.updateButtonUI();
             }
 
-            // አውሮፕላኑ ሲበር በየሰከንዱ ፓነሉን ማደሻ (ለ Cash Out ቁጥር ማሳያ)
             onMultiplierTick() {
                 if (this.betState === "IN_GAME") {
                     let currentWin = this.amount * gameState.multiplier;
                     this.btnText.innerText = currentWin.toFixed(2) + " ETB";
-
-                    // Auto Cash Out ማረጋገጫ ሎጂክ
-                    if (this.isAutoCashout && gameState.multiplier >= this.autoCashoutVal) {
-                        this.triggerCashout();
-                    }
+                    if (this.isAutoCashout && gameState.multiplier >= this.autoCashoutVal) this.triggerCashout();
                 }
             }
 
-            // አውሮፕላኑ ሲከሰከስ (CRASHED)
             onRoundCrash() {
-                this.btnAction.style.opacity = "1";
-                this.betState = "NONE";
-                this.updateButtonUI();
-                
-                // Auto Bet በርቶ ከነበረ ለሚቀጥለው ዙር በራሱ እንዲመዘገብ
-                if (this.isAutoBet) {
-                    setTimeout(() => { this.handleAction(); }, 500);
-                }
+                if (this.betState === "IN_GAME") { this.btnAction.className = "btn-action btn-disabled"; this.btnLabel.innerText = "CRASHED"; this.btnText.innerText = "- " + this.amount.toFixed(2) + " ETB"; }
+                setTimeout(() => {
+                    this.betState = "NONE";
+                    this.updateButtonUI();
+                    if (this.isAutoBet) this.handleAction();
+                }, 2000);
             }
         }
 
-        // ሁለቱንም ፓነሎች ማስጀመር
         window.panel_p1 = new BetPanel('p1');
         window.panel_p2 = new BetPanel('p2');
 
-        // ==========================================
-        // 📡 3. የ Socket.IO ክስተቶች (Realtime Events)
-        // ==========================================
-        
-        // ሀ. የጌሙን አጠቃላይ ሁኔታ ማዳመጫ (State Listener)
-        socket.on('game_state', function(data) {
-            gameState.status = data.status;
-            const textElement = document.getElementById("multiplier-text");
-
-            if (data.status === 'WAITING') {
-                textElement.innerText = "WAITING...";
-                textElement.style.color = "#ffffff";
-                
-                window.panel_p1.onRoundCrash();
-                window.panel_p2.onRoundCrash();
-            }
-            
-            if (data.status === 'FLYING') {
-                window.panel_p1.onRoundStart();
-                window.panel_p2.onRoundStart();
-            }
-            
-            if (data.status === 'CRASHED') {
-                textElement.innerText = "FLEW AWAY @ " + data.crash_point.toFixed(2) + "x";
-                textElement.style.color = "#ff3333";
-                
-                // ታሪክ ባር ላይ መጨመር (History Tape)
-                updateHistoryTape(data.crash_point);
-            }
-        });
-
-        // ለ. ⚡ በየሚሊሰከንዱ የኦድ መጠን ማሳያ (Multiplier Tick)
-        socket.on('multiplier_update', function(data) {
-            gameState.multiplier = data.multiplier;
-            
-            const textElement = document.getElementById("multiplier-text");
-            if (gameState.status === 'FLYING' && textElement) {
-                textElement.innerText = data.multiplier.toFixed(2) + "x";
-                textElement.style.color = "#ffffff";
-            }
-
-            // ሁለቱንም ፓነሎች ማደስ
-            window.panel_p1.onMultiplierTick();
-            window.panel_p2.onMultiplierTick();
-        });
-
-        // ሐ. የክራሽ ታሪክን በሪልታይም ማሳያ
-        function updateHistoryTape(crashPoint) {
-            const historyBar = document.querySelector(".history-bar");
-            let colorClass = "hist-blue";
-            if (crashPoint < 2.0) colorClass = "hist-red";
-            else if (crashPoint >= 10.0) colorClass = "hist-purple";
-
-            const newItem = document.createElement("span");
-            newItem.className = `history-item ${colorClass}`;
-            newItem.innerText = crashPoint.toFixed(2) + "x";
-
-            // አዲሱን ታሪክ መጀመሪያ ላይ ማስገባት
-            historyBar.insertBefore(newItem, historyBar.firstChild);
-            
-            // ከ 6 በላይ ከሆኑ የቆዩትን ማጥፋት
-            if (historyBar.children.length > 8) {
-                historyBar.removeChild(historyBar.lastChild);
-            }
+        function updateBalance(newBal) {
+            balance = newBal;
+            document.getElementById('balanceDisplay').innerText = balance.toFixed(2) + " ETB";
         }
+
+        function switchGameMode(mode) {
+            if (gameState.status === 'FLYING') return alert("⚠️ አውሮፕላኑ እየበረረ ማስተካከል አይቻልም!");
+            currentGameMode = mode;
+            document.getElementById("btnDemoMode").classList.toggle('active-mode', mode === 'demo');
+            document.getElementById("btnRealMode").classList.toggle('active-mode', mode === 'real');
+        }
+
+        // ==========================================
+        // 3. Canvas አኒሜሽን እና Logic 
+        // ==========================================
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const multText = document.getElementById("multiplier-text");
+        const statusText = document.getElementById("status-text");
+        
+        let canvasW = canvas.offsetWidth;
+        let canvasH = canvas.offsetHeight;
+        canvas.width = canvasW; canvas.height = canvasH;
+        
+        let planePos = { x: 0, y: canvasH };
+        let sunburstAngle = 0;
+        
+        const planeImg = new Image();
+        planeImg.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><path fill='%23e50b2c' d='M448 336c-16.7 0-32-13.3-30-32V224H288L151.6 383.1c-6.8 8-16.7 12.9-27.4 12.9H64c-15.5 0-25.5-5-14.5-19.9l28.7-52.2H32c-17.7 0-32-14.3-32-32s14.3-32 32-32h64l-51.9-143.3C38.9 2.5 53.4-7.5 68.6-7.5h60.2c10.7 0 20.6 4.9 27.4 12.9L288 160h128v-80c0-18.7 15.3-32 32-32s32 13.3 32 32v224c0 18.7-15.3 32-32 32z'/></svg>";
+
+        function drawBackground() {
+            ctx.clearRect(0, 0, canvasW, canvasH);
+            ctx.save(); ctx.translate(canvasW/2, canvasH/2); ctx.rotate(sunburstAngle);
+            const rays = 24;
+            for (let i = 0; i < rays; i++) {
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, canvasW, (i*2*Math.PI)/rays, ((i+0.5)*2*Math.PI)/rays);
+                ctx.fillStyle = "rgba(255, 255, 255, 0.02)"; ctx.fill();
+            }
+            ctx.restore(); sunburstAngle += 0.002;
+        }
+
+        function drawCurveAndPlane() {
+            ctx.beginPath(); ctx.moveTo(0, canvasH);
+            ctx.quadraticCurveTo(planePos.x * 0.4, canvasH * 0.9, planePos.x - 10, planePos.y + 10);
+            ctx.lineWidth = 4; ctx.strokeStyle = "#e50b2c"; ctx.stroke();
+            
+            ctx.lineTo(planePos.x, canvasH); ctx.lineTo(0, canvasH);
+            let grad = ctx.createLinearGradient(0, planePos.y, 0, canvasH);
+            grad.addColorStop(0, "rgba(229, 11, 44, 0.5)"); grad.addColorStop(1, "rgba(229, 11, 44, 0.0)");
+            ctx.fillStyle = grad; ctx.fill();
+
+            ctx.save(); ctx.translate(planePos.x, planePos.y);
+            if (planeImg.complete) ctx.drawImage(planeImg, -30, -20, 60, 45);
+            ctx.restore();
+        }
+
+        function animateGame() {
+            drawBackground();
+            if (gameState.status === 'WAITING') {
+                multText.style.color = "#fff";
+                multText.innerText = "WAITING...";
+                statusText.style.display = "block";
+                statusText.innerText = `NEXT ROUND IN ${gameState.countdown}s`;
+                planePos = { x: 0, y: canvasH };
+            } 
+            else if (gameState.status === 'FLYING') {
+                statusText.style.display = "none";
+                multText.style.color = "#fff";
+                multText.innerText = gameState.multiplier.toFixed(2) + "x";
+                
+                if (planePos.x < canvasW * 0.7) planePos.x += 3;
+                if (planePos.y > canvasH * 0.25) planePos.y -= 1.5;
+                planePos.y += (Math.sin(Date.now() / 200) * 2) * 0.1; // Wobble
+
+                if (Math.random() < 0.1) playSound("fly");
+                drawCurveAndPlane();
+            } 
+            else if (gameState.status === 'CRASHED') {
+                multText.style.color = "#e50b2c";
+                statusText.style.display = "block";
+                statusText.style.color = "#e50b2c";
+                statusText.innerText = "FLEW AWAY!";
+                planePos.x += 15; planePos.y -= 10;
+                drawCurveAndPlane();
+            }
+            requestAnimationFrame(animateGame);
+        }
+        
+        requestAnimationFrame(animateGame);
+
+        // ==========================================
+        // 4. Socket.IO & Fallback Logic
+        // ==========================================
+        function updateHistory(mult) {
+            const histBar = document.getElementById("historyBar");
+            let c = mult < 2 ? "hist-red" : (mult >= 10 ? "hist-purple" : "hist-blue");
+            const sp = document.createElement("span"); sp.className = `history-item ${c}`; sp.innerText = mult.toFixed(2) + "x";
+            histBar.insertBefore(sp, histBar.firstChild);
+            if (histBar.children.length > 8) histBar.removeChild(histBar.lastChild);
+        }
+
+        if (socket) {
+            socket.on('game_state', (data) => {
+                gameState.status = data.status;
+                if (data.status === 'WAITING') { gameState.countdown = data.countdown; window.panel_p1.onRoundCrash(); window.panel_p2.onRoundCrash(); }
+                if (data.status === 'FLYING') { window.panel_p1.onRoundStart(); window.panel_p2.onRoundStart(); }
+                if (data.status === 'CRASHED') { playSound("crash"); updateHistory(data.crash_point); window.panel_p1.onRoundCrash(); window.panel_p2.onRoundCrash(); }
+            });
+            socket.on('multiplier_update', (data) => {
+                gameState.multiplier = data.multiplier;
+                window.panel_p1.onMultiplierTick(); window.panel_p2.onMultiplierTick();
+            });
+        } else {
+            // Standalone Fallback (ለሙከራ ካለ ባክኤንድ)
+            let demoInterval;
+            function runDemoLoop() {
+                gameState.status = 'WAITING'; gameState.countdown = 5; gameState.multiplier = 1.0;
+                window.panel_p1.onRoundCrash(); window.panel_p2.onRoundCrash();
+                
+                let cd = setInterval(() => {
+                    gameState.countdown--;
+                    if (gameState.countdown <= 0) {
+                        clearInterval(cd);
+                        gameState.status = 'FLYING';
+                        window.panel_p1.onRoundStart(); window.panel_p2.onRoundStart();
+                        
+                        let crashP = (1.05 + Math.random() * 3).toFixed(2);
+                        demoInterval = setInterval(() => {
+                            gameState.multiplier += 0.005 * (1 + (gameState.multiplier * 0.1));
+                            window.panel_p1.onMultiplierTick(); window.panel_p2.onMultiplierTick();
+                            
+                            if (gameState.multiplier >= crashP) {
+                                clearInterval(demoInterval);
+                                gameState.status = 'CRASHED';
+                                playSound("crash");
+                                updateHistory(parseFloat(crashP));
+                                window.panel_p1.onRoundCrash(); window.panel_p2.onRoundCrash();
+                                setTimeout(runDemoLoop, 3000);
+                            }
+                        }, 30);
+                    }
+                }, 1000);
+            }
+            runDemoLoop();
+        }
+
+        // ስክሪኑ ሲስተካከል ካንቫሱን ማስተካከል
+        window.addEventListener('resize', () => {
+            canvasW = canvas.parentElement.offsetWidth;
+            canvasH = canvas.parentElement.offsetHeight;
+            canvas.width = canvasW; canvas.height = canvasH;
+        });
     </script>
 </body>
 </html>
