@@ -186,6 +186,8 @@
       <h2 class="text-sm font-black text-gray-300 tracking-wide uppercase"><i class="fa-solid fa-fire text-red-500 mr-1"></i> TOP MATCHES</h2>
       <span class="text-[11px] text-gray-400 bg-gray-800 px-2 py-0.5 rounded">1X2 Odds</span>
     </div>
+  <!-- ጨዋታዎቹ የሚደረደሩበት ቦታ -->
+    <div id="home-matches-list"></div>
 
   </main> <!-- ⚠️ የረሳኸው መዝጊያ ታግ እዚህ ተጨምሯል ⚠️ -->
        
@@ -590,5 +592,34 @@
       });
     }
   </script>
+<script>
+    async function loadHomeMatches() {
+        const container = document.getElementById('home-matches-list');
+        if (!container) return;
+
+        try {
+            const res = await fetch('/api/sports/odds?tab=top');
+            const data = await res.json();
+            
+            if (data.matches && data.matches.length > 0) {
+                // የመጀመሪያዎቹን 3 ጨዋታዎች ብቻ ለማሳየት
+                container.innerHTML = data.matches.slice(0, 3).map(m => `
+                    <div style="background: white; padding: 12px; margin-bottom: 8px; border-radius: 10px; border: 1px solid #eee;">
+                        <div style="font-size: 10px; color: #777; margin-bottom: 5px;">${m.fixture.league}</div>
+                        <div style="font-size: 13px; font-weight: bold; margin-bottom: 8px;">${m.fixture.teams.home.name} V ${m.fixture.teams.away.name}</div>
+                        <div style="display: flex; gap: 5px;">
+                            <div style="flex: 1; text-align: center; background: #f5f6f8; padding: 5px; border-radius: 4px; font-size: 12px;">1: <b>${m.odds.home}</b></div>
+                            <div style="flex: 1; text-align: center; background: #f5f6f8; padding: 5px; border-radius: 4px; font-size: 12px;">X: <b>${m.odds.draw}</b></div>
+                            <div style="flex: 1; text-align: center; background: #f5f6f8; padding: 5px; border-radius: 4px; font-size: 12px;">2: <b>${m.odds.away}</b></div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        } catch (e) {
+            console.error("Home matches load failed", e);
+        }
+    }
+    loadHomeMatches();
+</script>
 </body>
 </html>
