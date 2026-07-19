@@ -42,23 +42,26 @@
 
     async function fetchMatches() {
         try {
-            const res = await fetch('/api/sports/odds');
+            // 1. ዳታውን ከ Redis API Endpoint እንጠይቃለን
+            const res = await fetch('/api/get_real_sports');
             const data = await res.json();
             const list = document.getElementById("matches-list");
             list.innerHTML = "";
 
-            if (!data.matches || data.matches.length === 0) {
+            // 2. ዳታው ከ Redis ሲመጣ በ data.data ውስጥ ሊሆን ስለሚችል ሁለቱንም እንዲያነብ አድርገነዋል
+            const matchesList = data.matches || (data.data && data.data.matches) || [];
+
+            if (!matchesList || matchesList.length === 0) {
                 list.innerHTML = "<p class='text-center text-gray-500'>ምንም ጨዋታ አልተገኘም</p>";
                 return;
             }
 
-            data.matches.forEach(m => {
+            matchesList.forEach(m => {
                 const mid = m.fixture.id;
                 const home = m.fixture.teams.home.name;
                 const away = m.fixture.teams.away.name;
                 const league = m.fixture.league || "Unknown League";
                 
-                // 🚀 የዛሬ እና የነገ መሆኑን ለመለየት የሚያስችል ሎጂክ
                 const matchDate = new Date(m.fixture.time);
                 const today = new Date();
                 const isToday = matchDate.getDate() === today.getDate() && matchDate.getMonth() === today.getMonth();
