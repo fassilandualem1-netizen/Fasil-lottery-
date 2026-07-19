@@ -198,7 +198,7 @@
     </div>
 
     <script>
-                // ==========================================
+                       // ==========================================
         // 1. መነሻ መዋቅር (Initialization & Telegram)
         // ==========================================
         const tg = window.Telegram?.WebApp;
@@ -206,18 +206,31 @@
         let balance = 0.00;
         let gameState = { status: "WAITING", multiplier: 1.00, countdown: 10 };
 
+        // ቴሌግራም ሬዲ ሲሆን ባክኤንዶን እንጠይቃለን
         if (tg) {
-            tg.expand(); // ስክሪኑን ሙሉ ያደርገዋል
+            tg.expand();
             tg.ready();
-            
-            // ይሄውልህ የ Back Button ማስተካከያ!
             tg.BackButton.show();
-            tg.BackButton.onClick(() => {
-                tg.close(); // ወደ ኋላ ሲባል ቴሌግራምን ይዘጋል
-            });
+            tg.BackButton.onClick(() => tg.close());
         }
 
         // ==========================================
+        // 🌟 አዲሱ የባላንስ ማምጫ ኮድ (Fetch API)
+        // ==========================================
+        fetch(`/api/aviator/user_data?user_id=${userId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    balance = data.balance; // ከ Redis የመጣው ትክክለኛው ብር
+                    
+                    // ኤችቲኤምኤልህ ላይ 0.00 ETB የሚለው ጽሁፍ ያለበትን አይዲ (ID) አስተካክለው
+                    // ለምሳሌ አይዲው 'user-balance' ከሆነ፦
+                    document.getElementById("user-balance").innerText = balance.toFixed(2) + " ETB";
+                }
+            })
+            .catch(err => console.error("Balance fetch error:", err));
+
+     // ==========================================
         // 2. የተሻሻለ የድምፅ ሲስተም
         // ==========================================
         const sounds = {
