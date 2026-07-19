@@ -446,9 +446,10 @@
             ctx.restore();
         }
 
-        function animateGame() {
+                function animateGame() {
             drawBackground();
             if (gameState.status === 'WAITING') {
+                multText.style.fontSize = "45px"; /* ጽሁፉ ስክሪን እንዳይሞላ አሳነስነው */
                 multText.style.color = "#fff";
                 multText.innerText = "WAITING...";
                 statusText.style.display = "block";
@@ -458,6 +459,7 @@
             } 
             else if (gameState.status === 'FLYING') {
                 statusText.style.display = "none";
+                multText.style.fontSize = "80px"; /* ቁጥር ሲሆን መልሰን አተለቅነው */
                 multText.style.color = "#fff";
                 multText.innerText = gameState.multiplier.toFixed(2) + "x";
                 
@@ -466,7 +468,7 @@
                 planePos.y += (Math.sin(Date.now() / 200) * 2) * 0.1;
                 drawCurveAndPlane();
             } 
-            else if (gameState.status === 'CRASHED') {
+              else if (gameState.status === 'CRASHED') {
                 multText.style.color = "#e50b2c";
                 statusText.style.display = "block";
                 statusText.className = "status-crashed";
