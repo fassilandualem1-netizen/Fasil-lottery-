@@ -250,19 +250,22 @@ async function showMyBets() {
 
         if (data.status === "success" && data.tickets.length > 0) {
             ticketsList.innerHTML = "";
-            data.tickets.reverse().forEach(ticket => {
+            data.tickets.forEach(ticket => {
                 let statusIcon = "⏳"; let statusColor = "text-gray-400"; let borderColor = "border-gray-600";
                 if (ticket.status === "won") { statusIcon = "✅"; statusColor = "text-green-500"; borderColor = "border-green-500"; }
                 if (ticket.status === "lost") { statusIcon = "❌"; statusColor = "text-red-500"; borderColor = "border-red-500"; }
 
+                // Total Odds ባክኤንድ ላይ ስለሌለ እዚህ በሂሳብ እናገኘዋለን
+                let calculatedOdds = (ticket.possible_win / ticket.stake) || 0;
+
                 let html = `
                     <div class="bg-slate-900 p-4 mb-3 rounded-lg border-l-4 ${borderColor} shadow-md">
                         <div class="flex justify-between font-bold mb-2 text-xs">
-                            <span class="text-gray-300">ID: ${ticket.ticket_id}</span>
+                            <span class="text-gray-300">ID: ${ticket.id}</span>
                             <span class="${statusColor}">${statusIcon} ${ticket.status.toUpperCase()}</span>
                         </div>
                         <div class="text-[11px] text-gray-400 mb-2">
-                            Stake: <b class="text-white">${ticket.amount} ETB</b> | Odds: <b class="text-white">${ticket.total_odds.toFixed(2)}</b><br>
+                            Stake: <b class="text-white">${ticket.stake} ETB</b> | Odds: <b class="text-white">${calculatedOdds.toFixed(2)}</b><br>
                             Possible Win: <b class="text-yellow-400">${ticket.possible_win.toFixed(2)} ETB</b>
                         </div>
                         <hr class="border-gray-800 my-2">
@@ -273,7 +276,10 @@ async function showMyBets() {
                     let mStatus = "⏳";
                     if (sel.status === "won") mStatus = "👍";
                     if (sel.status === "lost") mStatus = "👎";
-                    html += `<li class="mb-1">${mStatus} <b>${sel.team}</b> (${sel.pick.toUpperCase()}) @ ${sel.odd}</li>`;
+                    html += `<li class="mb-1 flex justify-between">
+                                <span>${mStatus} <b>${sel.team}</b> (${sel.pick.toUpperCase()})</span>
+                                <span class="text-yellow-500">${sel.odd}</span>
+                             </li>`;
                 });
 
                 html += `</ul></div>`;
