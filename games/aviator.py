@@ -147,29 +147,31 @@ def start_aviator_loop(socketio):
                                     except Exception as ex:
                                         print(f"⚠️ Auto-Cashout Error for UID {uid}: {ex}")
 
-                                # --- ሐ. የመከሰከስ ጊዜ (CRASHED - 3 ሰከንድ) ---
-                game_state["status"] = "CRASHED"
-                game_state["multiplier"] = game_state["crash_point"]
+            # --- ሐ. የመከሰከስ ጊዜ (CRASHED - 3 ሰከንድ) ---
+            game_state["status"] = "CRASHED"
+            game_state["multiplier"] = game_state["crash_point"]
 
-                # 1. በሚሞሪ ታሪክ ውስጥ መጨመር 
-                game_state["history"].insert(0, game_state["crash_point"])
-                if len(game_state["history"]) > 20:
-                    game_state["history"].pop()
-                
-                # 👇 2. ይህንን አዲስ ኮድ እዚህ ጋር ጨምረው (ወደ Redis ሴቭ እንዲያደርገው)
-                try:
-                    redis.lpush("aviator:history", game_state["crash_point"])
-                    redis.ltrim("aviator:history", 0, 19) # ሜሞሪ እንዳይሞላ 20ቱን ብቻ እንዲያስቀር
-                except Exception as e:
-                    print(f"Redis History Error: {e}")
+            # 1. በሚሞሪ ታሪክ ውስጥ መጨመር 
+            game_state["history"].insert(0, game_state["crash_point"])
+            if len(game_state["history"]) > 20:
+                game_state["history"].pop()
 
-                socketio.emit('game_state', {
-                    'status': 'CRASHED', 
-                    'crash_point': game_state["crash_point"],
-                    'history': game_state["history"]
-                })
+            # 👇 2. ወደ Redis ሴቭ ማድረግ (try እና except እኩል መስመር ላይ መሆናቸውን አረጋግጥ)
+            try:
+                redis.lpush("aviator:history", game_state["crash_point"])
+                redis.ltrim("aviator:history", 0, 19) # ሜሞሪ እንዳይሞላ 20ቱን ብቻ እንዲያስቀር
+            except Exception as e:
+                print(f"Redis History Error: {e}")
 
-                socketio.sleep(3) 
+            # 3. ወደ ፊትለፊት (Frontend) መላክ
+            socketio.emit('game_state', {
+                'status': 'CRASHED', 
+                'crash_point': game_state["crash_point"],
+                'history': game_state["history"]
+            })
+
+            socketio.sleep(3)
+ 
 
 # ==========================================
 # 📡 5. የውርርድ እና የካሽ አውት ኤፒአይ (Endpoints)
