@@ -6,6 +6,8 @@
     <title>Yegna Bet - Aviator</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
+    <!-- 👇 1. የድምፅ ላይብረሪ (Howler.js) ተጨምሯል 👇 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
     <style>
@@ -198,7 +200,7 @@
     </div>
 
     <script>
-                       // ==========================================
+        // ==========================================
         // 1. መነሻ መዋቅር (Initialization & Telegram)
         // ==========================================
         const tg = window.Telegram?.WebApp;
@@ -214,9 +216,7 @@
             tg.BackButton.onClick(() => tg.close());
         }
 
-       
-
-             // ==========================================
+        // ==========================================
         // 2. የተሻሻለ የድምፅ ሲስተም (በ Howler.js የተሰራ - Robust & Lite)
         // ==========================================
         const sounds = {
@@ -265,45 +265,45 @@
         // 3. ዳታ ከሞጁል ባክኤንድ ማምጣት (Robust Fetch)
         // ==========================================
         async function fetchInitialData() {
-    const balanceDisplay = document.getElementById('balanceDisplay');
-    try {
-        // 1. ጥያቄ ወደ ባክኤንድ ይላካል
-        const res = await fetch(`/api/aviator/user_data?user_id=${userId}`);
-        
-        // 2. ሰርቨሩ 404 (Not Found) ወይም 500 (Internal Error) ከመለሰ
-        if (!res.ok) {
-            alert(`Server Error: ${res.status} ${res.statusText}`);
-            throw new Error("Network response was not ok");
+            const balanceDisplay = document.getElementById('balanceDisplay');
+            try {
+                // 1. ጥያቄ ወደ ባክኤንድ ይላካል
+                const res = await fetch(`/api/aviator/user_data?user_id=${userId}`);
+                
+                // 2. ሰርቨሩ 404 (Not Found) ወይም 500 (Internal Error) ከመለሰ
+                if (!res.ok) {
+                    alert(`Server Error: ${res.status} ${res.statusText}`);
+                    throw new Error("Network response was not ok");
+                }
+
+                const data = await res.json();
+                
+                if (data.status === "success") {
+                    updateBalance(data.balance);
+                    if (data.history) renderHistory(data.history);
+                } else {
+                    // 3. ዳታው መጥቶ ነገር ግን ዩዘሩ ካልተገኘ (Success ካልሆነ)
+                    balanceDisplay.innerText = "Error Loading";
+                    alert(`Backend Error: ${data.message || "የተጠቃሚ መረጃ አልተገኘም"}`);
+                }
+            } catch (e) {
+                console.error("Connection error, retrying...", e);
+                balanceDisplay.innerText = "Reconnecting...";
+                
+                // 4. ኔትወርክ ከሌለ ወይም ሰርቨሩ ከጠፋ (Connection Error)
+                alert(`Fetch Error: ${e.message}`);
+                
+                // ባክኤንዱ አፍታ ቢቋረጥ ከ 3 ሰከንድ በኋላ ዳግም ይሞክራል
+                setTimeout(fetchInitialData, 3000); 
+            }
         }
 
-        const data = await res.json();
-        
-        if (data.status === "success") {
-            updateBalance(data.balance);
-            if (data.history) renderHistory(data.history);
-        } else {
-            // 3. ዳታው መጥቶ ነገር ግን ዩዘሩ ካልተገኘ (Success ካልሆነ)
-            balanceDisplay.innerText = "Error Loading";
-            alert(`Backend Error: ${data.message || "የተጠቃሚ መረጃ አልተገኘም"}`);
+        function updateBalance(newBal) {
+            balance = parseFloat(newBal);
+            document.getElementById('balanceDisplay').innerText = balance.toFixed(2) + " ETB";
         }
-    } catch (e) {
-        console.error("Connection error, retrying...", e);
-        balanceDisplay.innerText = "Reconnecting...";
-        
-        // 4. ኔትወርክ ከሌለ ወይም ሰርቨሩ ከጠፋ (Connection Error)
-        alert(`Fetch Error: ${e.message}`);
-        
-        // ባክኤንዱ አፍታ ቢቋረጥ ከ 3 ሰከንድ በኋላ ዳግም ይሞክራል
-        setTimeout(fetchInitialData, 3000); 
-    }
-}
 
-function updateBalance(newBal) {
-    balance = parseFloat(newBal);
-    document.getElementById('balanceDisplay').innerText = balance.toFixed(2) + " ETB";
-}
-
-fetchInitialData();
+        fetchInitialData();
 
         // ==========================================
         // 4. የውርርድ ፓነል ክላስ
@@ -480,10 +480,10 @@ fetchInitialData();
             ctx.restore();
         }
 
-                function animateGame() {
+        function animateGame() {
             drawBackground();
             if (gameState.status === 'WAITING') {
-                multText.style.fontSize = "45px"; /* ጽሁፉ ስክሪን እንዳይሞላ አሳነስነው */
+                multText.style.fontSize = "45px"; 
                 multText.style.color = "#fff";
                 multText.innerText = "WAITING...";
                 statusText.style.display = "block";
@@ -493,7 +493,7 @@ fetchInitialData();
             } 
             else if (gameState.status === 'FLYING') {
                 statusText.style.display = "none";
-                multText.style.fontSize = "80px"; /* ቁጥር ሲሆን መልሰን አተለቅነው */
+                multText.style.fontSize = "80px"; 
                 multText.style.color = "#fff";
                 multText.innerText = gameState.multiplier.toFixed(2) + "x";
                 
@@ -526,7 +526,9 @@ fetchInitialData();
             });
         }
 
+        // 👇 2. እዚህ ጋር 'transports' የሚለው Magic ተጨምሯል 👇
         const socket = (typeof io !== 'undefined') ? io({
+            transports: ['websocket', 'polling'], 
             reconnection: true,
             reconnectionAttempts: Infinity,
             reconnectionDelay: 1000,
