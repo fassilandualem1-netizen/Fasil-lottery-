@@ -69,6 +69,8 @@ server.secret_key = os.environ.get("SECRET_KEY", "gashabet_secret_super_key_123"
 # የ SocketIO ማስተካከያ 
 socketio = SocketIO(server, cors_allowed_origins="*", async_mode='gevent')
 
+from games.aviator import start_aviator_loop
+
 # Blueprints
 server.register_blueprint(gofere_zewd_bp)
 server.register_blueprint(aviator_bp)
