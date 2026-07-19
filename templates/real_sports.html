@@ -1,162 +1,433 @@
 <!DOCTYPE html>
 <html lang="am">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Real Sports - የኛ ቤት</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yegnabet - Real Sports</title>
+    <!-- የቴሌግራም ዌብ አፕ ስክሪፕት -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        /* =========================================
+           1. መሠረታዊ ዲዛይን (Base Styles) 
+           (ከ "5630.jpg" ምስል ጋር አንድ አይነት)
+           ========================================= */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f0f2f5; color: #333; padding-bottom: 80px; }
+        
+        /* ሄደር (Header) */
+        header { background-color: #0b3a6c; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; color: white; }
+        .logo { font-size: 20px; font-weight: bold; display: flex; align-items: center; gap: 5px; }
+        .header-buttons button { padding: 8px 15px; border: none; border-radius: 4px; font-weight: bold; color: white; margin-left: 5px; cursor: pointer; }
+        .btn-login { background-color: #4b84bf; }
+        .btn-register { background-color: #0088cc; }
+
+        /* ናቪጌሽን (Navigation) */
+        .main-nav { display: flex; background: white; border-bottom: 1px solid #ddd; }
+        .main-nav div { flex: 1; text-align: center; padding: 10px; font-size: 12px; color: #555; border-right: 1px solid #eee; cursor: pointer; }
+        .main-nav div:last-child { border-right: none; }
+        
+        .sub-nav { display: flex; background: white; border-bottom: 1px solid #ddd; font-weight: bold; }
+        .sub-nav div { flex: 1; text-align: center; padding: 12px; font-size: 13px; color: #888; cursor: pointer; }
+        .sub-nav div.active { color: #0b3a6c; border-bottom: 2px solid #4ba3e3; }
+
+        .market-nav { display: flex; overflow-x: auto; white-space: nowrap; background: white; padding: 10px 15px; font-size: 13px; color: #666; border-bottom: 1px solid #ddd;}
+        .market-nav span { margin-right: 20px; padding-bottom: 5px; cursor: pointer; }
+        .market-nav span.active { color: #4ba3e3; border-bottom: 2px solid #4ba3e3; font-weight: bold; }
+
+        /* =========================================
+           2. የጨዋታዎች ዝርዝር (Matches List)
+           ========================================= */
+        .match-card { background: white; margin-bottom: 5px; padding: 10px 15px; }
+        .match-header { display: flex; justify-content: space-between; font-size: 11px; color: #777; margin-bottom: 5px; }
+        .match-title { font-size: 13px; font-weight: bold; margin-bottom: 10px; text-transform: uppercase;}
+        
+        .odds-container { display: flex; gap: 5px; }
+        .odd-btn { flex: 1; display: flex; justify-content: space-between; align-items: center; background: #f5f6f8; border: 1px solid #e1e1e1; padding: 10px; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold; }
+        .odd-btn .label { color: #4ba3e3; font-weight: normal; }
+        .odd-btn.selected { background: #4ba3e3; border-color: #4ba3e3; color: white; }
+        .odd-btn.selected .label { color: white; }
+        .odd-btn.disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .loading-text { text-align: center; padding: 40px 20px; color: #666; font-size: 14px; }
+
+        /* =========================================
+           3. ቤቲንግ ስሊፕ (Bet Slip)
+           (ከ "5629.jpg" ምስል ጋር አንድ አይነት)
+           ========================================= */
+        .betslip-container { position: fixed; bottom: 0; left: 0; width: 100%; background: #0b3a6c; color: white; z-index: 1000; display: flex; flex-direction: column; transition: max-height 0.3s ease; max-height: 60px; overflow: hidden; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); }
+        .betslip-container.expanded { max-height: 85vh; background: #f0f2f5; color: #333; }
+
+        .betslip-bar { background: #0b3a6c; color: white; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; height: 60px; flex-shrink: 0; }
+        .betslip-info { display: flex; align-items: center; gap: 10px; }
+        .badge { background: #4ba3e3; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 14px; }
+        .bonus-badge { border: 1px solid #4ba3e3; color: #4ba3e3; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+        .betslip-win { text-align: right; }
+        .betslip-win small { display: block; font-size: 10px; color: #aaa; }
+        .betslip-win strong { font-size: 16px; }
+
+        .betslip-content { padding: 15px; overflow-y: auto; flex-grow: 1; display: none; }
+        .betslip-container.expanded .betslip-content { display: block; }
+        .betslip-container.expanded .betslip-bar .bonus-badge { background:#4ba3e3; color:white;}
+        
+        .slip-header-expanded { display: flex; justify-content: space-between; margin-bottom: 10px;}
+        .clear-all { color: #4ba3e3; font-size: 13px; cursor: pointer; font-weight: bold;}
+        
+        .slip-item { background: white; padding: 12px; border-radius: 6px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: relative;}
+        .slip-item-league { font-size: 11px; color: #4ba3e3; margin-bottom: 3px; }
+        .slip-item-title { font-size: 13px; font-weight: bold; margin-bottom: 5px; width: 90%;}
+        .slip-item-bet { display: flex; justify-content: space-between; font-size: 13px; color: #555; }
+        .slip-item-odd { color: #4ba3e3; font-weight: bold; }
+        .remove-item { position: absolute; right: 10px; top: 10px; color: #888; cursor: pointer; font-size: 16px; }
+
+        .stake-section { background: white; padding: 15px; border-radius: 6px; margin-top: 15px; }
+        .stake-input-group { display: flex; align-items: center; border: 1px solid #ccc; border-radius: 4px; padding: 5px 10px; margin-top: 10px; }
+        .stake-input-group label { flex: 1; font-size: 14px; color: #555; }
+        .stake-input-group input { flex: 2; border: none; text-align: right; font-size: 16px; font-weight: bold; outline: none; color:#333; }
+        
+        .summary-row { display: flex; justify-content: space-between; font-size: 13px; margin-top: 8px; color: #666;}
+        .summary-row.total { font-weight: bold; color: #333; font-size: 14px; margin-top: 12px; border-top: 1px solid #eee; padding-top: 10px;}
+        .summary-row.total .value { color: #4ba3e3; }
+        
+        .btn-place-bet { width: 100%; background: #65b3e8; color: white; border: none; padding: 15px; font-size: 16px; font-weight: bold; border-radius: 4px; margin-top: 15px; cursor: pointer; }
+        .btn-place-bet:disabled { background: #a0cdeb; cursor: not-allowed; }
+    </style>
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans pb-32">
+<body>
 
-  <header class="bg-slate-950 p-4 sticky top-0 z-50 flex items-center border-b border-gray-800">
-    <a href="/" class="mr-4"><i class="fa-solid fa-arrow-left text-xl"></i></a>
-    <h1 class="font-black text-lg tracking-widest text-yellow-400">REAL SPORTS</h1>
-  </header>
-
-  <main class="max-w-md mx-auto p-3">
-    <div id="matches-list" class="space-y-3">
-      <p class="text-center text-gray-500 py-10"><i class="fa-solid fa-spinner fa-spin text-2xl"></i><br>ጨዋታዎችን በማምጣት ላይ...</p>
+    <!-- Header & Navs -->
+    <header>
+        <div class="logo">⚽ Gashabet</div>
+        <div class="header-buttons">
+            <button class="btn-login">LOGIN</button>
+            <button class="btn-register">REGISTER</button>
+        </div>
+    </header>
+    
+    <div class="main-nav">
+        <div>⚽ Sports</div>
+        <div>🎮 Games</div>
+        <div>✈️ Aviator</div>
+        <div>🔢 Fast Keno</div>
     </div>
-  </main>
-
-  <div id="bet-slip-container" class="fixed bottom-0 left-0 w-full bg-slate-950 border-t-2 border-yellow-500 p-4 shadow-2xl hidden z-50">
-    <div class="flex justify-between text-xs font-bold text-gray-300 mb-2">
-      <span>የተመረጡ: <span id="slip-count" class="text-white">0</span></span>
-      <span>ጠቅላላ ኦድ: <span id="slip-odds" class="text-yellow-400">1.00</span></span>
+    <div class="sub-nav">
+        <div class="active">TOP SPORTS</div>
+        <div>UPCOMING</div>
     </div>
-    <div class="text-[10px] text-green-400 mb-3 font-bold">ሊያሸንፉ የሚችሉት: <span id="possible-win" class="text-sm">0.00</span> ETB</div>
-    <div class="flex gap-2">
-      <input type="number" id="bet-amount" placeholder="መጠን (ETB)" min="10" oninput="updateBetSlip()" class="w-2/3 bg-gray-900 border border-gray-800 rounded-lg p-2 text-white font-bold text-sm outline-none">
-      <button onclick="placeBet()" class="w-1/3 bg-yellow-500 hover:bg-yellow-600 text-slate-950 font-black py-2 rounded-lg text-xs transition">ወራረድ (BET)</button>
+    <div class="market-nav">
+        <span class="active">1x2</span>
+        <span>Double chance</span>
+        <span>Draw no bet</span>
+        <span>1st half</span>
     </div>
-  </div>
 
-  <script>
-    const tg = window.Telegram.WebApp;
-    tg.expand();
-    const userId = tg.initDataUnsafe?.user?.id || "999999";
-    const initData = tg.initData;
-    let selectedBets = {};
+    <!-- Match List Container -->
+    <main id="matches-container">
+        <div class="loading-text">ጨዋታዎችን በማምጣት ላይ... ⏳</div>
+    </main>
 
-    async function fetchMatches() {
-        try {
-            // 1. ትክክለኛው የዳታ መሳቢያ ሊንክ ተስተካክሏል
-            const res = await fetch('/api/sports/odds');
-            const data = await res.json();
-            const list = document.getElementById("matches-list");
-            list.innerHTML = "";
+    <!-- Bet Slip -->
+    <div id="betslip-container" class="betslip-container" style="display: none;">
+        <!-- Bottom Bar -->
+        <div class="betslip-bar" onclick="toggleBetSlip()">
+            <div class="betslip-info">
+                <span>Betslip</span>
+                <span class="badge" id="slip-count">0</span>
+                <span class="bonus-badge" id="slip-bonus-badge">+0% Bonus</span>
+            </div>
+            <div class="betslip-win">
+                <small>Potential Win</small>
+                <strong id="slip-potential-win">0.00</strong>
+            </div>
+        </div>
 
-            const matchesList = data.matches || [];
+        <!-- Expanded Content -->
+        <div class="betslip-content">
+            <div class="slip-header-expanded">
+                <div><span class="badge" id="slip-count-exp">0</span> <span class="bonus-badge" id="slip-bonus-exp">+0% Bonus</span></div>
+                <div class="clear-all" onclick="clearAll()">Clear All</div>
+            </div>
+            
+            <div id="slip-items-container"></div>
 
-            if (!matchesList || matchesList.length === 0) {
-                list.innerHTML = "<p class='text-center text-gray-500 mt-10'>አሁን ላይ ምንም የሚገኝ ጨዋታ የለም።</p>";
+            <div class="stake-section">
+                <div class="stake-input-group">
+                    <label>Stake (ETB):</label>
+                    <input type="number" id="stake-input" value="20" min="10" oninput="calculateSlip()">
+                </div>
+                <div class="summary-row"><span>Stake</span><span id="sum-stake">20.00</span></div>
+                <div class="summary-row"><span>Total Odds</span><span id="sum-odds">0.00</span></div>
+                <div class="summary-row"><span>Multi Bonus <span id="bonus-percent">0</span>%</span><span id="sum-bonus">+0.00</span></div>
+                <div class="summary-row total"><span>Possible Win</span><span class="value" id="sum-win">0.00</span></div>
+                
+                <button class="btn-place-bet" id="btn-submit-bet" onclick="placeBet()">PLACE BET</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. Telegram WebApp Initialization
+        // ==========================================
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        const userId = tg.initDataUnsafe?.user?.id || "999999";
+        const initData = tg.initData || "";
+
+        // ==========================================
+        // 2. State Management
+        // ==========================================
+        let apiMatches = []; // ዳታ ከ API እዚህ ይቀመጣል
+        let betSlip = [];    // የተመረጡ ኦዶች ዝርዝር
+
+        // ==========================================
+        // 3. API Data Fetching
+        // ==========================================
+        async function fetchMatches() {
+            try {
+                // ቀጥታ ወደ Python Backend ጥያቄ ይልካል
+                const res = await fetch('/api/sports/odds');
+                const data = await res.json();
+                
+                const container = document.getElementById("matches-container");
+                container.innerHTML = "";
+
+                if (!data.matches || data.matches.length === 0) {
+                    container.innerHTML = "<div class='loading-text'>አሁን ላይ ምንም የሚገኝ ጨዋታ የለም።</div>";
+                    return;
+                }
+
+                apiMatches = data.matches;
+                renderMatches();
+
+            } catch (error) {
+                document.getElementById("matches-container").innerHTML = "<div class='loading-text' style='color:red;'>ስህተት ተፈጥሯል! እባክዎ ኢንተርኔትዎን ያረጋግጡ።</div>";
+                console.error("Fetch error:", error);
+            }
+        }
+
+        // ==========================================
+        // 4. Render Matches to HTML
+        // ==========================================
+        function renderMatches() {
+            const container = document.getElementById("matches-container");
+            container.innerHTML = "";
+
+            apiMatches.forEach(match => {
+                const homeName = match.fixture.teams.home.name;
+                const awayName = match.fixture.teams.away.name;
+                const mId = match.fixture.id;
+                const league = match.fixture.league || "Unknown League";
+                const date = match.fixture.date || "TBA";
+                const time = match.fixture.time || "TBA";
+                const odds = match.odds;
+
+                // Home, Away, Draw ኦድስ ካለው አውጣ
+                const oddHome = odds.home || 0;
+                const oddDraw = odds.draw || 0;
+                const oddAway = odds.away || 0;
+
+                const drawHTML = oddDraw ? `
+                    <div class="odd-btn" id="btn-${mId}-draw" onclick="toggleOdd('${mId}', 'draw', ${oddDraw}, '${homeName.replace(/'/g, "\\'")} v ${awayName.replace(/'/g, "\\'")}', 'Draw', '${league}')">
+                        <span class="label">X</span> <span>${oddDraw}</span>
+                    </div>` : `
+                    <div class="odd-btn disabled"><span class="label">X</span> <span>-</span></div>`;
+
+                const card = document.createElement("div");
+                card.className = "match-card";
+                card.innerHTML = `
+                    <div class="match-header">
+                        <span>⚽ ${league}</span>
+                        <span>${date} ${time}</span>
+                    </div>
+                    <div class="match-title">${homeName} V ${awayName}</div>
+                    <div class="odds-container">
+                        <div class="odd-btn" id="btn-${mId}-home" onclick="toggleOdd('${mId}', 'home', ${oddHome}, '${homeName.replace(/'/g, "\\'")} v ${awayName.replace(/'/g, "\\'")}', '${homeName.replace(/'/g, "\\'")}', '${league}')">
+                            <span class="label">1</span> <span>${oddHome}</span>
+                        </div>
+                        ${drawHTML}
+                        <div class="odd-btn" id="btn-${mId}-away" onclick="toggleOdd('${mId}', 'away', ${oddAway}, '${homeName.replace(/'/g, "\\'")} v ${awayName.replace(/'/g, "\\'")}', '${awayName.replace(/'/g, "\\'")}', '${league}')">
+                            <span class="label">2</span> <span>${oddAway}</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            updateMatchButtons();
+        }
+
+        // ==========================================
+        // 5. Bet Slip Logic & UI Handling
+        // ==========================================
+        function toggleOdd(matchId, selectionType, oddValue, matchName, selectionName, league) {
+            const existingIndex = betSlip.findIndex(item => item.matchId === matchId);
+
+            if (existingIndex > -1) {
+                if (betSlip[existingIndex].selectionType === selectionType) {
+                    betSlip.splice(existingIndex, 1); // Deselect
+                } else {
+                    betSlip[existingIndex] = { matchId, selectionType, oddValue, matchName, selectionName, league };
+                }
+            } else {
+                betSlip.push({ matchId, selectionType, oddValue, matchName, selectionName, league });
+            }
+
+            updateMatchButtons();
+            renderBetSlipUI();
+        }
+
+        function updateMatchButtons() {
+            document.querySelectorAll('.odd-btn').forEach(btn => btn.classList.remove('selected'));
+            betSlip.forEach(item => {
+                const btnId = `btn-${item.matchId}-${item.selectionType}`;
+                const btn = document.getElementById(btnId);
+                if (btn) btn.classList.add('selected');
+            });
+        }
+
+        function renderBetSlipUI() {
+            const container = document.getElementById("slip-items-container");
+            const slipMain = document.getElementById("betslip-container");
+            container.innerHTML = "";
+
+            const count = betSlip.length;
+            document.getElementById("slip-count").innerText = count;
+            document.getElementById("slip-count-exp").innerText = count;
+
+            // ጨዋታ ካልተመረጠ Bet Slip ደብቀው
+            if (count > 0) {
+                slipMain.style.display = "flex";
+            } else {
+                slipMain.style.display = "none";
+                slipMain.classList.remove("expanded");
+            }
+
+            betSlip.forEach(item => {
+                const slipItem = document.createElement("div");
+                slipItem.className = "slip-item";
+                slipItem.innerHTML = `
+                    <div class="remove-item" onclick="removeSlipItem('${item.matchId}')">&times;</div>
+                    <div class="slip-item-league">${item.league}</div>
+                    <div class="slip-item-title">${item.matchName}</div>
+                    <div class="slip-item-bet">
+                        <span>1x2: ${item.selectionName}</span>
+                        <span class="slip-item-odd">${item.oddValue.toFixed(2)}</span>
+                    </div>
+                `;
+                container.appendChild(slipItem);
+            });
+
+            calculateSlip();
+        }
+
+        function calculateSlip() {
+            const stakeInput = document.getElementById("stake-input").value;
+            const stake = parseFloat(stakeInput) || 0;
+            
+            let totalOdds = 1.0;
+            betSlip.forEach(item => { totalOdds *= item.oddValue; });
+            
+            if (betSlip.length === 0) totalOdds = 0;
+
+            // Multi Bonus (3 ጨዋታ ካለ 5% ይጨምራል - አንተ እንደፈለግክ ቀይረው)
+            let bonusPercent = 0;
+            if (betSlip.length >= 3) bonusPercent = 5; 
+            
+            const rawWin = stake * totalOdds;
+            const bonusAmount = rawWin * (bonusPercent / 100);
+            const finalWin = rawWin + bonusAmount;
+
+            document.getElementById("sum-stake").innerText = stake.toFixed(2);
+            document.getElementById("sum-odds").innerText = totalOdds.toFixed(2);
+            
+            const bonusText = `+${bonusPercent}% Bonus`;
+            document.getElementById("slip-bonus-badge").innerText = bonusText;
+            document.getElementById("slip-bonus-exp").innerText = bonusText;
+            document.getElementById("bonus-percent").innerText = bonusPercent;
+            document.getElementById("sum-bonus").innerText = "+" + bonusAmount.toFixed(2);
+            
+            document.getElementById("sum-win").innerText = finalWin.toFixed(2);
+            document.getElementById("slip-potential-win").innerText = finalWin.toFixed(2);
+        }
+
+        function removeSlipItem(matchId) {
+            betSlip = betSlip.filter(item => item.matchId !== matchId);
+            updateMatchButtons();
+            renderBetSlipUI();
+        }
+
+        function clearAll() {
+            betSlip = [];
+            updateMatchButtons();
+            renderBetSlipUI();
+        }
+
+        function toggleBetSlip() {
+            const slip = document.getElementById("betslip-container");
+            slip.classList.toggle("expanded");
+        }
+
+        // ==========================================
+        // 6. API Post (Place Bet)
+        // ==========================================
+        async function placeBet() {
+            if (betSlip.length === 0) {
+                alert("እባክዎ መጀመሪያ ጨዋታ ይምረጡ!");
+                return;
+            }
+            
+            const stake = parseFloat(document.getElementById("stake-input").value);
+            if (!stake || stake < 10) {
+                alert("እባክዎ ቢያንስ 10 ብር ያስገቡ!");
                 return;
             }
 
-            matchesList.forEach(m => {
-                const mid = m.fixture.id;
-                const home = m.fixture.teams.home.name;
-                const away = m.fixture.teams.away.name;
-                const league = m.fixture.league || "Unknown League";
-                
-                // Backend አስቀድሞ date እና time ስለሚልክ አሰራሩ ተቀሏል
-                const matchDate = m.fixture.date || "TBA";
-                const matchTime = m.fixture.time || "TBA";
-                const fullDisplayTime = `${matchDate} • ${matchTime}`;
-                
-                const odds = m.odds; 
+            // የ Submit በተኑን Disable ማድረግ (ሁለቴ እንዳይጫን)
+            const btnSubmit = document.getElementById("btn-submit-bet");
+            btnSubmit.disabled = true;
+            btnSubmit.innerText = "Processing...";
 
-                if (odds && odds.home && odds.away) {
-                    // አንዳንዴ አቻ (Draw) የሌለበት ስፖርት (ለምሳሌ ባስኬትቦል) ካለ ለማስተካከል
-                    const drawBtnHTML = odds.draw ? `
-                        <button id="btn-${mid}-draw" onclick="selectOdd('${mid}', 'draw', ${odds.draw}, 'Draw')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
-                            <span class="text-[10px] text-gray-400">X</span>
-                            <span class="text-xs font-bold text-yellow-400">${odds.draw}</span>
-                        </button>
-                    ` : `
-                        <div class="bg-gray-900/50 border border-gray-800 py-2 rounded-lg flex flex-col items-center justify-center opacity-50 cursor-not-allowed">
-                            <span class="text-[10px] text-gray-500">-</span>
-                        </div>
-                    `;
+            try {
+                // Backend ለሚፈልገው ፎርማት ማዘጋጀት
+                const payloadSelections = betSlip.map(item => ({
+                    match_id: item.matchId,
+                    pick: item.selectionType,
+                    odd: item.oddValue,
+                    team: item.selectionName
+                }));
 
-                    // የጨዋታው ID (mid) String ስለሆነ በ Quotes ('${mid}') ተስተካክሏል
-                    list.innerHTML += `
-                    <div class="bg-slate-950 p-4 rounded-xl border border-gray-800 shadow-lg mb-3">
-                        <div class="text-[9px] text-gray-400 mb-1">${league} • ${fullDisplayTime}</div>
-                        <div class="text-xs font-black text-white mb-3">${home} V ${away}</div>
-                        
-                        <div class="grid grid-cols-3 gap-2">
-                            <button id="btn-${mid}-home" onclick="selectOdd('${mid}', 'home', ${odds.home}, '${home.replace(/'/g, "\\'")}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
-                                <span class="text-[10px] text-gray-400">1</span>
-                                <span class="text-xs font-bold text-yellow-400">${odds.home}</span>
-                            </button>
-                            
-                            ${drawBtnHTML}
-                            
-                            <button id="btn-${mid}-away" onclick="selectOdd('${mid}', 'away', ${odds.away}, '${away.replace(/'/g, "\\'")}')" class="bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition">
-                                <span class="text-[10px] text-gray-400">2</span>
-                                <span class="text-xs font-bold text-yellow-400">${odds.away}</span>
-                            </button>
-                        </div>
-                    </div>`;
+                const response = await fetch('/api/sports/place_bet', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Init-Data': initData
+                    },
+                    body: JSON.stringify({ 
+                        user_id: userId, 
+                        bet_amount: stake, 
+                        selections: payloadSelections 
+                    })
+                });
+
+                const data = await response.json();
+                
+                alert(data.message);
+
+                if (data.status === "success") {
+                    window.location.reload(); // ከተሳካ ገጹን አድስ
                 }
-            });
-        } catch (error) {
-            document.getElementById("matches-list").innerHTML = "<p class='text-center text-red-500 mt-10'>ስህተት ተፈጥሯል! እባክዎ ኢንተርኔትዎን ያረጋግጡ።</p>";
-            console.error(error);
-        }
-    }
 
-    function selectOdd(mid, pick, odd, teamName) {
-        if (selectedBets[mid] && selectedBets[mid].pick !== pick) {
-            const oldPick = selectedBets[mid].pick;
-            document.getElementById(`btn-${mid}-${oldPick}`).className = "bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition";
+            } catch (error) {
+                alert("በሰርቨር ላይ የቴክኒክ ችግር አጋጥሟል! እባክዎ እንደገና ይሞክሩ።");
+                console.error("Place Bet Error:", error);
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.innerText = "PLACE BET";
+            }
         }
 
-        if (selectedBets[mid] && selectedBets[mid].pick === pick) {
-            delete selectedBets[mid];
-            document.getElementById(`btn-${mid}-${pick}`).className = "bg-gray-900 border border-gray-800 py-2 rounded-lg flex flex-col items-center hover:border-yellow-500 transition";
-        } else {
-            selectedBets[mid] = { matchId: mid, pick: pick, odd: odd, team: teamName };
-            document.getElementById(`btn-${mid}-${pick}`).className = "bg-yellow-600 border border-yellow-500 py-2 rounded-lg flex flex-col items-center";
-        }
-        updateBetSlip();
-    }
+        // ፔጁ ሲከፈት API Fetch ማድረግ ጀምር
+        document.addEventListener("DOMContentLoaded", fetchMatches);
 
-    function updateBetSlip() {
-        let count = Object.keys(selectedBets).length;
-        let totalOdds = 1;
-        for (let id in selectedBets) totalOdds *= selectedBets[id].odd;
-
-        document.getElementById("slip-count").innerText = count;
-        document.getElementById("slip-odds").innerText = count > 0 ? totalOdds.toFixed(2) : "1.00";
-
-        const amount = parseFloat(document.getElementById("bet-amount").value || 0);
-        document.getElementById("possible-win").innerText = (amount * (count > 0 ? totalOdds : 0)).toFixed(2);
-
-        document.getElementById("bet-slip-container").style.display = count > 0 ? "block" : "none";
-    }
-
-    async function placeBet() {
-        const amount = parseFloat(document.getElementById("bet-amount").value);
-        if (!amount || amount < 10) {
-            alert("እባክዎ ቢያንስ 10 ብር ያስገቡ!");
-            return;
-        }
-
-        const response = await fetch('/api/sports/place_bet', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData},
-            body: JSON.stringify({ user_id: userId, bet_amount: amount, selections: Object.values(selectedBets) })
-        });
-        const data = await response.json();
-        alert(data.message);
-        if(data.status === "success") window.location.reload();
-    }
-
-    document.addEventListener("DOMContentLoaded", fetchMatches);
-  </script>
+    </script>
 </body>
 </html>
