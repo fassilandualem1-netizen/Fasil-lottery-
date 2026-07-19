@@ -18,6 +18,11 @@ API_HOST = "v3.football.api-sports.io"
 CACHE_KEY = "cached_real_sports_odds"
 
 
+@real_sports_bp.route('/api/internal/ping', methods=['GET'])
+def ping():
+    return jsonify({"status": "alive"}), 200
+
+
 # =========================================
 # 1. የጀርባ አገልጋይ (Google App Script የሚጠራው - ዳታ የሚያመጣው)
 # =========================================
