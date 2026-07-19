@@ -265,33 +265,45 @@
         // 3. ዳታ ከሞጁል ባክኤንድ ማምጣት (Robust Fetch)
         // ==========================================
         async function fetchInitialData() {
-            const balanceDisplay = document.getElementById('balanceDisplay');
-            try {
-                // የዋሌት ሞጁሉን በትክክል ለማግኘት
-                const res = await fetch(`/api/aviator/user_data?user_id=${userId}`);
-                if (!res.ok) throw new Error("Network response was not ok");
-                
-                const data = await res.json();
-                if (data.status === "success") {
-                    updateBalance(data.balance);
-                    if (data.history) renderHistory(data.history);
-                } else {
-                    balanceDisplay.innerText = "Error Loading";
-                }
-            } catch (e) {
-                console.error("Connection error, retrying...", e);
-                balanceDisplay.innerText = "Reconnecting...";
-                // ባክኤንዱ አፍታ ቢቋረጥ ዳግም ይሞክራል
-                setTimeout(fetchInitialData, 3000); 
-            }
-        }
+    const balanceDisplay = document.getElementById('balanceDisplay');
+    try {
+        // 1. ጥያቄ ወደ ባክኤንድ ይላካል
+        const res = await fetch(`/api/aviator/user_data?user_id=${userId}`);
         
-        function updateBalance(newBal) {
-            balance = parseFloat(newBal);
-            document.getElementById('balanceDisplay').innerText = balance.toFixed(2) + " ETB";
+        // 2. ሰርቨሩ 404 (Not Found) ወይም 500 (Internal Error) ከመለሰ
+        if (!res.ok) {
+            alert(`Server Error: ${res.status} ${res.statusText}`);
+            throw new Error("Network response was not ok");
         }
 
-        fetchInitialData();
+        const data = await res.json();
+        
+        if (data.status === "success") {
+            updateBalance(data.balance);
+            if (data.history) renderHistory(data.history);
+        } else {
+            // 3. ዳታው መጥቶ ነገር ግን ዩዘሩ ካልተገኘ (Success ካልሆነ)
+            balanceDisplay.innerText = "Error Loading";
+            alert(`Backend Error: ${data.message || "የተጠቃሚ መረጃ አልተገኘም"}`);
+        }
+    } catch (e) {
+        console.error("Connection error, retrying...", e);
+        balanceDisplay.innerText = "Reconnecting...";
+        
+        // 4. ኔትወርክ ከሌለ ወይም ሰርቨሩ ከጠፋ (Connection Error)
+        alert(`Fetch Error: ${e.message}`);
+        
+        // ባክኤንዱ አፍታ ቢቋረጥ ከ 3 ሰከንድ በኋላ ዳግም ይሞክራል
+        setTimeout(fetchInitialData, 3000); 
+    }
+}
+
+function updateBalance(newBal) {
+    balance = parseFloat(newBal);
+    document.getElementById('balanceDisplay').innerText = balance.toFixed(2) + " ETB";
+}
+
+fetchInitialData();
 
         // ==========================================
         // 4. የውርርድ ፓነል ክላስ
