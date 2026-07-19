@@ -1,13 +1,13 @@
 import time
 import random
 import math
-from flask import Blueprint, request, jsonify, render_template  # 👈 render_template እዚህ ተጨምሯል
+from flask import Blueprint, request, jsonify, render_template
 from config import redis, deduct_balance_safely, add_to_history # ከ config.py የጋራ ቱሎችን አስገባ
 
 aviator_bp = Blueprint('aviator', __name__)
 
 # ==========================================
-# 🗺️ 0. የጌሙን ገጽ ማሳያ ራውት (Not Found የነበረው)
+# 🗺️ 0. የጌሙን ገጽ ማሳያ ራውት
 # ==========================================
 @aviator_bp.route('/aviator')
 def aviator_page():
@@ -42,7 +42,7 @@ def generate_crash_point():
     return max(1.00, round(crash_point, 2))
 
 # ==========================================
-# 🔄 3. የጨዋታው ሞተር (Background Game Loop)
+# 🔄 3. የጨዋታው ሞተር (Background Game Loop) - MERGED & OPTIMIZED
 # ==========================================
 def start_aviator_loop(socketio):
     """
@@ -61,25 +61,38 @@ def start_aviator_loop(socketio):
             current_round_bets = next_round_bets.copy()
             next_round_bets = {}
             
-            # 🔥 ማስተካከያ: ከጃቫስክሪፕቱ ጋር እንዲገናኝ namespace ተወግዷል
-            socketio.emit('game_state', {'status': 'WAITING', 'time_left': 5})
+            # ለክላይንት መጠበቂያ መጀመሩን መላክ
+            socketio.emit('game_state', {
+                'status': 'WAITING', 
+                'time_left': 5,
+                'multiplier': 1.00
+            })
             socketio.sleep(5) # Gevent-safe sleep
             
             # --- ለ. የበረራ ጊዜ (FLYING) ---
             game_state["status"] = "FLYING"
             game_state["start_time"] = time.time()
             
-            # አውሮፕላኑ ተነሳ! የሚለውን መላክ (የሚሊሰከንድ ማሳደጉን ክላይንቱ በራሱ ይሰራል)
-            socketio.emit('game_state', {'status': 'FLYING', 'start_time': game_state["start_time"]})
+            # አውሮፕላኑ ተነሳ!
+            socketio.emit('game_state', {
+                'status': 'FLYING', 
+                'start_time': game_state["start_time"],
+                'multiplier': 1.00
+            })
             
             crashed = False
             while not crashed:
-                socketio.sleep(0.1) # በየ 100 ሚሊሰከንዱ ቼክ ያደርጋል
+                socketio.sleep(0.05) # ⚡ በየ 50 ሚሊሰከንዱ ቼክ ያደርጋል (20fps)
                 elapsed_time = time.time() - game_state["start_time"]
                 
                 # የእድገት ሂሳብ ቀመር: M = e^(0.06 * t)
                 current_multi = math.exp(0.06 * elapsed_time)
                 game_state["multiplier"] = round(current_multi, 2)
+                
+                # 🛑 🔥 ወቅታዊውን የኦድ መጠን በየሰከንዱ ክፍል ለክላይንቱ መጮህ/መላክ!
+                socketio.emit('multiplier_update', {
+                    'multiplier': game_state["multiplier"]
+                })
                 
                 # አውሮፕላኑ አስቀድሞ ከተወሰነው የክራሽ ቁጥር ደረሰ ወይ?
                 if game_state["multiplier"] >= game_state["crash_point"]:
@@ -90,7 +103,10 @@ def start_aviator_loop(socketio):
             game_state["multiplier"] = game_state["crash_point"]
             
             # ክራሽ ማድረጉን መላክ!
-            socketio.emit('game_state', {'status': 'CRASHED', 'crash_point': game_state["crash_point"]})
+            socketio.emit('game_state', {
+                'status': 'CRASHED', 
+                'crash_point': game_state["crash_point"]
+            })
             
             # 2 ሰከንድ ለዕይታ ቆይቶ ወደ WAITING ይመለሳል
             socketio.sleep(2)
@@ -142,7 +158,7 @@ def cashout():
     if not user_bet or user_bet["cashed_out"]:
         return jsonify({"status": "error", "message": "ውርርድ አልተገኘም ወይም አስቀድመው ወስደዋል"}), 400
         
-    # 🔥 SECURITY: ፍሮንትኤንዱ ያመጣውን አናምንም፣ የሰርቨሩን ወቅታዊ Muliplier እንጠቀማለን!
+    # 🔥 SECURITY: የሰርቨሩን ወቅታዊ Muliplier እንጠቀማለን!
     current_multi = game_state["multiplier"]
     
     # ተጠቃሚው አሸነፈ
