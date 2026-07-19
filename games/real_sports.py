@@ -14,41 +14,24 @@ real_sports_bp = Blueprint('real_sports', __name__)
 API_KEY = os.environ.get("API_FOOTBALL_KEY")
 API_HOST = "v3.football.api-sports.io"
 
+# የጋራ Redis Key (በየቀኑ እንዳይቀያየር አንድ ቋሚ Key ብንጠቀም ይመረጣል ምክንያቱም በየ 10 ደቂቃው አዲስ ስለሚሆን)
+CACHE_KEY = "cached_real_sports_odds"
 
-# ይህንን ከሌሎች route-ዎች በታች ጨምር
-@real_sports_bp.route('/api/admin/clear_cache', methods=['GET'])
-def clear_cache_admin():
-    # ሚስጥራዊ ቁልፍ (ከመረጥክ በኋላ ሊንኩን ስትጠራ በ browser ላይ ይህንን ታስገባለህ)
-    secret_key = request.args.get('key')
-    if secret_key != "MySecret123": # የፈለግከውን ፓስወርድ እዚህ ቀይረው
+
+# =========================================
+# 1. የጀርባ አገልጋይ (Google App Script የሚጠራው - ዳታ የሚያመጣው)
+# =========================================
+@real_sports_bp.route('/api/internal/update_sports_data', methods=['GET'])
+def update_sports_data():
+    # ሚስጥራዊ ቁልፍ (GAS ላይ ሊንኩን ስታስገባ ?secret=mypassword123 ብለህ አስገባ)
+    secret = request.args.get("secret")
+    if secret != "mypassword123":
         return jsonify({"status": "error", "message": "Unauthorized"}), 403
-    
-    # ዛሬ ያለውን ቀን እና የ cache key-ውን እናውቃለን
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    cache_key = f"cached_real_odds_v2_{today_str}"
-    
-    # Redis ላይ ማጥፋት
-    redis.delete(cache_key)
-    
-    return jsonify({"status": "success", "message": f"Cache {cache_key} በተሳካ ሁኔታ ጠፍቷል!"})
 
-# =========================================
-# 1. ኦድ (Odds) ለማምጣት
-# =========================================
-@real_sports_bp.route('/api/sports/odds', methods=['GET'])
-def get_odds():
     now = datetime.now()
     today_str = now.strftime("%Y-%m-%d")
     tomorrow_str = (now + timedelta(days=1)).strftime("%Y-%m-%d")
     target_dates = [today_str, tomorrow_str]
-
-    cache_key = f"cached_real_odds_v2_{today_str}"
-
-    cached_odds = redis.get(cache_key)
-    if cached_odds:
-        matches = json.loads(cached_odds)
-        if len(matches) > 0:
-            return jsonify({"status": "success", "matches": matches})
 
     try:
         headers = {
@@ -69,11 +52,11 @@ def get_odds():
                 fixtures_dict[f['fixture']['id']] = {
                     "teams": f['teams'],
                     "league": f['league']['name'],
-                    "time": f['fixture']['date'] # ISO Format string
+                    "time": f['fixture']['date']
                 }
 
         real_matches = []
-        now_time = datetime.now() # የጨዋታዎችን ሰዓት ለማጣራት የአሁኑን ሰዓት እንይዛለን
+        now_time = datetime.now()
 
         for d in target_dates:
             for page in range(1, 11):  
@@ -103,18 +86,13 @@ def get_odds():
 
                     fixture_info = fixtures_dict[fixture_id]
                     
-                    # --- ለ Betting የተስተካከለ የሰዓት ማጣሪያ (Strict Time Filter) ---
                     try:
                         raw_time = fixture_info["time"]
-                        # ከ API የመጣውን ሰዓት ወደ datetime object መቀየር
                         match_time_obj = datetime.fromisoformat(raw_time.replace('Z', '+03:00'))
-                        
-                        # የጨዋታው ሰዓት አሁን ካለንበት ሰዓት ጋር እኩል ከሆነ ወይም ካለፈ (ያለቀ/የተጀመረ) እናስወግደዋለን
                         if match_time_obj.replace(tzinfo=None) <= now_time:
                             continue
                     except Exception:
-                        continue # ሰዓቱን ማንበብ ካልቻለ ለጥንቃቄ ሲባል ጨዋታውን ይዘለዋል
-                    # -----------------------------------------------------------------
+                        continue 
 
                     if not item['bookmakers'] or not item['bookmakers'][0]['bets']:
                         continue
@@ -129,7 +107,6 @@ def get_odds():
                         elif val == "Draw": odds_dict["draw"] = odd
                         elif val == "Away": odds_dict["away"] = odd
 
-                    # ለተጠቃሚው በሚያምር ሁኔታ ለማሳየት ሰዓቱን ብቻ መውሰድ (ምሳሌ፡ "15:30")
                     clean_time = match_time_obj.strftime("%H:%M")
 
                     if "home" in odds_dict and "away" in odds_dict:
@@ -146,22 +123,55 @@ def get_odds():
 
                     if len(real_matches) >= 150:
                         break
-
                 if len(real_matches) >= 150:
                     break
 
         if len(real_matches) > 0:
-            # Cache ለ 6 ሰዓት (21600 seconds) ይቀመጣል
-            redis.setex(cache_key, 21600, json.dumps(real_matches))
+            # ዳታውን ወስዶ Redis ላይ ያስቀምጠዋል (GAS በየ 10 ደቂቃው ስለሚያድሰው ጊዜ መወሰን አያስፈልግም)
+            redis.set(CACHE_KEY, json.dumps(real_matches))
 
-        return jsonify({"status": "success", "matches": real_matches})
+        return jsonify({"status": "success", "message": f"✅ {len(real_matches)} ጨዋታዎች ተዘጋጅተው Redis ላይ ገብተዋል።"})
 
     except Exception as e:
         print(f"API Odds Fetching Exception: {e}")
         return jsonify({"status": "error", "message": "እውነተኛ ኦዶችን ማምጣት አልተቻለም"}), 500
 
+
 # =========================================
-# 2. ውርርድ መቁረጫ (Place Bet) ራውት
+# 2. ዌብሳይቱ (Frontend) ዳታ የሚወስድበት (እጅግ ፈጣኑ ራውት)
+# =========================================
+@real_sports_bp.route('/api/sports/odds', methods=['GET'])
+def get_odds():
+    try:
+        # ምንም አይነት 3rd Party API አይጠይቅም! በቀጥታ ከ Redis ላይ ብቻ ያነባል።
+        cached_odds = redis.get(CACHE_KEY)
+        
+        if cached_odds:
+            matches = json.loads(cached_odds)
+            return jsonify({"status": "success", "matches": matches})
+        else:
+            # ገና ዳታ ከ API ተጎትቶ ካልመጣ
+            return jsonify({"status": "success", "matches": []})
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": "የዳታቤዝ ስህተት"}), 500
+
+
+# =========================================
+# 3. የ አድሚን Cache ማጥፊያ
+# =========================================
+@real_sports_bp.route('/api/admin/clear_cache', methods=['GET'])
+def clear_cache_admin():
+    secret_key = request.args.get('key')
+    if secret_key != "MySecret123":
+        return jsonify({"status": "error", "message": "Unauthorized"}), 403
+    
+    redis.delete(CACHE_KEY)
+    return jsonify({"status": "success", "message": "Cache በተሳካ ሁኔታ ጠፍቷል!"})
+
+
+# =========================================
+# 4. ውርርድ መቁረጫ (Place Bet) 
 # =========================================
 @real_sports_bp.route('/api/sports/place_bet', methods=['POST'])
 @telegram_auth_required
