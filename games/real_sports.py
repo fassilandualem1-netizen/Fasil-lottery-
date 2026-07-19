@@ -280,3 +280,45 @@ def get_leagues_menu():
     except Exception as e:
         print(f"API Leagues Fetching Exception: {e}")
         return jsonify({"status": "error", "message": "የሊጎችን ዝርዝር ማምጣት አልተቻለም"}), 500
+
+
+
+# =========================================
+# 8. የእኔ ቲኬቶች (My Bets) ማውጫ
+# =========================================
+@real_sports_bp.route('/api/sports/my_bets', methods=['GET'])
+@telegram_auth_required
+def get_my_bets():
+    try:
+        # የ user_id ከ URL parameter ላይ እንወስዳለን
+        user_id = request.args.get('user_id')
+        
+        if not user_id:
+            return jsonify({"status": "error", "message": "User ID አልተገኘም!"}), 400
+
+        # Redis ውስጥ ከተጠቃሚው ጋር የተያያዙ ቲኬቶችን (Hash) መፈለግ
+        redis_key = f"user_sports_bets:{user_id}"
+        user_bets_raw = redis.hgetall(redis_key) 
+
+        tickets = []
+        if user_bets_raw:
+            # ሪዲስ የሚመልሰው ዳታ (Bytes/String) ስለሆነ ወደ Dictionary (JSON) እንቀይረዋለን
+            for t_id, t_data in user_bets_raw.items():
+                ticket_info = json.loads(t_data)
+                
+                tickets.append({
+                    "id": ticket_info.get("ticket_id"),
+                    "stake": ticket_info.get("amount"),
+                    "possible_win": round(ticket_info.get("possible_win", 0), 2),
+                    "status": ticket_info.get("status", "Pending"),
+                    "timestamp": ticket_info.get("timestamp", 0)
+                })
+        
+        # ቲኬቶቹን በጊዜ (አዲሱ ቲኬት ከላይ እንዲታይ) እናስተካክላለን
+        tickets.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
+
+        return jsonify({"status": "success", "tickets": tickets}), 200
+
+    except Exception as e:
+        print(f"Get My Bets Error: {e}")
+        return jsonify({"status": "error", "message": "ቲኬቶችን ማምጣት አልተቻለም"}), 500
