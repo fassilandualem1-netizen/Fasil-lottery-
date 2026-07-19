@@ -219,27 +219,50 @@ def start_aviator_loop(socketio):
 # ==========================================
 
 # 📌 አዲስ የተጨመረ፡ ተጠቃሚው ሲገባ መረጃ (Balance & History) የሚሰጥ
+import logging
+
+# (ያለህበት ብሉፕሪንት)
+# aviator_bp = Blueprint('aviator', __name__)
+
 @aviator_bp.route('/api/aviator/user_data', methods=['GET'])
 def get_user_data():
     user_id = request.args.get('user_id')
     
     if not user_id:
-        return jsonify({"status": "error", "message": "User ID ያስፈልጋል"}), 400
+        return jsonify({"status": "error", "message": "የጎደለ መረጃ (User ID required)"}), 400
 
     try:
-        # Redis ላይ ዳታ ከሌለ (None ከሆነ) ቀጥታ 0.0 ይመልሳል
-        raw_balance = redis.hget("users:balance", user_id)
-        current_balance = float(raw_balance) if raw_balance else 0.0
+        # 1. 💰 የተጠቃሚውን ባላንስ ከ Redis ማንበብ (Robust & Fast)
+        balance_raw = redis.hget("users:balance", user_id)
+        current_balance = float(balance_raw) if balance_raw else 0.0
         
+        # 2. 📈 የጨዋታውን ትክክለኛ ሂስትሪ ከ Redis ማንበብ (Lite)
+        # የመጨረሻዎቹን 15 ዙሮች ውጤት ብቻ እናነባለን (0 እስከ 14)
+        raw_history = redis.lrange("aviator:history", 0, 14)
+        
+        if raw_history:
+            # ከዳታቤዝ የመጣውን የጽሁፍ ዳታ (Bytes/String) ወደ ቁጥር (Float) መቀየር
+            history_data = [float(x) for x in raw_history]
+        else:
+            # ጌሙ ገና አዲስ ከሆነ እና ምንም ዳታ ከሌለ ባዶ ወይም መነሻ ቁጥር እንሰጠዋለን
+            history_data = [] 
+            
         return jsonify({
             "status": "success",
             "balance": current_balance,
-            "history": game_state.get("history", []) # History ባይኖርም እንኳን Error እንዳይል
-        }), 200
+            "history": history_data
+        })
         
     except Exception as e:
-        print(f"⚠️ User Data Fetch Error for {user_id}: {e}")
-        return jsonify({"status": "error", "message": "የሰርቨር ችግር አጋጥሟል፣ እባክዎ እንደገና ይሞክሩ"}), 500
+        # 🛡️ Robustness: ዳታቤዙ ችግር ቢፈጥር ሰርቨሩ ክራሽ እንዳያደርግ (No Crash)
+        logging.error(f"Redis Error in Aviator User Data: {e}")
+        
+        return jsonify({
+            "status": "error",
+            "message": "ከዳታቤዝ ጋር መገናኘት አልተቻለም (Database Error)",
+            "balance": 0.0,
+            "history": []
+        }), 500
 
 
 @aviator_bp.route('/api/aviator/place_bet', methods=['POST'])
