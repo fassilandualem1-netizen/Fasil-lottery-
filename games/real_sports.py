@@ -31,7 +31,6 @@ def ping():
 # =========================================
 @real_sports_bp.route('/api/internal/update_sports_data', methods=['GET'])
 def update_sports_data():
-    # ሚስጥራዊ ቁልፍ (GAS ላይ ሊንኩን ስታስገባ ?secret=mypassword123 ብለህ አስገባ)
     secret = request.args.get("secret")
     if secret != "mypassword123":
         return jsonify({"status": "error", "message": "Unauthorized"}), 403
@@ -40,8 +39,7 @@ def update_sports_data():
         return jsonify({"status": "error", "message": "API Key አልተገኘም"}), 500
 
     try:
-        # 'upcoming' በማለት በአለም ላይ ያሉ የቅርብ ጊዜ እውነተኛ ጨዋታዎችን በሙሉ ማምጣት
-        url = f"https://api.the-odds-api.com/v4/sports/upcoming/odds/?apiKey={API_KEY}&regions=eu&markets=h2h"
+        url = f"https://api.the-odds-api.com/v4/sports/upcoming/odds/?apiKey={API_KEY}&regions=eu,uk&markets=h2h"
         response = requests.get(url, timeout=15)
 
         if response.status_code != 200:
@@ -49,7 +47,7 @@ def update_sports_data():
 
         data = response.json()
         real_matches = []
-        now_time = datetime.now()
+        now_utc = datetime.utcnow() # ትክክለኛው የ UTC ሰዓት
 
         for item in data:
             match_id = item.get("id")
@@ -58,20 +56,27 @@ def update_sports_data():
             commence_time_str = item.get("commence_time")
             league = item.get("sport_title", "Unknown League")
 
-            # ሰዓቱን ማስተካከል እና ያለፉ ጨዋታዎችን ማጣራት
             try:
-                # API የሚያመጣው ሰዓት በ UTC ነው
-                match_time_obj = datetime.strptime(commence_time_str, "%Y-%m-%dT%H:%M:%SZ")
-                if match_time_obj <= now_time:
-                    continue  # ጨዋታው ከጀመረ ወይም ካለፈ ዝለለው
+                # ከ API የመጣውን UTC ሰዓት ማንበብ
+                match_time_utc = datetime.strptime(commence_time_str, "%Y-%m-%dT%H:%M:%SZ")
+                
+                # ጨዋታው ከጀመረ ዝለለው (በ UTC ነው የምናወዳድረው)
+                if match_time_utc <= now_utc:
+                    continue  
 
-                clean_time = match_time_obj.strftime("%H:%M")
-                match_date = match_time_obj.strftime("%Y-%m-%d")
+                # ወደ ኢትዮጵያ/Local ሰዓት (UTC+3) መቀየር (ተጠቃሚዎችህ ውጪ ከሆኑ ይሄን ማስተካከል ትችላለህ)
+                local_time_obj = match_time_utc + timedelta(hours=3)
+                clean_time = local_time_obj.strftime("%H:%M")
+                match_date = local_time_obj.strftime("%Y-%m-%d")
+                
+                # ለ sorting እንዲመቸን ፎርማት የተደረገ ሙሉ ሰዓት
+                sortable_time = match_time_utc.timestamp()
+
             except Exception:
                 clean_time = "TBA"
                 match_date = "TBA"
+                sortable_time = float('inf')
 
-            # የውርርድ መጠን (Odds) ማውጣት
             odds_dict = {}
             bookmakers = item.get("bookmakers", [])
             if bookmakers:
@@ -86,15 +91,11 @@ def update_sports_data():
                         else:
                             odds_dict["draw"] = o["price"]
 
-            # ሆም እና አዌይ ኦድስ ካለው ብቻ ወደ ሪዲስ ማስገባት
             if "home" in odds_dict and "away" in odds_dict and "draw" in odds_dict:
-                
-                # 🌟 አዲሱ ሎጂክ: Double Chance ኦዶችን በሂሳብ ስሌት መፍጠር
                 h = float(odds_dict["home"])
                 d = float(odds_dict["draw"])
                 a = float(odds_dict["away"])
                 
-                # ቀመር: 1X = (Home * Draw) / (Home + Draw)
                 odds_dict["dc_1x"] = round((h * d) / (h + d), 2)
                 odds_dict["dc_12"] = round((h * a) / (h + a), 2)
                 odds_dict["dc_x2"] = round((d * a) / (d + a), 2)
@@ -108,16 +109,20 @@ def update_sports_data():
                         },
                         "league": league,
                         "time": clean_time,
-                        "date": match_date
+                        "date": match_date,
+                        "sort_time": sortable_time # ለመደርደር ብቻ የሚያገለግል
                     },
                     "odds": odds_dict
                 })
 
         if len(real_matches) > 0:
-            # ጨዋታዎችን በሊግ ስማቸው (Albania, Azerbaijan...) ከ A እስከ Z ማደራጀት 
-            real_matches.sort(key=lambda x: x["fixture"]["league"])
+            # 🌟 ጨዋታዎችን በሰዓት ቅደም ተከተል (Upcoming) ከቅርብ ጊዜ ወደ ሩቅ ጊዜ ማደራጀት
+            real_matches.sort(key=lambda x: x["fixture"]["sort_time"])
             
-            # ዳታውን ወስዶ Redis ላይ ያስቀምጠዋል
+            # sort_time ለ ፊትለፊት ስለማያስፈልግ ማጥፋት እንችላለን (አማራጭ ነው)
+            for m in real_matches:
+                m["fixture"].pop("sort_time", None)
+
             redis.set(CACHE_KEY, json.dumps(real_matches))
 
         return jsonify({"status": "success", "message": f"✅ {len(real_matches)} ጨዋታዎች ተዘጋጅተው Redis ላይ ገብተዋል።"}), 200
@@ -125,7 +130,6 @@ def update_sports_data():
     except Exception as e:
         print(f"API Odds Fetching Exception: {e}")
         return jsonify({"status": "error", "message": "እውነተኛ ኦዶችን ማምጣት አልተቻለም"}), 500
-
 
 # =========================================
 # 3. ዌብሳይቱ (Frontend) ዳታ የሚወስድበት (ፈጣኑ ራውት)
@@ -290,19 +294,16 @@ def get_leagues_menu():
 @telegram_auth_required
 def get_my_bets():
     try:
-        # የ user_id ከ URL parameter ላይ እንወስዳለን
         user_id = request.args.get('user_id')
         
         if not user_id:
             return jsonify({"status": "error", "message": "User ID አልተገኘም!"}), 400
 
-        # Redis ውስጥ ከተጠቃሚው ጋር የተያያዙ ቲኬቶችን (Hash) መፈለግ
         redis_key = f"user_sports_bets:{user_id}"
         user_bets_raw = redis.hgetall(redis_key) 
 
         tickets = []
         if user_bets_raw:
-            # ሪዲስ የሚመልሰው ዳታ (Bytes/String) ስለሆነ ወደ Dictionary (JSON) እንቀይረዋለን
             for t_id, t_data in user_bets_raw.items():
                 ticket_info = json.loads(t_data)
                 
@@ -311,10 +312,11 @@ def get_my_bets():
                     "stake": ticket_info.get("amount"),
                     "possible_win": round(ticket_info.get("possible_win", 0), 2),
                     "status": ticket_info.get("status", "Pending"),
-                    "timestamp": ticket_info.get("timestamp", 0)
+                    "timestamp": ticket_info.get("timestamp", 0),
+                    # 🌟 ዋናው የተጨመረው እዚህ ጋር ነው! ተጠቃሚው የመረጣቸውን ጨዋታዎች ዝርዝር እንልካለን
+                    "selections": ticket_info.get("selections", []) 
                 })
         
-        # ቲኬቶቹን በጊዜ (አዲሱ ቲኬት ከላይ እንዲታይ) እናስተካክላለን
         tickets.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
 
         return jsonify({"status": "success", "tickets": tickets}), 200
