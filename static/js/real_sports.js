@@ -13,31 +13,24 @@ let currentMarket = '1x2';  // '1x2' ወይም 'dc'
 // 1. Time Formatter (Flashscore Style)
 // ==========================================
 function formatLocalTime(apiDateStr, apiTimeStr) {
-    try {
-        let combinedDate = apiTimeStr ? `${apiDateStr}T${apiTimeStr}Z` : apiDateStr;
-        const matchDate = new Date(combinedDate);
-        if (isNaN(matchDate.getTime())) return { date: "TBA", time: "TBA" };
+    if (!apiDateStr || apiDateStr === "TBA") return { date: "TBA", time: apiTimeStr || "TBA" };
 
-        const now = new Date();
-        const hours = matchDate.getHours().toString().padStart(2, '0');
-        const minutes = matchDate.getMinutes().toString().padStart(2, '0');
-        const timeString = `${hours}:${minutes}`;
+    const today = new Date();
+    // ከባክኤንድ የመጣውን ቀን ብቻ (YYYY-MM-DD) እንወስዳለን
+    const matchDate = new Date(apiDateStr); 
 
-        let dateString = "";
-        const isToday = matchDate.getDate() === now.getDate() && matchDate.getMonth() === now.getMonth() && matchDate.getFullYear() === now.getFullYear();
-        
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const isTomorrow = matchDate.getDate() === tomorrow.getDate() && matchDate.getMonth() === tomorrow.getMonth() && matchDate.getFullYear() === tomorrow.getFullYear();
+    const isToday = matchDate.getDate() === today.getDate() && matchDate.getMonth() === today.getMonth();
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isTomorrow = matchDate.getDate() === tomorrow.getDate() && matchDate.getMonth() === tomorrow.getMonth();
 
-        if (isToday) dateString = "ዛሬ";
-        else if (isTomorrow) dateString = "ነገ";
-        else dateString = `${matchDate.getDate().toString().padStart(2, '0')}/${(matchDate.getMonth() + 1).toString().padStart(2, '0')}`;
+    let dateString = "";
+    if (isToday) dateString = "ዛሬ";
+    else if (isTomorrow) dateString = "ነገ";
+    else dateString = `${matchDate.getDate().toString().padStart(2, '0')}/${(matchDate.getMonth() + 1).toString().padStart(2, '0')}`;
 
-        return { date: dateString, time: timeString };
-    } catch (e) {
-        return { date: "TBA", time: "TBA" };
-    }
+    return { date: dateString, time: apiTimeStr }; // ሰዓቱን ከባክኤንድ እንደመጣ እንጠቀማለን
 }
 
 // ==========================================
