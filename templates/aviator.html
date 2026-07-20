@@ -294,15 +294,15 @@
 
         fetchInitialData();
 
-                // ==========================================
-        // 4. የውርርድ ፓነል ክላስ (Optimized & Robust Version)
+                        // ==========================================
+        // 4. የውርርድ ፓነል ክላስ (Merged, Real Wallet & Robust)
         // ==========================================
         class BetPanel {
             constructor(prefix) {
                 this.prefix = prefix;
                 this.amount = 20.00;
                 this.betState = "NONE"; // NONE, BETTING, IN_GAME, CASHED_OUT
-                this.isProcessing = false; // 👈 ደብል ክሊክ መከላከያ መቆለፊያ (Network Lock)
+                this.isProcessing = false; // 👈 ደብል ክሊክ መከላከያ
                 this.isAutoBet = false;
                 this.isAutoCashout = false;
                 this.autoCashoutVal = 2.00;
@@ -315,7 +315,6 @@
                 this.btnLabel = document.getElementById(`${this.prefix}-btn-label`);
                 this.btnAction = document.getElementById(`${this.prefix}-btn`);
 
-                // የሲግናል አድማጮች (Event Listeners)
                 document.getElementById(`${this.prefix}-plus`).addEventListener('click', () => { 
                     if (this.betState === "NONE" && !this.isProcessing) this.setAmount(this.amount + 10); 
                 });
@@ -329,106 +328,121 @@
                 });
 
                 this.btnAction.addEventListener('click', () => {
-                    if (sounds.start && sounds.start.currentTime === 0) sounds.start.load();
+                    if (typeof sounds !== 'undefined' && sounds.start && sounds.start.currentTime === 0) sounds.start.load();
                     this.handleAction();
                 });
 
-                // ታብ መቀያየሪያዎች
                 let tabBet = document.getElementById(`${this.prefix}-tab-bet`);
                 let tabAuto = document.getElementById(`${this.prefix}-tab-auto`);
                 let autoSection = document.getElementById(`${this.prefix}-auto-section`);
 
-                tabBet.addEventListener('click', () => { tabBet.classList.add('active'); tabAuto.classList.remove('active'); autoSection.style.display = 'none'; });
-                tabAuto.addEventListener('click', () => { tabAuto.classList.add('active'); tabBet.classList.remove('active'); autoSection.style.display = 'block'; });
+                if(tabBet && tabAuto) {
+                    tabBet.addEventListener('click', () => { tabBet.classList.add('active'); tabAuto.classList.remove('active'); if(autoSection) autoSection.style.display = 'none'; });
+                    tabAuto.addEventListener('click', () => { tabAuto.classList.add('active'); tabBet.classList.remove('active'); if(autoSection) autoSection.style.display = 'block'; });
+                }
 
-                document.getElementById(`${this.prefix}-auto-bet-toggle`).addEventListener('click', (e) => { e.target.classList.toggle('active'); this.isAutoBet = e.target.classList.contains('active'); });
-                document.getElementById(`${this.prefix}-auto-cashout-toggle`).addEventListener('click', (e) => { e.target.classList.toggle('active'); this.isAutoCashout = e.target.classList.contains('active'); });
-                document.getElementById(`${this.prefix}-auto-cashout-val`).addEventListener('input', (e) => { this.autoCashoutVal = parseFloat(e.target.value || 2.00); });
+                let autoBetToggle = document.getElementById(`${this.prefix}-auto-bet-toggle`);
+                if(autoBetToggle) autoBetToggle.addEventListener('click', (e) => { e.target.classList.toggle('active'); this.isAutoBet = e.target.classList.contains('active'); });
+                
+                let autoCashoutToggle = document.getElementById(`${this.prefix}-auto-cashout-toggle`);
+                if(autoCashoutToggle) autoCashoutToggle.addEventListener('click', (e) => { e.target.classList.toggle('active'); this.isAutoCashout = e.target.classList.contains('active'); });
+                
+                let autoCashoutVal = document.getElementById(`${this.prefix}-auto-cashout-val`);
+                if(autoCashoutVal) autoCashoutVal.addEventListener('input', (e) => { this.autoCashoutVal = parseFloat(e.target.value || 2.00); });
             }
 
             setAmount(value) {
                 this.amount = value;
-                this.input.value = this.amount.toFixed(2);
-                if (this.betState === "NONE") this.btnText.innerText = this.amount.toFixed(2) + " ETB";
+                if(this.input) this.input.value = this.amount.toFixed(2);
+                if (this.betState === "NONE" && this.btnText) this.btnText.innerText = this.amount.toFixed(2) + " ETB";
             }
 
             updateButtonUI() {
-                // በተኑን በፕሪሰስ ላይ ከሆነ ማገድ
+                if(!this.btnAction) return;
+
                 this.btnAction.disabled = this.isProcessing || this.betState === "CASHED_OUT";
-                this.input.disabled = (this.betState !== "NONE" || this.isProcessing);
-                
+                if(this.input) this.input.disabled = (this.betState !== "NONE" || this.isProcessing);
+
+                // ሪሴት ማድረግ
                 this.btnAction.className = "btn-action";
+                this.btnAction.style.backgroundColor = ""; 
 
                 if (this.isProcessing) {
                     this.btnAction.classList.add("btn-disabled");
+                    this.btnAction.style.backgroundColor = "#888"; // ግራጫ ሎዲንግ
                     this.btnLabel.innerText = "PROCESSING...";
                     return;
                 }
 
                 if (this.betState === "NONE") { 
                     this.btnAction.classList.add("btn-green"); 
+                    this.btnAction.style.backgroundColor = "#28a745"; // አረንጓዴ
                     this.btnLabel.innerText = "BET"; 
                     this.btnText.innerText = this.amount.toFixed(2) + " ETB"; 
                 } 
                 else if (this.betState === "BETTING") { 
                     this.btnAction.classList.add("btn-red"); 
+                    this.btnAction.style.backgroundColor = "#dc3545"; // ቀይ
                     this.btnLabel.innerText = "WAITING"; 
-                    this.btnText.innerText = "Cancel Bet"; // ተጠቃሚው መሰረዝ እንዲችል
+                    this.btnText.innerText = "Cancel Bet"; 
                 } 
                 else if (this.betState === "IN_GAME") { 
                     this.btnAction.classList.add("btn-yellow"); 
+                    this.btnAction.style.backgroundColor = "#ff9800"; // 👈 ብርቱካናማ (Orange) ቀለም እዚህ ጋር ይመጣል!
                     this.btnLabel.innerText = "CASH OUT"; 
-                    let currentWin = this.amount * gameState.multiplier; 
+                    let currentWin = this.amount * (typeof gameState !== 'undefined' ? gameState.multiplier : 1); 
                     this.btnText.innerText = currentWin.toFixed(2) + " ETB"; 
                 }
                 else if (this.betState === "CASHED_OUT") { 
                     this.btnAction.classList.add("btn-disabled"); 
+                    this.btnAction.style.backgroundColor = "#555"; 
                     this.btnLabel.innerText = "CASHED OUT"; 
                 }
             }
 
             async handleAction() {
-                // 1. የደህንነት መቆለፊያ - ጥያቄ በሂደት ላይ ከሆነ ወይም ስቴቱ ካልተፈቀደ አቁም
                 if (this.isProcessing) return;
 
                 const initData = window.Telegram?.WebApp?.initData || "";
 
                 if (this.betState === "NONE") {
                     if (gameState.status === 'WAITING' || gameState.status === 'FLYING') {
-                        this.isProcessing = true; // 👈 ወዲያውኑ ቆልፍ!
+                        this.isProcessing = true;
                         this.updateButtonUI();
 
                         try {
-                            const res = await fetch('/api/aviator/place_bet', { 
+                            const res = await fetch('/api/aviator/bet', { // 👈 የ API መስመር (ትክክል መሆኑን አረጋግጥ)
                                 method: 'POST', 
                                 headers: { 
                                     'Content-Type': 'application/json',
-                                    'X-Telegram-Init-Data': initData // 👈 የቴሌግራም ቶከን ተጨምሯል
+                                    'X-Telegram-Init-Data': initData 
                                 }, 
                                 body: JSON.stringify({ 
-                                    user_id: userId, 
-                                    amount: this.amount, 
-                                    auto_cashout: this.isAutoCashout ? this.autoCashoutVal : 0 
+                                    user_id: typeof userId !== 'undefined' ? userId : 1, 
+                                    bet_amount: this.amount, 
+                                    game_mode: "real" // 👈 ሁሌም 'real' ዋሌት እንዲጠቀም Merge ተደርጓል
                                 }) 
                             });
                             const data = await res.json();
 
                             if (data.status === "success") { 
                                 this.betState = "BETTING"; 
-                                if (data.new_balance !== undefined) updateBalance(data.new_balance); 
+                                if (data.new_balance !== undefined && typeof updateBalance === 'function') {
+                                    updateBalance(data.new_balance); 
+                                }
                             } else { 
                                 window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(data.message) : alert(data.message); 
                             }
                         } catch (e) { 
                             console.error("Bet error", e); 
                         } finally {
-                            this.isProcessing = false; // 👈 ሲያልቅ ቁልፉን ፍታ
+                            this.isProcessing = false; 
                             this.updateButtonUI();
                         }
                     }
                 } 
                 else if (this.betState === "BETTING") {
-                    // የገባውን ውርርድ ጨዋታው ሳይጀምር መሰረዝ (Optional Cancel Logic)
+                    // መሰረዝ (Cancel) ከፈለገ
                     this.isProcessing = true;
                     this.updateButtonUI();
                     try {
@@ -440,7 +454,7 @@
                         const data = await res.json();
                         if (data.status === "success") {
                             this.betState = "NONE";
-                            if (data.new_balance !== undefined) updateBalance(data.new_balance);
+                            if (data.new_balance !== undefined && typeof updateBalance === 'function') updateBalance(data.new_balance);
                         }
                     } catch(e) { console.error(e); }
                     finally { this.isProcessing = false; this.updateButtonUI(); }
@@ -452,46 +466,52 @@
 
             async triggerCashout() {
                 if (this.betState !== "IN_GAME" || this.isProcessing) return;
-                
-                this.isProcessing = true; // 👈 ወዲያውኑ ቆልፍ!
+
+                this.isProcessing = true; 
                 this.updateButtonUI();
 
                 try {
-                    const res = await fetch('/api/aviator/cashout', { 
+                    const res = await fetch('/api/aviator/cashout', { // 👈 የ API መስመር (ትክክል መሆኑን አረጋግጥ)
                         method: 'POST', 
                         headers: { 
                             'Content-Type': 'application/json',
-                            'X-Telegram-Init-Data': window.Telegram?.WebApp?.initData || "" // 👈 የቴሌግራም ቶከን ተጨምሯል
+                            'X-Telegram-Init-Data': window.Telegram?.WebApp?.initData || "" 
                         }, 
-                        body: JSON.stringify({ user_id: userId }) 
+                        body: JSON.stringify({ 
+                            user_id: typeof userId !== 'undefined' ? userId : 1,
+                            bet_amount: this.amount,
+                            multiplier: gameState.multiplier,
+                            game_mode: "real" // 👈 ሁሌም 'real' ዋሌት
+                        }) 
                     });
                     const data = await res.json();
 
                     if (data.status === "success") {
                         this.betState = "CASHED_OUT";
                         if (typeof playSound === "function") playSound("win");
-                        this.btnText.innerText = data.win_amount.toFixed(2) + " ETB";
-                        if (data.new_balance !== undefined) updateBalance(data.new_balance);
+                        this.btnText.innerText = (data.win_amount || (this.amount * gameState.multiplier)).toFixed(2) + " ETB";
+                        if (data.new_balance !== undefined && typeof updateBalance === 'function') updateBalance(data.new_balance);
                     } else {
                         window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(data.message) : alert(data.message);
                     }
                 } catch (e) { 
                     console.error("Cashout error", e); 
                 } finally {
-                    this.isProcessing = false; // 👈 ቁልፉን ፍታ
+                    this.isProcessing = false; 
                     this.updateButtonUI();
                 }
             }
 
+            // 👈 ይሄ ፈንክሽን ነው ጨዋታው ሲጀምር ቀለሙን ወደ ብርቱካናማ የሚቀይረው
             onRoundStart() {
-                this.isProcessing = false; // ለማንኛውም ማንኛውንም ጥያቄ ፍታ
+                this.isProcessing = false; 
                 if (this.betState === "BETTING") { 
                     this.betState = "IN_GAME"; 
                 } else { 
                     this.betState = "NONE"; 
                     if (this.isAutoBet && gameState.status === "WAITING") this.handleAction(); 
                 }
-                this.updateButtonUI();
+                this.updateButtonUI(); // ቀለሙን ወደ ብርቱካናማ (Orange) እንዲያደርገው ትዕዛዝ ይሰጣል
             }
 
             onMultiplierTick() {
@@ -506,12 +526,12 @@
 
             onRoundCrash() {
                 if (this.betState === "IN_GAME" || this.betState === "BETTING") { 
+                    this.btnAction.style.backgroundColor = "#555"; 
                     this.btnAction.className = "btn-action btn-disabled"; 
                     this.btnLabel.innerText = "CRASHED"; 
                     this.btnText.innerText = "- " + this.amount.toFixed(2) + " ETB"; 
                 }
-                
-                // የ2 ሰከንድ ቆይታ ሪሴት
+
                 setTimeout(() => {
                     this.betState = "NONE";
                     this.isProcessing = false;
