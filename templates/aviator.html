@@ -5,8 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Yegna Bet - Aviator</title>
     
+    <!-- 👇 1. የቴሌግራም ዌብ-አፕ ስክሪፕት (ባላንሱን ለማምጣት እጅግ ወሳኝ!) 👇 -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
-    <!-- 👇 1. የድምፅ ላይብረሪ (Howler.js) ተጨምሯል 👇 -->
+    <!-- የድምፅ ላይብረሪ (Howler.js) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
@@ -18,14 +21,13 @@
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Roboto', sans-serif; user-select: none; }
         
-        /* 1. Layout Fix: ለቴሌግራም ሚኒ-አፕ እንዳይሸሸግ 100dvh ተጠቅመናል */
         body { 
             background-color: #1a1a24; 
             color: white; 
             display: flex; 
             flex-direction: column; 
-            height: 100dvh; /* Mobile browser & Telegram safe height */
-            overflow: hidden; /* ሙሉ ስክሪኑ እንዳይንቀሳቀስ */
+            height: 100dvh; 
+            overflow: hidden; 
         }
 
         .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background-color: #121219; border-bottom: 1px solid #2a2a35; flex-shrink: 0; }
@@ -33,7 +35,6 @@
         .balance-container { display: flex; flex-direction: column; align-items: flex-end; }
         .balance { color: #28a745; font-weight: bold; font-size: 18px; }
         
-        /* Provably Fair Badge */
         .provably-fair { font-size: 10px; color: #4caf50; display: flex; align-items: center; gap: 4px; margin-top: 2px; }
 
         .history-bar { display: flex; gap: 8px; padding: 5px 15px; overflow-x: auto; background-color: #1a1a24; white-space: nowrap; border-bottom: 1px solid #2a2a35; scrollbar-width: none; flex-shrink: 0; }
@@ -45,7 +46,6 @@
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         #multiplier-text { font-size: 80px; font-weight: 900; z-index: 2; text-shadow: 2px 4px 10px rgba(0,0,0,0.5); }
         
-        /* FLEW AWAY & WAITING ጽሁፍ አቀማመጥ */
         #status-text { 
             position: absolute; 
             top: 65%; 
@@ -63,7 +63,6 @@
         .status-waiting { color: #e50b2c; background: transparent; }
         .status-crashed { color: #fff; background: rgba(229, 11, 44, 0.85); box-shadow: 0 4px 15px rgba(229,11,44,0.4); border: 2px solid #e50b2c; }
 
-        /* መወራረጃ ፓነሎች ከስክሪን በታች ካለፉ ብቻ እንዲንሸራተቱ (Scroll) */
         .panels-container { padding: 0 10px 10px 10px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; overflow-y: auto; max-height: 45vh; }
         .bet-panel { background-color: #21212c; border-radius: 12px; padding: 10px; border: 1px solid #2a2a35; }
         .panel-tabs { display: flex; justify-content: center; margin-bottom: 10px; background: #16161e; border-radius: 20px; padding: 2px; width: fit-content; margin-left: auto; margin-right: auto; }
@@ -107,9 +106,7 @@
         </div>
     </header>
 
-    <div class="history-bar" id="historyBar">
-        <!-- ታሪክ ከሞጁሉ ሲመጣ እዚህ ይገባል -->
-    </div>
+    <div class="history-bar" id="historyBar"></div>
 
     <div class="game-screen">
         <canvas id="gameCanvas"></canvas>
@@ -204,16 +201,14 @@
         // 1. መነሻ መዋቅር (Initialization & Telegram)
         // ==========================================
         const tg = window.Telegram?.WebApp;
-        const userId = tg?.initDataUnsafe?.user?.id || "test_user_123";
+        // 👇 2. ትክክለኛው የቴሌግራም አይዲ ማግኛ 👇
+        const userId = tg?.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : "test_user_123";
         let balance = 0.00;
         let gameState = { status: "WAITING", multiplier: 1.00, countdown: 10 };
 
-        // ቴሌግራም ሬዲ ሲሆን ባክኤንዶን እንጠይቃለን
         if (tg) {
             tg.expand();
             tg.ready();
-            tg.BackButton.show();
-            tg.BackButton.onClick(() => tg.close());
         }
 
         // ==========================================
@@ -226,7 +221,6 @@
             crash: new Howl({ src: ['/static/sounds/crash.mp3'], volume: 1.0 })
         };
 
-        // ተጠቃሚው ስክሪኑን አንዴ ሲነካ ድምፁን Unlock እንዲያደርግ (ለቴሌግራም ሚኒ-አፕ ወሳኝ ነው)
         document.body.addEventListener('touchstart', function() {
             if (Howler.ctx && Howler.ctx.state !== 'running') {
                 Howler.ctx.resume();
@@ -241,13 +235,11 @@
 
         function playSound(type) {
             try {
-                // ድምፁ Unlock መደረጉን ማረጋገጥ
                 if (Howler.ctx && Howler.ctx.state !== 'running') {
                     Howler.ctx.resume();
                 }
 
                 if (type === 'fly') {
-                    // እየጮኸ ካልሆነ ብቻ አጫውት (እንዳይደራረብ)
                     if (!sounds.fly.playing()) {
                         sounds.fly.play();
                     }
@@ -261,13 +253,13 @@
             }
         }
 
-                // ==========================================
+        // ==========================================
         // 3. ዳታ ከሞጁል ባክኤንድ ማምጣት (Robust Fetch)
         // ==========================================
         async function fetchInitialData() {
             const balanceDisplay = document.getElementById('balanceDisplay');
             try {
-                // ጥያቄ ወደ ትክክለኛው የባላንስ ማግኛ ይላካል (/api/get_balance)
+                // 👇 3. ትክክለኛው ፖስት ሪኩዌስት ወደ /api/get_balance 👇
                 const res = await fetch("/api/get_balance", {
                     method: "POST",
                     headers: { 
@@ -291,7 +283,6 @@
             } catch (e) {
                 console.error("Connection error, retrying...", e);
                 balanceDisplay.innerText = "Reconnecting...";
-                // ኔትወርክ ከሌለ ከ 3 ሰከንድ በኋላ ዳግም ይሞክራል
                 setTimeout(fetchInitialData, 3000); 
             }
         }
@@ -302,7 +293,6 @@
         }
 
         fetchInitialData();
-
 
         // ==========================================
         // 4. የውርርድ ፓነል ክላስ
@@ -525,7 +515,6 @@
             });
         }
 
-        // 👇 2. እዚህ ጋር 'transports' የሚለው Magic ተጨምሯል 👇
         const socket = (typeof io !== 'undefined') ? io({
             transports: ['websocket', 'polling'], 
             reconnection: true,
