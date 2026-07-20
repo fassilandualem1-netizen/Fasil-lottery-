@@ -245,23 +245,6 @@ def place_bet():
         "new_balance": new_balance
     })
 
-@aviator_bp.route('/api/aviator/cancel_bet', methods=['POST'])
-def cancel_bet():
-    data = request.json or {}
-    user_id = str(data.get("user_id"))
-    
-    with bet_lock:
-        # ውርርዱ ከነበረበት ሰርሰነው ብሩን እንመልሳለን
-        target_dict = next_round_bets if user_id in next_round_bets else current_round_bets
-        if user_id in target_dict:
-            bet_info = target_dict.pop(user_id)
-            refund_amount = bet_info["amount"]
-            redis.hincrbyfloat("users:balance", user_id, refund_amount)
-            new_balance = round(float(redis.hget("users:balance", user_id) or 0.0), 2)
-            return jsonify({"status": "success", "new_balance": new_balance})
-            
-    return jsonify({"status": "error", "message": "ውርርድ አልተገኘም"})
-
 @aviator_bp.route('/api/aviator/cashout', methods=['POST'])
 def manual_cashout():
     data = request.json or {}
