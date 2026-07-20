@@ -620,9 +620,11 @@
         }
         requestAnimationFrame(animateGame);
 
+                // ==========================================
+        // 6. Robust Socket.IO & Backend Sync (Optimized)
         // ==========================================
-        // 6. Robust Socket.IO & Backend Sync
-        // ==========================================
+        let cdInterval = null; // 👈 የቆጣሪ ኢንተርቫል መደራረብን ለመከላከል ከላይ ታወጀ
+
         function renderHistory(historyArray) {
             const histBar = document.getElementById("historyBar");
             histBar.innerHTML = ""; 
@@ -645,33 +647,69 @@
             socket.on('game_state', (data) => {
                 gameState.status = data.status;
                 if (data.history) renderHistory(data.history); 
-                
+
+                // ------------------------------------------
+                // ሀ. አዲስ ዙር ሲጠበቅ (Betting Phase)
+                // ------------------------------------------
                 if (data.status === 'WAITING') { 
                     playSound("stop_fly");
                     gameState.countdown = data.time_left; 
-                    window.panel_p1.onRoundCrash(); window.panel_p2.onRoundCrash(); 
                     
-                    let cdInterval = setInterval(() => {
+                    // 👈 በተኖቹን ያለምንም መዘግየት ወዲያውኑ ለቀጣይ ዙር ክፍት (NONE) እናደርጋቸዋለን
+                    [window.panel_p1, window.panel_p2].forEach(panel => {
+                        if (panel) {
+                            panel.betState = "NONE";
+                            panel.isProcessing = false;
+                            panel.updateButtonUI();
+                            // Auto-Bet ንቁ ከሆነ ወዲያውኑ ውርርድ ያስገባል
+                            if (panel.isAutoBet) panel.handleAction();
+                        }
+                    });
+
+                    // የድሮው ቆጣሪ ካለ እናጠፋዋለን (ድርብ ቆጠራን ለመከላከል)
+                    if (cdInterval) clearInterval(cdInterval); 
+                    
+                    cdInterval = setInterval(() => {
                         gameState.countdown--;
-                        if(gameState.countdown <= 0 || gameState.status !== 'WAITING') clearInterval(cdInterval);
+                        if (gameState.countdown <= 0 || gameState.status !== 'WAITING') {
+                            clearInterval(cdInterval);
+                        }
                     }, 1000);
                 }
+
+                // ------------------------------------------
+                // ለ. አውሮፕላኑ መብረር ሲጀምር (In-Game Phase)
+                // ------------------------------------------
                 if (data.status === 'FLYING') { 
+                    if (cdInterval) clearInterval(cdInterval); // የቆጠራ ኢንተርቫሉን በቋሚነት ማቆም
                     playSound("fly");
-                    window.panel_p1.onRoundStart(); window.panel_p2.onRoundStart(); 
+                    
+                    // በተኖቹን ወደ ብርቱካናማ (CASH OUT) ይቀይራል
+                    if (window.panel_p1) window.panel_p1.onRoundStart(); 
+                    if (window.panel_p2) window.panel_p2.onRoundStart(); 
                 }
+
+                // ------------------------------------------
+                // ሐ. አውሮፕላኑ ሲፈነዳ (Crash Phase)
+                // ------------------------------------------
                 if (data.status === 'CRASHED') { 
+                    if (cdInterval) clearInterval(cdInterval);
                     playSound("stop_fly");
                     playSound("crash"); 
-                    window.panel_p1.onRoundCrash(); window.panel_p2.onRoundCrash(); 
+                    
+                    // በተኖቹን ወደ "CRASHED" ቀይሮ ለ2 ሰከንድ ያሳያል
+                    if (window.panel_p1) window.panel_p1.onRoundCrash(); 
+                    if (window.panel_p2) window.panel_p2.onRoundCrash(); 
                 }
             });
+
             socket.on('multiplier_update', (data) => {
                 gameState.multiplier = data.multiplier;
-                window.panel_p1.onMultiplierTick(); window.panel_p2.onMultiplierTick();
+                if (window.panel_p1) window.panel_p1.onMultiplierTick(); 
+                if (window.panel_p2) window.panel_p2.onMultiplierTick();
             });
         } 
-        
+
         window.addEventListener('resize', () => {
             if (canvas.parentElement) {
                 canvasW = canvas.parentElement.offsetWidth;
