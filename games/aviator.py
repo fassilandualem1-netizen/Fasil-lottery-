@@ -78,13 +78,35 @@ def process_cashout(user_id, multiplier):
 def start_aviator_loop(socketio):
     generate_500_crashes() 
 
+    # 🔥 1. መሃል ላይ ለሚገቡ ሰዎች (State Sync) 🔥
+    # ፍሮንትኤንዱ ገጹን እንደከፈተ ይሄንን ይጠይቃል፤ ሰርቨሩም ያለበትን ሁኔታ ለሱ ብቻ ይልካል
+    @socketio.on('request_aviator_state')
+    def handle_state_request():
+        time_left = 0
+        if game_state["status"] == "WAITING":
+            # ከ 10 ሰከንድ ላይ ያለፈውን ጊዜ በመቀነስ የቀረውን ሰከንድ ማወቅ
+            elapsed = time.time() - game_state.get("wait_start_time", time.time())
+            time_left = max(0, 10 - elapsed)
+
+        # ላጠየቀው ክላይንት (request.sid) ብቻ መረጃውን መላክ
+        socketio.emit('game_state', {
+            'status': game_state["status"],
+            'time_left': time_left,
+            'start_time': game_state.get("start_time", 0),
+            'multiplier': game_state["multiplier"],
+            'history': game_state["history"]
+        }, to=request.sid)
+
+
     def loop():
         global current_round_bets, next_round_bets
 
         while True:
             try:
+                # --- ሀ. የመጠባበቂያ ጊዜ (WAITING) ---
                 game_state["status"] = "WAITING"
                 game_state["multiplier"] = 1.00
+                game_state["wait_start_time"] = time.time() # ⏱ አዲስ ለሚገቡ ሰዎች የቀረውን ሰዓት ለማስላት
                 game_state["crash_point"] = get_next_crash()
 
                 with bet_lock:
@@ -99,8 +121,9 @@ def start_aviator_loop(socketio):
                 })
                 socketio.sleep(10) 
 
+                # --- ለ. የበረራ ጊዜ (FLYING) ---
                 game_state["status"] = "FLYING"
-                game_state["start_time"] = time.time()
+                game_state["start_time"] = time.time() # 🚀 ፍሮንትኤንዱ 60fps አኒሜሽን እንዲሰራበት ይጠቅመዋል
 
                 socketio.emit('game_state', {
                     'status': 'FLYING', 
@@ -112,6 +135,8 @@ def start_aviator_loop(socketio):
                 while not crashed:
                     socketio.sleep(0.05) 
                     elapsed_time = time.time() - game_state["start_time"]
+                    
+                    # አዲሱ ስታንዳርድ ቀመር (Exponential Growth)
                     current_multi = round(math.exp(0.06 * elapsed_time), 2)
 
                     if current_multi >= game_state["crash_point"]:
@@ -119,6 +144,8 @@ def start_aviator_loop(socketio):
                         crashed = True
 
                     game_state["multiplier"] = current_multi
+                    # ⚠️ ማሳሰቢያ፡ ይህ multiplier_update ለ Auto-cashout እና ለመጠባበቂያ ነው፤ 
+                    # ዋናውን ስሙዝ አኒሜሽን ፍሮንትኤንዱ በራሱ ይሰራል!
                     socketio.emit('multiplier_update', {'multiplier': current_multi})
 
                     with bet_lock:
@@ -130,6 +157,7 @@ def start_aviator_loop(socketio):
                                     except Exception as ex:
                                         print(f"⚠️ Auto-Cashout Error for UID {uid}: {ex}")
 
+                # --- ሐ. የመከሰከስ ጊዜ (CRASHED) ---
                 game_state["status"] = "CRASHED"
                 game_state["multiplier"] = game_state["crash_point"]
 
@@ -259,6 +287,32 @@ def manual_cashout():
             })
         else:
             return jsonify({"status": "error", "message": "ውርርድ አልተገኘም ወይም አስቀድመው ወስደዋል"}), 400
+
+
+@aviator_bp.route('/api/aviator/cancel_bet', methods=['POST'])
+def cancel_bet():
+    data = request.json or {}
+    user_id = str(data.get("user_id"))
+    
+    if not user_id:
+        return jsonify({"status": "error", "message": "መረጃ የለም"}), 400
+        
+    with bet_lock:
+        # 1. ጌሙ FLYING/CRASHED ላይ ሆኖ ለቀጣዩ ዙር (Next Round) የተመዘገበ ከሆነ መሰረዝ ይችላል
+        if user_id in next_round_bets:
+            bet_amount = next_round_bets[user_id]["amount"]
+            del next_round_bets[user_id]
+            redis.hincrbyfloat("users:balance", user_id, bet_amount) # ብሩን እንመልስለታለን
+            return jsonify({"status": "success", "message": "የቀጣይ ዙር ውርርድዎ ተሰርዟል!"})
+        
+        # 2. ጌሙ WAITING ላይ ከሆነ እና አሁን በተከፈተው ዙር ላይ ከተወራረደ መሰረዝ ይችላል
+        if user_id in current_round_bets and game_state["status"] == "WAITING":
+            bet_amount = current_round_bets[user_id]["amount"]
+            del current_round_bets[user_id]
+            redis.hincrbyfloat("users:balance", user_id, bet_amount) # ብሩን እንመልስለታለን
+            return jsonify({"status": "success", "message": "ውርርድዎ በተሳካ ሁኔታ ተሰርዟል!"})
+            
+    return jsonify({"status": "error", "message": "አሁን ውርርድ መሰረዝ አይችሉም (ጨዋታው እየበረረ ነው)!"}), 400
 
 @aviator_bp.route('/aviator')
 def aviator_page():
