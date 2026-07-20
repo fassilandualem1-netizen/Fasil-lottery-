@@ -143,12 +143,10 @@ def start_aviator_loop(socketio):
                                 if current_multi >= bet["auto_cashout_val"]:
                                     try:
                                         process_cashout(uid, bet["auto_cashout_val"])
-                                        current_round_bets[uid]["cashed_out"] = True 
                                     except Exception as ex:
                                         print(f"⚠️ Auto-Cashout Error for UID {uid}: {ex}")
 
                 # --- ሐ. የመከሰከስ ጊዜ (CRASHED - 3 ሰከንድ) ---
-                # ⚠️ ይህ ክፍል ወደ ውስጥ ገባ ብሎ የ try አካል መሆን አለበት
                 game_state["status"] = "CRASHED"
                 game_state["multiplier"] = game_state["crash_point"]
 
@@ -173,7 +171,6 @@ def start_aviator_loop(socketio):
 
                 socketio.sleep(3)
 
-            # ⚠️ የዋናው try ብሎክ መዝጊያ (ስህተት ቢፈጠር ጌም ሉፑ እንዳይሞት)
             except Exception as e:
                 print(f"🛑 Critical Aviator Loop Error: {e}")
                 socketio.sleep(2)
@@ -229,16 +226,6 @@ def place_bet():
     if not user_id or amount < 10: 
         return jsonify({"status": "error", "message": "ዝቅተኛው የውርርድ መጠን 10 ብር ነው"}), 400
         
-    current_balance = float(redis.hget("users:balance", user_id) or 0.0)
-    if current_balance < amount:
-        return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም"}), 400
-        
-    bet_data = {
-        "amount": amount, 
-        "cashed_out": False, 
-        "auto_cashout_val": auto_cashout_val if auto_cashout_val > 1.00 else None
-    }
-    
     with bet_lock:
         target_dict = current_round_bets if game_state["status"] == "WAITING" else next_round_bets
         round_type = "CURRENT" if game_state["status"] == "WAITING" else "NEXT"
@@ -247,7 +234,16 @@ def place_bet():
         if user_id in target_dict:
             return jsonify({"status": "error", "message": "በዚህ ዙር አስቀድመው ተወራርደዋል!"}), 400
             
-        redis.hincrbyfloat("users:balance", user_id, -amount)
+        # 🔥 deduct_balance_safely በመጠቀም Double Spendingን መከላከል
+        if not deduct_balance_safely(user_id, amount):
+            return jsonify({"status": "error", "message": "በቂ ባላንስ የለዎትም ወይም ሲስተሙ ስራ በዝቶበታል"}), 400
+            
+        bet_data = {
+            "amount": amount, 
+            "cashed_out": False, 
+            "auto_cashout_val": auto_cashout_val if auto_cashout_val > 1.00 else None
+        }
+        
         new_balance = round(float(redis.hget("users:balance", user_id) or 0.0), 2)
         target_dict[user_id] = bet_data
 
