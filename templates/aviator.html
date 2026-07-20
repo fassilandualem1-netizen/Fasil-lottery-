@@ -5,86 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Yegna Bet - Aviator</title>
     
-    <!-- 👇 1. የቴሌግራም ዌብ-አፕ ስክሪፕት (ባላንሱን ለማምጣት እጅግ ወሳኝ!) 👇 -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
-    <!-- የድምፅ ላይብረሪ (Howler.js) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
     <style>
-        /* ==========================================
-           🎨 የ Yegna Bet Aviator ዲዛይን (Robust & Lite)
-           ========================================== */
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
-
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Roboto', sans-serif; user-select: none; }
-        
-        body { 
-            background-color: #1a1a24; 
-            color: white; 
-            display: flex; 
-            flex-direction: column; 
-            height: 100dvh; 
-            overflow: hidden; 
-        }
-
+        body { background-color: #1a1a24; color: white; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
         .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background-color: #121219; border-bottom: 1px solid #2a2a35; flex-shrink: 0; }
         .logo { color: #e50b2c; font-weight: 900; font-size: 20px; font-style: italic; display: flex; align-items: center; gap: 10px;}
         .balance-container { display: flex; flex-direction: column; align-items: flex-end; }
         .balance { color: #28a745; font-weight: bold; font-size: 18px; }
-        
         .provably-fair { font-size: 10px; color: #4caf50; display: flex; align-items: center; gap: 4px; margin-top: 2px; }
-
         .history-bar { display: flex; gap: 8px; padding: 5px 15px; overflow-x: auto; background-color: #1a1a24; white-space: nowrap; border-bottom: 1px solid #2a2a35; scrollbar-width: none; flex-shrink: 0; }
         .history-bar::-webkit-scrollbar { display: none; }
         .history-item { font-size: 12px; font-weight: bold; padding: 4px 10px; border-radius: 12px; background: rgba(255,255,255,0.05); }
         .hist-red { color: #e50b2c; } .hist-purple { color: #c155ff; } .hist-blue { color: #3498db; }
-
         .game-screen { flex: 1 1 auto; position: relative; display: flex; justify-content: center; align-items: center; margin: 10px; border-radius: 12px; border: 1px solid #333; overflow: hidden; background-color: #111; min-height: 200px; }
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         #multiplier-text { font-size: 80px; font-weight: 900; z-index: 2; text-shadow: 2px 4px 10px rgba(0,0,0,0.5); }
-        
-        #status-text { 
-            position: absolute; 
-            top: 65%; 
-            left: 50%; 
-            transform: translateX(-50%); 
-            font-size: 18px; 
-            font-weight: 900; 
-            z-index: 2; 
-            text-align: center; 
-            display: none; 
-            padding: 8px 16px;
-            border-radius: 20px;
-            letter-spacing: 1px;
-        }
+        #status-text { position: absolute; top: 65%; left: 50%; transform: translateX(-50%); font-size: 18px; font-weight: 900; z-index: 2; text-align: center; display: none; padding: 8px 16px; border-radius: 20px; letter-spacing: 1px; }
         .status-waiting { color: #e50b2c; background: transparent; }
         .status-crashed { color: #fff; background: rgba(229, 11, 44, 0.85); box-shadow: 0 4px 15px rgba(229,11,44,0.4); border: 2px solid #e50b2c; }
-
         .panels-container { padding: 0 10px 10px 10px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; overflow-y: auto; max-height: 45vh; }
         .bet-panel { background-color: #21212c; border-radius: 12px; padding: 10px; border: 1px solid #2a2a35; }
         .panel-tabs { display: flex; justify-content: center; margin-bottom: 10px; background: #16161e; border-radius: 20px; padding: 2px; width: fit-content; margin-left: auto; margin-right: auto; }
         .panel-tab { padding: 5px 20px; font-size: 12px; font-weight: bold; color: #888; border-radius: 18px; cursor: pointer; transition: 0.3s; }
         .panel-tab.active { background-color: #2a2a35; color: white; }
-
         .panel-body { display: flex; gap: 10px; align-items: stretch; }
         .amount-controls { flex: 1; display: flex; flex-direction: column; gap: 5px; }
         .input-group { display: flex; align-items: center; background: #16161e; border-radius: 8px; padding: 2px; border: 1px solid #333; height: 35px; }
         .btn-stepper { width: 30px; height: 100%; border: none; background: transparent; color: #aaa; font-weight: bold; font-size: 18px; cursor: pointer; }
         .amount-input { flex: 1; width: 100%; text-align: center; background: transparent; border: none; color: white; font-size: 16px; font-weight: bold; outline: none; }
-        
         .quick-amounts { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
         .btn-quick { background: #16161e; border: 1px solid #333; color: #aaa; border-radius: 4px; padding: 5px; font-size: 12px; cursor: pointer; font-weight: bold; }
-
         .btn-action { flex: 1; border: none; border-radius: 12px; font-size: 20px; font-weight: 900; text-transform: uppercase; cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; line-height: 1.2; box-shadow: inset 0px -4px 0px rgba(0,0,0,0.2); transition: 0.1s; }
         .btn-action:active { transform: translateY(2px); box-shadow: inset 0px -2px 0px rgba(0,0,0,0.2); }
         .btn-green { background-color: #28a745; color: white; }
         .btn-red { background-color: #dc3545; color: white; }
         .btn-yellow { background-color: #ff9800; color: white; }
         .btn-disabled { background-color: #444; color: #888; pointer-events: none; }
-
         .auto-controls { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid #2a2a35; font-size: 12px; color: #aaa; }
         .auto-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
         .toggle-switch { width: 40px; height: 20px; background: #16161e; border-radius: 10px; position: relative; cursor: pointer; border: 1px solid #333; }
@@ -97,9 +59,7 @@
 <body>
 
     <header class="header">
-        <div class="logo">
-            YEGNA BET 🏁 <span style="font-style: italic; color: #e50b2c; font-size: 16px; margin-left: 10px;">Aviator</span>
-        </div>
+        <div class="logo">YEGNA BET 🏁 <span style="font-style: italic; color: #e50b2c; font-size: 16px; margin-left: 10px;">Aviator</span></div>
         <div class="balance-container">
             <div class="balance" id="balanceDisplay">Connecting...</div>
             <div class="provably-fair"><i class="fa-solid fa-shield-halved"></i> Provably Fair</div>
@@ -197,11 +157,7 @@
     </div>
 
     <script>
-        // ==========================================
-        // 1. መነሻ መዋቅር (Initialization & Telegram)
-        // ==========================================
         const tg = window.Telegram?.WebApp;
-        // 👇 2. ትክክለኛው የቴሌግራም አይዲ ማግኛ 👇
         const userId = tg?.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : "test_user_123";
         let balance = 0.00;
         let gameState = { status: "WAITING", multiplier: 1.00, countdown: 10 };
@@ -211,9 +167,6 @@
             tg.ready();
         }
 
-        // ==========================================
-        // 2. የተሻሻለ የድምፅ ሲስተም (በ Howler.js የተሰራ - Robust & Lite)
-        // ==========================================
         const sounds = {
             start: new Howl({ src: ['/static/sounds/start.mp3'], volume: 0.8 }),
             fly: new Howl({ src: ['/static/sounds/fly.mp3'], loop: true, volume: 0.5 }),
@@ -221,67 +174,40 @@
             crash: new Howl({ src: ['/static/sounds/crash.mp3'], volume: 1.0 })
         };
 
-        document.body.addEventListener('touchstart', function() {
-            if (Howler.ctx && Howler.ctx.state !== 'running') {
-                Howler.ctx.resume();
-            }
-        }, { once: true });
-        
-        document.body.addEventListener('click', function() {
-            if (Howler.ctx && Howler.ctx.state !== 'running') {
-                Howler.ctx.resume();
-            }
-        }, { once: true });
+        ['touchstart', 'click'].forEach(evt => {
+            document.body.addEventListener(evt, function() {
+                if (Howler.ctx && Howler.ctx.state !== 'running') Howler.ctx.resume();
+            }, { once: true });
+        });
 
         function playSound(type) {
             try {
-                if (Howler.ctx && Howler.ctx.state !== 'running') {
-                    Howler.ctx.resume();
-                }
-
+                if (Howler.ctx && Howler.ctx.state !== 'running') Howler.ctx.resume();
                 if (type === 'fly') {
-                    if (!sounds.fly.playing()) {
-                        sounds.fly.play();
-                    }
+                    if (!sounds.fly.playing()) sounds.fly.play();
                 } else if (type === 'stop_fly') {
                     sounds.fly.stop();
                 } else {
                     sounds[type].play();
                 }
-            } catch(e) {
-                console.error("Sound play error:", e);
-            }
+            } catch(e) { console.error("Sound play error:", e); }
         }
 
-        // ==========================================
-        // 3. ዳታ ከሞጁል ባክኤንድ ማምጣት (Robust Fetch)
-        // ==========================================
         async function fetchInitialData() {
             const balanceDisplay = document.getElementById('balanceDisplay');
             try {
-                // 👇 3. ትክክለኛው ፖስት ሪኩዌስት ወደ /api/get_balance 👇
                 const res = await fetch("/api/get_balance", {
                     method: "POST",
-                    headers: { 
-                        "Content-Type": "application/json"
-                    },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ user_id: userId })
                 });
-
-                if (!res.ok) {
-                    throw new Error("Network response was not ok");
-                }
-
                 const data = await res.json();
-
                 if (data.status === "success") {
                     updateBalance(data.balance);
                 } else {
-                    balanceDisplay.innerText = "Error";
-                    console.error("Backend Error:", data.message);
+                    balanceDisplay.innerText = "0.00 ETB";
                 }
             } catch (e) {
-                console.error("Connection error, retrying...", e);
                 balanceDisplay.innerText = "Reconnecting...";
                 setTimeout(fetchInitialData, 3000); 
             }
@@ -294,15 +220,12 @@
 
         fetchInitialData();
 
-                        // ==========================================
-        // 4. የውርርድ ፓነል ክላስ (Merged, Real Wallet & Robust)
-        // ==========================================
         class BetPanel {
             constructor(prefix) {
                 this.prefix = prefix;
                 this.amount = 20.00;
-                this.betState = "NONE"; // NONE, BETTING, IN_GAME, CASHED_OUT
-                this.isProcessing = false; // 👈 ደብል ክሊክ መከላከያ
+                this.betState = "NONE"; 
+                this.isProcessing = false; 
                 this.isAutoBet = false;
                 this.isAutoCashout = false;
                 this.autoCashoutVal = 2.00;
@@ -327,10 +250,7 @@
                     if (!isNaN(val) && val >= 10 && this.betState === "NONE" && !this.isProcessing) this.setAmount(val);
                 });
 
-                this.btnAction.addEventListener('click', () => {
-                    if (typeof sounds !== 'undefined' && sounds.start && sounds.start.currentTime === 0) sounds.start.load();
-                    this.handleAction();
-                });
+                this.btnAction.addEventListener('click', () => this.handleAction());
 
                 let tabBet = document.getElementById(`${this.prefix}-tab-bet`);
                 let tabAuto = document.getElementById(`${this.prefix}-tab-auto`);
@@ -359,36 +279,34 @@
 
             updateButtonUI() {
                 if(!this.btnAction) return;
-
                 this.btnAction.disabled = this.isProcessing || this.betState === "CASHED_OUT";
                 if(this.input) this.input.disabled = (this.betState !== "NONE" || this.isProcessing);
 
-                // ሪሴት ማድረግ
                 this.btnAction.className = "btn-action";
                 this.btnAction.style.backgroundColor = ""; 
 
                 if (this.isProcessing) {
                     this.btnAction.classList.add("btn-disabled");
-                    this.btnAction.style.backgroundColor = "#888"; // ግራጫ ሎዲንግ
+                    this.btnAction.style.backgroundColor = "#888"; 
                     this.btnLabel.innerText = "PROCESSING...";
                     return;
                 }
 
                 if (this.betState === "NONE") { 
                     this.btnAction.classList.add("btn-green"); 
-                    this.btnAction.style.backgroundColor = "#28a745"; // አረንጓዴ
+                    this.btnAction.style.backgroundColor = "#28a745"; 
                     this.btnLabel.innerText = "BET"; 
                     this.btnText.innerText = this.amount.toFixed(2) + " ETB"; 
                 } 
                 else if (this.betState === "BETTING") { 
                     this.btnAction.classList.add("btn-red"); 
-                    this.btnAction.style.backgroundColor = "#dc3545"; // ቀይ
+                    this.btnAction.style.backgroundColor = "#dc3545"; 
                     this.btnLabel.innerText = "WAITING"; 
                     this.btnText.innerText = "Cancel Bet"; 
                 } 
                 else if (this.betState === "IN_GAME") { 
                     this.btnAction.classList.add("btn-yellow"); 
-                    this.btnAction.style.backgroundColor = "#ff9800"; // 👈 ብርቱካናማ (Orange) ቀለም እዚህ ጋር ይመጣል!
+                    this.btnAction.style.backgroundColor = "#ff9800"; 
                     this.btnLabel.innerText = "CASH OUT"; 
                     let currentWin = this.amount * (typeof gameState !== 'undefined' ? gameState.multiplier : 1); 
                     this.btnText.innerText = currentWin.toFixed(2) + " ETB"; 
@@ -402,7 +320,6 @@
 
             async handleAction() {
                 if (this.isProcessing) return;
-
                 const initData = window.Telegram?.WebApp?.initData || "";
 
                 if (this.betState === "NONE") {
@@ -411,27 +328,22 @@
                         this.updateButtonUI();
 
                         try {
-                            const res = await fetch('/api/aviator/bet', { // 👈 የ API መስመር (ትክክል መሆኑን አረጋግጥ)
+                            const res = await fetch('/api/aviator/bet', {
                                 method: 'POST', 
-                                headers: { 
-                                    'Content-Type': 'application/json',
-                                    'X-Telegram-Init-Data': initData 
-                                }, 
+                                headers: { 'Content-Type': 'application/json' }, 
                                 body: JSON.stringify({ 
-                                    user_id: typeof userId !== 'undefined' ? userId : 1, 
-                                    bet_amount: this.amount, 
-                                    game_mode: "real" // 👈 ሁሌም 'real' ዋሌት እንዲጠቀም Merge ተደርጓል
+                                    user_id: userId, 
+                                    bet_amount: this.amount,
+                                    auto_cashout: this.isAutoCashout ? this.autoCashoutVal : 0
                                 }) 
                             });
                             const data = await res.json();
 
                             if (data.status === "success") { 
                                 this.betState = "BETTING"; 
-                                if (data.new_balance !== undefined && typeof updateBalance === 'function') {
-                                    updateBalance(data.new_balance); 
-                                }
+                                if (data.new_balance !== undefined) updateBalance(data.new_balance); 
                             } else { 
-                                window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(data.message) : alert(data.message); 
+                                alert(data.message); 
                             }
                         } catch (e) { 
                             console.error("Bet error", e); 
@@ -442,19 +354,18 @@
                     }
                 } 
                 else if (this.betState === "BETTING") {
-                    // መሰረዝ (Cancel) ከፈለገ
                     this.isProcessing = true;
                     this.updateButtonUI();
                     try {
                         const res = await fetch('/api/aviator/cancel_bet', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ user_id: userId })
                         });
                         const data = await res.json();
                         if (data.status === "success") {
                             this.betState = "NONE";
-                            if (data.new_balance !== undefined && typeof updateBalance === 'function') updateBalance(data.new_balance);
+                            if (data.new_balance !== undefined) updateBalance(data.new_balance);
                         }
                     } catch(e) { console.error(e); }
                     finally { this.isProcessing = false; this.updateButtonUI(); }
@@ -466,33 +377,24 @@
 
             async triggerCashout() {
                 if (this.betState !== "IN_GAME" || this.isProcessing) return;
-
                 this.isProcessing = true; 
                 this.updateButtonUI();
 
                 try {
-                    const res = await fetch('/api/aviator/cashout', { // 👈 የ API መስመር (ትክክል መሆኑን አረጋግጥ)
+                    const res = await fetch('/api/aviator/cashout', {
                         method: 'POST', 
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'X-Telegram-Init-Data': window.Telegram?.WebApp?.initData || "" 
-                        }, 
-                        body: JSON.stringify({ 
-                            user_id: typeof userId !== 'undefined' ? userId : 1,
-                            bet_amount: this.amount,
-                            multiplier: gameState.multiplier,
-                            game_mode: "real" // 👈 ሁሌም 'real' ዋሌት
-                        }) 
+                        headers: { 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify({ user_id: userId }) 
                     });
                     const data = await res.json();
 
                     if (data.status === "success") {
                         this.betState = "CASHED_OUT";
-                        if (typeof playSound === "function") playSound("win");
+                        playSound("win");
                         this.btnText.innerText = (data.win_amount || (this.amount * gameState.multiplier)).toFixed(2) + " ETB";
-                        if (data.new_balance !== undefined && typeof updateBalance === 'function') updateBalance(data.new_balance);
+                        if (data.new_balance !== undefined) updateBalance(data.new_balance);
                     } else {
-                        window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(data.message) : alert(data.message);
+                        alert(data.message);
                     }
                 } catch (e) { 
                     console.error("Cashout error", e); 
@@ -502,7 +404,6 @@
                 }
             }
 
-            // 👈 ይሄ ፈንክሽን ነው ጨዋታው ሲጀምር ቀለሙን ወደ ብርቱካናማ የሚቀይረው
             onRoundStart() {
                 this.isProcessing = false; 
                 if (this.betState === "BETTING") { 
@@ -511,7 +412,7 @@
                     this.betState = "NONE"; 
                     if (this.isAutoBet && gameState.status === "WAITING") this.handleAction(); 
                 }
-                this.updateButtonUI(); // ቀለሙን ወደ ብርቱካናማ (Orange) እንዲያደርገው ትዕዛዝ ይሰጣል
+                this.updateButtonUI(); 
             }
 
             onMultiplierTick() {
@@ -544,10 +445,6 @@
         window.panel_p1 = new BetPanel('p1');
         window.panel_p2 = new BetPanel('p2');
 
-
-        // ==========================================
-        // 5. Canvas አኒሜሽን 
-        // ==========================================
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const multText = document.getElementById("multiplier-text");
@@ -555,7 +452,6 @@
         
         let canvasW = canvas.offsetWidth, canvasH = canvas.offsetHeight;
         canvas.width = canvasW; canvas.height = canvasH;
-        
         let planePos = { x: 0, y: canvasH }, sunburstAngle = 0;
         
         const planeImg = new Image();
@@ -608,7 +504,7 @@
                 planePos.y += (Math.sin(Date.now() / 200) * 2) * 0.1;
                 drawCurveAndPlane();
             } 
-              else if (gameState.status === 'CRASHED') {
+            else if (gameState.status === 'CRASHED') {
                 multText.style.color = "#e50b2c";
                 statusText.style.display = "block";
                 statusText.className = "status-crashed";
@@ -620,11 +516,7 @@
         }
         requestAnimationFrame(animateGame);
 
-                // ==========================================
-        // 6. Robust Socket.IO & Backend Sync (Optimized)
-        // ==========================================
-        let cdInterval = null; // 👈 የቆጣሪ ኢንተርቫል መደራረብን ለመከላከል ከላይ ታወጀ
-
+        let cdInterval = null;
         function renderHistory(historyArray) {
             const histBar = document.getElementById("historyBar");
             histBar.innerHTML = ""; 
@@ -648,27 +540,20 @@
                 gameState.status = data.status;
                 if (data.history) renderHistory(data.history); 
 
-                // ------------------------------------------
-                // ሀ. አዲስ ዙር ሲጠበቅ (Betting Phase)
-                // ------------------------------------------
                 if (data.status === 'WAITING') { 
                     playSound("stop_fly");
                     gameState.countdown = data.time_left; 
                     
-                    // 👈 በተኖቹን ያለምንም መዘግየት ወዲያውኑ ለቀጣይ ዙር ክፍት (NONE) እናደርጋቸዋለን
                     [window.panel_p1, window.panel_p2].forEach(panel => {
                         if (panel) {
                             panel.betState = "NONE";
                             panel.isProcessing = false;
                             panel.updateButtonUI();
-                            // Auto-Bet ንቁ ከሆነ ወዲያውኑ ውርርድ ያስገባል
                             if (panel.isAutoBet) panel.handleAction();
                         }
                     });
 
-                    // የድሮው ቆጣሪ ካለ እናጠፋዋለን (ድርብ ቆጠራን ለመከላከል)
                     if (cdInterval) clearInterval(cdInterval); 
-                    
                     cdInterval = setInterval(() => {
                         gameState.countdown--;
                         if (gameState.countdown <= 0 || gameState.status !== 'WAITING') {
@@ -677,27 +562,17 @@
                     }, 1000);
                 }
 
-                // ------------------------------------------
-                // ለ. አውሮፕላኑ መብረር ሲጀምር (In-Game Phase)
-                // ------------------------------------------
                 if (data.status === 'FLYING') { 
-                    if (cdInterval) clearInterval(cdInterval); // የቆጠራ ኢንተርቫሉን በቋሚነት ማቆም
+                    if (cdInterval) clearInterval(cdInterval);
                     playSound("fly");
-                    
-                    // በተኖቹን ወደ ብርቱካናማ (CASH OUT) ይቀይራል
                     if (window.panel_p1) window.panel_p1.onRoundStart(); 
                     if (window.panel_p2) window.panel_p2.onRoundStart(); 
                 }
 
-                // ------------------------------------------
-                // ሐ. አውሮፕላኑ ሲፈነዳ (Crash Phase)
-                // ------------------------------------------
                 if (data.status === 'CRASHED') { 
                     if (cdInterval) clearInterval(cdInterval);
                     playSound("stop_fly");
                     playSound("crash"); 
-                    
-                    // በተኖቹን ወደ "CRASHED" ቀይሮ ለ2 ሰከንድ ያሳያል
                     if (window.panel_p1) window.panel_p1.onRoundCrash(); 
                     if (window.panel_p2) window.panel_p2.onRoundCrash(); 
                 }
