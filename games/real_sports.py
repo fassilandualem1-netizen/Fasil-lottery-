@@ -38,6 +38,23 @@ def _get_current_user_id():
     return None
 
 
+def _get_balance(user_id):
+    try:
+        raw = redis.get(f"user_balance:{user_id}")
+        if raw is None:
+            return 1000.0
+        return float(raw)
+    except Exception:
+        return 1000.0
+
+
+def _set_balance(user_id, balance):
+    try:
+        redis.set(f"user_balance:{user_id}", float(balance))
+    except Exception:
+        pass
+
+
 def _sample_matches():
     now = datetime.utcnow()
     return [
@@ -59,6 +76,26 @@ def _sample_matches():
                 "dc_1x": 1.45,
                 "dc_12": 1.80,
                 "dc_x2": 2.10
+            }
+        },
+        {
+            "fixture": {
+                "id": "sample-2",
+                "teams": {
+                    "home": {"name": "Manchester City"},
+                    "away": {"name": "Arsenal"}
+                },
+                "league": "Premier League",
+                "date": (now + timedelta(days=1)).strftime("%Y-%m-%d"),
+                "time": (now + timedelta(hours=26)).strftime("%H:%M")
+            },
+            "odds": {
+                "home": 1.70,
+                "draw": 3.60,
+                "away": 4.50,
+                "dc_1x": 1.40,
+                "dc_12": 1.85,
+                "dc_x2": 2.20
             }
         }
     ]
@@ -107,6 +144,7 @@ def _normalize_matches(raw_data):
                 continue
 
             local_dt = dt + timedelta(hours=3)
+
             fixture = {
                 "id": match_id,
                 "teams": {
@@ -195,6 +233,20 @@ def get_odds():
         }), 500
 
 
+@real_sports_bp.route("/api/wallet/balance", methods=["GET"])
+@telegram_auth_required
+def wallet_balance():
+    try:
+        user_id = _get_current_user_id()
+        if not user_id:
+            return jsonify({"status": "error", "balance": 0.0, "message": "User not found"}), 400
+        balance = _get_balance(user_id)
+        return jsonify({"status": "success", "balance": round(balance, 2)}), 200
+    except Exception as e:
+        print("Wallet Balance Error:", e)
+        return jsonify({"status": "error", "balance": 0.0, "message": "Could not read balance"}), 500
+
+
 @real_sports_bp.route("/api/sports/place_bet", methods=["POST"])
 @telegram_auth_required
 def place_bet():
@@ -202,11 +254,11 @@ def place_bet():
         data = request.get_json(silent=True) or {}
         user_id = _get_current_user_id()
 
-        bet_amount = data.get("bet_amount")
-        selections = data.get("selections")
-
         if not user_id:
             return jsonify({"status": "error", "message": "User not found"}), 400
+
+        bet_amount = data.get("bet_amount")
+        selections = data.get("selections")
 
         if not bet_amount or not selections:
             return jsonify({"status": "error", "message": "Missing data"}), 400
@@ -215,9 +267,18 @@ def place_bet():
         if bet_amount < 10:
             return jsonify({"status": "error", "message": "Minimum bet is 10 ETB"}), 400
 
-        result = deduct_balance_safely(str(user_id), bet_amount)
-        if result != "SUCCESS":
-            return jsonify({"status": "error", "message": "Insufficient balance"}), 400
+        balance = _get_balance(user_id)
+
+        try:
+            result = deduct_balance_safely(str(user_id), bet_amount)
+            if result == "SUCCESS":
+                pass
+            else:
+                return jsonify({"status": "error", "message": "Insufficient balance"}), 400
+        except Exception:
+            if balance < bet_amount:
+                return jsonify({"status": "error", "message": "Insufficient balance"}), 400
+            _set_balance(user_id, balance - bet_amount)
 
         total_odds = 1.0
         for sel in selections:
