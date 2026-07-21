@@ -2,9 +2,9 @@ import os
 import json
 import time
 import uuid
-from datetime import datetime, timedelta
-
 import requests
+from datetime import datetime, timedelta, timezone
+
 from flask import Blueprint, request, jsonify
 
 from config import (
@@ -23,10 +23,6 @@ CACHE_KEY = "cached_real_sports_odds"
 
 def _get_current_user_id():
     user_id = get_user_id_from_request()
-    if user_id:
-        return str(user_id)
-
-    user_id = request.args.get("user_id") or request.headers.get("X-User-Id")
     if user_id:
         return str(user_id)
 
@@ -55,52 +51,6 @@ def _set_balance(user_id, balance):
         pass
 
 
-def _sample_matches():
-    now = datetime.utcnow()
-    return [
-        {
-            "fixture": {
-                "id": "sample-1",
-                "teams": {
-                    "home": {"name": "Barcelona"},
-                    "away": {"name": "Real Madrid"}
-                },
-                "league": "La Liga",
-                "date": now.strftime("%Y-%m-%d"),
-                "time": (now + timedelta(hours=2)).strftime("%H:%M")
-            },
-            "odds": {
-                "home": 1.90,
-                "draw": 3.40,
-                "away": 4.20,
-                "dc_1x": 1.45,
-                "dc_12": 1.80,
-                "dc_x2": 2.10
-            }
-        },
-        {
-            "fixture": {
-                "id": "sample-2",
-                "teams": {
-                    "home": {"name": "Manchester City"},
-                    "away": {"name": "Arsenal"}
-                },
-                "league": "Premier League",
-                "date": (now + timedelta(days=1)).strftime("%Y-%m-%d"),
-                "time": (now + timedelta(hours=26)).strftime("%H:%M")
-            },
-            "odds": {
-                "home": 1.70,
-                "draw": 3.60,
-                "away": 4.50,
-                "dc_1x": 1.40,
-                "dc_12": 1.85,
-                "dc_x2": 2.20
-            }
-        }
-    ]
-
-
 def _read_cache():
     try:
         cached = redis.get(CACHE_KEY)
@@ -120,60 +70,88 @@ def _write_cache(matches):
         pass
 
 
+def _sample_matches():
+    now = datetime.utcnow()
+    return [
+        {
+            "fixture": {
+                "id": "sample-1",
+                "teams": {"home": {"name": "Barcelona"}, "away": {"name": "Real Madrid"}},
+                "league": "La Liga",
+                "date": (now + timedelta(days=1)).strftime("%Y-%m-%d"),
+                "time": "19:00"
+            },
+            "odds": {"home": 1.90, "draw": 3.40, "away": 4.20}
+        },
+        {
+            "fixture": {
+                "id": "sample-2",
+                "teams": {"home": {"name": "Manchester City"}, "away": {"name": "Arsenal"}},
+                "league": "Premier League",
+                "date": (now + timedelta(days=2)).strftime("%Y-%m-%d"),
+                "time": "17:30"
+            },
+            "odds": {"home": 1.70, "draw": 3.60, "away": 4.50}
+        },
+        {
+            "fixture": {
+                "id": "sample-3",
+                "teams": {"home": {"name": "Bayern"}, "away": {"name": "Dortmund"}},
+                "league": "Bundesliga",
+                "date": (now + timedelta(days=3)).strftime("%Y-%m-%d"),
+                "time": "20:00"
+            },
+            "odds": {"home": 1.80, "draw": 3.50, "away": 4.10}
+        },
+        {
+            "fixture": {
+                "id": "sample-4",
+                "teams": {"home": {"name": "Inter"}, "away": {"name": "Milan"}},
+                "league": "Serie A",
+                "date": (now + timedelta(days=4)).strftime("%Y-%m-%d"),
+                "time": "19:45"
+            },
+            "odds": {"home": 2.10, "draw": 3.20, "away": 3.40}
+        },
+    ]
+
+
 def _normalize_matches(raw_data):
     matches = []
-    now_utc = datetime.utcnow()
-
     for item in raw_data or []:
         try:
-            match_id = item.get("id")
-            home_team = item.get("home_team") or "Home"
-            away_team = item.get("away_team") or "Away"
-            commence_time = item.get("commence_time")
-            league = item.get("sport_title") or "Unknown League"
+            match_id = item.get("id") or item.get("fixture", {}).get("id")
+            home = item.get("home_team") or item.get("homeTeam") or (item.get("teams", {}).get("home", {}).get("name"))
+            away = item.get("away_team") or item.get("awayTeam") or (item.get("teams", {}).get("away", {}).get("name"))
+            league = item.get("sport_title") or item.get("league") or "Football"
+            commence_time = item.get("commence_time") or item.get("date")
 
-            if not commence_time:
+            if not match_id or not home or not away or not commence_time:
                 continue
 
             try:
-                dt = datetime.fromisoformat(commence_time.replace("Z", "+00:00"))
+                dt = datetime.fromisoformat(str(commence_time).replace("Z", "+00:00"))
             except Exception:
                 continue
 
-            if dt <= now_utc:
+            if dt <= datetime.now(timezone.utc):
                 continue
 
-            local_dt = dt + timedelta(hours=3)
-
             fixture = {
-                "id": match_id,
-                "teams": {
-                    "home": {"name": home_team},
-                    "away": {"name": away_team}
-                },
+                "id": str(match_id),
+                "teams": {"home": {"name": home}, "away": {"name": away}},
                 "league": league,
-                "date": local_dt.strftime("%Y-%m-%d"),
-                "time": local_dt.strftime("%H:%M")
+                "date": dt.strftime("%Y-%m-%d"),
+                "time": dt.strftime("%H:%M"),
             }
 
-            odds = {}
-            for bookmaker in item.get("bookmakers", []):
-                for market in bookmaker.get("markets", []):
-                    for outcome in market.get("outcomes", []):
-                        name = outcome.get("name")
-                        price = outcome.get("price")
-                        if name == home_team:
-                            odds["home"] = price
-                        elif name == away_team:
-                            odds["away"] = price
-                        elif name == "Draw":
-                            odds["draw"] = price
+            odds = {
+                "home": item.get("home_odds") or item.get("odds", {}).get("home"),
+                "draw": item.get("draw_odds") or item.get("odds", {}).get("draw"),
+                "away": item.get("away_odds") or item.get("odds", {}).get("away"),
+            }
 
-            if odds.get("home") and odds.get("away") and odds.get("draw"):
-                odds["dc_1x"] = round((odds["home"] * odds["draw"]) / (odds["home"] + odds["draw"]), 2)
-                odds["dc_12"] = round((odds["home"] * odds["away"]) / (odds["home"] + odds["away"]), 2)
-                odds["dc_x2"] = round((odds["draw"] * odds["away"]) / (odds["draw"] + odds["away"]), 2)
-
+            if odds["home"] and odds["draw"] and odds["away"]:
                 matches.append({"fixture": fixture, "odds": odds})
         except Exception:
             continue
@@ -193,12 +171,25 @@ def _fetch_odds_from_api():
         "oddsFormat": "decimal"
     }
 
-    response = requests.get(url, params=params, timeout=20)
-    if response.status_code != 200:
-        raise Exception(response.text)
+    try:
+        response = requests.get(url, params=params, timeout=20)
+        if response.status_code != 200:
+            raise Exception(response.text)
+        data = response.json()
+        return _normalize_matches(data)
+    except Exception:
+        return None
 
-    data = response.json()
-    return _normalize_matches(data)
+
+def _is_future_match(match):
+    raw_date = match.get("fixture", {}).get("date")
+    if not raw_date:
+        return True
+    try:
+        dt = datetime.fromisoformat(str(raw_date).replace("Z", "+00:00"))
+        return dt > datetime.now(timezone.utc)
+    except Exception:
+        return True
 
 
 @real_sports_bp.route("/api/internal/ping", methods=["GET"])
@@ -209,33 +200,32 @@ def ping():
 @real_sports_bp.route("/api/sports/odds", methods=["GET"])
 def get_odds():
     try:
+        limit = int(request.args.get("limit", 12))
         cached = _read_cache()
+
         if cached:
-            matches = cached
+            matches = [m for m in cached if _is_future_match(m)][:limit]
         else:
-            matches = _fetch_odds_from_api()
-            if matches is None:
-                matches = _sample_matches()
+            matches = _fetch_odds_from_api() or _sample_matches()
+            matches = [m for m in matches if _is_future_match(m)]
             _write_cache(matches)
 
-        return jsonify({
-            "status": "success",
-            "matches": matches,
-            "count": len(matches)
-        }), 200
+        if len(matches) < limit:
+            fallback = [m for m in _sample_matches() if _is_future_match(m)]
+            for item in fallback:
+                if len(matches) >= limit:
+                    break
+                if item not in matches:
+                    matches.append(item)
+
+        return jsonify({"status": "success", "matches": matches[:limit], "count": len(matches[:limit])}), 200
     except Exception as e:
         print("Get Odds Error:", e)
-        return jsonify({
-            "status": "error",
-            "matches": _sample_matches(),
-            "count": 1,
-            "message": "Could not load odds from API"
-        }), 500
+        return jsonify({"status": "error", "matches": _sample_matches()[:6], "count": 1, "message": "Could not load odds"}), 500
 
 
-@real_sports_bp.route("/api/wallet/balance", methods=["GET"])
-@telegram_auth_required
-def wallet_balance():
+@real_sports_bp.route("/api/get_balance", methods=["POST"])
+def get_balance():
     try:
         user_id = _get_current_user_id()
         if not user_id:
@@ -243,12 +233,11 @@ def wallet_balance():
         balance = _get_balance(user_id)
         return jsonify({"status": "success", "balance": round(balance, 2)}), 200
     except Exception as e:
-        print("Wallet Balance Error:", e)
+        print("Balance error:", e)
         return jsonify({"status": "error", "balance": 0.0, "message": "Could not read balance"}), 500
 
 
 @real_sports_bp.route("/api/sports/place_bet", methods=["POST"])
-@telegram_auth_required
 def place_bet():
     try:
         data = request.get_json(silent=True) or {}
@@ -257,23 +246,20 @@ def place_bet():
         if not user_id:
             return jsonify({"status": "error", "message": "User not found"}), 400
 
-        bet_amount = data.get("bet_amount")
-        selections = data.get("selections")
+        bet_amount = float(data.get("bet_amount", 0))
+        selections = data.get("selections", [])
 
-        if not bet_amount or not selections:
-            return jsonify({"status": "error", "message": "Missing data"}), 400
-
-        bet_amount = float(bet_amount)
         if bet_amount < 10:
             return jsonify({"status": "error", "message": "Minimum bet is 10 ETB"}), 400
+
+        if not selections:
+            return jsonify({"status": "error", "message": "No matches selected"}), 400
 
         balance = _get_balance(user_id)
 
         try:
             result = deduct_balance_safely(str(user_id), bet_amount)
-            if result == "SUCCESS":
-                pass
-            else:
+            if result != "SUCCESS":
                 return jsonify({"status": "error", "message": "Insufficient balance"}), 400
         except Exception:
             if balance < bet_amount:
@@ -281,34 +267,30 @@ def place_bet():
             _set_balance(user_id, balance - bet_amount)
 
         total_odds = 1.0
-        for sel in selections:
-            total_odds *= float(sel.get("odd", 1))
+        for item in selections:
+            total_odds *= float(item.get("odd", 1))
 
-        possible_win = bet_amount * total_odds
+        possible_win = round(bet_amount * total_odds, 2)
         ticket_id = f"RS-{uuid.uuid4().hex[:6].upper()}"
 
-        bet_data = {
+        ticket = {
             "ticket_id": ticket_id,
             "user_id": user_id,
-            "amount": bet_amount,
+            "stake": bet_amount,
             "total_odds": total_odds,
             "possible_win": possible_win,
-            "selections": selections,
             "status": "pending",
-            "timestamp": time.time()
+            "selections": selections,
+            "timestamp": time.time(),
         }
 
-        redis.hset(f"user_sports_bets:{user_id}", ticket_id, json.dumps(bet_data))
-
-        add_to_history(str(user_id), {
-            "action": f"Sports Bet ({ticket_id})",
-            "amount": bet_amount,
-            "status": "pending"
-        })
+        redis.hset(f"user_sports_bets:{user_id}", ticket_id, json.dumps(ticket))
+        add_to_history(str(user_id), {"type": "Sports Bet", "amount": bet_amount, "status": "pending"})
 
         return jsonify({
             "status": "success",
-            "message": f"Bet placed successfully!\nTicket: {ticket_id}\nPossible win: {possible_win:.2f} ETB"
+            "message": f"Bet placed successfully! Ticket: {ticket_id}",
+            "possible_win": possible_win
         }), 200
 
     except Exception as e:
@@ -317,30 +299,30 @@ def place_bet():
 
 
 @real_sports_bp.route("/api/sports/my_bets", methods=["GET"])
-@telegram_auth_required
-def get_my_bets():
+def my_bets():
     try:
         user_id = _get_current_user_id()
         if not user_id:
             return jsonify({"status": "error", "message": "User not found"}), 400
 
-        raw_bets = redis.hgetall(f"user_sports_bets:{user_id}")
+        raw = redis.hgetall(f"user_sports_bets:{user_id}")
         tickets = []
 
-        for ticket_id, ticket_data in raw_bets.items():
-            data = json.loads(ticket_data)
-            tickets.append({
-                "id": data.get("ticket_id", ticket_id),
-                "stake": round(float(data.get("amount", 0)), 2),
-                "possible_win": round(float(data.get("possible_win", 0)), 2),
-                "status": data.get("status", "Pending"),
-                "timestamp": data.get("timestamp", 0),
-                "selections": data.get("selections", [])
-            })
+        for ticket_id, payload in raw.items():
+            try:
+                data = json.loads(payload)
+                tickets.append({
+                    "id": data.get("ticket_id", ticket_id),
+                    "stake": round(float(data.get("stake", 0)), 2),
+                    "possible_win": round(float(data.get("possible_win", 0)), 2),
+                    "status": data.get("status", "pending"),
+                    "timestamp": data.get("timestamp", 0),
+                })
+            except Exception:
+                continue
 
         tickets.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
         return jsonify({"status": "success", "tickets": tickets}), 200
-
     except Exception as e:
-        print("Get My Bets Error:", e)
+        print("My Bets Error:", e)
         return jsonify({"status": "error", "message": "Could not load tickets"}), 500
