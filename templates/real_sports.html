@@ -1,427 +1,392 @@
 <!DOCTYPE html>
 <html lang="am">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>YegnaBet - Football Sportsbook</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; }
-        body {
-            background: #07111f;
-            color: #f8fafc;
-            padding-bottom: 220px;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 14px;
-            background: linear-gradient(90deg, #0b3d6d, #144d8a);
-            color: #fff;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .brand-mark {
-            width: 42px;
-            height: 42px;
-            border-radius: 12px;
-            background: #f59e0b;
-            color: #111827;
-            display: grid;
-            place-items: center;
-            font-weight: 900;
-            font-size: 18px;
-        }
-
-        .brand-title {
-            font-weight: 800;
-            font-size: 16px;
-        }
-
-        .brand-subtitle {
-            font-size: 11px;
-            color: #dbeafe;
-        }
-
-        .btn {
-            border: none;
-            border-radius: 10px;
-            padding: 8px 12px;
-            font-weight: 700;
-            cursor: pointer;
-        }
-
-        .btn-yellow {
-            background: #f59e0b;
-            color: #111827;
-        }
-
-        .btn-dark {
-            background: #111827;
-            color: #f8fafc;
-            border: 1px solid #334155;
-        }
-
-        .toolbar {
-            display: flex;
-            gap: 8px;
-            padding: 10px;
-            background: #0f172a;
-            border-bottom: 1px solid #1f2937;
-        }
-
-        .search-input {
-            flex: 1;
-            border: 1px solid #334155;
-            background: #111827;
-            color: white;
-            border-radius: 10px;
-            padding: 10px 12px;
-            outline: none;
-        }
-
-        .toggle-box {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            color: #cbd5e1;
-            font-size: 12px;
-            white-space: nowrap;
-        }
-
-        .nav {
-            display: flex;
-            gap: 8px;
-            padding: 10px;
-            background: #0f172a;
-            border-bottom: 1px solid #1f2937;
-        }
-
-        .tab, .market {
-            border: 1px solid #334155;
-            background: #111827;
-            color: #cbd5e1;
-            border-radius: 999px;
-            padding: 8px 12px;
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
-        }
-
-        .tab.active, .market.active {
-            background: #f59e0b;
-            color: #111827;
-            border-color: #f59e0b;
-        }
-
-        .wallet-card {
-            margin: 10px;
-            padding: 10px;
-            border-radius: 12px;
-            border: 1px solid #334155;
-            background: #111827;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 13px;
-        }
-
-        .quick-stakes {
-            display: flex;
-            gap: 8px;
-            padding: 0 10px 10px 10px;
-        }
-
-        .stake-btn {
-            flex: 1;
-            background: #111827;
-            color: #f8fafc;
-            border: 1px solid #334155;
-            padding: 8px;
-            border-radius: 10px;
-            font-weight: 700;
-            cursor: pointer;
-        }
-
-        .hot-picks {
-            padding: 0 10px 10px 10px;
-            display: grid;
-            gap: 8px;
-        }
-
-        .hot-card {
-            background: linear-gradient(90deg, #111827, #1f2937);
-            border: 1px solid #334155;
-            border-radius: 12px;
-            padding: 10px;
-        }
-
-        .hot-title {
-            font-size: 12px;
-            color: #f59e0b;
-            font-weight: 700;
-            margin-bottom: 6px;
-        }
-
-        .hot-body {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 13px;
-            color: #f8fafc;
-        }
-
-        .matches-list {
-            padding: 0 10px 10px 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .match-card {
-            background: #111827;
-            border: 1px solid #334155;
-            border-radius: 14px;
-            padding: 10px;
-        }
-
-        .match-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-            font-size: 11px;
-            color: #94a3b8;
-        }
-
-        .match-title {
-            font-size: 14px;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .match-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-
-        .favorite-btn {
-            border: none;
-            background: transparent;
-            color: #f59e0b;
-            font-size: 18px;
-            cursor: pointer;
-        }
-
-        .odds-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-        }
-
-        .odd-btn {
-            border: 1px solid #334155;
-            background: #1f2937;
-            color: #f8fafc;
-            border-radius: 10px;
-            padding: 8px 4px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 3px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 700;
-        }
-
-        .odd-btn.selected {
-            background: #f59e0b;
-            color: #111827;
-            border-color: #f59e0b;
-        }
-
-        .odd-btn.disabled {
-            opacity: 0.45;
-            pointer-events: none;
-        }
-
-        .loading-text {
-            padding: 20px;
-            text-align: center;
-            color: #94a3b8;
-        }
-
-        .bet-slip {
-            position: fixed;
-            left: 8px;
-            right: 8px;
-            bottom: 8px;
-            z-index: 100;
-            background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 14px;
-            padding: 10px;
-            display: none;
-            flex-direction: column;
-            gap: 8px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-        }
-
-        .bet-slip-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 13px;
-            color: #cbd5e1;
-        }
-
-        .slip-items {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            max-height: 180px;
-            overflow: auto;
-        }
-
-        .slip-item {
-            background: #111827;
-            border: 1px solid #334155;
-            border-radius: 10px;
-            padding: 8px;
-            font-size: 12px;
-            color: #cbd5e1;
-        }
-
-        .bet-actions {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .bet-amount {
-            flex: 1;
-            border: 1px solid #334155;
-            background: #111827;
-            color: white;
-            padding: 10px;
-            border-radius: 10px;
-            outline: none;
-        }
-
-        .bet-summary {
-            font-size: 12px;
-            color: #f59e0b;
-            font-weight: 700;
-        }
-
-        .my-bets {
-            display: none;
-            padding: 10px;
-        }
-
-        .panel-title {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .ticket-card {
-            background: #111827;
-            border: 1px solid #334155;
-            border-radius: 10px;
-            padding: 10px;
-            margin-bottom: 8px;
-        }
-
-        .pill {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 999px;
-            background: #1f2937;
-            color: #cbd5e1;
-            font-size: 11px;
-            margin-left: 4px;
-        }
-
-        .muted {
-            color: #94a3b8;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YegnaBet | Football Sportsbook</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body { background: #07111f; color: #f8fafc; }
+    .loading-screen {
+      position: fixed; inset: 0; background: #0f141c;
+      display: flex; align-items: center; justify-content: center; z-index: 99999;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+    .loading-screen.hidden { opacity: 0; visibility: hidden; }
+    .card { background: #111827; border: 1px solid #334155; border-radius: 16px; }
+    .nav-chip.active { background: #f59e0b; color: #111827; }
+    .odd-btn { background: #1f2937; border: 1px solid #334155; color: #f8fafc; border-radius: 10px; padding: 8px 4px; }
+    .odd-btn.selected { background: #f59e0b; color: #111827; border-color: #f59e0b; }
+    .bet-slip { position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 100; display: none; }
+    .match-card:hover { border-color: #f59e0b; }
+  </style>
 </head>
-<body>
-    <header class="header">
-        <div class="brand">
-            <div class="brand-mark">Y</div>
-            <div>
-                <div class="brand-title">YegnaBet</div>
-                <div class="brand-subtitle">Football • Premium Odds</div>
+<body class="pb-40">
+  <div id="loading-screen" class="loading-screen">
+    <div class="text-center">
+      <div class="text-4xl font-black text-red-500">YEGNA</div>
+      <div class="text-sm text-yellow-400 tracking-[4px] mt-1">BET</div>
+      <div class="w-10 h-10 border-4 border-slate-700 border-t-green-500 rounded-full animate-spin mx-auto my-4"></div>
+      <div class="text-sm text-slate-400">Loading sportsbook...</div>
+    </div>
+  </div>
+
+  <header class="sticky top-0 z-50 bg-slate-950 border-b border-slate-800 px-4 py-3">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <button onclick="window.history.back()" class="bg-slate-800 text-white px-3 py-2 rounded-lg text-sm">
+          <i class="fa-solid fa-arrow-left"></i> Back
+        </button>
+        <div>
+          <div class="text-lg font-black text-yellow-400">YEGNA<span class="text-white">BET</span></div>
+          <div class="text-[10px] text-slate-400">Football • Premium Odds</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <div class="bg-slate-800 px-3 py-2 rounded-full text-xs font-bold">
+          <span id="user-balance">0.00</span> <span class="text-yellow-400 ml-1">ETB</span>
+        </div>
+        <button onclick="openWalletModal()" class="bg-yellow-500 text-slate-950 px-3 py-2 rounded-lg text-xs font-black">
+          WALLET
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="bg-slate-900 border-b border-slate-800 px-3 py-3">
+    <div class="flex gap-2 overflow-x-auto">
+      <button class="nav-chip active px-3 py-2 rounded-full text-xs font-bold whitespace-nowrap">Football</button>
+    </div>
+  </nav>
+
+  <main class="max-w-4xl mx-auto px-3 py-3">
+    <div class="card p-4 mb-3">
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-sm font-black uppercase text-yellow-400">Real Sports</div>
+        <div class="text-[10px] text-slate-400">Live Odds</div>
+      </div>
+      <div class="text-sm text-slate-400">Place your football bets with wallet-safe betting, live odds, and a clear bet slip.</div>
+    </div>
+
+    <div class="card p-3 mb-3">
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-sm font-black">Search Matches</div>
+        <div class="text-[10px] text-slate-400">Upcoming only</div>
+      </div>
+      <input id="search-input" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm outline-none" placeholder="Search team or league..." />
+    </div>
+
+    <div class="card p-3 mb-3">
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-sm font-black">Top Matches</div>
+        <div class="text-[10px] text-slate-400">1X2 odds</div>
+      </div>
+      <div id="matches-list" class="space-y-2"></div>
+    </div>
+  </main>
+
+  <div id="bet-slip-container" class="bet-slip card p-3">
+    <div class="flex items-center justify-between mb-2">
+      <div class="text-sm font-black"><span id="slip-count">0</span> Selection(s)</div>
+      <button onclick="clearSelections()" class="text-xs text-slate-400">Clear</button>
+    </div>
+    <div id="slip-items" class="space-y-2 mb-2"></div>
+    <div class="flex gap-2">
+      <input id="bet-amount" type="number" min="10" step="10" value="20" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm outline-none" />
+      <button onclick="placeBet()" class="bg-yellow-500 text-slate-950 px-3 py-2 rounded-lg text-sm font-black">Place Bet</button>
+    </div>
+    <div class="text-[11px] text-slate-400 mt-2">
+      Total odds: <span id="slip-odds">0.00</span> • Possible win: <span id="possible-win">0.00</span> ETB
+    </div>
+  </div>
+
+  <div id="wallet-modal" class="fixed inset-0 bg-black/80 z-[200] hidden items-center justify-center p-4">
+    <div class="bg-slate-950 border border-slate-800 rounded-2xl w-full max-w-sm p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="font-black">Wallet</div>
+        <button onclick="closeWalletModal()" class="text-slate-400">Close</button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 mb-3">
+        <button class="bg-slate-800 p-3 rounded-lg text-sm">Deposit</button>
+        <button class="bg-slate-800 p-3 rounded-lg text-sm">Withdraw</button>
+      </div>
+
+      <div class="text-sm text-slate-400">
+        Your balance is shown in the header. Deposit and withdraw flows can be connected to your existing admin routes.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      try { tg.expand(); tg.ready(); } catch (e) {}
+    }
+
+    const initData = tg?.initData || "";
+    const userId = tg?.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : "999999";
+
+    let allMatches = [];
+    let selectedBets = {};
+    let searchTerm = "";
+
+    function openWalletModal() {
+      document.getElementById("wallet-modal").classList.remove("hidden");
+      document.getElementById("wallet-modal").classList.add("flex");
+    }
+
+    function closeWalletModal() {
+      document.getElementById("wallet-modal").classList.add("hidden");
+      document.getElementById("wallet-modal").classList.remove("flex");
+    }
+
+    function formatLocalTime(apiDateStr, apiTimeStr) {
+      if (!apiDateStr || apiDateStr === "TBA") {
+        return { date: "TBA", time: apiTimeStr || "TBA" };
+      }
+      try {
+        const matchDate = new Date(apiDateStr);
+        const today = new Date();
+        const isToday = matchDate.getDate() === today.getDate() && matchDate.getMonth() === today.getMonth() && matchDate.getFullYear() === today.getFullYear();
+        const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+        const isTomorrow = matchDate.getDate() === tomorrow.getDate() && matchDate.getMonth() === tomorrow.getMonth() && matchDate.getFullYear() === tomorrow.getFullYear();
+        let dateText = "";
+        if (isToday) dateText = "Today";
+        else if (isTomorrow) dateText = "Tomorrow";
+        else dateText = `${String(matchDate.getDate()).padStart(2, "0")}/${String(matchDate.getMonth() + 1).padStart(2, "0")}`;
+        return { date: dateText, time: apiTimeStr || "TBA" };
+      } catch (e) {
+        return { date: "TBA", time: apiTimeStr || "TBA" };
+      }
+    }
+
+    function isFutureMatch(match) {
+      const rawDate = match.fixture?.date;
+      if (!rawDate) return true;
+      try {
+        const d = new Date(rawDate);
+        return d > new Date();
+      } catch (e) {
+        return true;
+      }
+    }
+
+    function getVisibleMatches() {
+      let filtered = allMatches.filter(isFutureMatch);
+      if (searchTerm) {
+        const q = searchTerm.toLowerCase();
+        filtered = filtered.filter(match => {
+          const home = (match.fixture?.teams?.home?.name || "").toLowerCase();
+          const away = (match.fixture?.teams?.away?.name || "").toLowerCase();
+          const league = (match.fixture?.league || "").toLowerCase();
+          return home.includes(q) || away.includes(q) || league.includes(q);
+        });
+      }
+      return filtered;
+    }
+
+    async function fetchBalance() {
+      try {
+        const headers = {};
+        if (initData) headers["X-Telegram-Init-Data"] = initData;
+        const res = await fetch("/api/get_balance", { method: "POST", headers, body: JSON.stringify({ user_id: userId, game_mode: "real" }) });
+        const data = await res.json();
+        if (data.status === "success") {
+          document.getElementById("user-balance").innerText = Number(data.balance || 0).toFixed(2);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function fetchMatches() {
+      const list = document.getElementById("matches-list");
+      list.innerHTML = `<div class="text-sm text-slate-400 text-center py-4">Loading matches...</div>`;
+
+      try {
+        const res = await fetch("/api/sports/odds?tab=football&limit=12");
+        const data = await res.json();
+
+        if (!data.matches || data.matches.length === 0) {
+          list.innerHTML = `<div class="text-sm text-slate-400 text-center py-4">No upcoming matches right now.</div>`;
+          return;
+        }
+
+        allMatches = data.matches;
+        renderMatches();
+      } catch (e) {
+        console.error(e);
+        list.innerHTML = `<div class="text-sm text-red-500 text-center py-4">Could not load matches.</div>`;
+      }
+    }
+
+    function renderMatches() {
+      const list = document.getElementById("matches-list");
+      const visible = getVisibleMatches();
+
+      if (visible.length === 0) {
+        list.innerHTML = `<div class="text-sm text-slate-400 text-center py-4">No matches match your search.</div>`;
+        return;
+      }
+
+      list.innerHTML = visible.map(match => {
+        const mid = match.fixture?.id || Math.random().toString(36).slice(2);
+        const home = match.fixture?.teams?.home?.name || "Home";
+        const away = match.fixture?.teams?.away?.name || "Away";
+        const league = match.fixture?.league || "Football";
+        const odds = match.odds || {};
+        const timeInfo = formatLocalTime(match.fixture?.date, match.fixture?.time);
+
+        const selected = selectedBets[mid];
+        const homeClass = selected && selected.pick === "home" ? "odd-btn selected" : "odd-btn";
+        const drawClass = selected && selected.pick === "draw" ? "odd-btn selected" : "odd-btn";
+        const awayClass = selected && selected.pick === "away" ? "odd-btn selected" : "odd-btn";
+
+        return `
+          <div class="match-card card p-3">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-[10px] uppercase text-slate-400">${league}</div>
+              <div class="text-[10px] text-slate-400">${timeInfo.date} ${timeInfo.time}</div>
             </div>
-        </div>
-        <button class="btn btn-yellow" id="btn-my-bets">My Bets</button>
-    </header>
+            <div class="text-sm font-black mb-3">${home} vs ${away}</div>
+            <div class="grid grid-cols-3 gap-2">
+              <button class="${homeClass}" onclick="selectOdd('${mid}', 'home', ${Number(odds.home || 0)}, '${home} vs ${away}', '${home}')">
+                <div class="text-[10px] text-slate-400">1</div>
+                <div class="text-sm font-black">${Number(odds.home || 0).toFixed(2)}</div>
+              </button>
+              <button class="${drawClass}" onclick="selectOdd('${mid}', 'draw', ${Number(odds.draw || 0)}, '${home} vs ${away}', 'Draw')">
+                <div class="text-[10px] text-slate-400">X</div>
+                <div class="text-sm font-black">${Number(odds.draw || 0).toFixed(2)}</div>
+              </button>
+              <button class="${awayClass}" onclick="selectOdd('${mid}', 'away', ${Number(odds.away || 0)}, '${home} vs ${away}', '${away}')">
+                <div class="text-[10px] text-slate-400">2</div>
+                <div class="text-sm font-black">${Number(odds.away || 0).toFixed(2)}</div>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
 
-    <div class="toolbar">
-        <input class="search-input" id="search-input" type="text" placeholder="Search team or league..." />
-        <label class="toggle-box">
-            <input type="checkbox" id="favorites-toggle" />
-            Favorites
-        </label>
-    </div>
+    function selectOdd(matchId, pick, odd, matchName, teamName) {
+      if (selectedBets[matchId] && selectedBets[matchId].pick === pick) {
+        delete selectedBets[matchId];
+      } else {
+        selectedBets[matchId] = { matchId, pick, odd, matchName, team: teamName };
+      }
+      renderMatches();
+      updateBetSlip();
+    }
 
-    <div class="nav">
-        <button class="tab active" id="tab-football" onclick="switchTab('football')">Football</button>
-        <div style="flex:1"></div>
-        <button class="market active" id="market-1x2" onclick="switchMarket('1x2')">1X2</button>
-        <button class="market" id="market-dc" onclick="switchMarket('dc')">Double Chance</button>
-    </div>
+    function clearSelections() {
+      selectedBets = {};
+      renderMatches();
+      updateBetSlip();
+    }
 
-    <div class="wallet-card">
-        <span>Wallet</span>
-        <strong id="wallet-balance">0.00 ETB</strong>
-    </div>
+    function updateBetSlip() {
+      const count = Object.keys(selectedBets).length;
+      const container = document.getElementById("bet-slip-container");
+      const items = document.getElementById("slip-items");
+      const slipCount = document.getElementById("slip-count");
+      const slipOdds = document.getElementById("slip-odds");
+      const possibleWin = document.getElementById("possible-win");
 
-    <div class="quick-stakes">
-        <button class="stake-btn" onclick="setStake(10)">10</button>
-        <button class="stake-btn" onclick="setStake(20)">20</button>
-        <button class="stake-btn" onclick="setStake(50)">50</button>
-        <button class="stake-btn" onclick="setStake(100)">100</button>
-    </div>
+      if (count === 0) {
+        container.style.display = "none";
+        items.innerHTML = "";
+        slipCount.innerText = "0";
+        slipOdds.innerText = "0.00";
+        possibleWin.innerText = "0.00";
+        return;
+      }
 
-    <div id="hot-picks" class="hot-picks"></div>
+      container.style.display = "block";
+      items.innerHTML = "";
 
-    <div id="matches-list" class="matches-list"></div>
+      let totalOdds = 1.0;
 
-    <div id="my-bets-container" class="my-bets">
-        <div class="panel-title">
-            <strong>My Bets</strong>
-            <button class="btn btn-dark" onclick="closeMyBets()">Close</button>
-        </div>
-        <div id="tickets-list"></div>
-    </div>
+      Object.values(selectedBets).forEach(item => {
+        totalOdds *= Number(item.odd || 1);
+        const div = document.createElement("div");
+        div.className = "bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs";
+        div.innerHTML = `<div class="font-bold">${item.matchName}</div><div class="text-slate-400">${item.team} • ${item.pick.toUpperCase()} • ${Number(item.odd).toFixed(2)}</div>`;
+        items.appendChild(div);
+      });
 
-    <div id="bet-slip-container" class="bet-slip">
-        <div class="bet-slip-head">
-            <span id="slip-count">0</span> selections
-            <button class="btn btn-dark" id="clear-slip-btn">Clear</button>
-        </div>
-        <div id="slip-items" class="slip-items"></div>
-        <div class="bet-actions">
-            <input class="bet-amount" id="bet-amount" type="number" min="10" step="10" value="20" />
-            <button class="btn btn-yellow" id="place-bet-btn">Place Bet</button>
-        </div>
-        <div class="bet-summary">Total odds: <span id="slip-odds">0.00</span> • Possible win: <span id="possible-win">0.00</span> ETB</div>
-    </div>
+      const amount = Number(document.getElementById("bet-amount").value || 0);
+      slipCount.innerText = count;
+      slipOdds.innerText = totalOdds.toFixed(2);
+      possibleWin.innerText = (amount * totalOdds).toFixed(2);
+    }
 
-    <script src="{{ url_for('static', filename='js/real_sports.js') }}"></script>
+    async function placeBet() {
+      const selections = Object.values(selectedBets);
+      const amount = Number(document.getElementById("bet-amount").value || 0);
+
+      if (!selections.length) {
+        alert("Please select at least one match.");
+        return;
+      }
+
+      if (amount < 10) {
+        alert("Minimum stake is 10 ETB.");
+        return;
+      }
+
+      try {
+        const headers = { "Content-Type": "application/json" };
+        if (initData) headers["X-Telegram-Init-Data"] = initData;
+
+        const res = await fetch("/api/sports/place_bet", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            user_id: userId,
+            bet_amount: amount,
+            selections: selections.map(item => ({
+              match_id: item.matchId,
+              pick: item.pick,
+              odd: item.odd,
+              team: item.team,
+              match_name: item.matchName
+            }))
+          })
+        });
+
+        const data = await res.json();
+        alert(data.message || "Bet placed");
+        if (data.status === "success") {
+          await fetchBalance();
+          clearSelections();
+        }
+      } catch (e) {
+        console.error(e);
+        alert("Could not place bet.");
+      }
+    }
+
+    document.getElementById("search-input").addEventListener("input", (e) => {
+      searchTerm = e.target.value.trim().toLowerCase();
+      renderMatches();
+    });
+
+    document.getElementById("bet-amount").addEventListener("input", updateBetSlip);
+
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        document.getElementById("loading-screen").classList.add("hidden");
+      }, 1500);
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+      fetchBalance();
+      fetchMatches();
+    });
+  </script>
 </body>
 </html>
