@@ -148,7 +148,8 @@
 <body>
     <div class="header">
         <div>
-            <div class="title">Aviator</div>
+            <button class="btn btn-dark" onclick="goBack()">← Back</button>
+            <div class="title" style="margin-top:8px;">Aviator</div>
             <div class="sub">Crash game • real-time multiplier • instant cashout</div>
         </div>
         <div class="balance" id="balance">0.00 ETB</div>
@@ -193,6 +194,15 @@
         <div class="bet-list" id="activity-list"></div>
     </div>
 
+    <script>
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = '/';
+            }
+        }
+    </script>
     <script src="{{ url_for('static', filename='js/aviator.js') }}"></script>
 </body>
 </html>
