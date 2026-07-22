@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>የኛ ቤት - መቆጣጠሪያ (Admin)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Telegram Web App API -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body class="bg-gray-900 text-white p-4 font-sans selection:bg-blue-500">
+
+    <div class="max-w-4xl mx-auto space-y-6">
+
+        <!-- Header -->
+        <div class="flex items-center space-x-3 bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-md">
+            <div class="bg-blue-600 p-3 rounded-lg"><i class="fa-solid fa-user-shield text-xl"></i></div>
+            <div>
+                <h1 class="text-xl font-bold">የኛ ቤት - መቆጣጠሪያ</h1>
+                <p class="text-gray-400 text-sm">ADMIN SYSTEM v3.0</p>
+            </div>
+            <button onclick="fetchDashboardData()" class="ml-auto text-gray-400 hover:text-white transition duration-200"><i class="fa-solid fa-rotate-right"></i></button>
+        </div>
+        <div id="dashboard-status" class="hidden rounded-xl border px-4 py-3 text-sm"></div>
+
+        <!-- 📊 Stats Grid (የሪፖርት ሰሌዳ) -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                <p class="text-gray-400 text-xs mb-1">ጠቅላላ ተጠቃሚዎች</p>
+                <h2 id="stat-total-users" class="text-2xl font-bold">0</h2>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                <p class="text-gray-400 text-xs mb-1">የታገዱ ደንበኞች</p>
+                <h2 id="stat-banned" class="text-2xl font-bold text-red-400">0</h2>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                <p class="text-gray-400 text-xs mb-1">ጠቅላላ ገቢ (Deposit)</p>
+                <h2 id="stat-deposit" class="text-xl font-bold text-green-400">0.00 ETB</h2>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                <p class="text-gray-400 text-xs mb-1">የተጣራ ትርፍ (Net Profit)</p>
+                <h2 id="stat-profit" class="text-xl font-bold text-blue-400">0.00 ETB</h2>
+            </div>
+        </div>
+
+        <!-- ⚙️ Action Panel (እርምጃ መውሰጃ) -->
+        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+            <h3 class="text-lg font-bold mb-5 border-b border-gray-700 pb-3">
+                <i class="fa-solid fa-users-gear mr-2 text-blue-400"></i>የተጠቃሚዎች መቆጣጠሪያ
+            </h3>
+
+            <!-- ዋናው ፎርም -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+
+                <!-- 1. የ ID መሙያ ክፍል (ወደ tel እና inputmode ተቀይሯል ቁጥር እንዳይዛባ) -->
+                <div>
+                    <label class="block text-gray-400 text-sm font-semibold mb-2">የተጠቃሚው ቴሌግራም ID</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <i class="fa-solid fa-id-badge text-gray-500"></i>
+                        </div>
+                        <input type="tel" inputmode="numeric" pattern="[0-9]*" id="target-id" placeholder="ለምሳሌ: 12345678" class="w-full bg-gray-900 border border-gray-600 rounded-lg pl-10 p-3 text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-sm">
+                    </div>
+                </div>
+
+                <!-- 2. የብር ማስተካከያ ክፍል -->
+                <div>
+                    <label class="block text-gray-400 text-sm font-semibold mb-2">የባላንስ ማስተካከያ (ብር)</label>
+                    <div class="flex gap-2">
+                        <div class="relative flex-1">
+                            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                <i class="fa-solid fa-money-bill text-gray-500"></i>
+                            </div>
+                            <input type="number" id="amount-input" min="1" placeholder="መጠን (ለምሳሌ: 500)" class="w-full bg-gray-900 border border-gray-600 rounded-lg pl-10 p-3 text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-sm">
+                        </div>
+                        <button onclick="submitAction('adjust_balance', 'add')" class="px-5 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-sm transition shadow-sm flex items-center justify-center gap-2 whitespace-nowrap">
+                            <i class="fa-solid fa-plus"></i> ጨምር
+                        </button>
+                        <button onclick="submitAction('adjust_balance', 'subtract')" class="px-5 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-sm transition shadow-sm flex items-center justify-center gap-2 whitespace-nowrap text-gray-900">
+                            <i class="fa-solid fa-minus"></i> ቀንስ
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 3. የእገዳ ቁልፎች (Ban / Unban) -->
+            <div class="flex flex-col sm:flex-row gap-4 pt-5 border-t border-gray-700">
+                <button onclick="submitAction('ban')" class="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed py-3 rounded-lg font-bold transition shadow-sm flex items-center justify-center text-white">
+                    <i class="fa-solid fa-user-slash mr-2"></i>ተጠቃሚውን እገድ
+                </button>
+                <button onclick="submitAction('unban')" class="flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed py-3 rounded-lg font-bold transition shadow-sm flex items-center justify-center text-white">
+                    <i class="fa-solid fa-user-check mr-2"></i>እገዳውን አንሳ
+                </button>
+            </div>
+        </div>
+
+        <!-- ⚽ Sports Settlement Panel -->
+        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+            <h3 class="text-lg font-bold mb-5 border-b border-gray-700 pb-3">
+                <i class="fa-solid fa-futbol mr-2 text-yellow-400"></i>የስፖርት ቲኬት ማስተካከያ
+            </h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-gray-400 text-sm font-semibold mb-2">የተጠቃሚው ቴሌግራም ID</label>
+                    <input type="tel" inputmode="numeric" pattern="[0-9]*" id="sports-user-id" placeholder="ለምሳሌ: 12345678" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 transition shadow-sm">
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 text-sm font-semibold mb-2">የቲኬት መለያ (Ticket ID)</label>
+                    <input type="text" id="sports-ticket-id" placeholder="ለምሳሌ: RS-ABC123" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 transition shadow-sm uppercase">
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 text-sm font-semibold mb-2">የመጨረሻ ውጤት</label>
+                    <select id="sports-outcome" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 transition shadow-sm">
+                        <option value="win">Win</option>
+                        <option value="lose">Lose</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 text-sm font-semibold mb-2">የአድሚን ሚስጥር (Secret)</label>
+                    <input type="password" id="sports-admin-secret" placeholder="Sports admin secret" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 transition shadow-sm">
+                </div>
+            </div>
+
+            <div class="mt-4 flex flex-col sm:flex-row gap-3">
+                <button onclick="submitSportsSettlement(event)" class="flex-1 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-3 rounded-lg transition shadow-sm flex items-center justify-center">
+                    <i class="fa-solid fa-check-to-slot mr-2"></i>ቲኬቱን አስተካክል
+                </button>
+                <button onclick="fillSportsUserIdFromTarget()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-lg transition shadow-sm flex items-center justify-center">
+                    <i class="fa-solid fa-arrow-right-arrow-left mr-2"></i>ከላይ ያለውን ID አስገባ
+                </button>
+            </div>
+
+            <div id="sports-settle-result" class="mt-4 hidden rounded-lg border px-4 py-3 text-sm"></div>
+            <p class="text-xs text-gray-400 mt-3">
+                ይህ ቅጽ በቀጥታ ወደ sports settlement API ይልካል። `user_id`, `ticket_id`, እና ትክክለኛው secret ያስፈልጋሉ።
+            </p>
+        </div>
+
+        <!-- 📊 Sports Admin Stats Panel -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
+                <p class="text-gray-400 text-xs mb-1">Pending Tickets</p>
+                <h2 id="sports-pending-count" class="text-2xl font-bold text-yellow-400">0</h2>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
+                <p class="text-gray-400 text-xs mb-1">Total Won Payout</p>
+                <h2 id="sports-won-payout" class="text-2xl font-bold text-green-400">0.00 ETB</h2>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
+                <p class="text-gray-400 text-xs mb-1">Total Lost Stake</p>
+                <h2 id="sports-lost-stake" class="text-2xl font-bold text-red-400">0.00 ETB</h2>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
+                <p class="text-gray-400 text-xs mb-1">Net Sports Profit</p>
+                <h2 id="sports-net-profit" class="text-2xl font-bold text-blue-400">0.00 ETB</h2>
+            </div>
+        </div>
+
+        <!-- 📋 Sports Tickets Listing Panel -->
+        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-3">
+                <h3 class="text-lg font-bold">
+                    <i class="fa-solid fa-ticket mr-2 text-yellow-400"></i>የስፖርት ቲኬቶች ዝርዝር
+                </h3>
+                <div class="flex gap-2">
+                    <button onclick="toggleAllTicketsFilter()" id="toggle-tickets-filter" class="text-sm px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 transition">
+                        ሁሉንም ቲኬቶች ማሳያ
+                    </button>
+                    <button onclick="fetchSportsTickets()" class="text-sm px-3 py-1 rounded bg-yellow-600 hover:bg-yellow-500 text-gray-900 font-bold transition">
+                        <i class="fa-solid fa-rotate-right mr-1"></i>ዳታውን አድስ
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="ticket-search" onkeyup="filterSportsTickets()" placeholder="በ Ticket ID / User ID / Team ይፈልጉ..." class="flex-1 bg-gray-900 border border-gray-600 rounded-lg p-2 text-white outline-none focus:border-yellow-500 transition">
+                <select id="ticket-status-filter" onchange="filterSportsTickets()" class="bg-gray-900 border border-gray-600 rounded-lg p-2 text-white outline-none focus:border-yellow-500 transition">
+                    <option value="all">ሁሉም ሁኔታዎች</option>
+                    <option value="pending" selected>በመጠጥ ላይ (Pending)</option>
+                    <option value="won">Won</option>
+                    <option value="lost">Lost</option>
+                </select>
+            </div>
+
+            <div id="tickets-container" class="space-y-3 max-h-96 overflow-y-auto border border-gray-700 rounded-lg p-2">
+                <div class="text-center text-gray-400 py-6">
+                    <i class="fa-solid fa-ticket-simple text-2xl mb-2 opacity-50"></i>
+                    <p class="text-sm">ዳታውን አድስ በማድረግ ቲኬቶች ይታያሉ</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ⚽ Sports Matches & Odds Management -->
+        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-4 border-b border-gray-700 pb-3 gap-4">
+                <h3 class="text-lg font-bold">
+                    <i class="fa-solid fa-futbol mr-2 text-green-400"></i>ማታችን & ኦዶችን አስተካከል
+                </h3>
+                <div class="flex gap-2">
+                    <select id="league-filter" onchange="filterMatchesByLeague()" class="text-sm bg-gray-900 border border-gray-600 rounded-lg px-3 py-1.5 text-white outline-none focus:border-green-500 transition">
+                        <option value="all">ሁሉም ሊጎች</option>
+                    </select>
+                    <button onclick="fetchMatches()" class="text-sm px-3 py-1.5 rounded bg-green-600 hover:bg-green-500 font-bold transition">
+                        <i class="fa-solid fa-rotate-right mr-1"></i>ማታችን አድስ
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick Add Match Form -->
+            <div class="mb-6 bg-gray-900/50 border border-gray-700 rounded-lg p-4">
+                <h4 class="text-sm font-bold text-gray-300 mb-3"><i class="fa-solid fa-bolt mr-1 text-yellow-400"></i>ፈጣን አዲስ ማታችን ጨምር</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
+                    <div>
+                        <label class="block text-gray-400 text-xs font-semibold mb-1">አገር (Country)</label>
+                        <select id="quick-country" onchange="onQuickCountryChange()" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white outline-none focus:border-yellow-500 transition">
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-xs font-semibold mb-1">ሊግ (League)</label>
+                        <select id="quick-league" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white outline-none focus:border-yellow-500 transition">
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-xs font-semibold mb-1">የዚህ ቡድን (Home Team)</label>
+                        <input id="quick-home" type="text" placeholder="Home Team" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white outline-none focus:border-yellow-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-xs font-semibold mb-1">የታች ቡድን (Away Team)</label>
+                        <input id="quick-away" type="text" placeholder="Away Team" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white outline-none focus:border-yellow-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-xs font-semibold mb-1">መጀመሪያ ኦዶች (1/X/2)</label>
+                        <div class="flex gap-2">
+                            <input id="quick-1" type="number" step="0.01" value="2.00" placeholder="1" class="w-1/3 bg-gray-900 border border-gray-600 rounded-lg px-2 py-2 text-white outline-none focus:border-yellow-500 transition">
+                            <input id="quick-x" type="number" step="0.01" value="3.20" placeholder="X" class="w-1/3 bg-gray-900 border border-gray-600 rounded-lg px-2 py-2 text-white outline-none focus:border-yellow-500 transition">
+                            <input id="quick-2" type="number" step="0.01" value="2.80" placeholder="2" class="w-1/3 bg-gray-900 border border-gray-600 rounded-lg px-2 py-2 text-white outline-none focus:border-yellow-500 transition">
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                    <div>
+                        <label class="block text-gray-400 text-xs font-semibold mb-1">ቀን (Date)</label>
+                        <input id="quick-date" type="date" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white outline-none focus:border-yellow-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-xs font-semibold mb-1">ሰዓት (Time)</label>
+                        <input id="quick-time" type="time" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white outline-none focus:border-yellow-500 transition">
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400 mb-3">
+                    Year, month, day, and kickoff time are saved with the match.
+                </p>
+                <button onclick="quickAddMatch()" class="text-sm px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 font-bold transition w-full md:w-auto">
+                    <i class="fa-solid fa-plus mr-1"></i>ፈጣን ጨምር (Quick Add)
+                </button>
+            </div>
+
+            <div class="flex justify-between items-center mb-3">
+                <button onclick="addNewMatch()" class="text-sm px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 font-bold transition">
+                    <i class="fa-solid fa-plus mr-1"></i>አዲስ ማታችን ጨምር
+                </button>
+                <button onclick="toggleCompactView()" id="compact-view-toggle" class="text-sm px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 transition">
+                    <i class="fa-solid fa-compress mr-1"></i>Compact View
+                </button>
+            </div>
+            <div id="matches-container" class="space-y-4 max-h-[500px] overflow-y-auto border border-gray-700 rounded-lg p-3">
+                <div class="text-center text-gray-400 py-6">
+                    <i class="fa-solid fa-futbol text-2xl mb-2 opacity-50"></i>
+                    <p class="text-sm">ማታችን አድስ በማድረግ ይታያሉ</p>
+                </div>
+            </div>
+
+            <button onclick="saveMatches()" class="mt-4 w-full bg-green-600 hover:bg-green-500 font-bold py-3 rounded transition">
+                <i class="fa-solid fa-save mr-2"></i>ማታችን & ኦዶችን አስተካከል & አስቀምጥ
+            </button>
+        </div>
+
+        <!-- 👥 Users Table (የተጠቃሚዎች ዝርዝር ሰንጠረዥ) -->
+        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                <h3 class="text-lg font-bold"><i class="fa-solid fa-list mr-2"></i>የደንበኞች ዝርዝር</h3>
+                <h3 class="text-sm text-gray-400">በደንበኞች እጅ ያለ አጠቃላይ ብር: <span id="stat-total-user-balance" class="font-bold text-white">0.00 ETB</span></h3>
+            </div>
+
+            <!-- ፍለጋ -->
+            <input type="text" id="search-input" onkeyup="filterUsers()" placeholder="በ ID ይፈልጉ..." class="w-full mb-4 bg-gray-900 border border-gray-600 rounded-lg p-2 text-white outline-none focus:border-blue-500 transition">
+
+            <div class="overflow-x-auto h-64 overflow-y-auto rounded-lg border border-gray-700">
+                <table class="w-full text-left text-sm text-gray-300">
+                    <thead class="text-xs uppercase bg-gray-700 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3">ተ.ቁ</th>
+                            <th class="px-4 py-3">ቴሌግራም ID</th>
+                            <th class="px-4 py-3 text-right">ቀሪ ሂሳብ (ETB)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table-body">
+                        <!-- ዳታው በ ጃቫስክሪፕት እዚህ ይገባል -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ጃቫስክሪፕት እና ሎጂክ -->
+    <script>
+        // 🚀 Handle Telegram WebApp gracefully
+        const tg = window.Telegram?.WebApp;
+        const initData = tg?.initData || ""; 
+        const myAdminId = tg?.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : "LOCAL_TEST";
+
+        function telegramVersionAtLeast(requiredVersion) {
+            if (!tg?.version) return false;
+
+            const current = String(tg.version).split('.').map(Number);
+            const required = String(requiredVersion).split('.').map(Number);
+            const maxLength = Math.max(current.length, required.length);
+
+            for (let i = 0; i < maxLength; i += 1) {
+                const currentPart = current[i] || 0;
+                const requiredPart = required[i] || 0;
+                if (currentPart > requiredPart) return true;
+                if (currentPart < requiredPart) return false;
+            }
+
+            return true;
+        }
+
+        function setDashboardStatus(message, type = 'error') {
+            const statusBox = document.getElementById('dashboard-status');
+            if (!statusBox) return;
+
+            const baseClasses = "rounded-xl border px-4 py-3 text-sm";
+            const variant = type === 'success'
+                ? " border-green-500 bg-green-500/10 text-green-300"
+                : " border-yellow-500 bg-yellow-500/10 text-yellow-200";
+
+            statusBox.className = baseClasses + variant;
+            statusBox.classList.remove('hidden');
+            statusBox.textContent = message;
+        }
+
+        function clearDashboardStatus() {
+            const statusBox = document.getElementById('dashboard-status');
+            if (!statusBox) return;
+            statusBox.classList.add('hidden');
+            statusBox.textContent = '';
+        }
+
+        // Use a browser-safe alert here because Telegram popup support is inconsistent
+        // across browser mode and older WebApp versions.
+        function showAlert(message) {
+            window.alert(message);
+        }
+
+        // ገጹ ሲከፈት ዌብ አፑን ማስፋት እና ዳታውን ማምጣት
+        window.onload = () => {
+            if (tg && tg.expand) {
+                try {
+                    tg.expand();
+                } catch (e) {
+                    // Ignore if expand fails
+                }
+            }
+            initLeagueDropdowns();
+            try {
+                const savedSecret = localStorage.getItem('sports_admin_secret');
+                if (savedSecret) {
+                    document.getElementById('sports-admin-secret').value = savedSecret;
+                }
+            } catch (e) {
+                console.warn('Could not restore admin secret');
+            }
+            fetchDashboardData();
+        };
+
+        // የዳሽቦርድ ዳታ ሰብሳቢ - ከደህንነት ቶከን ማረጋገጫ ጋር
+        async function fetchDashboardData() {
+            try {
+                clearDashboardStatus();
+                const res = await fetch('/api/admin/get_dashboard_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Init-Data': initData // 🔥 ባክኤንድ ላይ አድሚን መሆንህን የሚያረጋግጥበት ቶከን
+                    },
+                    body: JSON.stringify({ admin_id: myAdminId })
+                });
+
+                const data = await res.json();
+
+                if(data.status === 'success') {
+                    // ቁጥሮችን መሙላት
+                    document.getElementById('stat-total-users').innerText = data.stats.total_users;
+                    document.getElementById('stat-banned').innerText = data.stats.banned_users;
+                    document.getElementById('stat-deposit').innerText = data.stats.total_deposits.toFixed(2) + " ETB";
+                    document.getElementById('stat-profit').innerText = data.stats.net_profit.toFixed(2) + " ETB";
+                    document.getElementById('stat-total-user-balance').innerText = data.stats.total_user_balances.toFixed(2) + " ETB";
+
+                    // ሰንጠረዡን መሙላት
+                    const tbody = document.getElementById('users-table-body');
+                    tbody.innerHTML = "";
+                    data.users.forEach((user, index) => {
+                        const tr = document.createElement('tr');
+                        tr.className = "border-b border-gray-700 hover:bg-gray-700 transition";
+                        tr.innerHTML = `
+                            <td class="px-4 py-3">${index + 1}</td>
+                            <td class="px-4 py-3 font-bold text-blue-400 user-id-cell cursor-pointer" onclick="setSelectedUserId('${user.user_id}')">${user.user_id}</td>
+                            <td class="px-4 py-3 text-right font-bold text-green-400">${user.balance.toFixed(2)}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    setDashboardStatus(`⚠️ ${data.message || 'ዳሽቦርዱን ማምጣት አልተቻለም።'}`);
+                    showAlert("⚠️ ስህተት: " + data.message);
+                }
+            } catch(e) {
+                console.error("Error fetching data", e);
+                setDashboardStatus("⚠️ ዳሽቦርዱን ማምጣት አልተቻለም። Telegram ውጭ ብራውዘር ላይ ከሆነ የTelegram popup አይደገፍም፣ ግን ገጹ እንደ መደበኛ ድህረ ገጽ ይሰራል።");
+            }
+        }
+
+        // የፍለጋ ሳጥን ኮድ
+        function filterUsers() {
+            let input = document.getElementById("search-input").value.toUpperCase();
+            let table = document.getElementById("users-table-body");
+            let tr = table.getElementsByTagName("tr");
+            for (let i = 0; i < tr.length; i++) {
+                let td = tr[i].getElementsByTagName("td")[1]; // ID column
+                if (td) {
+                    let txtValue = td.textContent || td.innerText;
+                    if (txtValue.toUpperCase().indexOf(input) > -1) {
+                        tr[i].style.display = "";
+                    } else {
+                        tr[i].style.display = "none";
+                    }
+                }       
+            }
+        }
+
+        function setSelectedUserId(userId) {
+            document.getElementById('target-id').value = userId;
+            document.getElementById('sports-user-id').value = userId;
+        }
+
+        function fillSportsUserIdFromTarget() {
+            const targetId = document.getElementById('target-id').value;
+            if (!targetId) {
+                showAlert("⚠️ ከላይ ያለው የተጠቃሚ ID ባዶ ነው!");
+                return;
+            }
+            document.getElementById('sports-user-id').value = targetId;
+        }
+
+        function showSportsSettleResult(type, message) {
+            const resultBox = document.getElementById('sports-settle-result');
+            const baseClasses = "mt-4 rounded-lg border px-4 py-3 text-sm";
+            const variant = type === 'success'
+                ? " border-green-500 bg-green-500/10 text-green-300"
+                : " border-red-500 bg-red-500/10 text-red-300";
+            resultBox.className = baseClasses + variant;
+            resultBox.classList.remove('hidden');
+            resultBox.innerText = message;
+        }
+
+        async function submitSportsSettlement(event) {
+            const userId = document.getElementById('sports-user-id').value.trim();
+            const ticketId = document.getElementById('sports-ticket-id').value.trim().toUpperCase();
+            const outcome = document.getElementById('sports-outcome').value;
+            const secretInput = document.getElementById('sports-admin-secret');
+            const secret = secretInput.value.trim();
+
+            if (!userId || !ticketId || !secret) {
+                showAlert("⚠️ user_id, ticket_id እና secret ሁሉም መሞላት አለባቸው!");
+                return;
+            }
+
+            try {
+                localStorage.setItem('sports_admin_secret', secret);
+            } catch (e) {
+                console.warn('Could not persist admin secret');
+            }
+
+            const clickedButton = event ? event.currentTarget : null;
+            let originalText = "";
+            if (clickedButton) {
+                originalText = clickedButton.innerHTML;
+                clickedButton.disabled = true;
+                clickedButton.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i>በመላክ ላይ...`;
+            }
+
+            try {
+                const res = await fetch('/api/sports/admin/settle', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Init-Data': initData
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        ticket_id: ticketId,
+                        outcome: outcome,
+                        secret: secret
+                    })
+                });
+
+                const data = await res.json();
+                if (data.status === 'success') {
+                    const ticket = data.ticket || {};
+                    const payout = Number(ticket.possible_win || 0).toFixed(2);
+                    const balance = Number(data.new_balance || 0).toFixed(2);
+                    showSportsSettleResult(
+                        'success',
+                        `✅ Ticket ${ticketId} settled as ${ticket.status}. Payout: ${payout} ETB. New balance: ${balance} ETB.`
+                    );
+                    showAlert(`✅ Ticket ${ticketId} updated successfully.`);
+                } else {
+                    showSportsSettleResult('error', `⚠️ ${data.message}`);
+                    showAlert("⚠️ " + data.message);
+                }
+            } catch (e) {
+                showSportsSettleResult('error', "❌ የሲስተም ስህተት ተፈጥሯል።");
+                showAlert("❌ የሲስተም ስህተት ተፈጥሯል።");
+            } finally {
+                if (clickedButton) {
+                    clickedButton.disabled = false;
+                    clickedButton.innerHTML = originalText;
+                }
+            }
+        }
+
+        // እርምጃ መውሰጃ (Ban, Unban, Adjust) - ከተጨማሪ የደህንነት ጥበቃ ጋር
+        async function submitAction(actionType, adjustMode = 'add') {
+            const targetId = document.getElementById('target-id').value;
+            let amountInput = document.getElementById('amount-input').value;
+
+            if(!targetId) {
+                showAlert("⚠️ እባክዎ መጀመሪያ የተጠቃሚውን የቴሌግራም ID ያስገቡ!");
+                return;
+            }
+
+            let finalAmount = null;
+            if(actionType === 'adjust_balance') {
+                if(!amountInput) {
+                    showAlert("⚠️ እባክዎ የብር መጠን ያስገቡ!");
+                    return;
+                }
+                // 🚀 የሒሳብ ማስተካከያ፡ አድሚኑ በስህተት ኔጌቲቭ ቁጥር ቢጽፍ እንኳን ወደ ፖዘቲቭ እንቀይረዋለን (Math.abs)
+                let rawAmount = Math.abs(parseFloat(amountInput));
+                if (isNaN(rawAmount) || rawAmount <= 0) {
+                    showAlert("⚠️ እባክዎ ትክክለኛ ቁጥር ያስገቡ!");
+                    return;
+                }
+                finalAmount = adjustMode === 'subtract' ? -rawAmount : rawAmount;
+            }
+
+            // 🚀 የ Double-Click መከላከያ፡ የነካነውን በተን ለጊዜው መቆለፍ
+            const clickedButton = event ? event.currentTarget : null;
+            let originalText = "";
+            if (clickedButton) {
+                originalText = clickedButton.innerHTML;
+                clickedButton.disabled = true;
+                clickedButton.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> በመላክ ላይ...`;
+            }
+
+            try {
+                const res = await fetch('/api/admin/user_action', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Init-Data': initData // 🔥 የአድሚንነት ማረጋገጫ ቶከን
+                    },
+                    body: JSON.stringify({
+                        admin_id: myAdminId,
+                        target_user_id: targetId,
+                        action: actionType,
+                        amount: finalAmount
+                    })
+                });
+
+                const data = await res.json();
+                if(data.status === 'success') {
+                    showAlert("✅ " + data.message);
+                    document.getElementById('amount-input').value = ""; // ሳጥኑን ማጽዳት
+                    fetchDashboardData(); // የሰንጠረዡን መረጃ ማደስ
+                } else {
+                    showAlert("⚠️ ውድቅ የተደረገበት ምክንያት: " + data.message);
+                }
+            } catch(e) {
+                showAlert("❌ የሲስተም ስህተት ተፈጥሯል። እባክዎ ኔትወርክዎን ቼክ ያድርጉ!");
+            } finally {
+                // 🔄 በተኑን መልሶ መክፈት
+                if (clickedButton) {
+                    clickedButton.disabled = false;
+                    clickedButton.innerHTML = originalText;
+                }
+            }
+        }
+
+        // --- Sports Ticket Listing Logic ---
+        let allSportsTickets = [];
+        let showAllTickets = false;
+
+        async function fetchSportsTickets() {
+            const secret = document.getElementById('sports-admin-secret').value.trim();
+            if (!secret) {
+                showAlert("⚠️ እባክዎ admin secret ያስገቡ!");
+                return;
+            }
+
+            try {
+                localStorage.setItem('sports_admin_secret', secret);
+            } catch (e) {}
+
+            const btn = document.querySelector('[onclick="fetchSportsTickets()"]');
+            let originalBtnHTML = btn ? btn.innerHTML : "";
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-1"></i>በማምጣት ላይ...`;
+            }
+
+            try {
+                const user_id_filter = showAllTickets ? null : (document.getElementById('target-id').value.trim() || null);
+
+                const res = await fetch('/api/sports/admin/tickets', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Init-Data': initData
+                    },
+                    body: JSON.stringify({
+                        secret: secret,
+                        user_id: user_id_filter
+                    })
+                });
+
+                const data = await res.json();
+                if (data.status === 'success') {
+                    allSportsTickets = data.tickets || [];
+                    calculateSportsStats(allSportsTickets);
+                    filterSportsTickets();
+                    if (btn) btn.innerHTML = `<i class="fa-solid fa-check mr-1"></i>ዳታው አድስቷል!`;
+                    setTimeout(() => { if (btn) btn.innerHTML = `<i class="fa-solid fa-rotate-right mr-1"></i>ዳታውን አድስ`; }, 1500);
+                } else {
+                    showAlert("⚠️ " + data.message);
+                }
+            } catch (e) {
+                showAlert("❌ የሲስተም ስህተት ተፈጥሯል።");
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    if (!btn.innerHTML.includes('አድስቷል')) btn.innerHTML = `<i class="fa-solid fa-rotate-right mr-1"></i>ዳታውን አድስ`;
+                }
+            }
+        }
+
+        function toggleAllTicketsFilter() {
+            showAllTickets = !showAllTickets;
+            const btn = document.getElementById('toggle-tickets-filter');
+            btn.innerHTML = showAllTickets ? 'አሁን በተወሰነ ተጠቃሚ ማሳያ' : 'ሁሉንም ቲኬቶች ማሳያ';
+            btn.className = showAllTickets 
+                ? 'text-sm px-3 py-1 rounded bg-yellow-700 hover:bg-yellow-600 text-white font-bold transition' 
+                : 'text-sm px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 transition';
+            if (allSportsTickets.length > 0 || document.getElementById('sports-admin-secret').value) {
+                fetchSportsTickets();
+            }
+        }
+
+        function calculateSportsStats(tickets) {
+            let pending = 0;
+            let wonPayout = 0;
+            let lostStake = 0;
+            
+            tickets.forEach(t => {
+                const stake = Number(t.stake) || Number(t.amount) || 0;
+                const possibleWin = Number(t.possible_win) || 0;
+                
+                if (t.status === 'pending') {
+                    pending++;
+                } else if (t.result === 'win') {
+                    wonPayout += possibleWin;
+                } else if (t.result === 'lose') {
+                    lostStake += stake;
+                }
+            });
+            
+            const netProfit = lostStake - wonPayout;
+            
+            document.getElementById('sports-pending-count').innerText = pending;
+            document.getElementById('sports-won-payout').innerText = `${wonPayout.toFixed(2)} ETB`;
+            document.getElementById('sports-lost-stake').innerText = `${lostStake.toFixed(2)} ETB`;
+            document.getElementById('sports-net-profit').innerText = `${netProfit.toFixed(2)} ETB`;
+        }
+
+        let allMatches = [];
+        let compactView = false;
+
+        // Country to leagues mapping
+        const COUNTRY_TO_LEAGUES = {
+            "Ethiopia": ["Ethiopian Premier League", "Ethiopian First League"],
+            "Austria": ["Austrian Bundesliga"],
+            "Belgium": ["Belgian Pro League"],
+            "Bulgaria": ["First Professional Football League"],
+            "Croatia": ["Croatian Football League (HNL)"],
+            "Denmark": ["Danish Superliga"],
+            "Dominican Republic": ["Liga Dominicana de Fútbol"],
+            "England": ["Premier League", "Championship", "League One", "League Two"],
+            "France": ["Ligue 1"],
+            "Germany": ["Bundesliga", "2. Bundesliga"],
+            "Greece": ["Super League Greece"],
+            "Hungary": ["Nemzeti Bajnokság I"],
+            "Italy": ["Serie A", "Serie B"],
+            "Netherlands": ["Eredivisie"],
+            "Norway": ["Eliteserien"],
+            "Poland": ["Ekstraklasa"],
+            "Portugal": ["Primeira Liga"],
+            "Romania": ["Liga I"],
+            "Russia": ["Russian Premier League"],
+            "Saudi Arabia": ["Saudi Pro League"],
+            "Scotland": ["Scottish Premiership"],
+            "Spain": ["La Liga", "La Liga 2"],
+            "Sweden": ["Allsvenskan"],
+            "Switzerland": ["Swiss Super League"],
+            "Serbia": ["Serbian SuperLiga"],
+            "Turkey": ["Süper Lig"],
+            "Ukraine": ["Ukrainian Premier League"],
+            "UEFA Competitions": ["UEFA Champions League", "UEFA Europa League", "UEFA Europa Conference League"],
+            "Friendly / International": ["Friendly Matches"]
+        };
+
+        // Get list of countries
+        const COUNTRIES = Object.keys(COUNTRY_TO_LEAGUES);
+
+        // Flat list of all leagues
+        const LEAGUE_OPTIONS = [];
+        COUNTRIES.forEach(country => {
+            COUNTRY_TO_LEAGUES[country].forEach(league => {
+                LEAGUE_OPTIONS.push(`${country}: ${league}`);
+            });
+        });
+
+        // Sports markets list
+        const SPORTS_MARKETS = [
+            {"key": "1", "label": "Home Win (1)"},
+            {"key": "X", "label": "Draw (X)"},
+            {"key": "2", "label": "Away Win (2)"},
+            {"key": "1X", "label": "1X (Home or Draw)"},
+            {"key": "X2", "label": "X2 (Away or Draw)"},
+            {"key": "12", "label": "12 (Home or Away)"},
+            {"key": "BTTS_YES", "label": "BTTS: Yes"},
+            {"key": "BTTS_NO", "label": "BTTS: No"},
+            {"key": "OVER_25", "label": "Over 2.5"},
+            {"key": "UNDER_25", "label": "Under 2.5"},
+            {"key": "OVER_15", "label": "Over 1.5"},
+            {"key": "UNDER_15", "label": "Under 1.5"},
+            {"key": "OVER_35", "label": "Over 3.5"},
+            {"key": "UNDER_35", "label": "Under 3.5"},
+            {"key": "DNB_1", "label": "DNB: Home"},
+            {"key": "DNB_2", "label": "DNB: Away"},
+            {"key": "FIRST_HALF_1", "label": "1H: Home"},
+            {"key": "FIRST_HALF_X", "label": "1H: Draw"},
+            {"key": "FIRST_HALF_2", "label": "1H: Away"}
+        ];
+
+        // Initialize cascading country/league dropdowns
+        function initLeagueDropdowns() {
+            const quickCountry = document.getElementById('quick-country');
+            const quickLeague = document.getElementById('quick-league');
+
+            // Populate quick country dropdown
+            if (quickCountry) {
+                quickCountry.innerHTML = COUNTRIES.map(country => `&lt;option value="${country}"&gt;${country}&lt;/option&gt;`).join('');
+            }
+
+            // Populate quick league based on default country (first one)
+            updateLeagueSelectForCountry('quick-league', COUNTRIES[0]);
+
+            // Populate filter dropdown for all leagues in filter
+            updateFilterDropdown();
+
+            const now = new Date();
+            const quickDate = document.getElementById('quick-date');
+            const quickTime = document.getElementById('quick-time');
+            if (quickDate && !quickDate.value) {
+                quickDate.value = formatDateInput(now);
+            }
+            if (quickTime && !quickTime.value) {
+                const nextHour = new Date(now.getTime() + 60 * 60 * 1000);
+                quickTime.value = formatTimeInput(nextHour);
+            }
+        }
+
+        function updateFilterDropdown() {
+            const filterCountry = document.getElementById('league-filter');
+            filterCountry.innerHTML = '<option value="all">ሁሉም ሊጎች</option>';
+            COUNTRIES.forEach(country => {
+                COUNTRY_TO_LEAGUES[country].forEach(league => {
+                    const fullLeagueName = `${country}: ${league}`;
+                    filterCountry.innerHTML += `<option value="${fullLeagueName}">${fullLeagueName}</option>`;
+                });
+            });
+        }
+
+        function updateLeagueSelectForCountry(selectId, country) {
+            const leagues = COUNTRY_TO_LEAGUES[country];
+            const select = document.getElementById(selectId);
+            select.innerHTML = leagues.map(league => `<option value="${league}">${league}</option>`).join('');
+        }
+
+        function onQuickCountryChange() {
+            const selectedCountry = document.getElementById('quick-country').value;
+            updateLeagueSelectForCountry('quick-league', selectedCountry);
+        }
+
+        function onMatchCountryChange(index) {
+            const countrySelect = document.getElementById(`match-country-${index}`);
+            const leagueSelect = document.getElementById(`match-league-${index}`);
+            const selectedCountry = countrySelect.value;
+            const currentLeague = leagueSelect.value;
+            updateLeagueSelectForCountry(`match-league-${index}`, selectedCountry);
+            // Try to keep previous league if it exists
+            if (COUNTRY_TO_LEAGUES[selectedCountry].includes(currentLeague)) {
+                leagueSelect.value = currentLeague;
+            }
+        }
+
+        function formatDateInput(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function formatTimeInput(date) {
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+
+        function parseDateTimeToUnix(dateValue, timeValue) {
+            if (!dateValue) return Math.floor(Date.now() / 1000) + 3600;
+            const normalizedTime = timeValue || '12:00';
+            const dateTime = new Date(`${dateValue}T${normalizedTime}:00`);
+            if (Number.isNaN(dateTime.getTime())) {
+                return Math.floor(Date.now() / 1000) + 3600;
+            }
+            return Math.floor(dateTime.getTime() / 1000);
+        }
+
+        function getDateTimeParts(startTime) {
+            const date = startTime ? new Date(Number(startTime) * 1000) : new Date();
+            return {
+                date: formatDateInput(date),
+                time: formatTimeInput(date)
+            };
+        }
+
+        // Quick add match
+        function quickAddMatch() {
+            const country = document.getElementById('quick-country').value;
+            const leagueName = document.getElementById('quick-league').value;
+            const fullLeagueName = `${country}: ${leagueName}`;
+            const home = document.getElementById('quick-home').value.trim();
+            const away = document.getElementById('quick-away').value.trim();
+            const odd1 = parseFloat(document.getElementById('quick-1').value || 2.0);
+            const oddx = parseFloat(document.getElementById('quick-x').value || 3.2);
+            const odd2 = parseFloat(document.getElementById('quick-2').value || 2.8);
+            const matchDate = document.getElementById('quick-date').value;
+            const matchTime = document.getElementById('quick-time').value;
+            
+            if (!home || !away) {
+                showAlert("⚠️ እባክዎ ሁለቱንም ቡድኖች ይስጡ!");
+                return;
+            }
+            
+            // Calculate default odds for all markets
+            function getDefaultOdds(base1=2.0, baseX=3.2, base2=2.8) {
+                const odds = {};
+                SPORTS_MARKETS.forEach(m => {
+                    switch(m.key) {
+                        case "1": odds[m.key] = base1; break;
+                        case "X": odds[m.key] = baseX; break;
+                        case "2": odds[m.key] = base2; break;
+                        case "1X": odds[m.key] = Math.round(Math.min(base1, baseX)*1.15*100)/100; break;
+                        case "X2": odds[m.key] = Math.round(Math.min(baseX, base2)*1.15*100)/100; break;
+                        case "12": odds[m.key] = Math.round(Math.min(base1, base2)*1.15*100)/100; break;
+                        case "BTTS_YES": odds[m.key] = 1.85; break;
+                        case "BTTS_NO": odds[m.key] = 1.95; break;
+                        case "OVER_25": odds[m.key] = 1.75; break;
+                        case "UNDER_25": odds[m.key] = 2.05; break;
+                        case "OVER_15": odds[m.key] = 1.25; break;
+                        case "UNDER_15": odds[m.key] = 3.5; break;
+                        case "OVER_35": odds[m.key] = 2.5; break;
+                        case "UNDER_35": odds[m.key] = 1.5; break;
+                        case "DNB_1": odds[m.key] = Math.round(base1*0.75*100)/100; break;
+                        case "DNB_2": odds[m.key] = Math.round(base2*0.75*100)/100; break;
+                        case "FIRST_HALF_1": odds[m.key] = Math.round(base1*1.3*100)/100; break;
+                        case "FIRST_HALF_X": odds[m.key] = Math.round(baseX*1.1*100)/100; break;
+                        case "FIRST_HALF_2": odds[m.key] = Math.round(base2*1.3*100)/100; break;
+                        default: odds[m.key] = 2.0;
+                    }
+                });
+                return odds;
+            }
+            
+            allMatches.unshift({ // Add to top
+                id: `match-${Date.now()}`,
+                league: fullLeagueName,
+                home: home,
+                away: away,
+                start_time: parseDateTimeToUnix(matchDate, matchTime),
+                odds: getDefaultOdds(odd1, oddx, odd2),
+                active: true
+            });
+            
+            // Clear quick add fields
+            document.getElementById('quick-home').value = '';
+            document.getElementById('quick-away').value = '';
+            document.getElementById('quick-1').value = '2.00';
+            document.getElementById('quick-x').value = '3.20';
+            document.getElementById('quick-2').value = '2.80';
+            const nextHour = new Date(Date.now() + 60 * 60 * 1000);
+            document.getElementById('quick-date').value = formatDateInput(nextHour);
+            document.getElementById('quick-time').value = formatTimeInput(nextHour);
+            
+            renderMatches();
+        }
+
+        // Filter matches by league
+        function filterMatchesByLeague() {
+            renderMatches();
+        }
+
+        // Group matches by league
+        function getGroupedMatches() {
+            const selectedLeague = document.getElementById('league-filter').value;
+            const filtered = selectedLeague === 'all' ? allMatches : allMatches.filter(m => m.league === selectedLeague);
+            
+            // Group by league
+            const groups = {};
+            filtered.forEach(match => {
+                if (!groups[match.league]) groups[match.league] = [];
+                groups[match.league].push(match);
+            });
+            
+            return groups;
+        }
+
+        async function fetchMatches() {
+            const secret = document.getElementById('sports-admin-secret').value.trim();
+            if (!secret) {
+                showAlert("⚠️ እባክዎ admin secret ያስገቡ!");
+                return;
+            }
+
+            try {
+                localStorage.setItem('sports_admin_secret', secret);
+            } catch (e) {}
+
+            try {
+                const res = await fetch(`/api/sports/admin/matches?secret=${encodeURIComponent(secret)}`, {
+                    headers: { 'X-Telegram-Init-Data': initData }
+                });
+
+                const data = await res.json();
+                if (data.status === 'success') {
+                    allMatches = data.matches || [];
+                    renderMatches();
+                } else {
+                    showAlert("⚠️ " + data.message);
+                }
+            } catch (e) {
+                showAlert("❌ የሲስተም ስህተት ተፈጥሯል!");
+            }
+        }
+
+        function toggleCompactView() {
+            compactView = !compactView;
+            const toggleBtn = document.getElementById('compact-view-toggle');
+            if (compactView) {
+                toggleBtn.innerHTML = '<i class="fa-solid fa-expand mr-1"></i>Normal View';
+                toggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
+                toggleBtn.classList.add('bg-yellow-600', 'hover:bg-yellow-500');
+            } else {
+                toggleBtn.innerHTML = '<i class="fa-solid fa-compress mr-1"></i>Compact View';
+                toggleBtn.classList.remove('bg-yellow-600', 'hover:bg-yellow-500');
+                toggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
+            }
+            renderMatches();
+        }
+
+        function renderMatches() {
+            const container = document.getElementById('matches-container');
+            const grouped = getGroupedMatches();
+            const leagues = Object.keys(grouped);
+            
+            if (leagues.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-gray-400 py-6">
+                        <i class="fa-solid fa-futbol text-2xl mb-2 opacity-50"></i>
+                        <p class="text-sm">ምንም ማታችን አልተገኘም</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = leagues.map(league => {
+                const matchesInLeague = grouped[league];
+                const leagueHtml = `
+                    <div class="mb-4">
+                        <h4 class="text-sm font-bold text-yellow-400 mb-2 pb-1 border-b border-gray-600">
+                            <i class="fa-solid fa-trophy mr-1"></i>${league}
+                        </h4>
+                        <div class="${compactView ? 'space-y-2' : 'space-y-3'}">
+                            ${matchesInLeague.map((match, idxInLeague) => {
+                                const index = allMatches.indexOf(match);
+                                const odds = match.odds || {};
+                                const dateTimeParts = getDateTimeParts(match.start_time);
+                                // Split league into country and league name
+                                let matchCountry = COUNTRIES[0];
+                                let matchLeagueName = match.league;
+                                if (match.league && match.league.includes(': ')) {
+                                    const parts = match.league.split(': ');
+                                    matchCountry = parts[0];
+                                    matchLeagueName = parts.slice(1).join(': ');
+                                }
+                                if (compactView) {
+                                    return `
+                                        <div class="bg-gray-700/50 border border-gray-600 rounded-lg p-2" data-index="${index}">
+                                            <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+                                                <div class="flex items-center gap-2 flex-wrap flex-1">
+                                                    <span class="text-xs text-gray-400">#${index+1}</span>
+                                                    <span class="text-xs font-bold text-gray-300">${match.home} vs ${match.away}</span>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <label class="flex items-center gap-1 text-xs text-gray-300">
+                                                        <input type="checkbox" class="match-active" ${match.active !== false ? 'checked' : ''} />
+                                                        Active
+                                                    </label>
+                                                    <button onclick="deleteMatch(${index})" class="text-red-400 hover:text-red-300 transition text-xs">
+                                                        <i class="fa-solid fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                                <input type="text" value="${match.home || ''}" class="match-home bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-sm outline-none focus:border-green-500" placeholder="Home" />
+                                                <input type="text" value="${match.away || ''}" class="match-away bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-sm outline-none focus:border-green-500" placeholder="Away" />
+                                                <input type="date" value="${dateTimeParts.date}" class="match-date bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-sm outline-none focus:border-green-500" />
+                                                <input type="time" value="${dateTimeParts.time}" class="match-time bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-sm outline-none focus:border-green-500" />
+                                            </div>
+                                            <div class="grid grid-cols-3 gap-1 mt-2">
+                                                <input type="number" step="0.01" value="${odds['1'] !== undefined ? odds['1'] : 2.0}" class="match-odd-1 bg-gray-900 border border-gray-600 rounded px-1 py-1 text-white text-xs outline-none focus:border-green-500 text-center" placeholder="1" />
+                                                <input type="number" step="0.01" value="${odds['X'] !== undefined ? odds['X'] : 3.2}" class="match-odd-X bg-gray-900 border border-gray-600 rounded px-1 py-1 text-white text-xs outline-none focus:border-green-500 text-center" placeholder="X" />
+                                                <input type="number" step="0.01" value="${odds['2'] !== undefined ? odds['2'] : 2.8}" class="match-odd-2 bg-gray-900 border border-gray-600 rounded px-1 py-1 text-white text-xs outline-none focus:border-green-500 text-center" placeholder="2" />
+                                            </div>
+                                        </div>
+                                    `;
+                                } else {
+                                    return `
+                                        <div class="bg-gray-700/50 border border-gray-600 rounded-lg p-3" data-index="${index}">
+                                            <div class="flex flex-wrap justify-between items-center mb-2 gap-2">
+                                                <div class="flex items-center gap-2 flex-wrap">
+                                                    <span class="text-xs text-gray-400">#${index+1}</span>
+                                                    <select id="match-country-${index}" onchange="onMatchCountryChange(${index})" class="bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white outline-none focus:border-green-500">
+                                                        ${COUNTRIES.map(c => `<option value="${c}" ${c === matchCountry ? 'selected' : ''}>${c}</option>`).join('')}
+                                                    </select>
+                                                    <select id="match-league-${index}" class="match-league bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white outline-none focus:border-green-500">
+                                                        ${COUNTRY_TO_LEAGUES[matchCountry].map(l => {
+                                                            const fullLeagueName = `${matchCountry}: ${l}`;
+                                                            return `<option value="${fullLeagueName}" ${fullLeagueName === match.league ? 'selected' : ''}>${l}</option>`;
+                                                        }).join('')}
+                                                    </select>
+                                                </div>
+                                                <label class="flex items-center gap-2 text-sm text-gray-300">
+                                                    <input type="checkbox" class="match-active" ${match.active !== false ? 'checked' : ''} />
+                                                    Active
+                                                </label>
+                                                <button onclick="deleteMatch(${index})" class="text-red-400 hover:text-red-300 transition text-sm">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </div>
+
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
+                                                <div>
+                                                    <label class="text-xs text-gray-400 mb-1 block">Home Team</label>
+                                                    <input type="text" value="${match.home || ''}" class="match-home w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white outline-none focus:border-green-500" />
+                                                </div>
+                                                <div>
+                                                    <label class="text-xs text-gray-400 mb-1 block">Away Team</label>
+                                                    <input type="text" value="${match.away || ''}" class="match-away w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white outline-none focus:border-green-500" />
+                                                </div>
+                                            </div>
+
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
+                                                <div>
+                                                    <label class="text-xs text-gray-400 mb-1 block">Match Date</label>
+                                                    <input type="date" value="${dateTimeParts.date}" class="match-date w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white outline-none focus:border-green-500" />
+                                                </div>
+                                                <div>
+                                                    <label class="text-xs text-gray-400 mb-1 block">Kickoff Time</label>
+                                                    <input type="time" value="${dateTimeParts.time}" class="match-time w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white outline-none focus:border-green-500" />
+                                                </div>
+                                            </div>
+
+                                            <details class="mt-2">
+                                                <summary class="text-xs text-green-400 font-semibold cursor-pointer mb-2">
+                                                    <i class="fa-solid fa-chevron-down mr-1"></i>Expand to edit all markets
+                                                </summary>
+                                                <div class="grid grid-cols-3 md:grid-cols-4 gap-2 mt-2">
+                                                    ${SPORTS_MARKETS.map(market => {
+                                                        const value = odds[market.key] !== undefined ? odds[market.key] : 2.0;
+                                                        return `
+                                                            <div>
+                                                                <label class="text-xs text-gray-400 mb-1 block">${market.label}</label>
+                                                                <input type="number" step="0.01" value="${value}" class="match-odd-${market.key} w-full bg-gray-900 border border-gray-600 rounded px-2 py-1.5 text-white text-sm outline-none focus:border-green-500" />
+                                                            </div>
+                                                        `;
+                                                    }).join('')}
+                                                </div>
+                                            </details>
+                                        </div>
+                                    `;
+                                }
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+                return leagueHtml;
+            }).join('');
+        }
+
+        function addNewMatch() {
+            // Get default odds
+            function getDefaultOdds(base1=2.0, baseX=3.2, base2=2.8) {
+                const odds = {};
+                SPORTS_MARKETS.forEach(m => {
+                    switch(m.key) {
+                        case "1": odds[m.key] = base1; break;
+                        case "X": odds[m.key] = baseX; break;
+                        case "2": odds[m.key] = base2; break;
+                        case "1X": odds[m.key] = Math.round(Math.min(base1, baseX)*1.15*100)/100; break;
+                        case "X2": odds[m.key] = Math.round(Math.min(baseX, base2)*1.15*100)/100; break;
+                        case "12": odds[m.key] = Math.round(Math.min(base1, base2)*1.15*100)/100; break;
+                        case "BTTS_YES": odds[m.key] = 1.85; break;
+                        case "BTTS_NO": odds[m.key] = 1.95; break;
+                        case "OVER_25": odds[m.key] = 1.75; break;
+                        case "UNDER_25": odds[m.key] = 2.05; break;
+                        case "OVER_15": odds[m.key] = 1.25; break;
+                        case "UNDER_15": odds[m.key] = 3.5; break;
+                        case "OVER_35": odds[m.key] = 2.5; break;
+                        case "UNDER_35": odds[m.key] = 1.5; break;
+                        case "DNB_1": odds[m.key] = Math.round(base1*0.75*100)/100; break;
+                        case "DNB_2": odds[m.key] = Math.round(base2*0.75*100)/100; break;
+                        case "FIRST_HALF_1": odds[m.key] = Math.round(base1*1.3*100)/100; break;
+                        case "FIRST_HALF_X": odds[m.key] = Math.round(baseX*1.1*100)/100; break;
+                        case "FIRST_HALF_2": odds[m.key] = Math.round(base2*1.3*100)/100; break;
+                        default: odds[m.key] = 2.0;
+                    }
+                });
+                return odds;
+            }
+            allMatches.push({
+                id: `match-${Date.now()}`,
+                league: "Ethiopia: Ethiopian Premier League",
+                home: "Home Team",
+                away: "Away Team",
+                start_time: Math.floor(Date.now()/1000) + 3600,
+                odds: getDefaultOdds(),
+                active: true
+            });
+            renderMatches();
+        }
+
+        function deleteMatch(index) {
+            if (confirm("እርግጠኛ ነዎት ይህን ማታችን ማጥፋት ይፈልጋሉ?")) {
+                allMatches.splice(index, 1);
+                renderMatches();
+            }
+        }
+
+        async function saveMatches() {
+            const secret = document.getElementById('sports-admin-secret').value.trim();
+            if (!secret) {
+                showAlert("⚠️ እባክዎ admin secret ያስገቡ!");
+                return;
+            }
+
+            const updatedMatches = [];
+            const matchDivs = document.querySelectorAll('#matches-container div.bg-gray-700\\/50');
+            for (let i = 0; i < matchDivs.length; i++) {
+                const div = matchDivs[i];
+                const index = parseInt(div.getAttribute('data-index') || i);
+                const oddsObj = {};
+                SPORTS_MARKETS.forEach(market => {
+                    const input = div.querySelector(`.match-odd-${market.key}`);
+                    oddsObj[market.key] = parseFloat(input?.value || allMatches[index]?.odds?.[market.key] || 2.0);
+                });
+                updatedMatches.push({
+                    id: allMatches[index]?.id || `match-${Date.now()}-${i}`,
+                    league: div.querySelector('.match-league').value.trim(),
+                    home: div.querySelector('.match-home').value.trim(),
+                    away: div.querySelector('.match-away').value.trim(),
+                    start_time: parseDateTimeToUnix(
+                        div.querySelector('.match-date')?.value,
+                        div.querySelector('.match-time')?.value
+                    ),
+                    active: div.querySelector('.match-active').checked,
+                    odds: oddsObj
+                });
+            }
+
+            try {
+                const res = await fetch('/api/sports/admin/matches', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Init-Data': initData
+                    },
+                    body: JSON.stringify({
+                        secret: secret,
+                        matches: updatedMatches
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    allMatches = updatedMatches;
+                    showAlert("✅ ማታችን & ኦዶችን በተሳካ ሁኔታ ተቀምጠዋል!");
+                } else {
+                    showAlert("⚠️ " + data.message);
+                }
+            } catch (e) {
+                showAlert("❌ የሲስተም ስህተት ተፈጥሯል!");
+            }
+        }
+
+        function filterSportsTickets() {
+            const query = document.getElementById('ticket-search').value.trim().toUpperCase();
+            const statusFilter = document.getElementById('ticket-status-filter').value;
+
+            const filtered = allSportsTickets.filter(t => {
+                const idMatch = (t.user_id || '').toUpperCase().includes(query) || 
+                               (t.ticket_id || t.id || '').toUpperCase().includes(query);
+                const teamMatch = (t.selections || []).some(s => 
+                    (s.home_team || '').toUpperCase().includes(query) || 
+                    (s.away_team || '').toUpperCase().includes(query) ||
+                    (s.team || '').toUpperCase().includes(query)
+                );
+                const matchQuery = idMatch || teamMatch;
+                
+                const matchStatus = statusFilter === 'all' || t.status === statusFilter;
+                return matchQuery && matchStatus;
+            });
+
+            renderSportsTickets(filtered);
+        }
+
+        function formatDate(ts) {
+            if (!ts) return 'Unknown';
+            if (typeof ts === 'string') return ts;
+            try {
+                return new Date(Number(ts) * 1000).toLocaleString('am-ET', { dateStyle: 'short', timeStyle: 'short' });
+            } catch (e) {
+                return String(ts);
+            }
+        }
+
+        function selectTicketForSettlement(userId, ticketId) {
+            document.getElementById('sports-user-id').value = userId;
+            document.getElementById('sports-ticket-id').value = ticketId;
+            // Scroll to settlement form
+            document.querySelector('[onclick="submitSportsSettlement(event)"]').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function renderSportsTickets(tickets) {
+            const container = document.getElementById('tickets-container');
+            if (!tickets || tickets.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-gray-400 py-6">
+                        <i class="fa-solid fa-ticket-simple text-2xl mb-2 opacity-50"></i>
+                        <p class="text-sm">አልተገኘም ቲኬት</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = tickets.map(t => {
+                const isPending = t.status === 'pending';
+                const statusColor = isPending 
+                    ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' 
+                    : (t.result === 'win' 
+                        ? 'bg-green-500/20 text-green-300 border-green-500/30' 
+                        : 'bg-red-500/20 text-red-300 border-red-500/30');
+
+                const selections = t.selections || [];
+                const selectionsHTML = selections.slice(0, 3).map(s => `
+                    <div class="text-xs text-gray-300 flex justify-between items-center">
+                        <span class="truncate">${s.home_team || ''} vs ${s.away_team || ''}</span>
+                        <span class="ml-2 font-mono text-gray-400">x${Number(s.odd || 0).toFixed(2)}</span>
+                    </div>
+                `).join('');
+                const moreText = selections.length > 3 ? `<div class="text-xs text-gray-500 mt-1">+${selections.length - 3} ተጨማሪ ምርጫዎች</div>` : '';
+
+                return `
+                    <div class="p-3 bg-gray-700/50 rounded-lg border border-gray-600 hover:border-yellow-500/50 transition cursor-pointer"
+                         onclick="selectTicketForSettlement('${t.user_id || ''}', '${t.ticket_id || t.id || ''}')">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="font-mono font-bold text-yellow-400 text-sm">${t.ticket_id || t.id || 'N/A'}</span>
+                                <span class="text-xs text-gray-400">${t.user_id || ''}</span>
+                            </div>
+                            <span class="text-xs px-2 py-0.5 rounded-full border ${statusColor}">
+                                ${t.status} ${t.result ? `(${t.result})` : ''}
+                            </span>
+                        </div>
+                        <div class="flex justify-between text-xs mb-2">
+                            <span class="text-gray-400">${formatDate(t.placed_at)}</span>
+                            <span class="font-bold text-green-300">${(Number(t.stake) || 0).toFixed(2)} ETB</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 text-xs">
+                            <div>
+                                <div class="text-gray-500 mb-1">Total Odds</div>
+                                <div class="font-mono">${(Number(t.total_odds) || 0).toFixed(2)}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">Possible Win</div>
+                                <div class="font-mono text-green-300">${(Number(t.possible_win) || 0).toFixed(2)} ETB</div>
+                            </div>
+                        </div>
+                        ${selectionsHTML}
+                        ${moreText}
+                        ${isPending ? `
+                            <div class="mt-2 flex gap-2">
+                                <button onclick="event.stopPropagation(); quickSettle('${t.user_id}', '${t.ticket_id || t.id}', 'win')" class="flex-1 text-xs bg-green-600 hover:bg-green-500 py-1.5 rounded font-bold transition">
+                                    <i class="fa-solid fa-trophy mr-1"></i>Set Win
+                                </button>
+                                <button onclick="event.stopPropagation(); quickSettle('${t.user_id}', '${t.ticket_id || t.id}', 'lose')" class="flex-1 text-xs bg-red-600 hover:bg-red-500 py-1.5 rounded font-bold transition">
+                                    <i class="fa-solid fa-xmark mr-1"></i>Set Lose
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function quickSettle(userId, ticketId, outcome) {
+            const secret = document.getElementById('sports-admin-secret').value.trim();
+            if (!secret || !userId || !ticketId) {
+                showAlert("⚠️ Missing data for quick settle!");
+                return;
+            }
+
+            try {
+                localStorage.setItem('sports_admin_secret', secret);
+            } catch (e) {}
+
+            try {
+                const res = await fetch('/api/sports/admin/settle', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Init-Data': initData
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        ticket_id: ticketId,
+                        outcome: outcome,
+                        secret: secret
+                    })
+                });
+
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showAlert(`✅ Ticket ${ticketId} settled as ${outcome}!`);
+                    fetchSportsTickets(); // refresh list
+                } else {
+                    showAlert("⚠️ " + data.message);
+                }
+            } catch (e) {
+                showAlert("❌ የሲስተም ስህተት ተፈጥሯል።");
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Yegna Bet - Keno</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --card-bg: #16213e;
+            --accent-color: #0f3460;
+            --text-color: #e94560;
+            --light-text: #ffffff;
+            --success-color: #4e9f3d;
+            --gold-color: #ffd700;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--light-text);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow-x: hidden;
+        }
+
+        .header {
+            width: 100%;
+            background-color: var(--card-bg);
+            padding: 15px 20px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--accent-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            background-color: var(--text-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logout-btn {
+            background-color: rgba(229, 11, 44, 0.15);
+            border: 1px solid #e50b2c;
+            color: #e50b2c;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .logout-btn:active { transform: scale(0.9); }
+
+        .balance-box {
+            background-color: rgba(78, 159, 61, 0.2);
+            border: 1px solid var(--success-color);
+            padding: 8px 15px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+            color: #63e2b7;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 80px;
+        }
+
+        .welcome-msg {
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .welcome-msg h1 {
+            font-size: 1.8rem;
+            color: var(--text-color);
+            margin: 0 0 5px 0;
+        }
+
+        .welcome-msg p {
+            color: #8a8a8a;
+            margin: 0;
+        }
+
+        .game-controls {
+            background-color: var(--card-bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .bet-input {
+            background-color: var(--accent-color);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            color: var(--gold-color);
+            width: 100px;
+            height: 45px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .play-btn {
+            background: linear-gradient(135deg, var(--gold-color), #ffb300);
+            border: none;
+            color: #1a1a2e;
+            padding: 12px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .play-btn:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 6px;
+        }
+
+        .number-btn {
+            aspect-ratio: 1;
+            background-color: var(--accent-color);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .number-btn:active { transform: scale(0.95); }
+        .number-btn.selected {
+            background-color: var(--gold-color);
+            color: #1a1a2e;
+        }
+        .number-btn.drawn {
+            background-color: var(--success-color);
+        }
+        .number-btn.missed {
+            background-color: #555;
+        }
+        .number-btn.match {
+            background-color: var(--text-color);
+            box-shadow: 0 0 10px var(--text-color);
+        }
+
+        .result-display {
+            background-color: var(--card-bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .result-display h3 {
+            margin: 0 0 10px 0;
+            color: var(--gold-color);
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="user-info">
+            <div class="user-avatar" id="user-avatar">👤</div>
+            <span id="user-name">User</span>
+        </div>
+        <div class="header-actions">
+            <button onclick="handleLogout()" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i>
+            </button>
+            <div class="balance-box">
+                <i class="fas fa-wallet"></i>
+                <span id="user-balance">0.00</span> ETB
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="welcome-msg">
+            <h1>🎱 Keno</h1>
+            <p>Select 1-10 numbers and place your bet!</p>
+        </div>
+
+        <div class="game-controls">
+            <div class="input-group">
+                <button class="btn-stepper" onclick="changeBet(-10)">-</button>
+                <input type="number" class="bet-input" id="bet-amount" value="20" min="1">
+                <button class="btn-stepper" onclick="changeBet(10)">+</button>
+            </div>
+            <button class="play-btn" id="play-btn" onclick="playKeno()">Play Keno</button>
+        </div>
+
+        <div class="grid-container" id="grid-container"></div>
+
+        <div class="result-display" id="result-display" style="display: none;"></div>
+    </div>
+
+    <script>
+        // --- AUTH INTEGRATION ---
+        let currentUser = null;
+        let userId = null;
+        let userName = null;
+        const storedUser = localStorage.getItem('currentUser');
+        
+        if (storedUser) {
+            currentUser = JSON.parse(storedUser);
+            userId = currentUser.id;
+            userName = currentUser.username;
+        } else {
+            window.location.href = '/login';
+        }
+
+        function handleLogout() {
+            if (confirm('Are you sure you want to logout?')) {
+                localStorage.removeItem('currentUser');
+                window.location.href = '/login';
+            }
+        }
+        // --- END AUTH INTEGRATION ---
+
+        let selectedNumbers = [];
+        let currentBalance = 0;
+        let gameActive = false;
+
+        document.addEventListener("DOMContentLoaded", function() {
+            if (document.getElementById("user-name")) {
+                document.getElementById("user-name").innerText = userName || "User";
+                if (userName && userName.length > 0) {
+                    document.getElementById("user-avatar").innerText = userName.charAt(0).toUpperCase();
+                }
+            }
+            initGrid();
+            fetchBalance();
+        });
+
+        async function fetchBalance() {
+            try {
+                const res = await fetch("/api/get_balance", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await res.json();
+                if (data.status === "success") {
+                    currentBalance = data.balance;
+                    document.getElementById("user-balance").innerText = currentBalance.toFixed(2);
+                }
+            } catch (e) {
+                console.error("Balance fetch error", e);
+            }
+        }
+
+        function initGrid() {
+            const container = document.getElementById("grid-container");
+            container.innerHTML = "";
+            for (let i = 1; i <= 80; i++) {
+                const btn = document.createElement("button");
+                btn.className = "number-btn";
+                btn.innerText = i;
+                btn.addEventListener("click", () => toggleNumber(i, btn));
+                container.appendChild(btn);
+            }
+        }
+
+        function toggleNumber(num, btn) {
+            if (gameActive) return;
+            const index = selectedNumbers.indexOf(num);
+            if (index > -1) {
+                selectedNumbers.splice(index, 1);
+                btn.classList.remove("selected");
+            } else {
+                if (selectedNumbers.length >= 10) {
+                    alert("You can select maximum 10 numbers");
+                    return;
+                }
+                selectedNumbers.push(num);
+                btn.classList.add("selected");
+            }
+        }
+
+        function changeBet(amount) {
+            const betInput = document.getElementById("bet-amount");
+            let current = parseInt(betInput.value) || 20;
+            let newValue = current + amount;
+            if (newValue < 1) newValue = 1;
+            betInput.value = newValue;
+        }
+
+        async function playKeno() {
+            if (selectedNumbers.length < 1 || selectedNumbers.length > 10) {
+                alert("Please select 1-10 numbers");
+                return;
+            }
+            const betAmount = parseFloat(document.getElementById("bet-amount").value);
+            if (betAmount <= 0 || betAmount > currentBalance) {
+                alert("Invalid bet amount");
+                return;
+            }
+
+            gameActive = true;
+            document.getElementById("play-btn").disabled = true;
+            document.getElementById("result-display").style.display = "none";
+
+            try {
+                const res = await fetch("/api/keno/play", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        numbers: selectedNumbers,
+                        bet_amount: betAmount
+                    })
+                });
+                const data = await res.json();
+                displayResult(data);
+            } catch (e) {
+                console.error("Play keno error", e);
+                alert("Failed to play");
+            } finally {
+                gameActive = false;
+                document.getElementById("play-btn").disabled = false;
+            }
+        }
+
+        function displayResult(data) {
+            const container = document.getElementById("grid-container");
+            const resultDisplay = document.getElementById("result-display");
+            const buttons = container.querySelectorAll(".number-btn");
+
+            buttons.forEach(btn => {
+                btn.classList.remove("selected", "drawn", "missed", "match");
+            });
+
+            selectedNumbers.forEach(num => {
+                const btn = buttons[num - 1];
+                if (data.draw.includes(num)) {
+                    btn.classList.add("match");
+                } else {
+                    btn.classList.add("missed");
+                }
+            });
+
+            data.draw.forEach(num => {
+                const btn = buttons[num - 1];
+                if (!btn.classList.contains("match")) {
+                    btn.classList.add("drawn");
+                }
+            });
+
+            resultDisplay.style.display = "block";
+            resultDisplay.innerHTML = `
+                <h3>${data.status === "success" ? "🎉 You Won!" : "😢 You Lost!"}</h3>
+                <p>Selected: ${selectedNumbers.join(", ")}</p>
+                <p>Drawn: ${data.draw.join(", ")}</p>
+                <p>Matches: ${data.match_count}</p>
+                ${data.win_amount > 0 ? `<p>Win: ${data.win_amount.toFixed(2)} ETB</p>` : ""}
+            `;
+
+            fetchBalance();
+            selectedNumbers = [];
+        }
+    </script>
+</body>
+</html>

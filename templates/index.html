@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>yegnabet - Football Prediction</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  
+  <!-- Yegna Bet Loading Screen Custom Styles -->
+  <style>
+    .loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #0f141c; 
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 99999; 
+        transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+    }
+
+    .loading-content {
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .loading-logo {
+        font-size: 3rem;
+        font-weight: 900;
+        color: #e53935; 
+        text-shadow: 0 0 20px rgba(229, 57, 53, 0.5);
+        letter-spacing: 2px;
+        margin: 0;
+        animation: pulseLogo 1.5s infinite alternate;
+    }
+
+    .loading-subtext {
+        font-size: 1rem;
+        color: #fbc02d; 
+        font-weight: bold;
+        letter-spacing: 4px;
+        margin-top: -8px;
+    }
+
+    .loader-spinner {
+        width: 45px;
+        height: 45px;
+        border: 4px solid #243547;
+        border-top: 4px solid #2e7d32; 
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 15px 0;
+    }
+
+    .loading-text {
+        font-size: 0.9rem;
+        color: #8a99ad;
+        animation: blink 1.5s infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    @keyframes pulseLogo {
+        0% { transform: scale(1); text-shadow: 0 0 10px rgba(229, 57, 53, 0.3); }
+        100% { transform: scale(1.08); text-shadow: 0 0 25px rgba(229, 57, 53, 0.8); }
+    }
+
+    @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .loading-screen.hidden {
+        opacity: 0;
+        visibility: hidden;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans pb-24">
+
+  <!-- 🚀 Yegna Bet Loading Screen -->
+  <div id="loading-screen" class="loading-screen">
+      <div class="loading-content">
+          <h1 class="loading-logo">የኛ ቤት</h1>
+          <p class="loading-subtext">YEGNA BET</p>
+          <div class="loader-spinner"></div>
+          <p class="loading-text">እየጫነ ነው...</p>
+      </div>
+  </div>
+
+  <!-- 🔝 Header Section -->
+  <header class="bg-slate-950 text-white p-4 sticky top-0 z-50 flex justify-between items-center border-b border-gray-800">
+    <div class="flex items-center space-x-2">
+      <span class="text-xl font-black tracking-wider text-yellow-400">YEGNA<span class="text-white">BET</span></span>
+    </div>
+    <div class="flex items-center space-x-3">
+      <div class="bg-gray-800 px-3 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1">
+        <span id="user-balance">0.00</span> <span class="text-yellow-400 mr-1">ETB</span>
+        <button id="refresh-btn" onclick="manualRefresh()" class="focus:outline-none p-0.5 hover:text-white text-gray-400 transition">
+          <i id="refresh-icon" class="fa-solid fa-rotate-right"></i>
+        </button>
+      </div>
+      <button onclick="openWalletModal()" class="bg-yellow-500 hover:bg-yellow-600 text-slate-950 font-black px-3 py-1.5 rounded text-xs transition duration-200">
+        WALLET
+      </button>
+      <button onclick="handleLogout()" class="bg-gray-700 hover:bg-gray-600 text-white font-bold px-3 py-1.5 rounded text-xs transition duration-200">
+        <i class="fa-solid fa-right-from-bracket"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- 🗺 Navigation Bar -->
+  <nav class="bg-slate-900 border-b border-gray-800 grid grid-cols-6 py-3 sticky top-[61px] z-40 text-center">
+    <a href="/" class="flex flex-col items-center space-y-1 text-yellow-400 border-b-2 border-yellow-400 pb-1">
+      <i class="fa-solid fa-soccer-ball text-lg"></i>
+      <span class="text-[9px] sm:text-[11px] font-bold">Sports</span>
+    </a>
+    <a href="/virtual_sports" class="flex flex-col items-center space-y-1 text-gray-400 hover:text-white transition">
+      <i class="fa-solid fa-gamepad text-lg"></i>
+      <span class="text-[9px] sm:text-[11px] font-bold">Virtual</span>
+    </a>
+    <a href="/coin_flip_game" class="flex flex-col items-center space-y-1 text-gray-400 hover:text-white transition">
+      <i class="fa-solid fa-coins text-lg"></i>
+      <span class="text-[9px] sm:text-[11px] font-bold">ዘውድ/ጎፈር</span>
+    </a>
+    <a href="/aviator" class="flex flex-col items-center space-y-1 text-gray-400 hover:text-white transition">
+      <i class="fa-solid fa-plane-departure text-lg"></i>
+      <span class="text-[9px] sm:text-[11px] font-bold">Aviator</span>
+    </a>
+    <a href="/chicken" class="flex flex-col items-center space-y-1 text-gray-400 hover:text-white transition">
+      <span class="text-lg leading-none">🐔</span>
+      <span class="text-[9px] sm:text-[11px] font-bold">Chicken</span>
+    </a>
+    <a href="/keno" class="flex flex-col items-center space-y-1 text-gray-400 hover:text-white transition">
+      <i class="fa-solid fa-table-cells text-lg"></i>
+      <span class="text-[9px] sm:text-[11px] font-bold">Keno</span>
+    </a>
+  </nav>
+
+    <!-- 📱 Main Content -->
+  <main class="max-w-md mx-auto p-3">
+    
+    <div class="bg-gradient-to-r from-blue-900 to-slate-950 border border-blue-800 rounded-xl p-4 mb-4 relative overflow-hidden">
+      <span class="bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">Hot Promo</span>
+      <h3 class="text-base font-black mt-1">REAL MONEY PREDICTION</h3>
+      <p class="text-[11px] text-gray-400">ግምቶቹን በትክክል ይመልሱ፣ በእውነተኛ ብር ያሸንፉ!</p>
+    </div>
+
+    <div class="grid grid-cols-3 gap-2 mb-4">
+      <!-- ⚠️ ሊንኩ ወደ /real_sports ተቀይሯል ⚠️ -->
+      <a href="/real_sports" class="bg-slate-950 p-2 rounded-xl border border-gray-800 flex flex-col items-center hover:border-yellow-500 transition">
+        <i class="fa-solid fa-soccer-ball text-yellow-500 text-base"></i>
+        <span class="text-[9px] font-bold mt-1 text-gray-300">Real Sports</span>
+      </a>
+      <a href="/virtual_sports" class="bg-slate-950 p-2 rounded-xl border border-gray-800 flex flex-col items-center hover:border-yellow-500 transition">
+        <i class="fa-solid fa-gamepad text-emerald-400 text-base"></i>
+        <span class="text-[9px] font-bold mt-1 text-gray-300">Virtual Sports</span>
+      </a>
+      <a href="/coin_flip_game" class="bg-slate-950 p-2 rounded-xl border border-gray-800 flex flex-col items-center hover:border-yellow-500 transition">
+        <i class="fa-solid fa-coins text-yellow-500 text-base"></i>
+        <span class="text-[9px] font-bold mt-1 text-gray-300">ዘውድና ጎፈር</span>
+      </a>
+      <a href="/aviator" class="bg-slate-950 p-2 rounded-xl border border-gray-800 flex flex-col items-center hover:border-yellow-500 transition">
+        <i class="fa-solid fa-plane-departure text-red-500 text-base"></i>
+        <span class="text-[9px] font-bold mt-1 text-gray-300">Aviator</span>
+      </a>
+      <a href="/chicken" class="bg-slate-950 p-2 rounded-xl border border-gray-800 flex flex-col items-center hover:border-yellow-500 transition">
+        <span class="text-base">🐔</span>
+        <span class="text-[9px] font-bold mt-1 text-gray-300">Chicken Road</span>
+      </a>
+      <a href="/keno" class="bg-slate-950 p-2 rounded-xl border border-gray-800 flex flex-col items-center hover:border-yellow-500 transition">
+        <i class="fa-solid fa-table-cells text-blue-500 text-base"></i>
+        <span class="text-[9px] font-bold mt-1 text-gray-300">Fast Keno</span>
+      </a>
+    </div>
+
+    <div class="flex justify-between items-center mb-3">
+      <h2 class="text-sm font-black text-gray-300 tracking-wide uppercase"><i class="fa-solid fa-fire text-red-500 mr-1"></i> TOP MATCHES</h2>
+      <span class="text-[11px] text-gray-400 bg-gray-800 px-2 py-0.5 rounded">1X2 Odds</span>
+    </div>
+  <!-- ጨዋታዎቹ የሚደረደሩበት ቦታ -->
+    <div id="home-matches-list"></div>
+
+  </main> <!-- ⚠️ የረሳኸው መዝጊያ ታግ እዚህ ተጨምሯል ⚠️ -->
+       
+
+  <!-- 💳 Wallet Modal -->
+  <div id="wallet-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-950 border border-gray-800 rounded-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
+
+      <div class="flex border-b border-gray-800 text-sm font-bold flex-shrink-0">
+        <button onclick="switchWalletTab('deposit-tab')" id="btn-deposit-tab" class="w-1/3 py-3 text-center text-yellow-400 border-b-2 border-yellow-400 transition">ገቢ (Deposit)</button>
+        <button onclick="switchWalletTab('withdraw-tab')" id="btn-withdraw-tab" class="w-1/3 py-3 text-center text-gray-400 transition">ወጪ (Withdraw)</button>
+        <button onclick="switchWalletTab('history-tab')" id="btn-history-tab" class="w-1/3 py-3 text-center text-gray-400 transition">ታሪክ (History)</button>
+      </div>
+
+      <div class="p-5 overflow-y-auto flex-grow">
+        <!-- Deposit Tab -->
+        <div id="deposit-tab">
+          <p class="text-xs text-gray-400 mb-3">እባክዎ በ Telebirr ወደ <b>0951381356</b> ብር ካስገቡ በኋላ ደረሰኙን እዚህ ያስገቡ።</p>
+          <form id="deposit-form" onsubmit="submitDeposit(event)" class="space-y-4">
+            <div>
+              <label class="block text-[10px] text-gray-400 mb-1">የገንዘብ መጠን (ETB)</label>
+              <input type="number" id="dep-amount" min="10" required class="w-full bg-gray-900 border border-gray-800 rounded p-2.5 text-white font-bold text-sm">
+            </div>
+            <div>
+              <label class="block text-[10px] text-gray-400 mb-1">የክፍያ ደረሰኝ (Screenshot)</label>
+              <input type="file" id="dep-receipt" accept="image/*" required class="w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-yellow-500 file:text-slate-950">
+            </div>
+            <button type="submit" class="w-full bg-yellow-500 hover:bg-yellow-600 text-slate-950 font-black py-2.5 rounded-lg text-sm transition">የማረጋገጫ ጥያቄ ላክ</button>
+          </form>
+        </div>
+
+        <!-- Withdraw Tab -->
+        <div id="withdraw-tab" class="hidden">
+          <form id="withdraw-form" onsubmit="submitWithdraw(event)" class="space-y-4">
+            <div>
+              <label class="block text-[10px] text-gray-400 mb-1">የባንክ ስም</label>
+              <select id="wd-bank" required class="w-full bg-gray-900 border border-gray-800 rounded p-2.5 text-white text-sm">
+                <option value="" disabled selected>-- ይምረጡ --</option>
+                <option value="Telebirr">Telebirr (ቴሌብር)</option>
+                <option value="CBE">CBE (የኢትዮጵያ ንግድ ባንክ)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] text-gray-400 mb-1">የአካውንት ባለቤት ሙሉ ስም</label>
+              <input type="text" id="wd-name" required class="w-full bg-gray-900 border border-gray-800 rounded p-2.5 text-white text-sm">
+            </div>
+            <div>
+              <label class="block text-[10px] text-gray-400 mb-1">የአካውንት ቁጥር / የቴሌብር ስልክ</label>
+              <input type="tel" id="wd-phone" placeholder="ለምሳሌ፡ 0911... ወይም 1000..." required class="w-full bg-gray-900 border border-gray-800 rounded p-2.5 text-white text-sm">
+            </div>
+            <div>
+              <label class="block text-[10px] text-gray-400 mb-1">የማውጫ መጠን (ETB)</label>
+              <input type="number" id="wd-amount" min="50" required class="w-full bg-gray-900 border border-gray-800 rounded p-2.5 text-white font-bold text-sm">
+            </div>
+            <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-slate-950 font-black py-2.5 rounded-lg text-sm transition">የመውጫ ጥያቄ አቅርብ</button>
+          </form>
+        </div>
+
+        <!-- History Tab -->
+        <div id="history-tab" class="hidden">
+          <h3 class="text-xs text-gray-400 mb-3 border-b border-gray-800 pb-2">የግብይት ታሪክዎ (Your Transaction History)</h3>
+          <div id="history-list" class="space-y-2">
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-gray-900 p-3 border-t border-gray-800 text-center flex-shrink-0">
+        <button onclick="closeWalletModal()" class="text-xs text-gray-400 hover:text-white font-bold transition">ዝጋ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🛠 JavaScript Logic -->
+  <script>
+    // ===== AUTH LOGIC =====
+    let currentUser = null;
+    let userId = null;
+    let userName = null;
+    let initData = null;
+
+    // Check for stored auth
+    const storedUser = localStorage.getItem('currentUser');
+    if (storedUser) {
+        currentUser = JSON.parse(storedUser);
+        userId = currentUser.id;
+        userName = currentUser.username;
+    } else {
+        // Try Telegram WebApp auth
+        if (window.Telegram && window.Telegram.WebApp) {
+            const tg = window.Telegram.WebApp;
+            tg.expand();
+            userId = tg.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : null;
+            userName = tg.initDataUnsafe?.user?.username || tg.initDataUnsafe?.user?.first_name || null;
+            initData = tg.initData;
+            if (userId) {
+                // Auto-login/register via Telegram
+                (async () => {
+                    try {
+                        const res = await fetch('/api/telegram-login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ telegram_id: userId, user_name: userName })
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            localStorage.setItem('currentUser', JSON.stringify(data.user));
+                            currentUser = data.user;
+                            userId = currentUser.id;
+                            userName = currentUser.username;
+                            updateUserBalance();
+                        }
+                    } catch (e) {
+                        console.error('Telegram login failed', e);
+                    }
+                })();
+            }
+        }
+    }
+
+    // Redirect if not authenticated
+    document.addEventListener('DOMContentLoaded', () => {
+        if (!currentUser && !window.location.pathname.includes('/login')) {
+            window.location.href = '/login';
+            return;
+        }
+        updateUserBalance();
+    });
+
+    // Logout function
+    function handleLogout() {
+        if (confirm('Are you sure you want to logout?')) {
+            localStorage.removeItem('currentUser');
+            window.location.href = '/login';
+        }
+    }
+
+    // 1. Original Telegram WebApp init (for existing integration)
+    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    if (tg) {
+        tg.expand();
+    }
+
+
+    // 🚀 ገጹ ሲጫን ሎዲንግ ስክሪኑን ማጥፋት
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                loadingScreen.style.transition = "opacity 0.6s ease";
+                loadingScreen.style.opacity = "0";
+                setTimeout(() => {
+                    loadingScreen.classList.add('hidden');
+                }, 600);
+            }
+        }, 2500); 
+    });
+
+    document.addEventListener("DOMContentLoaded", function() {
+      updateUserBalance();
+    });
+
+    // ባላንስ ማዘመኛ ከባክአንድ
+    function updateUserBalance() {
+      fetch("/api/get_balance", {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            "X-Telegram-Init-Data": initData 
+        },
+        body: JSON.stringify({ user_id: userId, game_mode: "real" })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          document.getElementById("user-balance").innerText = parseFloat(data.balance).toFixed(2);
+        }
+      })
+      .catch(err => console.error("Balance fetch error:", err));
+    }
+
+        // 🔄 ማንዋል ሪፍሬሽ ፈንክሽን
+    let isRefreshing = false;
+    async function manualRefresh() {
+        if (isRefreshing) return; 
+
+        isRefreshing = true;
+        const icon = document.getElementById('refresh-icon');
+        const btn = document.getElementById('refresh-btn');
+        
+        if (icon) icon.classList.add('fa-spin');
+        if (btn) btn.style.opacity = "0.5";
+
+        try {
+            const res = await fetch('/api/get_balance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Telegram-Init-Data': initData 
+                },
+                body: JSON.stringify({ user_id: userId, game_mode: "real" }) 
+            });
+            
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                document.getElementById('user-balance').innerText = parseFloat(data.balance).toFixed(2);
+            }
+        } catch (e) {
+            console.error("Error updating balance:", e);
+        } finally {
+            // ጊዜው ወደ 5 ሰከንድ (5000ms) ተስተካክሏል
+            setTimeout(() => {
+                if (icon) icon.classList.remove('fa-spin');
+                if (btn) btn.style.opacity = "1";
+                isRefreshing = false;
+            }, 5000); // 5 ሰከንድ Cooldown
+        }
+    }
+
+
+    // የዋሌት ሞዳል መቆጣጠሪያዎች
+    function openWalletModal() {
+      document.getElementById("wallet-modal").classList.remove("hidden");
+    }
+    function closeWalletModal() {
+      document.getElementById("wallet-modal").classList.add("hidden");
+    }
+
+    // ታቦችን ለመቀያየር
+    function switchWalletTab(tabName) {
+      document.getElementById("deposit-tab").classList.add("hidden");
+      document.getElementById("withdraw-tab").classList.add("hidden");
+      document.getElementById("history-tab").classList.add("hidden");
+
+      document.getElementById("btn-deposit-tab").className = "w-1/3 py-3 text-center text-gray-400 transition";
+      document.getElementById("btn-withdraw-tab").className = "w-1/3 py-3 text-center text-gray-400 transition";
+      document.getElementById("btn-history-tab").className = "w-1/3 py-3 text-center text-gray-400 transition";
+
+      document.getElementById(tabName).classList.remove("hidden");
+
+      if (tabName === "deposit-tab") {
+        document.getElementById("btn-deposit-tab").className = "w-1/3 py-3 text-center text-yellow-400 border-b-2 border-yellow-400 transition";
+      } else if (tabName === "withdraw-tab") {
+        document.getElementById("btn-withdraw-tab").className = "w-1/3 py-3 text-center text-green-400 border-b-2 border-green-400 transition";
+        checkLockedPhone(); 
+      } else if (tabName === "history-tab") {
+        document.getElementById("btn-history-tab").className = "w-1/3 py-3 text-center text-blue-400 border-b-2 border-blue-400 transition";
+        fetchHistory();
+      }
+    }
+
+    // የተቆለፈ አካውንት መረጃ ቼክ ማድረጊያ
+    function checkLockedPhone() {
+      const bankSelect = document.getElementById("wd-bank");
+      const nameInput = document.getElementById("wd-name");
+      const phoneInput = document.getElementById("wd-phone");
+
+      fetch("/api/get_withdraw_info", {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            "X-Telegram-Init-Data": initData 
+        },
+        body: JSON.stringify({ user_id: userId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success" && data.info) {
+          bankSelect.value = data.info.bank_name;
+          nameInput.value = data.info.account_name;
+          phoneInput.value = data.info.phone;
+
+          bankSelect.disabled = true; 
+          nameInput.readOnly = true;
+          phoneInput.readOnly = true;
+
+          bankSelect.classList.add("opacity-50", "cursor-not-allowed");
+          nameInput.classList.add("opacity-50", "cursor-not-allowed", "bg-gray-800");
+          phoneInput.classList.add("opacity-50", "cursor-not-allowed", "bg-gray-800");
+        } else {
+          bankSelect.disabled = false;
+          nameInput.readOnly = false;
+          phoneInput.readOnly = false;
+
+          bankSelect.classList.remove("opacity-50", "cursor-not-allowed");
+          nameInput.classList.remove("opacity-50", "cursor-not-allowed", "bg-gray-800");
+          phoneInput.classList.remove("opacity-50", "cursor-not-allowed", "bg-gray-800");
+        }
+      })
+      .catch(err => console.error("Error fetching withdraw info:", err));
+    }
+
+    // የትራንዛክሽን ታሪክ ማምጫ
+    function fetchHistory() {
+      const list = document.getElementById("history-list");
+      list.innerHTML = `<p class="text-sm text-gray-500 text-center py-4 bg-gray-900 rounded-lg">እየጫነ ነው (Loading...)</p>`;
+
+      fetch("/api/get_user_history", {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            "X-Telegram-Init-Data": initData 
+        },
+        body: JSON.stringify({ user_id: userId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          if (data.history.length === 0) {
+            list.innerHTML = `<p class="text-sm text-gray-500 text-center py-4 bg-gray-900 rounded-lg">ምንም ታሪክ የለም (No history)</p>`;
+            return;
+          }
+
+          list.innerHTML = "";
+          data.history.forEach(tx => {
+            let statusColor = "text-yellow-500"; 
+            if (tx.status === "completed" || tx.status === "approved") {
+              statusColor = "text-green-500"; 
+            } else if (tx.status === "failed" || tx.status === "rejected") {
+              statusColor = "text-red-500"; 
+            } else if (tx.status === "refunded") {
+              statusColor = "text-blue-400"; 
+            }
+
+            list.innerHTML += `
+            <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-800 mb-2 text-xs">
+                <div>
+                    <div class="font-bold text-gray-200">${tx.type}</div>
+                    <div class="text-[10px] text-gray-500 mt-1">${tx.date}</div>
+                </div>
+                <div class="font-black text-right ${statusColor}">
+                    ${parseFloat(tx.amount).toFixed(2)} ETB
+                    <div class="text-[9px] uppercase mt-0.5">${tx.status}</div>
+                </div>
+            </div>`;
+          });
+        } else {
+          list.innerHTML = `<p class="text-sm text-red-500 text-center py-4 bg-gray-900 rounded-lg">${data.message}</p>`;
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        list.innerHTML = `<p class="text-sm text-red-500 text-center py-4 bg-gray-900 rounded-lg">ዳታ ማምጣት አልተቻለም!</p>`;
+      });
+    }
+
+    // የገቢ (Deposit) ፎርም ሰብሚት ማድረጊያ
+    function submitDeposit(e) {
+      e.preventDefault();
+      const amount = document.getElementById("dep-amount").value;
+      const fileInput = document.getElementById("dep-receipt");
+
+      if (!fileInput.files[0]) {
+        alert("እባክዎ መጀመሪያ ደረሰኝ ይጫኑ!");
+        return;
+      }
+
+      const submitBtn = e.target.querySelector('button') || document.querySelector('#deposit-form button');
+      let originalText = "";
+      if (submitBtn) {
+        originalText = submitBtn.innerText;
+        submitBtn.disabled = true;
+        submitBtn.innerText = "በማቀናበር ላይ...";
+      }
+
+      const formData = new FormData();
+      formData.append("user_id", userId);
+      formData.append("user_name", userName);
+      formData.append("amount", amount);
+      formData.append("receipt", fileInput.files[0]);
+
+      fetch("/api/deposit", {
+        method: "POST",
+        headers: {
+            "X-Telegram-Init-Data": initData 
+        },
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          alert("✅ የገቢ ጥያቄዎ በተሳካ ሁኔታ ለአድሚን ተልኳል! በቴሌግራም መልዕክት ይደርስዎታል።");
+          closeWalletModal();
+          document.getElementById("deposit-form").reset();
+        } else {
+          alert("⚠️ ስህተት: " + data.message);
+        }
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerText = originalText;
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert("የኔትወርክ ስህተት ገጥሟል!");
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerText = originalText;
+        }
+      });
+    }
+
+    // የወጪ (Withdraw) ፎርም ሰብሚት ማድረጊያ
+    function submitWithdraw(e) {
+      e.preventDefault();
+      const bank = document.getElementById("wd-bank").value;
+      const name = document.getElementById("wd-name").value;
+      const phone = document.getElementById("wd-phone").value;
+      const amount = parseFloat(document.getElementById("wd-amount").value);
+
+      if (!bank || !name || !phone || !amount) {
+        alert("⚠️ እባክዎ ሁሉንም መረጃዎች በትክክል ይሙሉ!");
+        return;
+      }
+
+      const submitBtn = e.target.querySelector('button') || document.querySelector('#withdraw-form button');
+      let originalText = "";
+      if (submitBtn) {
+        originalText = submitBtn.innerText;
+        submitBtn.disabled = true;
+        submitBtn.innerText = "በማቀናበር ላይ...";
+      }
+
+      fetch("/api/withdraw", {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            "X-Telegram-Init-Data": initData 
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          user_name: userName,
+          bank_name: bank,
+          account_name: name,
+          phone: phone,
+          amount: amount
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          alert("✅ የወጪ (Withdraw) ጥያቄዎ ለአድሚን ደርሷል። ሲረጋገጥ ይላክልዎታል።");
+          updateUserBalance();
+          closeWalletModal();
+          document.getElementById("withdraw-form").reset();
+        } else {
+          alert("⚠️ ስህተት: " + data.message);
+        }
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerText = originalText;
+        }
+        checkLockedPhone();
+      })
+      .catch(err => {
+        console.error(err);
+        alert("የኔትወርክ ስህተት ገጥሟል!");
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerText = originalText;
+        }
+      });
+    }
+  </script>
+<script>
+    async function loadHomeMatches() {
+        const container = document.getElementById('home-matches-list');
+        if (!container) return;
+
+        try {
+            const res = await fetch('/api/sports/odds?tab=top');
+            const data = await res.json();
+            
+            if (data.matches && data.matches.length > 0) {
+                // የመጀመሪያዎቹን 3 ጨዋታዎች ብቻ ለማሳየት
+                container.innerHTML = data.matches.slice(0, 3).map(m => `
+                    <div style="background: white; padding: 12px; margin-bottom: 8px; border-radius: 10px; border: 1px solid #eee;">
+                        <div style="font-size: 10px; color: #777; margin-bottom: 5px;">${m.fixture.league}</div>
+                        <div style="font-size: 13px; font-weight: bold; margin-bottom: 8px;">${m.fixture.teams.home.name} V ${m.fixture.teams.away.name}</div>
+                        <div style="display: flex; gap: 5px;">
+                            <div style="flex: 1; text-align: center; background: #f5f6f8; padding: 5px; border-radius: 4px; font-size: 12px;">1: <b>${m.odds.home}</b></div>
+                            <div style="flex: 1; text-align: center; background: #f5f6f8; padding: 5px; border-radius: 4px; font-size: 12px;">X: <b>${m.odds.draw}</b></div>
+                            <div style="flex: 1; text-align: center; background: #f5f6f8; padding: 5px; border-radius: 4px; font-size: 12px;">2: <b>${m.odds.away}</b></div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        } catch (e) {
+            console.error("Home matches load failed", e);
+        }
+    }
+    loadHomeMatches();
+</script>
+</body>
+</html>

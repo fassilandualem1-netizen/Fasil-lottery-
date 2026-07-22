@@ -1,0 +1,29 @@
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.market-tab { font-size: 0.875rem; }
+.odd-btn { transition: transform 0.1s ease; }
+.odd-btn:active { transform: scale(0.95); }
+.odd-btn.selected { border-color: #ffcc00 !important; background-color: rgba(255, 204, 0, 0.15) !important; }
+.badge-pill { border-radius: 9999px; }
+.loading-spinner { border: 2px solid transparent; border-top-color: #ffcc00; border-radius: 50%; width: 1.25rem; height: 1.25rem; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.league-filter-active {
+    background: rgba(255, 204, 0, 0.12);
+    color: #ffcc00;
+}
+.stake-chip-active {
+    border-color: #ffcc00;
+    background: rgba(255, 204, 0, 0.15);
+    color: #ffcc00;
+}
+.ticket-card {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+.soft-pulse {
+    animation: soft-pulse 1.6s ease-in-out infinite;
+}
+@keyframes soft-pulse {
+    0% { opacity: 0.45; }
+    50% { opacity: 1; }
+    100% { opacity: 0.45; }
+}

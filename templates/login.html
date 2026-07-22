@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>መግቢያ - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
+        }
+        .card {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid #1e293b;
+        }
+        .input-style {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid #334155;
+        }
+        .input-style:focus {
+            border-color: #facc15;
+            outline: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #facc15 0%, #eab308 100%);
+            color: #020617;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        }
+        .btn-secondary {
+            background: #1e293b;
+            border: 1px solid #334155;
+        }
+        .btn-secondary:hover {
+            background: #334155;
+        }
+        .tab-active {
+            background: rgba(250, 204, 21, 0.1);
+            border-bottom: 2px solid #facc15;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="card w-full max-w-md rounded-2xl p-8 shadow-2xl">
+        <!-- Logo -->
+        <div class="text-center mb-8">
+            <div class="flex items-center justify-center mb-4">
+                <i class="fa-solid fa-dice-d20 text-5xl text-yellow-400 mr-3"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-white">Just Relax</h1>
+            <p class="text-gray-400 text-sm mt-1">እንኳን ወደ እኛ በደህና መጡ!</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex mb-8 border-b border-gray-700">
+            <button id="tab-login" onclick="switchTab('login')" class="flex-1 py-3 text-center font-semibold text-yellow-400 tab-active transition duration-300">
+                <i class="fa-solid fa-right-to-bracket mr-2"></i>መግቢያ
+            </button>
+            <button id="tab-register" onclick="switchTab('register')" class="flex-1 py-3 text-center font-semibold text-gray-400 hover:text-gray-200 transition duration-300">
+                <i class="fa-solid fa-user-plus mr-2"></i>መመዝገብ
+            </button>
+        </div>
+
+        <!-- Login Form -->
+        <div id="login-form">
+            <div class="space-y-5 mb-6">
+                <div>
+                    <label class="text-sm text-gray-300 mb-2 block">Username</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input id="login-username" type="text" placeholder="Enter username" class="input-style w-full pl-12 pr-4 py-3 rounded-lg text-white placeholder-gray-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-sm text-gray-300 mb-2 block">Password</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input id="login-password" type="password" placeholder="Enter password" class="input-style w-full pl-12 pr-4 py-3 rounded-lg text-white placeholder-gray-500">
+                        <button type="button" id="toggle-login-password" onclick="togglePassword('login')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="text-right">
+                    <button onclick="switchTab('reset')" class="text-yellow-400 hover:text-yellow-300 text-sm font-medium">
+                        <i class="fa-solid fa-key mr-1"></i>የይለፍ ቃል ማስተካከያ
+                    </button>
+                </div>
+            </div>
+
+            <button id="btn-login" onclick="handleLogin()" class="btn-primary w-full py-3 rounded-lg font-semibold text-lg transition duration-300 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                ይግቡ
+            </button>
+        </div>
+
+        <!-- Register Form -->
+        <div id="register-form" class="hidden">
+            <div class="space-y-5 mb-6">
+                <div>
+                    <label class="text-sm text-gray-300 mb-2 block">Username</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input id="register-username" type="text" placeholder="Enter username (min 3 chars)" class="input-style w-full pl-12 pr-4 py-3 rounded-lg text-white placeholder-gray-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-sm text-gray-300 mb-2 block">Password</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input id="register-password" type="password" placeholder="Enter password (min 6 chars)" class="input-style w-full pl-12 pr-4 py-3 rounded-lg text-white placeholder-gray-500">
+                        <button type="button" id="toggle-register-password" onclick="togglePassword('register')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-sm text-gray-300 mb-2 block">Confirm Password</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-shield-halved absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input id="register-confirm-password" type="password" placeholder="Confirm your password" class="input-style w-full pl-12 pr-4 py-3 rounded-lg text-white placeholder-gray-500">
+                    </div>
+                </div>
+            </div>
+
+            <button id="btn-register" onclick="handleRegister()" class="btn-primary w-full py-3 rounded-lg font-semibold text-lg transition duration-300 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-user-check"></i>
+                ይመዝገቡ
+            </button>
+        </div>
+
+        <!-- Password Reset Form -->
+        <div id="reset-form" class="hidden">
+            <div class="space-y-5 mb-6">
+                <p class="text-gray-400 text-sm">Enter your username to get a reset code (check server console for code).</p>
+                <div>
+                    <label class="text-sm text-gray-300 mb-2 block">Username</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input id="reset-username" type="text" placeholder="Enter your username" class="input-style w-full pl-12 pr-4 py-3 rounded-lg text-white placeholder-gray-500">
+                    </div>
+                </div>
+
+                <button id="btn-request-reset" onclick="handleRequestReset()" class="btn-secondary w-full py-3 rounded-lg font-semibold text-white transition duration-300">
+                    <i class="fa-solid fa-paper-plane mr-2"></i>Request Reset Code
+                </button>
+
+                <div id="reset-code-section" class="hidden pt-4 border-t border-gray-700">
+                    <div>
+                        <label class="text-sm text-gray-300 mb-2 block">Reset Code</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-key absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                            <input id="reset-code" type="text" placeholder="Enter reset code" class="input-style w-full pl-12 pr-4 py-3 rounded-lg text-white placeholder-gray-500">
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="text-sm text-gray-300 mb-2 block">New Password</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                            <input id="reset-new-password" type="password" placeholder="Enter new password" class="input-style w-full pl-12 pr-4 py-3 rounded-lg text-white placeholder-gray-500">
+                        </div>
+                    </div>
+
+                    <button id="btn-confirm-reset" onclick="handleConfirmReset()" class="btn-primary w-full mt-4 py-3 rounded-lg font-semibold text-lg transition duration-300">
+                        <i class="fa-solid fa-check mr-2"></i>Reset Password
+                    </button>
+                </div>
+            </div>
+
+            <button onclick="switchTab('login')" class="text-gray-400 hover:text-gray-200 text-sm font-medium w-full text-center">
+                <i class="fa-solid fa-arrow-left mr-2"></i>Back to Login
+            </button>
+        </div>
+
+        <!-- Error/Success Message -->
+        <div id="message" class="mt-6 hidden rounded-lg px-4 py-3 text-sm"></div>
+    </div>
+
+    <script>
+        // Check if user is already logged in
+        let currentUser = null;
+        const storedUser = localStorage.getItem('currentUser');
+        if (storedUser) {
+            currentUser = JSON.parse(storedUser);
+            // Redirect to home if already logged in
+            window.location.href = '/';
+        }
+
+        // Tab switching
+        function switchTab(tab) {
+            // Hide all forms
+            document.getElementById('login-form').classList.add('hidden');
+            document.getElementById('register-form').classList.add('hidden');
+            document.getElementById('reset-form').classList.add('hidden');
+            // Reset tabs
+            document.getElementById('tab-login').classList.remove('tab-active');
+            document.getElementById('tab-login').classList.add('text-gray-400');
+            document.getElementById('tab-login').classList.remove('text-yellow-400');
+            document.getElementById('tab-register').classList.remove('tab-active');
+            document.getElementById('tab-register').classList.add('text-gray-400');
+            document.getElementById('tab-register').classList.remove('text-yellow-400');
+            // Show selected form
+            if (tab === 'login') {
+                document.getElementById('login-form').classList.remove('hidden');
+                document.getElementById('tab-login').classList.add('tab-active', 'text-yellow-400');
+                document.getElementById('tab-login').classList.remove('text-gray-400');
+            } else if (tab === 'register') {
+                document.getElementById('register-form').classList.remove('hidden');
+                document.getElementById('tab-register').classList.add('tab-active', 'text-yellow-400');
+                document.getElementById('tab-register').classList.remove('text-gray-400');
+            } else if (tab === 'reset') {
+                document.getElementById('reset-form').classList.remove('hidden');
+            }
+            hideMessage();
+        }
+
+        // Toggle password visibility
+        function togglePassword(type) {
+            const id = type === 'login' ? 'login-password' : 'register-password';
+            const btnId = type === 'login' ? 'toggle-login-password' : 'toggle-register-password';
+            const input = document.getElementById(id);
+            const btn = document.getElementById(btnId);
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.innerHTML = '<i class="fa-solid fa-eye-slash"></i>';
+            } else {
+                input.type = 'password';
+                btn.innerHTML = '<i class="fa-solid fa-eye"></i>';
+            }
+        }
+
+        // Show message
+        function showMessage(text, isError = false) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.classList.remove('hidden', 'bg-green-500/15', 'border-green-500/30', 'text-green-300', 'bg-red-500/15', 'border-red-500/30', 'text-red-300');
+            if (isError) {
+                messageDiv.classList.add('bg-red-500/15', 'border', 'border-red-500/30', 'text-red-300');
+            } else {
+                messageDiv.classList.add('bg-green-500/15', 'border', 'border-green-500/30', 'text-green-300');
+            }
+            messageDiv.textContent = text;
+        }
+
+        function hideMessage() {
+            document.getElementById('message').classList.add('hidden');
+        }
+
+        // Handle login
+        async function handleLogin() {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+            const btn = document.getElementById('btn-login');
+            const originalHTML = btn.innerHTML;
+            
+            if (!username || !password) {
+                showMessage('Please enter both username and password!', true);
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-2"></i>መግቢያ...';
+            
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await res.json();
+                if (data.status === 'success') {
+                    // Save user in localStorage
+                    localStorage.setItem('currentUser', JSON.stringify(data.user));
+                    showMessage('Successfully logged in! Redirecting...');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                } else {
+                    showMessage(data.message || 'Login failed!', true);
+                }
+            } catch (e) {
+                showMessage('Server error, please try again!', true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        }
+
+        // Handle register
+        async function handleRegister() {
+            const username = document.getElementById('register-username').value.trim();
+            const password = document.getElementById('register-password').value.trim();
+            const confirmPassword = document.getElementById('register-confirm-password').value.trim();
+            const btn = document.getElementById('btn-register');
+            const originalHTML = btn.innerHTML;
+            
+            if (!username || username.length < 3) {
+                showMessage('Username must be at least 3 characters!', true);
+                return;
+            }
+            if (!password || password.length < 6) {
+                showMessage('Password must be at least 6 characters!', true);
+                return;
+            }
+            if (password !== confirmPassword) {
+                showMessage('Passwords do not match!', true);
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-2"></i>መመዝገብ...';
+            
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showMessage('Registration successful! Logging you in...');
+                    // Save user and redirect
+                    localStorage.setItem('currentUser', JSON.stringify(data.user));
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                } else {
+                    showMessage(data.message || 'Registration failed!', true);
+                }
+            } catch (e) {
+                showMessage('Server error, please try again!', true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        }
+
+        // Handle request password reset
+        async function handleRequestReset() {
+            const username = document.getElementById('reset-username').value.trim();
+            const btn = document.getElementById('btn-request-reset');
+            const originalHTML = btn.innerHTML;
+            
+            if (!username) {
+                showMessage('Please enter your username!', true);
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-2"></i>Sending...';
+            
+            try {
+                const res = await fetch('/api/password-reset/request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                
+                const data = await res.json();
+                if (data.status === 'success') {
+                    document.getElementById('reset-code-section').classList.remove('hidden');
+                    showMessage('Check server console for reset code!');
+                } else {
+                    showMessage(data.message || 'Failed to request reset!', true);
+                }
+            } catch (e) {
+                showMessage('Server error, please try again!', true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        }
+
+        // Handle confirm password reset
+        async function handleConfirmReset() {
+            const resetCode = document.getElementById('reset-code').value.trim();
+            const newPassword = document.getElementById('reset-new-password').value.trim();
+            const btn = document.getElementById('btn-confirm-reset');
+            const originalHTML = btn.innerHTML;
+            
+            if (!resetCode || !newPassword || newPassword.length < 6) {
+                showMessage('Please enter valid reset code and new password!', true);
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-2"></i>Resetting...';
+            
+            try {
+                const res = await fetch('/api/password-reset/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reset_code: resetCode, new_password: newPassword })
+                });
+                
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showMessage('Password reset successfully! Redirecting to login...');
+                    setTimeout(() => {
+                        switchTab('login');
+                        document.getElementById('reset-form').classList.add('hidden');
+                    }, 1500);
+                } else {
+                    showMessage(data.message || 'Password reset failed!', true);
+                }
+            } catch (e) {
+                showMessage('Server error, please try again!', true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        }
+
+        // Enter key handler for login/register
+        document.getElementById('login-password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') handleLogin();
+        });
+        document.getElementById('register-confirm-password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') handleRegister();
+        });
+    </script>
+</body>
+</html>

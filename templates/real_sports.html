@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habesha Bet - Real Sports</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/real_sports.css') }}">
+</head>
+<body class="bg-[#121212] text-white font-sans antialiased selection:bg-yellow-500 selection:text-black min-h-screen flex flex-col">
+    <header class="bg-[#1e1e1e] border-b border-zinc-800 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 sm:gap-6">
+                <a href="/" class="flex items-center gap-2 text-xl sm:text-2xl font-black tracking-wider text-yellow-400 uppercase">
+                    <span class="bg-yellow-400 text-black px-2 py-0.5 rounded text-base sm:text-lg font-black">HB</span>
+                    HABESHA<span class="text-white">BET</span>
+                </a>
+                <div class="hidden md:flex items-center bg-[#2b2b2b] rounded-md px-3 py-1.5 border border-zinc-700/60 w-64">
+                    <input id="match-search" type="text" placeholder="Search team or league..." class="bg-transparent text-xs text-white placeholder-zinc-400 focus:outline-none w-full">
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <div id="user-balance" class="text-xs sm:text-sm font-semibold text-zinc-200 px-2">Balance: 0.00 ETB</div>
+                <button id="wallet-btn" class="bg-[#00a859] hover:bg-[#008f4c] text-white text-[11px] sm:text-xs font-bold px-3 sm:px-4 py-2 rounded uppercase tracking-wider transition">Wallet</button>
+                <button id="my-bets-btn" class="bg-zinc-700 hover:bg-zinc-600 text-white text-[11px] sm:text-xs font-bold px-3 sm:px-4 py-2 rounded uppercase tracking-wider transition">My Bets</button>
+                <button onclick="handleLogout()" class="bg-zinc-700 hover:bg-zinc-600 text-white text-[11px] sm:text-xs font-bold px-3 sm:px-4 py-2 rounded uppercase tracking-wider transition">Logout</button>
+            </div>
+        </div>
+        <nav class="bg-[#262626] border-t border-zinc-800">
+            <div class="max-w-7xl mx-auto flex overflow-x-auto no-scrollbar px-2 sm:px-4 text-xs font-bold uppercase whitespace-nowrap">
+                <a href="/" class="py-3 px-4 text-zinc-300 hover:text-white flex-shrink-0">Home</a>
+                <a href="/real_sports" class="py-3 px-4 border-b-2 border-yellow-500 text-yellow-400 flex-shrink-0">Sports</a>
+                <a href="#" class="py-3 px-4 text-red-500 hover:text-red-400 flex-shrink-0 flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Live
+                </a>
+                <a href="#" class="py-3 px-4 text-zinc-300 hover:text-white flex-shrink-0">Virtual Games</a>
+                <a href="#" class="py-3 px-4 text-zinc-300 hover:text-white flex-shrink-0">Promotions</a>
+            </div>
+        </nav>
+    </header>
+
+    <div class="bg-[#333333] border-b border-zinc-800">
+        <div class="max-w-7xl mx-auto grid grid-cols-2 sm:flex sm:justify-between gap-2 px-2 sm:px-4 py-2">
+            <div class="grid grid-cols-2 gap-2 sm:flex">
+                <button id="tab-top" class="py-2 px-4 text-xs font-bold uppercase rounded bg-[#ffcc00] text-black">Top Leagues</button>
+                <button id="tab-upcoming" class="py-2 px-4 text-xs font-bold uppercase rounded text-zinc-300 hover:bg-zinc-700 transition">Upcoming</button>
+            </div>
+            <div class="grid grid-cols-2 gap-2 sm:flex">
+                <button id="market-1x2" class="py-2 px-4 text-xs font-bold uppercase rounded border border-yellow-400 bg-yellow-400 text-black">1X2</button>
+                <button id="market-dc" class="py-2 px-4 text-xs font-bold uppercase rounded border border-zinc-700 bg-[#2b2b2b] text-zinc-300">Double Chance</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto w-full px-2 sm:px-4 py-4 grid grid-cols-1 lg:grid-cols-12 gap-4 flex-grow">
+        <aside class="hidden lg:block lg:col-span-3 space-y-4">
+            <div class="bg-[#1e1e1e] border border-zinc-800 rounded overflow-hidden">
+                <div class="bg-[#2a2a2a] px-3 py-2 text-xs font-bold text-yellow-400 uppercase tracking-wider">
+                    Top Leagues
+                </div>
+                <ul id="top-leagues-list" class="divide-y divide-zinc-800 text-xs text-zinc-300">
+                    <li class="px-3 py-3 text-zinc-500">Loading leagues...</li>
+                </ul>
+            </div>
+            <div class="bg-[#1e1e1e] border border-zinc-800 rounded overflow-hidden">
+                <div class="bg-[#2a2a2a] px-3 py-2 text-xs font-bold text-zinc-300 uppercase tracking-wider">
+                    Wallet Info
+                </div>
+                <div class="p-3 text-xs text-zinc-400 space-y-2">
+                    <p>TeleBirr deposits use screenshot confirmation.</p>
+                    <p>CBE and TeleBirr withdrawals use the same wallet backend.</p>
+                    <p>Minimum sports stake is 10 ETB.</p>
+                </div>
+            </div>
+        </aside>
+
+        <main class="col-span-1 lg:col-span-6 space-y-4">
+            <section class="bg-gradient-to-r from-zinc-900 via-zinc-800 to-black border border-zinc-800 rounded-lg p-5 relative overflow-hidden">
+                <span class="bg-yellow-400 text-black text-[10px] font-black uppercase px-2 py-0.5 rounded">Sportsbook Logic</span>
+                <h2 class="text-lg sm:text-xl font-extrabold text-white mt-2">Accumulator Slip, Double Chance and Real Wallet Flow</h2>
+                <p class="text-xs text-zinc-400 mt-1">This page now uses the sportsbook-style accumulator logic with real Flask wallet endpoints.</p>
+                <button id="claim-wallet-btn" class="mt-4 bg-yellow-400 hover:bg-yellow-500 text-black font-bold text-xs px-5 py-2 rounded uppercase transition">
+                    Open Wallet
+                </button>
+            </section>
+
+            <section class="bg-[#1e1e1e] border border-zinc-800 rounded overflow-hidden">
+                <div class="hidden sm:flex bg-[#2a2a2a] px-3 py-2 border-b border-zinc-800 items-center justify-between text-[11px] font-bold text-zinc-400 uppercase">
+                    <span>Match Info</span>
+                    <div class="flex items-center gap-3">
+                        <span id="selected-league-label" class="normal-case text-zinc-500 font-medium">All leagues</span>
+                        <button id="refresh-matches-btn" type="button" class="text-zinc-300 hover:text-yellow-400 transition">Refresh</button>
+                    </div>
+                </div>
+                <div id="matches-list">
+                    <div class="text-center py-10 text-zinc-400 text-sm">Loading matches... ⏳</div>
+                </div>
+            </section>
+        </main>
+
+        <aside class="col-span-1 lg:col-span-3 space-y-4">
+            <section class="bg-[#1e1e1e] border border-zinc-800 rounded overflow-hidden lg:sticky lg:top-28">
+                <div class="flex bg-[#2a2a2a] text-xs font-bold uppercase border-b border-zinc-800">
+                    <div class="flex-1 py-2.5 bg-yellow-400 text-black text-center">Betslip (<span id="slip-count">0</span>)</div>
+                </div>
+                <div class="p-4 space-y-3">
+                    <div class="text-left">
+                        <label for="bet-amount" class="text-xs font-bold text-zinc-300 block mb-1">Stake Amount (ETB)</label>
+                        <input id="bet-amount" type="number" min="10" value="20" class="w-full bg-[#2b2b2b] border border-zinc-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-400">
+                    </div>
+                    <div class="grid grid-cols-4 gap-2">
+                        <button type="button" class="stake-chip bg-zinc-800 border border-zinc-700 rounded py-1.5 text-[11px] font-semibold text-zinc-200 hover:border-yellow-400 transition" data-stake="20">20</button>
+                        <button type="button" class="stake-chip bg-zinc-800 border border-zinc-700 rounded py-1.5 text-[11px] font-semibold text-zinc-200 hover:border-yellow-400 transition" data-stake="50">50</button>
+                        <button type="button" class="stake-chip bg-zinc-800 border border-zinc-700 rounded py-1.5 text-[11px] font-semibold text-zinc-200 hover:border-yellow-400 transition" data-stake="100">100</button>
+                        <button type="button" class="stake-chip bg-zinc-800 border border-zinc-700 rounded py-1.5 text-[11px] font-semibold text-zinc-200 hover:border-yellow-400 transition" data-stake="250">250</button>
+                    </div>
+
+                    <div id="empty-slip-state" class="text-zinc-500 my-4 sm:my-6 text-center">
+                        <svg class="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        <p class="text-xs font-medium">Tap odds to add selections.</p>
+                    </div>
+
+                    <div id="bet-slip-list" class="space-y-2"></div>
+
+                    <div class="border-t border-zinc-800 pt-3 text-left space-y-2 text-xs">
+                        <div class="flex justify-between text-zinc-300">
+                            <span>Stake:</span>
+                            <span id="slip-stake" class="font-bold text-white">0.00 ETB</span>
+                        </div>
+                        <div class="flex justify-between text-zinc-300">
+                            <span>Total Odds:</span>
+                            <span id="slip-odds" class="font-bold text-white">0.00</span>
+                        </div>
+                        <div class="flex justify-between text-zinc-300">
+                            <span>Base Win:</span>
+                            <span id="slip-base-win" class="font-bold text-white">0.00 ETB</span>
+                        </div>
+                        <div class="flex justify-between text-zinc-300">
+                            <span>Bonus:</span>
+                            <span id="slip-bonus" class="font-bold text-white">0%</span>
+                        </div>
+                        <div class="flex justify-between text-zinc-300">
+                            <span>Possible Win:</span>
+                            <span id="possible-win" class="font-bold text-yellow-400">0.00 ETB</span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button id="clear-slip-btn" class="flex-1 bg-zinc-700 text-zinc-200 hover:bg-zinc-600 text-xs font-bold py-2 rounded uppercase transition">Clear</button>
+                        <button id="place-bet-btn" disabled class="flex-1 bg-zinc-700 text-zinc-500 font-bold text-xs py-2 rounded uppercase cursor-not-allowed">Place Bet</button>
+                    </div>
+                    <p id="status-message" class="text-xs text-zinc-400"></p>
+                </div>
+            </section>
+
+            <section id="my-bets" class="bg-[#1e1e1e] border border-zinc-800 rounded overflow-hidden">
+                <div class="bg-[#2a2a2a] px-3 py-2 text-xs font-bold text-zinc-300 uppercase tracking-wider">
+                    My Bets
+                </div>
+                <div id="my-bets-list" class="p-4 text-left space-y-2">
+                    <p class="text-xs text-zinc-500">No bets placed yet.</p>
+                </div>
+            </section>
+        </aside>
+    </div>
+
+    <div id="wallet-modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 p-4">
+        <div class="bg-[#1e1e1e] border border-zinc-800 rounded-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-white">Wallet</h2>
+                <button id="close-wallet" class="text-zinc-400 hover:text-white text-2xl">&times;</button>
+            </div>
+
+            <p class="text-sm text-zinc-200 mb-1">Current balance: <span id="modal-balance" class="font-bold text-yellow-400">0.00 ETB</span></p>
+            <p class="text-xs text-zinc-500 mb-4">Deposit uses receipt verification. Withdraw saves your last payout details.</p>
+
+            <div class="grid gap-5 md:grid-cols-2">
+                <div class="space-y-3">
+                    <h3 class="text-sm font-bold text-white uppercase">Deposit</h3>
+                    <div>
+                        <label for="wallet-method" class="block text-xs font-bold text-zinc-300 mb-1">Method</label>
+                        <select id="wallet-method" class="w-full bg-[#2b2b2b] border border-zinc-700 rounded px-3 py-2 text-sm text-white">
+                            <option value="telebirr">TeleBirr</option>
+                            <option value="cbe">CBE</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="deposit-amount" class="block text-xs font-bold text-zinc-300 mb-1">Amount</label>
+                        <input id="deposit-amount" type="number" min="1" value="100" class="w-full bg-[#2b2b2b] border border-zinc-700 rounded px-3 py-2 text-sm text-white">
+                    </div>
+                    <div>
+                        <label for="deposit-receipt" class="block text-xs font-bold text-zinc-300 mb-1">Receipt Screenshot</label>
+                        <input id="deposit-receipt" type="file" accept="image/*" class="w-full text-xs text-zinc-300 file:mr-3 file:rounded file:border-0 file:bg-yellow-400 file:px-3 file:py-2 file:text-black file:font-bold">
+                    </div>
+                    <button id="deposit-btn" class="w-full bg-[#00a859] hover:bg-[#008f4c] text-white font-bold text-sm py-2 rounded uppercase transition">Submit Deposit</button>
+                </div>
+
+                <div class="space-y-3">
+                    <h3 class="text-sm font-bold text-white uppercase">Withdraw</h3>
+                    <div>
+                        <label for="withdraw-bank" class="block text-xs font-bold text-zinc-300 mb-1">Bank / Method</label>
+                        <select id="withdraw-bank" class="w-full bg-[#2b2b2b] border border-zinc-700 rounded px-3 py-2 text-sm text-white">
+                            <option value="CBE">CBE</option>
+                            <option value="Telebirr">Telebirr</option>
+                            <option value="Awash">Awash</option>
+                            <option value="Abyssinia">Abyssinia</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="withdraw-name" class="block text-xs font-bold text-zinc-300 mb-1">Account Name</label>
+                        <input id="withdraw-name" type="text" class="w-full bg-[#2b2b2b] border border-zinc-700 rounded px-3 py-2 text-sm text-white">
+                    </div>
+                    <div>
+                        <label for="withdraw-account" class="block text-xs font-bold text-zinc-300 mb-1">Phone / Account Number</label>
+                        <input id="withdraw-account" type="text" class="w-full bg-[#2b2b2b] border border-zinc-700 rounded px-3 py-2 text-sm text-white">
+                    </div>
+                    <div>
+                        <label for="withdraw-amount" class="block text-xs font-bold text-zinc-300 mb-1">Amount</label>
+                        <input id="withdraw-amount" type="number" min="1" value="100" class="w-full bg-[#2b2b2b] border border-zinc-700 rounded px-3 py-2 text-sm text-white">
+                    </div>
+                    <button id="withdraw-btn" class="w-full bg-zinc-700 hover:bg-zinc-600 text-white font-bold text-sm py-2 rounded uppercase transition">Submit Withdraw</button>
+                </div>
+            </div>
+
+            <p id="wallet-message" class="text-xs text-zinc-400 mt-4"></p>
+        </div>
+    </div>
+
+    <div id="my-bets-modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 p-4">
+        <div class="bg-[#1e1e1e] border border-zinc-800 rounded-lg max-w-2xl w-full p-6 max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-white">My Bets</h2>
+                <button id="close-my-bets" class="text-zinc-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div id="my-bets-modal-content" class="space-y-3">
+                <p class="text-xs text-zinc-500">No bets placed yet.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirm-modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 p-4">
+        <div class="bg-[#1e1e1e] border border-zinc-800 rounded-lg max-w-md w-full p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-white">Confirm Bet</h2>
+                <button id="close-confirm" class="text-zinc-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div id="confirm-summary" class="mb-4 text-sm text-zinc-200 space-y-1"></div>
+            <div class="flex gap-2">
+                <button id="cancel-bet-btn" class="flex-1 bg-zinc-700 hover:bg-zinc-600 text-white font-bold text-sm py-2 rounded uppercase transition">Cancel</button>
+                <button id="confirm-bet-btn" class="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black font-bold text-sm py-2 rounded uppercase transition">Confirm Bet</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-4 right-4 bg-yellow-400 text-black px-4 py-2 rounded shadow-lg hidden z-50 text-sm font-medium"></div>
+
+    <footer class="bg-[#181818] border-t border-zinc-800 mt-auto py-6 text-zinc-400 text-xs">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
+            <div>
+                <p class="font-bold text-white text-sm">HABESHA BET</p>
+                <p class="text-zinc-500 mt-1">Sports, wallet and tickets are now handled in one Flask flow.</p>
+            </div>
+            <div class="flex flex-wrap justify-center gap-4 text-zinc-400">
+                <a href="#" class="hover:text-white">Privacy Policy</a>
+                <a href="#" class="hover:text-white">Terms of Service</a>
+                <a href="#" class="hover:text-white">Support</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ===== AUTH CHECK FOR REAL SPORTS =====
+        let currentUser = null;
+        const storedUser = localStorage.getItem('currentUser');
+        if (storedUser) {
+            currentUser = JSON.parse(storedUser);
+        } else {
+            // Redirect if not logged in
+            window.location.href = '/login';
+        }
+
+        // Logout function
+        function handleLogout() {
+            if (confirm('Are you sure you want to logout?')) {
+                localStorage.removeItem('currentUser');
+                window.location.href = '/login';
+            }
+        }
+    </script>
+    <script src="{{ url_for('static', filename='js/real_sports.js') }}" defer></script>
+</body>
+</html>
