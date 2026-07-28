@@ -1,0 +1,6 @@
+{
+  "name": "Yegna Bet",
+  "description": "Telegram Casino WebApp - Scalable architecture with dark casino theme, Telegram WebApp SDK, and Firebase foundation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
