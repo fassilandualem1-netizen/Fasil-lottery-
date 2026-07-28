@@ -1,0 +1,3 @@
+# Yegna Bet Platform Render Deployment Fallback
+# Note: This is a Node.js / Express application.
+# Environment: Node.js (v20+)
