@@ -1,16 +1,16 @@
 services:
   - type: web
     name: yegna-bet-platform
-    runtime: node
+    runtime: python
     region: oregon
     plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: pip install -r requirements.txt && npm install && npm run build
+    startCommand: gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 app:app
     envVars:
       - key: PORT
         value: "10000"
-      - key: NODE_VERSION
-        value: "20.18.0"
+      - key: PYTHON_VERSION
+        value: "3.10.12"
       - key: ADMIN_TELEGRAM_ID
         value: "8488592165"
       - key: TELEGRAM_BOT_TOKEN
