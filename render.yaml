@@ -1,17 +1,19 @@
 services:
   - type: web
     name: yegna-bet-platform
-    env: node
+    runtime: node
     region: oregon
     plan: free
     buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
       - key: PORT
-        value: 10000
+        value: "10000"
       - key: NODE_VERSION
-        value: 20.18.0
+        value: "20.18.0"
       - key: ADMIN_TELEGRAM_ID
         value: "8488592165"
       - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: APP_URL
         sync: false
