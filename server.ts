@@ -600,8 +600,10 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    // ማስተካከያ የተደረገበት መስመር ( '*' ወደ '/*' ተቀይሯል )
-    app.get('/*', (req, res) => {
+    
+    // ማስተካከያ የተደረገበት መስመር: 
+    // String ('/*') የነበረውን ወደ Regular Expression (/.*/) ተቀይሯል
+    app.get(/.*/, (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
